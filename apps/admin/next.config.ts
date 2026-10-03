@@ -27,6 +27,8 @@ const nextConfig: NextConfig = {
     // node_modules are hoisted to the monorepo root via npm workspaces
     root: path.resolve(dirname, '../..'),
   },
+  // Don't regenerate AGENTS.md/CLAUDE.md on every `next dev` run
+  agentRules: false,
 }
 
 export default withPayload(nextConfig, { devBundleServerPackages: false })
