@@ -1,0 +1,19 @@
+{
+  "name": "chatter",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:admin": "npm run dev --workspace apps/admin",
+    "dev:chat-server": "npm run dev --workspace apps/chat-server",
+    "dev:web": "npm run dev --workspace apps/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
