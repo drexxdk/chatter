@@ -1,19 +1,20 @@
-import 'dotenv/config'
+import "dotenv/config";
 
 function required(name: string): string {
-  const value = process.env[name]
+  const value = process.env[name];
 
   if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`)
+    throw new Error(`Missing required environment variable: ${name}`);
   }
 
-  return value
+  return value;
 }
 
 export const env = {
   PORT: Number(process.env.PORT ?? 4000),
-  REDIS_URL: process.env.REDIS_URL ?? 'redis://localhost:6379',
-  PAYLOAD_URL: process.env.PAYLOAD_URL ?? 'http://localhost:3000',
-  PAYLOAD_SERVICE_API_KEY: required('PAYLOAD_SERVICE_API_KEY'),
-  WEB_ORIGIN: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
-}
+  REDIS_URL: process.env.REDIS_URL ?? "redis://localhost:6379",
+  PAYLOAD_URL: process.env.PAYLOAD_URL ?? "http://localhost:3000",
+  PAYLOAD_SERVICE_API_KEY: required("PAYLOAD_SERVICE_API_KEY"),
+  BAN_HASH_SALT: required("BAN_HASH_SALT"),
+  WEB_ORIGIN: process.env.WEB_ORIGIN ?? "http://localhost:5173",
+};

@@ -12,9 +12,22 @@ The realtime backend end-users connect to. Built with Express + Socket.IO, backe
 ## Local setup
 
 1. From the repo root, make sure Postgres + Redis are up (`docker compose up -d`) and `apps/admin` is running with its database seeded (`npm run seed --workspace apps/admin`) — the seed script creates this service's API key and prints it to the console.
-2. `cp .env.example .env` and paste in the `PAYLOAD_SERVICE_API_KEY` printed by the seed script.
+2. `cp .env.example .env`, paste in the `PAYLOAD_SERVICE_API_KEY` printed by the seed script, and set `BAN_HASH_SALT` to a long random string (changing it later invalidates existing bans).
 3. From the repo root: `npm run dev --workspace apps/chat-server` (or `npm run dev:chat-server`).
+
+## Socket protocol
+
+Connect with `io(url, { auth: { nickname } })`. Nicknames are 2-24 characters (letters, digits, space, `_`, `.`, `-`). Connections are rejected with a `connect_error` message of `invalid_nickname`, `banned` (the client IP, salted and hashed, matches an active entry in the Payload `bans` collection) or `unavailable` (ban cache unreachable; fails closed).
+
+| Direction | Event | Payload | Notes |
+| --- | --- | --- | --- |
+| server to client | `session` | `{ guestId, nickname }` | Sent once on connect. Guests are anonymous and ephemeral. |
+| client to server | `room:join` | `{ slug }` | Ack: `{ ok: true, roomSlug }` or `{ ok: false, error }` with `room_not_found` / `room_full`. Joining a room leaves the current one. |
+| client to server | `room:leave` | none | Ack: `{ ok: true }`. |
+| client to server | `message:send` | `{ text }` | Max 1000 characters, 5 messages per 5 seconds per socket. Errors: `not_in_room` / `invalid_message` / `rate_limited`. |
+| server to room | `room:presence` | `{ roomSlug, members: [{ guestId, nickname }] }` | Sent on join, leave and disconnect. |
+| server to room | `message:new` | `{ id, roomSlug, guestId, nickname, text, sentAt }` | Messages are relayed only, not stored. |
 
 ## Status
 
-Early scaffold: health check, Payload API-key client, and room/ban cache sync are in place. Guest auth, room join/leave, and message handling are not implemented yet.
+Handshake guest auth, ban check, room join/leave with `maxMembers` enforcement, presence and rate-limited messaging are implemented. Not yet implemented: inactivity timeouts, message history, and an atomic room-capacity check (simultaneous joins can briefly exceed `maxMembers`).

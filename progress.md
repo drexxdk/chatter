@@ -32,13 +32,14 @@ Last updated: 2026-10-03
 - `apps/chat-server` scaffolded (Express 5 + Socket.IO + ioredis, `tsx watch` dev script, port 4000):
   - `GET /health` and `GET /rooms` (served from the Redis cache of Payload's public rooms).
   - `payloadClient.ts` authenticates to Payload with the `service` account API key (`Authorization: admins API-Key <key>`); `rooms.ts` / `bans.ts` poll Payload and cache into Redis (`chatter:public-rooms`, `chatter:bans`); `bans.ts` exposes `isBanned(identifierHash)` (honours `expiresAt`).
-  - `socket.ts` creates the Socket.IO server with the Redis adapter (horizontal scaling ready) and logs connect/disconnect only.
+  - `socket.ts` creates the Socket.IO server with the Redis adapter (horizontal scaling ready) and implements the guest flow: nickname-validated handshake, salted-IP-hash ban check (fails closed), `room:join`/`room:leave` with `maxMembers` enforcement, `room:presence`, and rate-limited `message:send` → `message:new` (relay only, nothing persisted). Protocol is documented in `apps/chat-server/README.md`; `BAN_HASH_SALT` is a new required env var.
+  - Verified live with throwaway Socket.IO client scripts (13 checks: handshake rejection, join, presence, broadcast, trimming, size limit, rate limit, room isolation, disconnect presence) plus a real ban (created via Payload, rejected at handshake, lifted after cache sync) and a 1-seat room returning `room_full`. Scripts were deleted afterwards; there is no automated test suite for chat-server yet.
   - Seed script now also creates the `chat-server@chatter.local` `service` admin with an API key (printed once; goes into `apps/chat-server/.env` as `PAYLOAD_SERVICE_API_KEY`, gitignored).
   - Verified live: server starts, `/health` ok, `/rooms` returns the 5 seeded rooms, both Redis cache keys populated (so the service key can read `/api/bans`).
 
 ### Not yet done
 
-- `apps/chat-server` socket logic: no ban check at handshake, no guest auth, no room join/leave, messaging, presence or inactivity handling yet (only the connection skeleton exists).
+- `apps/chat-server` socket logic still missing: inactivity timeouts, message history/persistence, atomic room-capacity check (current check can be exceeded by simultaneous joins), and `X-Forwarded-For` handling for the ban IP when deployed behind a proxy (currently uses the raw socket address, which is the safe default).
 - `apps/web` (React + Vite + Tailwind + i18n chat frontend) — not created yet.
 - No tests for chat-server.
 - No project-specific tests added beyond fixing the template's existing Vitest/Playwright scaffolding to match the real collections.
@@ -52,7 +53,7 @@ Last updated: 2026-10-03
 
 ## Next Steps (in order)
 
-1. Build out chat-server socket logic: guest auth + ban check at handshake, room join/leave with `maxMembers` enforcement, messaging, presence/inactivity.
+1. Finish chat-server: inactivity timeouts, atomic room-capacity check, and an automated test suite (the manual smoke checks above should become tests).
 2. Scaffold `apps/web`: Vite + React + TS + Tailwind + react-i18next (en/da/de locale files), lobby + guest-join modal.
 3. Continue through remaining plan phases (guest auth, room runtime, messaging, presence/inactivity, frontend features, security hardening pass).
 
