@@ -12,7 +12,7 @@ The realtime backend end-users connect to. Built with Express + Socket.IO, backe
 ## Local setup
 
 1. From the repo root, make sure Postgres + Redis are up (`docker compose up -d`) and `apps/admin` is running with its database seeded (`npm run seed --workspace apps/admin`) — the seed script creates this service's API key and prints it to the console.
-2. `cp .env.example .env`, paste in the `PAYLOAD_SERVICE_API_KEY` printed by the seed script, and set `BAN_HASH_SALT` to a long random string (changing it later invalidates existing bans).
+2. `cp .env.example .env`, paste in the `PAYLOAD_SERVICE_API_KEY` printed by the seed script, and set `BAN_HASH_SALT` to a long random string (at least 16 characters; changing it later invalidates existing bans).
 3. From the repo root: `npm run dev --workspace apps/chat-server` (or `npm run dev:chat-server`).
 
 ## Socket protocol

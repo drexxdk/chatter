@@ -6,7 +6,7 @@ export const E2E = {
   // Distinct Redis database and Socket.IO channel prefix keep the e2e server out of the dev server's data.
   redisUrl: "redis://localhost:6379/1",
   socketAdapterKey: "chatter-e2e",
-  banHashSalt: "e2e-ban-salt",
+  banHashSalt: "e2e-only-ban-salt-not-a-secret",
   syncIntervalMs: 500,
   // Marks data created by these tests so leftovers from a crashed run can be swept.
   slugPrefix: "e2e-",

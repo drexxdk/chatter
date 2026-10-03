@@ -8,7 +8,7 @@ export default defineConfig({
     // .env, and the tests must not depend on a developer's own settings (an empty value means "unset").
     env: {
       PAYLOAD_SERVICE_API_KEY: "test-api-key",
-      BAN_HASH_SALT: "test-salt",
+      BAN_HASH_SALT: "test-salt-long-enough-for-the-minimum",
       MAX_CONNECTIONS_PER_IP: "",
       TRUST_PROXY_HOPS: "0",
       INACTIVITY_TIMEOUT_MS: "900000",

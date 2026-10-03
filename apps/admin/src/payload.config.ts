@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url'
 import { Admins } from './collections/Admins'
 import { PublicRooms } from './collections/PublicRooms'
 import { Bans } from './collections/Bans'
+import { env } from './env'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -20,13 +21,13 @@ export default buildConfig({
   },
   collections: [Admins, PublicRooms, Bans],
   editor: lexicalEditor(),
-  secret: process.env.PAYLOAD_SECRET || '',
+  secret: env.PAYLOAD_SECRET,
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   db: postgresAdapter({
     pool: {
-      connectionString: process.env.DATABASE_URL || '',
+      connectionString: env.DATABASE_URL,
     },
   }),
   plugins: [],

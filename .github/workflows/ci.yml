@@ -42,6 +42,10 @@ jobs:
 
       - run: npm test --workspace apps/web
 
+      # Only the env spec: the other admin int tests need a running database.
+      - run: npx vitest run --config ./vitest.config.mts tests/int/env.int.spec.ts
+        working-directory: apps/admin
+
   e2e:
     name: End-to-end
     runs-on: ubuntu-latest
@@ -117,7 +121,7 @@ jobs:
           rm seed.log
           {
             echo "PAYLOAD_SERVICE_API_KEY=$key"
-            echo "BAN_HASH_SALT=ci-ban-salt"
+            echo "BAN_HASH_SALT=ci-only-ban-salt-not-used-anywhere-else"
           } > apps/chat-server/.env
 
       - name: Build the admin app

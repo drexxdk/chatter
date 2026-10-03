@@ -26,7 +26,7 @@ It is one workspace inside the root npm-workspaces monorepo (`apps/*`), not a st
    ```
    cp .env.example .env
    ```
-   `DATABASE_URL` already points at the local Docker Postgres by default. Set `PAYLOAD_SECRET` and the `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` used by the seed script below.
+   `DATABASE_URL` already points at the local Docker Postgres by default. Set `PAYLOAD_SECRET` (at least 16 characters; the placeholder from `.env.example` is refused) and the `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` used by the seed script below. The app validates its environment at startup and lists every invalid variable in one error.
 3. From the **repo root**, install dependencies (this is an npm workspace, not pnpm):
    ```
    npm install

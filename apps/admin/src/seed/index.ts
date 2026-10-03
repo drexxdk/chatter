@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { getPayload } from 'payload'
 
 import config from '../payload.config'
+import { parseSeedEnv } from '../envSchema'
 
 const SAMPLE_ROOMS = [
   {
@@ -39,12 +40,7 @@ const SAMPLE_ROOMS = [
 
 // One-time bootstrap: creates the first super-admin and sample public rooms if they don't exist yet.
 async function seed() {
-  const email = process.env.SEED_ADMIN_EMAIL
-  const password = process.env.SEED_ADMIN_PASSWORD
-
-  if (!email || !password) {
-    throw new Error('SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD must be set to seed the first admin.')
-  }
+  const { SEED_ADMIN_EMAIL: email, SEED_ADMIN_PASSWORD: password } = parseSeedEnv(process.env)
 
   const payload = await getPayload({ config })
 
