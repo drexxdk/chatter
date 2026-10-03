@@ -27,7 +27,9 @@ type Ack = (
 const roomKey = (slug: string) => `room:${slug}`;
 
 function stringField(payload: unknown, field: string): string {
-  const value = (payload as Record<string, unknown> | null | undefined)?.[field];
+  const value = (payload as Record<string, unknown> | null | undefined)?.[
+    field
+  ];
   return typeof value === "string" ? value : "";
 }
 
@@ -93,7 +95,9 @@ export function createSocketServer(httpServer: HttpServer): Server {
       const reply: Ack = typeof ack === "function" ? ack : () => {};
       const slug = stringField(payload, "slug");
 
-      const room = (await getCachedPublicRooms()).find((candidate) => candidate.slug === slug);
+      const room = (await getCachedPublicRooms()).find(
+        (candidate) => candidate.slug === slug,
+      );
 
       if (!room) {
         return reply({ ok: false, error: "room_not_found" });

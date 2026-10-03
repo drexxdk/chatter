@@ -19,14 +19,14 @@ The realtime backend end-users connect to. Built with Express + Socket.IO, backe
 
 Connect with `io(url, { auth: { nickname } })`. Nicknames are 2-24 characters (letters, digits, space, `_`, `.`, `-`). Connections are rejected with a `connect_error` message of `invalid_nickname`, `banned` (the client IP, salted and hashed, matches an active entry in the Payload `bans` collection) or `unavailable` (ban cache unreachable; fails closed).
 
-| Direction | Event | Payload | Notes |
-| --- | --- | --- | --- |
-| server to client | `session` | `{ guestId, nickname }` | Sent once on connect. Guests are anonymous and ephemeral. |
-| client to server | `room:join` | `{ slug }` | Ack: `{ ok: true, roomSlug }` or `{ ok: false, error }` with `room_not_found` / `room_full`. Joining a room leaves the current one. |
-| client to server | `room:leave` | none | Ack: `{ ok: true }`. |
-| client to server | `message:send` | `{ text }` | Max 1000 characters, 5 messages per 5 seconds per socket. Errors: `not_in_room` / `invalid_message` / `rate_limited`. |
-| server to room | `room:presence` | `{ roomSlug, members: [{ guestId, nickname }] }` | Sent on join, leave and disconnect. |
-| server to room | `message:new` | `{ id, roomSlug, guestId, nickname, text, sentAt }` | Messages are relayed only, not stored. |
+| Direction        | Event           | Payload                                             | Notes                                                                                                                               |
+| ---------------- | --------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| server to client | `session`       | `{ guestId, nickname }`                             | Sent once on connect. Guests are anonymous and ephemeral.                                                                           |
+| client to server | `room:join`     | `{ slug }`                                          | Ack: `{ ok: true, roomSlug }` or `{ ok: false, error }` with `room_not_found` / `room_full`. Joining a room leaves the current one. |
+| client to server | `room:leave`    | none                                                | Ack: `{ ok: true }`.                                                                                                                |
+| client to server | `message:send`  | `{ text }`                                          | Max 1000 characters, 5 messages per 5 seconds per socket. Errors: `not_in_room` / `invalid_message` / `rate_limited`.               |
+| server to room   | `room:presence` | `{ roomSlug, members: [{ guestId, nickname }] }`    | Sent on join, leave and disconnect.                                                                                                 |
+| server to room   | `message:new`   | `{ id, roomSlug, guestId, nickname, text, sentAt }` | Messages are relayed only, not stored.                                                                                              |
 
 ## Status
 
