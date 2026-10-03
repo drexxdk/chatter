@@ -41,6 +41,7 @@ Last updated: 2026-10-03
   - 36 Vitest + Testing Library tests (`npm run test:web`) run the real UI against a fake Socket.IO server that replays the real protocol (`src/test/fakeSocket.ts`). `locales.test.ts` keeps the three locale files in sync (same keys, same placeholders, every server error code translated). Checked they fail when behavior breaks by temporarily injecting two bugs.
   - Verified in a real browser against the real chat-server and Payload: lobby loads (CORS ok), join flow works, a second real guest's message arrives with its HTML shown as literal text. That run found a bug the fake server hid: the server broadcasts `room:presence` before acknowledging a join, so the client dropped it and showed an empty member list. Fixed in `useChat.joinRoom` with a regression test, and the fake now follows the real event order.
   - Test setup works around Node 26's experimental `localStorage` global shadowing jsdom's (`src/test/setup.ts`); browsers are unaffected.
+- Formatting: root `.prettierrc.json` (double quotes, semicolons, width 80) now governs `apps/chat-server` and `apps/web`, which editors had been reformatting after every commit; `apps/admin` keeps its own `.prettierrc.json` (single quotes, no semicolons). Both set `endOfLine: "auto"` because this machine has `core.autocrlf=true`, so working copies are CRLF and Prettier's LF default flagged every file. `npm run format:check` / `npm run format` at the root; the whole repo passes. Generated files are in `.prettierignore`.
 
 ### Not yet done
 
@@ -59,8 +60,7 @@ Last updated: 2026-10-03
 ## Next Steps (in order)
 
 1. Playwright end-to-end test for `apps/web` against the real chat-server (guest joins, second guest chats, ban blocks connect) so the manual browser check becomes permanent.
-2. Add a shared Prettier config at the repo root so editors stop reformatting `apps/chat-server` and `apps/web` after each commit.
-3. Continue through remaining plan phases (frontend polish, message history if wanted, security hardening pass, CI).
+2. Continue through remaining plan phases (frontend polish, message history if wanted, security hardening pass, CI).
 
 ## Reference
 
