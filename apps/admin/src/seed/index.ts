@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import crypto from 'crypto'
 import { getPayload } from 'payload'
 
 import config from '../payload.config'
@@ -74,6 +75,32 @@ async function seed() {
     }
 
     payload.logger.info(`Created ${SAMPLE_ROOMS.length} sample public rooms.`)
+  }
+
+  const existingService = await payload.count({
+    collection: 'admins',
+    where: { role: { equals: 'service' } },
+  })
+
+  if (existingService.totalDocs > 0) {
+    payload.logger.info('Service account already exists, skipping.')
+  } else {
+    const apiKey = crypto.randomBytes(32).toString('hex')
+
+    await payload.create({
+      collection: 'admins',
+      data: {
+        email: 'chat-server@chatter.local',
+        // Unused for API-key auth, but the field is required by the auth collection.
+        password: crypto.randomBytes(16).toString('hex'),
+        role: 'service',
+        enableAPIKey: true,
+        apiKey,
+      },
+    })
+
+    payload.logger.info('Created chat-server service account.')
+    payload.logger.info(`Set this as PAYLOAD_SERVICE_API_KEY in apps/chat-server/.env: ${apiKey}`)
   }
 
   process.exit(0)
