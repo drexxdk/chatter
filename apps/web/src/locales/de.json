@@ -27,13 +27,15 @@
     "empty": "Noch keine Nachrichten. Sag Hallo!",
     "messageLabel": "Nachricht",
     "messagePlaceholder": "Nachricht schreiben",
-    "send": "Senden"
+    "send": "Senden",
+    "reconnecting": "Verbindung unterbrochen. Verbinde erneut…"
   },
   "errors": {
     "invalid_nickname": "Dieser Spitzname ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",
     "banned": "Du wurdest aus diesem Chat gesperrt.",
     "unavailable": "Der Chat ist vorübergehend nicht verfügbar. Bitte versuche es gleich noch einmal.",
     "connection": "Der Chat-Server ist nicht erreichbar.",
+    "connection_lost": "Die Verbindung wurde unterbrochen und konnte nicht wiederhergestellt werden.",
     "room_full": "Dieser Raum ist voll.",
     "room_not_found": "Dieser Raum existiert nicht mehr.",
     "rate_limited": "Du sendest Nachrichten zu schnell. Bitte etwas langsamer.",

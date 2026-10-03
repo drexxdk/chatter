@@ -27,13 +27,15 @@
     "empty": "No messages yet. Say hello!",
     "messageLabel": "Message",
     "messagePlaceholder": "Write a message",
-    "send": "Send"
+    "send": "Send",
+    "reconnecting": "Connection lost. Reconnecting…"
   },
   "errors": {
     "invalid_nickname": "That nickname isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",
     "banned": "You are banned from this chat.",
     "unavailable": "The chat is temporarily unavailable. Please try again shortly.",
     "connection": "Could not reach the chat server.",
+    "connection_lost": "The connection was lost and could not be restored.",
     "room_full": "This room is full.",
     "room_not_found": "That room no longer exists.",
     "rate_limited": "You're sending messages too fast. Slow down a little.",

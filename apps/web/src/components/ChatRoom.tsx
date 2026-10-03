@@ -7,6 +7,8 @@ import { ErrorAlert } from "./ErrorAlert";
 interface ChatRoomProps {
   roomName: string;
   session: Session;
+  ownGuestIds: string[];
+  connected: boolean;
   members: Member[];
   messages: ChatMessage[];
   error: string | null;
@@ -17,6 +19,8 @@ interface ChatRoomProps {
 export function ChatRoom({
   roomName,
   session,
+  ownGuestIds,
+  connected,
   members,
   messages,
   error,
@@ -78,7 +82,7 @@ export function ChatRoom({
             <li key={message.id}>
               <span
                 className={
-                  message.guestId === session.guestId
+                  ownGuestIds.includes(message.guestId)
                     ? "font-semibold text-indigo-300"
                     : "font-semibold"
                 }
@@ -99,6 +103,15 @@ export function ChatRoom({
 
         <ErrorAlert code={error} />
 
+        {!connected && (
+          <p
+            role="status"
+            className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"
+          >
+            {t("room.reconnecting")}
+          </p>
+        )}
+
         <form onSubmit={handleSubmit} className="flex gap-2">
           <label htmlFor="message" className="sr-only">
             {t("room.messageLabel")}
@@ -109,12 +122,14 @@ export function ChatRoom({
             onChange={(event) => setText(event.target.value)}
             maxLength={1000}
             autoComplete="off"
+            disabled={!connected}
             placeholder={t("room.messagePlaceholder")}
-            className="flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
+            className="flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
           />
           <button
             type="submit"
-            className="rounded-md bg-indigo-600 px-4 py-2 font-medium hover:bg-indigo-500"
+            disabled={!connected}
+            className="rounded-md bg-indigo-600 px-4 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
           >
             {t("room.send")}
           </button>

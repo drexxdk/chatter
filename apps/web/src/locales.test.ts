@@ -24,6 +24,7 @@ const ERROR_CODES = [
   "rate_limited",
   "inactivity",
   "connection",
+  "connection_lost",
   "unknown",
 ];
 

@@ -1,4 +1,10 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Browser,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
 
 import { waitForConnectionState, waitForRooms } from "./chatServer";
 import { E2E } from "./constants";
@@ -31,8 +37,17 @@ test.afterAll(async () => {
   await Promise.all(roomIds.map((id) => payload.remove("public-rooms", id)));
 });
 
+// Guests stay connected until their browser context closes, so each test must close its own or they
+// would still be members of the shared rooms during the next test.
+const guestContexts: BrowserContext[] = [];
+
+test.afterEach(async () => {
+  await Promise.all(guestContexts.splice(0).map((context) => context.close()));
+});
+
 async function newGuest(browser: Browser): Promise<Page> {
   const context = await browser.newContext({ locale: "en-US" });
+  guestContexts.push(context);
   return context.newPage();
 }
 
@@ -88,6 +103,56 @@ test("two guests chat in real time and see each other come and go", async ({
   await expect(
     alice.getByRole("heading", { name: "In this room (1)" }),
   ).toBeVisible();
+});
+
+test("a guest whose connection drops is reconnected to the same room", async ({
+  browser,
+}) => {
+  const alice = await newGuest(browser);
+  const bob = await newGuest(browser);
+
+  // Proxy Alice's real WebSocket so the test can cut it, like a network failure would.
+  const connections: { close: () => Promise<void> }[] = [];
+  await alice.routeWebSocket(/socket\.io/, (ws) => {
+    const server = ws.connectToServer();
+    connections.push({
+      close: async () => {
+        await ws.close();
+        await server.close();
+      },
+    });
+  });
+
+  await enterRoom(alice, LOUNGE.name, "Alice");
+  await enterRoom(bob, LOUNGE.name, "Bob");
+  await expect(
+    alice.getByRole("heading", { name: "In this room (2)" }),
+  ).toBeVisible();
+
+  await send(bob, "before the drop");
+  await expect(alice.getByRole("log")).toContainText("before the drop");
+
+  await connections[0].close();
+
+  await expect(alice.getByRole("status")).toHaveText(
+    "Connection lost. Reconnecting…",
+  );
+  // Back in the same room, with the history that was on screen still there.
+  await expect(alice.getByRole("status")).toHaveCount(0);
+  await expect(
+    alice.getByRole("heading", { name: LOUNGE.name, level: 2 }),
+  ).toBeVisible();
+  await expect(alice.getByRole("log")).toContainText("before the drop");
+  expect(connections).toHaveLength(2);
+
+  // Bob sees Alice leave and come back as a member, and they can talk again in both directions.
+  await expect(
+    bob.getByRole("heading", { name: "In this room (2)" }),
+  ).toBeVisible();
+  await send(bob, "welcome back");
+  await expect(alice.getByRole("log")).toContainText("welcome back");
+  await send(alice, "I'm back");
+  await expect(bob.getByRole("log")).toContainText("I'm back");
 });
 
 test("a full room turns the next guest away", async ({ browser }) => {

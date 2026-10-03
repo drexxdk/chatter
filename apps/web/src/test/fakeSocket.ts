@@ -21,11 +21,13 @@ export class FakeSocket implements ChatSocket {
   constructor(
     readonly nickname: string,
     handshakeError?: string,
+    // The real server issues a new guest id on every connection.
+    readonly guestId = "guest-me",
   ) {
     queueMicrotask(() => {
       if (handshakeError)
         this.serverEmit("connect_error", new Error(handshakeError));
-      else this.serverEmit("session", { guestId: "guest-me", nickname });
+      else this.serverEmit("session", { guestId: this.guestId, nickname });
     });
   }
 
@@ -47,7 +49,7 @@ export class FakeSocket implements ChatSocket {
       if (event === "room:join" && response.ok) {
         this.serverEmit("room:presence", {
           roomSlug: (payload as { slug: string }).slug,
-          members: [{ guestId: "guest-me", nickname: this.nickname }],
+          members: [{ guestId: this.guestId, nickname: this.nickname }],
         });
       }
 
@@ -76,9 +78,17 @@ export function makeFakeServer(options: { handshakeError?: string } = {}) {
   const sockets: FakeSocket[] = [];
   // Applied to every socket created, e.g. { "room:join": () => ({ ok: false, error: "room_full" }) }.
   const acks: Record<string, AckResponder> = {};
+  // Handshake errors for the next connection attempts, consumed in order (e.g. to fail reconnects).
+  const upcomingHandshakeErrors: string[] = [];
 
   const createSocket = vi.fn<CreateSocket>((nickname) => {
-    const socket = new FakeSocket(nickname, options.handshakeError);
+    const guestId =
+      sockets.length === 0 ? "guest-me" : `guest-me-${sockets.length + 1}`;
+    const socket = new FakeSocket(
+      nickname,
+      upcomingHandshakeErrors.shift() ?? options.handshakeError,
+      guestId,
+    );
     Object.assign(socket.acks, acks);
     sockets.push(socket);
     return socket;
@@ -87,6 +97,9 @@ export function makeFakeServer(options: { handshakeError?: string } = {}) {
   return {
     acks,
     sockets,
+    failNextConnections(...errors: string[]) {
+      upcomingHandshakeErrors.push(...errors);
+    },
     get latest() {
       return sockets[sockets.length - 1];
     },

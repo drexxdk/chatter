@@ -10,9 +10,15 @@ import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { Lobby, useRooms } from "./components/Lobby";
 import { NicknameDialog } from "./components/NicknameDialog";
 
-export function App({ createSocket }: { createSocket?: CreateSocket }) {
+export function App({
+  createSocket,
+  reconnectDelaysMs,
+}: {
+  createSocket?: CreateSocket;
+  reconnectDelaysMs?: number[];
+}) {
   const { t } = useTranslation();
-  const chat = useChat(createSocket);
+  const chat = useChat(createSocket, { reconnectDelaysMs });
   const { state: roomsState, retry } = useRooms();
   const [pendingRoom, setPendingRoom] = useState<Room | null>(null);
 
@@ -56,6 +62,8 @@ export function App({ createSocket }: { createSocket?: CreateSocket }) {
           <ChatRoom
             roomName={currentRoom?.name ?? chat.roomSlug}
             session={chat.session}
+            ownGuestIds={chat.ownGuestIds}
+            connected={chat.status === "connected"}
             members={chat.members}
             messages={chat.messages}
             error={chat.error}

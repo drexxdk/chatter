@@ -13,6 +13,7 @@ The end-user chat client: a lobby of public rooms, a nickname prompt, and the ch
 - `src/chat/useChat.ts` owns the Socket.IO connection and turns the chat-server protocol (documented in `apps/chat-server/README.md`) into React state: session, current room, members, messages and error code.
 - Guests are anonymous: a nickname is the only input. Nickname rules are mirrored in `src/nickname.ts` for instant feedback; the server stays authoritative.
 - Messages are rendered as plain text, never HTML.
+- A dropped connection (network loss, ping timeout) while in a room is recovered automatically: the room stays on screen with a "Reconnecting…" banner and sending paused, the client connects again with the same nickname (backoff 1s, 2s, 4s, 8s, 15s) and rejoins the room. Guests get a new guest id on every connection, so the hook remembers all of its own ids to keep earlier messages recognisable as theirs, and other guests see the member leave and rejoin. It gives up after the last attempt (`connection_lost`), stops at once on a ban or invalid nickname, and does not retry when the server disconnects the guest on purpose (inactivity kick) or when the guest was only browsing the lobby. Messages sent while disconnected are not delivered afterwards, because the server keeps no history.
 - Server error codes are translated in `src/locales/*.json` under `errors.*`. Adding a new code on the server needs a key in all three files; `src/locales.test.ts` enforces that the locales stay in sync.
 
 ## Tests
@@ -21,7 +22,7 @@ The end-user chat client: a lobby of public rooms, a nickname prompt, and the ch
 
 ### End-to-end
 
-`npm run test:web:e2e` (Playwright) drives a real browser against the real chat-server. It covers two guests chatting (including HTML shown as text), a full room turning a guest away, and a ban blocking the connection until it is lifted.
+`npm run test:web:e2e` (Playwright) drives a real browser against the real chat-server. It covers two guests chatting (including HTML shown as text), a guest whose WebSocket is cut being reconnected to the same room, a full room turning a guest away, and a ban blocking the connection until it is lifted.
 
 - Requires `apps/admin` running on http://localhost:3000 with its database seeded, plus Postgres and Redis (`docker compose up -d`). Everything else is started by the tests.
 - It runs its own chat-server (port 4100) and web client (port 5174), so a dev session can stay open. The e2e chat-server uses Redis database 1, its own Socket.IO channel (`SOCKET_ADAPTER_KEY`), its own ban salt and a 500ms cache sync.

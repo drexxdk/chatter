@@ -27,13 +27,15 @@
     "empty": "Ingen beskeder endnu. Sig hej!",
     "messageLabel": "Besked",
     "messagePlaceholder": "Skriv en besked",
-    "send": "Send"
+    "send": "Send",
+    "reconnecting": "Forbindelsen blev afbrudt. Forbinder igen…"
   },
   "errors": {
     "invalid_nickname": "Det kaldenavn er ikke tilladt. Brug 2–24 bogstaver, tal, mellemrum eller _ . -",
     "banned": "Du er udelukket fra denne chat.",
     "unavailable": "Chatten er midlertidigt utilgængelig. Prøv igen om lidt.",
     "connection": "Kunne ikke få forbindelse til chatserveren.",
+    "connection_lost": "Forbindelsen blev afbrudt og kunne ikke genoprettes.",
     "room_full": "Dette rum er fuldt.",
     "room_not_found": "Det rum findes ikke længere.",
     "rate_limited": "Du sender beskeder for hurtigt. Tag det lidt roligere.",
