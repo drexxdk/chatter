@@ -43,11 +43,17 @@ Last updated: 2026-10-03
   - Test setup works around Node 26's experimental `localStorage` global shadowing jsdom's (`src/test/setup.ts`); browsers are unaffected.
 - Formatting: root `.prettierrc.json` (double quotes, semicolons, width 80) now governs `apps/chat-server` and `apps/web`, which editors had been reformatting after every commit; `apps/admin` keeps its own `.prettierrc.json` (single quotes, no semicolons). Both set `endOfLine: "auto"` because this machine has `core.autocrlf=true`, so working copies are CRLF and Prettier's LF default flagged every file. `npm run format:check` / `npm run format` at the root; the whole repo passes. Generated files are in `.prettierignore`.
 - Playwright e2e suite for `apps/web` (`npm run test:web:e2e`, 3 scenarios, ~13s) against a real browser, real chat-server, real Redis and the running admin: two guests chat and see presence change (HTML in a message stays literal text), a full room turns the next guest away, and a ban blocks the connection until it is lifted. It starts its own chat-server (port 4100, Redis db 1, own ban salt and Socket.IO channel) and web client (port 5174), so a dev session can stay running, and creates and removes its own `e2e-` rooms and bans through the admin API (leftovers are swept on the next run; the database was verified clean afterwards). To support that, chat-server gained two optional settings: `SYNC_INTERVAL_MS` (cache refresh, default 30s) and `SOCKET_ADAPTER_KEY` (Redis channel prefix; without it two servers on one Redis would share rooms and capacity counts). Verified the suite fails when the capacity check or the ban check is broken in the chat-server.
+- GitHub Actions CI (`.github/workflows/ci.yml`, runs on pushes to `main` and on pull requests, Node 24, read-only token, older runs of the same branch are cancelled):
+  - `check` job: `npm ci`, `format:check`, `typecheck` (now includes `apps/admin`, which gained a `typecheck` script), builds of chat-server and web, and both unit suites.
+  - `e2e` job: Postgres 16 and Redis 7 service containers, installs Chromium, writes `apps/admin/.env` from throwaway values, seeds the database, extracts the chat-server API key from the seed output into `apps/chat-server/.env`, builds and starts admin, then runs the Playwright suite. Seed output is not printed (it contains the key) unless seeding fails, and then with hex strings redacted. Playwright report, traces and the admin log are uploaded as an artifact on failure.
+  - Verified locally in clean Linux Node 24 containers from fresh clones of the commit, running the exact commands from the workflow (the e2e job's steps were generated from `ci.yml` itself, with Postgres and Redis in throwaway containers): the `check` job passes (81 unit tests) and the e2e job passes (3/3). This also proved the lockfile installs on Linux without any private registry. That check found and fixed one real problem: the first draft printed the API key into the job log. The workflow itself has not yet run on GitHub, so expect small environment differences on the first real run.
 
 ### Not yet done
 
 - `apps/chat-server` socket logic still missing: message history/persistence, capacity enforcement across multiple nodes (joins are serialized per room by an in-process lock; a Redis-side counter is needed before running more than one instance), and `X-Forwarded-For` handling for the ban IP when deployed behind a proxy (currently uses the raw socket address, which is the safe default).
-- `apps/web` gaps: no reconnection handling (a dropped connection returns the guest to the lobby), no typing/unread indicators, no mobile-specific layout work beyond Tailwind defaults, and no CI yet (neither the unit nor the e2e tests run automatically).
+- `apps/web` gaps: no reconnection handling (a dropped connection returns the guest to the lobby), no typing/unread indicators, no mobile-specific layout work beyond Tailwind defaults.
+- `apps/admin` lint is broken independent of CI: `npm run lint --workspace apps/admin` crashes inside ESLint with "Converting circular structure to JSON" from the template's `eslint.config.mjs` (a legacy `eslint-config-next` extend under flat config), so lint is not part of CI. Fixing it means migrating that config to the flat format.
+- CI has no dependency audit step yet (the 9 known `braces` highs would fail a plain `npm audit`), and no deployment pipeline.
 - No tests for the Redis-backed sync jobs (`rooms.ts`, `payloadClient.ts`) or the HTTP routes yet; the socket tests mock those layers.
 - No project-specific tests added beyond fixing the template's existing Vitest/Playwright scaffolding to match the real collections.
 - ~~Login at `/admin` UI not manually verified in a browser yet~~ — confirmed working by user.
@@ -60,8 +66,9 @@ Last updated: 2026-10-03
 
 ## Next Steps (in order)
 
-1. Set up CI (typecheck, format check, unit tests for all three apps, and the e2e suite with Postgres and Redis services).
-2. Continue through remaining plan phases (frontend polish such as reconnection handling, message history if wanted, security hardening pass).
+1. Push and watch the first real GitHub Actions run; fix any environment differences it reveals.
+2. Fix the admin ESLint config so lint can join CI.
+3. Continue through remaining plan phases (frontend polish such as reconnection handling, message history if wanted, security hardening pass).
 
 ## Reference
 

@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Format, types, build and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run format:check
+
+      - run: npm run typecheck
+
+      - run: npm run build --workspace apps/chat-server
+
+      - run: npm run build --workspace apps/web
+
+      - run: npm test --workspace apps/chat-server
+
+      - run: npm test --workspace apps/web
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: chatter
+          POSTGRES_PASSWORD: chatter_ci_password
+          POSTGRES_DB: chatter
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U chatter"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Throwaway values for a database that only exists for this job.
+      DATABASE_URL: postgres://chatter:chatter_ci_password@127.0.0.1:5432/chatter
+      PAYLOAD_SECRET: ci-only-secret-not-used-anywhere-else
+      SEED_ADMIN_EMAIL: admin@chatter.test
+      SEED_ADMIN_PASSWORD: ci-admin-password-1A!
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install the browser Playwright drives
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - name: Write the admin env file
+        # The e2e helpers read the admin login from apps/admin/.env, as they do locally.
+        run: |
+          {
+            echo "DATABASE_URL=$DATABASE_URL"
+            echo "PAYLOAD_SECRET=$PAYLOAD_SECRET"
+            echo "SEED_ADMIN_EMAIL=$SEED_ADMIN_EMAIL"
+            echo "SEED_ADMIN_PASSWORD=$SEED_ADMIN_PASSWORD"
+          } > apps/admin/.env
+
+      - name: Seed the database and create the chat-server API key
+        id: seed
+        run: |
+          # The output holds the generated API key, so it is only shown if seeding fails.
+          if ! npm run seed --workspace apps/admin > seed.log 2>&1; then
+            sed -E 's/[0-9a-f]{64}/***/g' seed.log >&2
+            exit 1
+          fi
+          # Strip terminal colour codes the logger may add around the key.
+          key=$(sed 's/\x1b\[[0-9;]*m//g' seed.log | grep -oE 'PAYLOAD_SERVICE_API_KEY in [^:]+: [0-9a-f]+' | awk '{print $NF}')
+          if [ -z "$key" ]; then
+            echo "The seed script did not print a service API key" >&2
+            exit 1
+          fi
+          echo "::add-mask::$key"
+          rm seed.log
+          {
+            echo "PAYLOAD_SERVICE_API_KEY=$key"
+            echo "BAN_HASH_SALT=ci-ban-salt"
+          } > apps/chat-server/.env
+
+      - name: Build the admin app
+        run: npm run build --workspace apps/admin
+
+      - name: Start the admin app
+        run: |
+          nohup npm run start --workspace apps/admin > admin.log 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/api/public-rooms > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          echo "Admin did not become ready" >&2
+          cat admin.log >&2
+          exit 1
+
+      - name: Run the end-to-end tests
+        run: npm run test:e2e --workspace apps/web
+
+      - name: Keep the Playwright report when something failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+            admin.log
+          retention-days: 7
