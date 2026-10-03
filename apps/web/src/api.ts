@@ -4,7 +4,8 @@ export interface Room {
   id: number;
   name: string;
   slug: string;
-  maxMembers: number;
+  // Absent or null means the room has no limit.
+  maxMembers?: number | null;
   description?: string | null;
 }
 

@@ -21,7 +21,8 @@ export interface PublicRoom {
   id: number;
   name: string;
   slug: string;
-  maxMembers: number;
+  // Empty in Payload means the room has no limit.
+  maxMembers?: number | null;
   description?: string | null;
 }
 

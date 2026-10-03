@@ -13,7 +13,7 @@ It is one workspace inside the root npm-workspaces monorepo (`apps/*`), not a st
 ## Collections
 
 - **`Admins`** — auth-enabled. `role` is `super-admin` (can log into `/admin`) or `service` (API-key-only, used by `apps/chat-server` to call Payload). Only `super-admin`s can access the admin panel or manage other admin accounts.
-- **`PublicRooms`** — chat room configuration (name, slug, max members, description). Publicly readable (no auth) so the chat client can list rooms; writes are `super-admin`-only.
+- **`PublicRooms`** — chat room configuration (name, slug, optional max members, description). Leave max members empty for an unlimited room. Publicly readable (no auth) so the chat client can list rooms; writes are `super-admin`-only.
 - **`Bans`** — hashed-identifier ban list. Readable only by `service`/`super-admin` roles; writes are `super-admin`-only.
 
 ## Local setup

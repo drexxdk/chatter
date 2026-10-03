@@ -158,7 +158,10 @@ export interface PublicRoom {
   id: number;
   name: string;
   slug: string;
-  maxMembers: number;
+  /**
+   * Leave empty for no limit.
+   */
+  maxMembers?: number | null;
   description?: string | null;
   updatedAt: string;
   createdAt: string;

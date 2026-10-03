@@ -5,7 +5,7 @@ import { createAdapter } from "@socket.io/redis-adapter";
 
 import { isBanned } from "./bans.js";
 import { env } from "./env.js";
-import { hashIdentifier, validateNickname } from "./identity.js";
+import { hashIdentifier, getClientIp, validateNickname } from "./identity.js";
 import { pubClient, subClient } from "./redis.js";
 import { getCachedPublicRooms } from "./rooms.js";
 
@@ -16,6 +16,7 @@ const RATE_LIMIT_WINDOW_MS = 5_000;
 interface SocketData {
   guestId: string;
   nickname: string;
+  ipHash: string;
   roomSlug?: string;
   recentMessageTimes: number[];
 }
@@ -54,10 +55,21 @@ function stringField(payload: unknown, field: string): string {
 
 export function createSocketServer(
   httpServer: HttpServer,
-  options: { inactivityTimeoutMs?: number } = {},
+  options: {
+    inactivityTimeoutMs?: number;
+    maxConnectionsPerIp?: number;
+    trustedProxyHops?: number;
+  } = {},
 ): Server {
   const inactivityTimeoutMs =
     options.inactivityTimeoutMs ?? env.INACTIVITY_TIMEOUT_MS;
+  const maxConnectionsPerIp =
+    options.maxConnectionsPerIp ?? env.MAX_CONNECTIONS_PER_IP;
+  const trustedProxyHops = options.trustedProxyHops ?? env.TRUST_PROXY_HOPS;
+  const connectionCapEnabled =
+    Number.isFinite(maxConnectionsPerIp) && maxConnectionsPerIp > 0;
+  // Live connections per hashed IP on this process; with several nodes the cap applies to each separately.
+  const connectionsPerIp = new Map<string, number>();
   const io = new Server(httpServer, {
     cors: { origin: env.WEB_ORIGIN, credentials: true },
   });
@@ -86,8 +98,12 @@ export function createSocketServer(
       return next(new Error("invalid_nickname"));
     }
 
+    const ipHash = hashIdentifier(
+      getClientIp(socket.handshake, trustedProxyHops),
+    );
+
     try {
-      if (await isBanned(hashIdentifier(socket.handshake.address))) {
+      if (await isBanned(ipHash)) {
         return next(new Error("banned"));
       }
     } catch (error) {
@@ -95,9 +111,26 @@ export function createSocketServer(
       return next(new Error("unavailable"));
     }
 
+    // Everything from here to next() is synchronous. The guest may have left during the ban check above; if so
+    // Socket.IO never emits "connection", so a slot reserved now would never be released.
+    if (socket.client.conn.readyState !== "open") {
+      return next(new Error("closed"));
+    }
+
+    if (connectionCapEnabled) {
+      const current = connectionsPerIp.get(ipHash) ?? 0;
+
+      if (current >= maxConnectionsPerIp) {
+        return next(new Error("too_many_connections"));
+      }
+
+      connectionsPerIp.set(ipHash, current + 1);
+    }
+
     socket.data = {
       guestId: crypto.randomUUID(),
       nickname,
+      ipHash,
       recentMessageTimes: [],
     } satisfies SocketData;
     next();
@@ -105,6 +138,15 @@ export function createSocketServer(
 
   io.on("connection", (socket) => {
     const data = socket.data as SocketData;
+
+    // First, so the slot reserved in the middleware is always given back.
+    socket.on("disconnect", () => {
+      if (!connectionCapEnabled) return;
+
+      const remaining = (connectionsPerIp.get(data.ipHash) ?? 1) - 1;
+      if (remaining > 0) connectionsPerIp.set(data.ipHash, remaining);
+      else connectionsPerIp.delete(data.ipHash);
+    });
 
     async function leaveRoom(): Promise<void> {
       const slug = data.roomSlug;
@@ -148,8 +190,13 @@ export function createSocketServer(
         if (socket.disconnected) return "disconnected" as const;
         if (data.roomSlug === slug) return "already_joined" as const;
 
-        const members = await io.in(roomKey(slug)).fetchSockets();
-        if (members.length >= room.maxMembers) return "room_full" as const;
+        const limit = room.maxMembers;
+
+        // Rooms without a limit skip the cluster-wide member lookup entirely.
+        if (typeof limit === "number") {
+          const members = await io.in(roomKey(slug)).fetchSockets();
+          if (members.length >= limit) return "room_full" as const;
+        }
 
         await leaveRoom();
         data.roomSlug = slug;

@@ -17,7 +17,15 @@ The realtime backend end-users connect to. Built with Express + Socket.IO, backe
 
 ## Socket protocol
 
-Connect with `io(url, { auth: { nickname } })`. Nicknames are 2-24 characters (letters, digits, space, `_`, `.`, `-`). Connections are rejected with a `connect_error` message of `invalid_nickname`, `banned` (the client IP, salted and hashed, matches an active entry in the Payload `bans` collection) or `unavailable` (ban cache unreachable; fails closed).
+Connect with `io(url, { auth: { nickname } })`. Nicknames are 2-24 characters (letters, digits, space, `_`, `.`, `-`). Connections are rejected with a `connect_error` message of `invalid_nickname`, `banned` (the client IP, salted and hashed, matches an active entry in the Payload `bans` collection), `too_many_connections` (the client IP already has `MAX_CONNECTIONS_PER_IP` live connections) or `unavailable` (ban cache unreachable; fails closed).
+
+### Client IP and proxies
+
+Bans and the per-IP connection cap both use the client's IP address. By default that is the socket's address, and the `X-Forwarded-For` header is ignored, because any client can send that header and would otherwise choose its own address to dodge a ban or the cap.
+
+Behind a reverse proxy or load balancer every connection comes from the proxy, so set `TRUST_PROXY_HOPS` to the number of proxies **you control** in front of the server. The address is then taken that many entries from the right of `X-Forwarded-For`, which is what your own proxies appended; entries further left were supplied by the client and are ignored. A missing or too-short header falls back to the socket address. Setting it higher than the real number of proxies lets clients forge their address, and leaving it at `0` behind a proxy makes all guests look like one IP, so the cap would lock everyone out after `MAX_CONNECTIONS_PER_IP` users.
+
+`MAX_CONNECTIONS_PER_IP` (default 10, `0` disables) is counted per server process, so with several instances each one enforces it separately.
 
 | Direction        | Event           | Payload                                             | Notes                                                                                                                                                                   |
 | ---------------- | --------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -35,4 +43,4 @@ Connect with `io(url, { auth: { nickname } })`. Nicknames are 2-24 characters (l
 
 ## Status
 
-Handshake guest auth, ban check, room join/leave with `maxMembers` enforcement, presence, rate-limited messaging and inactivity disconnects are implemented. Joins are serialized per room within one process, so simultaneous joins can't exceed `maxMembers`. Not yet implemented: message history, and capacity enforcement across multiple server nodes (that needs a Redis-side counter).
+Handshake guest auth, ban check, a per-IP connection cap, room join/leave with an optional `maxMembers` limit (a room with no limit set is unlimited), presence, rate-limited messaging and inactivity disconnects are implemented. Joins to limited rooms are serialized per room within one process, so simultaneous joins can't exceed `maxMembers`. Not yet implemented: message history, and capacity enforcement across multiple server nodes (that needs a Redis-side counter).

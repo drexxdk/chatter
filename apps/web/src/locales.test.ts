@@ -25,6 +25,7 @@ const ERROR_CODES = [
   "inactivity",
   "connection",
   "connection_lost",
+  "too_many_connections",
   "unknown",
 ];
 

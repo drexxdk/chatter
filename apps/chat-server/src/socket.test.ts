@@ -41,6 +41,7 @@ vi.mock("@socket.io/redis-adapter", async () => {
 });
 
 const { createSocketServer } = await import("./socket.js");
+const { hashIdentifier } = await import("./identity.js");
 
 type Ack = { ok: boolean; error?: string; [key: string]: unknown };
 type Presence = {
@@ -52,21 +53,26 @@ const ROOMS = [
   { id: 1, name: "General", slug: "general", maxMembers: 10 },
   { id: 2, name: "Random", slug: "random", maxMembers: 10 },
   { id: 3, name: "Tiny", slug: "tiny", maxMembers: 1 },
+  // Payload returns null for a room whose limit field was left empty.
+  { id: 4, name: "Open", slug: "open", maxMembers: null },
 ];
 
 let ioServer: Server;
 let port: number;
 let clients: Socket[] = [];
+const extraServers: Server[] = [];
 
 type Session = { guestId: string; nickname: string };
 
 function connect(
   auth: Record<string, unknown>,
   targetPort: number = port,
+  extraHeaders?: Record<string, string>,
 ): Promise<{ socket?: Socket; session?: Promise<Session>; error?: string }> {
   return new Promise((resolve) => {
     const socket = connectClient(`http://localhost:${targetPort}`, {
       auth,
+      extraHeaders,
       reconnection: false,
       transports: ["websocket"],
     });
@@ -85,15 +91,21 @@ function connect(
 async function connectGuest(
   nickname: string,
   targetPort: number = port,
+  extraHeaders?: Record<string, string>,
 ): Promise<Socket> {
-  const { socket } = await connect({ nickname }, targetPort);
+  const { socket } = await connect({ nickname }, targetPort, extraHeaders);
   if (!socket) throw new Error(`Guest ${nickname} failed to connect`);
   return socket;
 }
 
-async function startServer(options?: { inactivityTimeoutMs?: number }) {
+async function startServer(options?: {
+  inactivityTimeoutMs?: number;
+  maxConnectionsPerIp?: number;
+  trustedProxyHops?: number;
+}) {
   const server = http.createServer();
   const io = createSocketServer(server, options);
+  extraServers.push(io);
   await new Promise<void>((resolve) => server.listen(0, resolve));
 
   return { io, port: (server.address() as AddressInfo).port };
@@ -130,7 +142,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await ioServer.close();
+  await Promise.all(
+    [ioServer, ...extraServers.splice(0)].map((server) => server.close()),
+  );
 });
 
 beforeEach(() => {
@@ -240,6 +254,20 @@ describe("rooms", () => {
       ok: false,
       error: "room_full",
     });
+  });
+
+  it("lets any number of guests in when the room has no limit", async () => {
+    // More guests than the limited rooms above would allow.
+    const guests = await Promise.all(
+      Array.from({ length: 12 }, (_, i) => connectGuest(`Guest${i}`)),
+    );
+
+    const results = await Promise.all(
+      guests.map((guest) => emit(guest, "room:join", { slug: "open" })),
+    );
+
+    expect(results.every((result) => result.ok)).toBe(true);
+    expect(await ioServer.in("room:open").fetchSockets()).toHaveLength(12);
   });
 
   it("never exceeds maxMembers when guests join simultaneously", async () => {
@@ -410,6 +438,116 @@ describe("messaging", () => {
     expect(
       (await emit(alice, "message:send", { text: "still alive" })).ok,
     ).toBe(true);
+  });
+});
+
+describe("connections per IP", () => {
+  it("turns away connections beyond the cap", async () => {
+    const { port } = await startServer({ maxConnectionsPerIp: 2 });
+
+    await connectGuest("One", port);
+    await connectGuest("Two", port);
+
+    expect((await connect({ nickname: "Three" }, port)).error).toBe(
+      "too_many_connections",
+    );
+  });
+
+  it("frees a slot when a guest disconnects", async () => {
+    const { io, port } = await startServer({ maxConnectionsPerIp: 1 });
+    const first = await connectGuest("One", port);
+    expect((await connect({ nickname: "Two" }, port)).error).toBe(
+      "too_many_connections",
+    );
+
+    first.disconnect();
+    await vi.waitFor(async () =>
+      expect(await io.fetchSockets()).toHaveLength(0),
+    );
+
+    expect((await connect({ nickname: "Two" }, port)).socket).toBeDefined();
+  });
+
+  it("does not hold a slot for a guest who left during the ban check", async () => {
+    const { port } = await startServer({ maxConnectionsPerIp: 1 });
+    isBanned.mockImplementationOnce(
+      () => new Promise((resolve) => setTimeout(() => resolve(false), 150)),
+    );
+
+    const quitter = connectClient(`http://localhost:${port}`, {
+      auth: { nickname: "Quitter" },
+      reconnection: false,
+      transports: ["websocket"],
+    });
+    clients.push(quitter);
+    // The transport is open but the server is still waiting on the ban check.
+    await new Promise<void>((resolve) => quitter.io.once("open", resolve));
+    quitter.disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    expect((await connect({ nickname: "Next" }, port)).socket).toBeDefined();
+  });
+
+  it("counts each IP separately behind a trusted proxy", async () => {
+    const { port } = await startServer({
+      maxConnectionsPerIp: 1,
+      trustedProxyHops: 1,
+    });
+    const from = (ip: string) => ({ "x-forwarded-for": ip });
+
+    await connectGuest("Alice", port, from("203.0.113.1"));
+
+    expect(
+      (await connect({ nickname: "Alice2" }, port, from("203.0.113.1"))).error,
+    ).toBe("too_many_connections");
+    expect(
+      (await connect({ nickname: "Bob" }, port, from("203.0.113.2"))).socket,
+    ).toBeDefined();
+  });
+
+  it("is not fooled by a forged forwarding header", async () => {
+    const { port } = await startServer({
+      maxConnectionsPerIp: 1,
+      trustedProxyHops: 1,
+    });
+
+    // The proxy appends the real address, so only the last entry counts however many a client invents.
+    await connectGuest("Alice", port, {
+      "x-forwarded-for": "1.1.1.1, 9.9.9.9",
+    });
+
+    expect(
+      (
+        await connect({ nickname: "Mallory" }, port, {
+          "x-forwarded-for": "2.2.2.2, 9.9.9.9",
+        })
+      ).error,
+    ).toBe("too_many_connections");
+  });
+
+  it("checks bans against the forwarded address when a proxy is trusted", async () => {
+    const { port } = await startServer({ trustedProxyHops: 1 });
+
+    await connectGuest("Alice", port, { "x-forwarded-for": "203.0.113.9" });
+
+    expect(isBanned).toHaveBeenCalledWith(hashIdentifier("203.0.113.9"));
+  });
+
+  it("ignores the forwarding header when no proxy is trusted", async () => {
+    const { port } = await startServer();
+
+    await connectGuest("Mallory", port, { "x-forwarded-for": "203.0.113.9" });
+
+    // Otherwise a banned guest could dodge a ban just by sending a different address.
+    expect(isBanned).not.toHaveBeenCalledWith(hashIdentifier("203.0.113.9"));
+  });
+
+  it("applies no cap when it is set to 0", async () => {
+    const { port } = await startServer({ maxConnectionsPerIp: 0 });
+
+    for (const name of ["One", "Two", "Three", "Four"]) {
+      await connectGuest(name, port);
+    }
   });
 });
 

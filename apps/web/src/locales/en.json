@@ -33,6 +33,7 @@
   "errors": {
     "invalid_nickname": "That nickname isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",
     "banned": "You are banned from this chat.",
+    "too_many_connections": "Too many connections from your network. Close other chat tabs or try again in a minute.",
     "unavailable": "The chat is temporarily unavailable. Please try again shortly.",
     "connection": "Could not reach the chat server.",
     "connection_lost": "The connection was lost and could not be restored.",

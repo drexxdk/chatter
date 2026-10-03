@@ -79,9 +79,11 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
                 {room.description && (
                   <p className="text-sm text-slate-400">{room.description}</p>
                 )}
-                <p className="mt-1 text-xs text-slate-500">
-                  {t("lobby.capacity", { count: room.maxMembers })}
-                </p>
+                {typeof room.maxMembers === "number" && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    {t("lobby.capacity", { count: room.maxMembers })}
+                  </p>
+                )}
               </div>
               <button
                 type="button"

@@ -28,9 +28,10 @@ export const PublicRooms: CollectionConfig = {
     {
       name: 'maxMembers',
       type: 'number',
-      required: true,
       min: 1,
-      defaultValue: 50,
+      admin: {
+        description: 'Leave empty for no limit.',
+      },
     },
     {
       name: 'description',

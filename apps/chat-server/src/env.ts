@@ -22,4 +22,6 @@ export const env = {
   ),
   SYNC_INTERVAL_MS: Number(process.env.SYNC_INTERVAL_MS ?? 30_000),
   SOCKET_ADAPTER_KEY: process.env.SOCKET_ADAPTER_KEY ?? "socket.io",
+  MAX_CONNECTIONS_PER_IP: Number(process.env.MAX_CONNECTIONS_PER_IP ?? 10),
+  TRUST_PROXY_HOPS: Number(process.env.TRUST_PROXY_HOPS ?? 0),
 };

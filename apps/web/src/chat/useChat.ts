@@ -33,8 +33,14 @@ type DropHandler = (reason: string) => void;
 const MAX_MESSAGES = 200;
 const DEFAULT_RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 15_000];
 // Errors the server reports in connect_error; anything else (network failure, CORS) is a connection problem.
-const HANDSHAKE_ERRORS = new Set(["invalid_nickname", "banned", "unavailable"]);
-// Rejections that retrying cannot fix.
+const HANDSHAKE_ERRORS = new Set([
+  "invalid_nickname",
+  "banned",
+  "unavailable",
+  "too_many_connections",
+]);
+// Rejections that retrying cannot fix. A full per-network limit is not one: the guest's own dropped connection may
+// still be counted for a while.
 const PERMANENT_ERRORS = new Set(["invalid_nickname", "banned"]);
 // Disconnects somebody chose (this client, or the server kicking the guest); everything else is a dropped connection.
 const DELIBERATE_DISCONNECTS = new Set([

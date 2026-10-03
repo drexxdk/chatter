@@ -33,6 +33,7 @@
   "errors": {
     "invalid_nickname": "Det kaldenavn er ikke tilladt. Brug 2–24 bogstaver, tal, mellemrum eller _ . -",
     "banned": "Du er udelukket fra denne chat.",
+    "too_many_connections": "For mange forbindelser fra dit netværk. Luk andre chatfaner, eller prøv igen om lidt.",
     "unavailable": "Chatten er midlertidigt utilgængelig. Prøv igen om lidt.",
     "connection": "Kunne ikke få forbindelse til chatserveren.",
     "connection_lost": "Forbindelsen blev afbrudt og kunne ikke genoprettes.",

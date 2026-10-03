@@ -14,6 +14,14 @@ const ROOMS = [
     description: "Open chat",
   },
   { id: 2, name: "Music", slug: "music", maxMembers: 30, description: null },
+  // Payload sends null when a room's limit field is left empty.
+  {
+    id: 3,
+    name: "Lounge",
+    slug: "lounge",
+    maxMembers: null,
+    description: null,
+  },
 ];
 
 function stubRooms(
@@ -77,6 +85,18 @@ describe("lobby", () => {
     expect(screen.getByRole("heading", { name: "Music" })).toBeInTheDocument();
     expect(screen.getByText("Open chat")).toBeInTheDocument();
     expect(screen.getByText("Up to 30 people")).toBeInTheDocument();
+  });
+
+  it("shows no capacity for a room without a limit", async () => {
+    setup();
+
+    const lounge = (await screen.findByRole("heading", { name: "Lounge" }))
+      .parentElement as HTMLElement;
+
+    expect(lounge).not.toHaveTextContent(/Up to/);
+    expect(lounge).not.toHaveTextContent(/null|undefined|NaN/);
+    // The other rooms still show theirs.
+    expect(screen.getAllByText(/Up to/)).toHaveLength(2);
   });
 
   it("shows an error and lets the user retry when rooms fail to load", async () => {
@@ -171,6 +191,18 @@ describe("joining a room", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not reach the chat server.",
     );
+  });
+
+  it("explains when too many connections come from the same network", async () => {
+    const { user } = setup(
+      makeFakeServer({ handshakeError: "too_many_connections" }),
+    );
+
+    await joinRoom(user);
+
+    expect(
+      await within(screen.getByRole("dialog")).findByRole("alert"),
+    ).toHaveTextContent("Too many connections from your network.");
   });
 
   it("lets the user cancel the nickname dialog", async () => {
@@ -468,6 +500,20 @@ describe("losing the connection", () => {
     dropConnection(server);
 
     await waitFor(() => expect(server.createSocket).toHaveBeenCalledTimes(4));
+    await waitFor(() =>
+      expect(screen.queryByRole("status")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText("Message")).toBeEnabled();
+  });
+
+  it("keeps trying when the old connection still counts against the network's limit", async () => {
+    const { server } = await enterRoom();
+    // The server may not have noticed the dropped connection yet, so it still holds a slot.
+    server.failNextConnections("too_many_connections");
+
+    dropConnection(server);
+
+    await waitFor(() => expect(server.createSocket).toHaveBeenCalledTimes(3));
     await waitFor(() =>
       expect(screen.queryByRole("status")).not.toBeInTheDocument(),
     );

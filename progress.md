@@ -47,6 +47,11 @@ Last updated: 2026-10-03
   - 10 new unit tests plus a real-browser Playwright scenario (the page's WebSocket is proxied and closed, which Socket.IO reports as `transport close`). Written test-first (11 failures before the implementation). Mutation-checked: six deliberate bugs (kick treated as a drop, banned retried, leave not cancelling, old guest ids forgotten, lobby-only guests reconnected, unmount not cancelling) were each caught, and disabling reconnection fails exactly the e2e scenario.
   - Fixed a flaw in my e2e helper found along the way: guest browser contexts were never closed, so guests from one test stayed in the shared rooms and showed up in the next test's member list. Contexts are now closed after every test.
   - Known limits: messages sent while a guest is disconnected are not delivered afterwards (no history); other guests see the member leave and rejoin; the server may keep the old connection as a ghost member for up to about 45 seconds after a silent network failure, which can matter if the room is full when the guest comes back (they then get `room_full` and return to the lobby).
+- Room limits are now optional and the server is protected per IP instead (decided after discussing whether a per-room cap is needed: its real value is a product choice, while server protection belongs in a connection cap):
+  - `PublicRooms.maxMembers` is optional in Payload (empty means unlimited; the old default of 50 and the required flag were removed; existing rooms keep their numbers). The chat-server skips the cluster-wide member lookup for unlimited rooms, and the lobby shows no capacity line for them.
+  - Per-IP connection cap in the chat-server (`MAX_CONNECTIONS_PER_IP`, default 10, `0` disables): over-limit connections get `too_many_connections`, which the web client translates and, during a reconnect, keeps retrying through (the guest's own dropped connection may still be counted for a while). The slot is reserved synchronously after the async ban check and only if the client is still connected, because a guest who leaves during that check never triggers a `connection` event and would otherwise leak the slot; released on disconnect.
+  - Client IP resolution (`getClientIp`, `TRUST_PROXY_HOPS`, default 0): the `X-Forwarded-For` header is ignored unless you say how many of your own proxies sit in front, and then only the entry those proxies appended is used (client-supplied entries to its left are ignored). This applies to both bans and the cap, and closes the earlier open question about running behind a proxy. Documented in the chat-server README, including the two ways to misconfigure it.
+  - Written test-first (6 chat-server and 5 web failures before implementing; 19 new tests in total). Mutation-checked: 7 chat-server bugs (slot leak during the ban check, slot never released, header trusted without a proxy, client-supplied entry used, unlimited rooms treated as full, cap off by one, cap never enforced) and 3 web bugs (too-many-connections made permanent or unrecognised, capacity shown for unlimited rooms) were all caught. Checked live against the running admin, database and chat-server: a room created with no limit comes back as `null`, 12 connections from one IP gave 10 accepted and 2 `too_many_connections`, and the 10 joined the unlimited room.
 - GitHub Actions CI (`.github/workflows/ci.yml`, runs on pushes to `main` and on pull requests, Node 24, read-only token, older runs of the same branch are cancelled):
   - `check` job: `npm ci`, `format:check`, `typecheck` (now includes `apps/admin`, which gained a `typecheck` script), builds of chat-server and web, and both unit suites.
   - `e2e` job: Postgres 16 and Redis 7 service containers, installs Chromium, writes `apps/admin/.env` from throwaway values, seeds the database, extracts the chat-server API key from the seed output into `apps/chat-server/.env`, builds and starts admin, then runs the Playwright suite. Seed output is not printed (it contains the key) unless seeding fails, and then with hex strings redacted. Playwright report, traces and the admin log are uploaded as an artifact on failure.
@@ -56,7 +61,9 @@ Last updated: 2026-10-03
 
 ### Not yet done
 
-- `apps/chat-server` socket logic still missing: message history/persistence, capacity enforcement across multiple nodes (joins are serialized per room by an in-process lock; a Redis-side counter is needed before running more than one instance), and `X-Forwarded-For` handling for the ban IP when deployed behind a proxy (currently uses the raw socket address, which is the safe default).
+- `apps/chat-server` socket logic still missing: message history/persistence, and capacity enforcement across multiple nodes (joins to limited rooms are serialized per room by an in-process lock and the per-IP connection cap is counted per process; a Redis-side counter is needed before running more than one instance).
+- Presence cost: every join, leave and disconnect sends the full member list to everyone in the room, so traffic grows roughly with the square of the room size. Fine for small rooms; very large or unlimited rooms need counts or deltas instead.
+- Payload schema changes are applied by dev-mode push only; there are no migrations yet, so the `maxMembers` change (now optional) needs a migration before any real deployment.
 - `apps/web` gaps: no typing/unread indicators, no mobile-specific layout work beyond Tailwind defaults.
 - `apps/chat-server` and `apps/web` have no ESLint setup (type checking and Prettier only).
 - CI has no dependency audit step yet (the 9 known `braces` highs would fail a plain `npm audit`), and no deployment pipeline.
@@ -72,7 +79,7 @@ Last updated: 2026-10-03
 
 ## Next Steps (in order)
 
-1. Continue through remaining plan phases: message history if wanted, and a security hardening pass (including the `X-Forwarded-For` question and a dependency audit step).
+1. Continue through remaining plan phases: message history if wanted, a dependency audit step in CI, and the remaining security hardening (for example HTTP security headers and rate limiting on `/rooms`).
 
 ## Reference
 
