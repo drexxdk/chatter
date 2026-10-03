@@ -1,67 +1,52 @@
-# Payload Blank Template
+# Chatter — Admin (Payload CMS)
 
-This template comes configured with the bare minimum to get started on anything you need.
+This app is the **admin/management backend** for Chatter. It is built with [Payload CMS](https://payloadcms.com) on Next.js and is used by super-admins to manage public chat rooms and the ban list. It is **not** the end-user chat client — that lives in `apps/web` (planned) and connects through `apps/chat-server` (planned).
 
-## Quick start
+It is one workspace inside the root npm-workspaces monorepo (`apps/*`), not a standalone project — commands below are meant to be run either from here or via `npm run <script> --workspace apps/admin` from the repo root.
 
-This template can be deployed directly from our Cloud hosting and it will setup MongoDB and cloud S3 object storage for media.
+## Stack
 
-## Quick Start - local setup
+- [Payload CMS](https://payloadcms.com) 3 + Next.js (App Router)
+- **Postgres** adapter (`@payloadcms/db-postgres`) — not MongoDB, despite what the default Payload template docs say
+- No uploads/media collection — this app has no file-upload use case
 
-To spin up this template locally, follow these steps:
+## Collections
 
-### Clone
+- **`Admins`** — auth-enabled. `role` is `super-admin` (can log into `/admin`) or `service` (API-key-only, used by `apps/chat-server` to call Payload). Only `super-admin`s can access the admin panel or manage other admin accounts.
+- **`PublicRooms`** — chat room configuration (name, slug, max members, description). Publicly readable (no auth) so the chat client can list rooms; writes are `super-admin`-only.
+- **`Bans`** — hashed-identifier ban list. Readable only by `service`/`super-admin` roles; writes are `super-admin`-only.
 
-After you click the `Deploy` button above, you'll want to have standalone copy of this repo on your machine. If you've already cloned this repo, skip to [Development](#development).
+## Local setup
 
-### Development
+1. From the **repo root**, start Postgres + Redis:
+   ```
+   docker compose up -d
+   ```
+2. Copy the env file and fill in secrets:
+   ```
+   cp .env.example .env
+   ```
+   `DATABASE_URL` already points at the local Docker Postgres by default. Set `PAYLOAD_SECRET` and the `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` used by the seed script below.
+3. From the **repo root**, install dependencies (this is an npm workspace, not pnpm):
+   ```
+   npm install
+   ```
+4. Start the dev server:
+   ```
+   npm run dev --workspace apps/admin
+   ```
+   (or `npm run dev:admin` from the repo root, or just `npm run dev` from inside this folder)
+5. Open http://localhost:3000/admin
+6. Create the first super-admin by running the seed script instead of the on-screen signup form:
+   ```
+   npm run seed --workspace apps/admin
+   ```
+   Log in with the `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` from your `.env`.
 
-1. First [clone the repo](#clone) if you have not done so already
-2. `cd my-project && cp .env.example .env` to copy the example environment variables. You'll need to add the `MONGODB_URL` from your Cloud project to your `.env` if you want to use S3 storage and the MongoDB database that was created for you.
+## Scripts
 
-3. `pnpm install && pnpm dev` to install dependencies and start the dev server
-4. open `http://localhost:3000` to open the app in your browser
-
-That's it! Changes made in `./src` will be reflected in your app. Follow the on-screen instructions to login and create your first admin user. Then check out [Production](#production) once you're ready to build and serve your app, and [Deployment](#deployment) when you're ready to go live.
-
-#### Docker (Optional)
-
-If you prefer to use Docker for local development instead of a local MongoDB instance, the provided docker-compose.yml file can be used.
-
-To do so, follow these steps:
-
-- Modify the `MONGODB_URL` in your `.env` file to `mongodb://127.0.0.1/<dbname>`
-- Modify the `docker-compose.yml` file's `MONGODB_URL` to match the above `<dbname>`
-- Run `docker-compose up` to start the database, optionally pass `-d` to run in the background.
-
-## How it works
-
-The Payload config is tailored specifically to the needs of most websites. It is pre-configured in the following ways:
-
-### Collections
-
-See the [Collections](https://payloadcms.com/docs/configuration/collections) docs for details on how to extend this functionality.
-
-- #### Users (Authentication)
-
-  Users are auth-enabled collections that have access to the admin panel.
-
-  For additional help, see the official [Auth Example](https://github.com/payloadcms/payload/tree/3.x/examples/auth) or the [Authentication](https://payloadcms.com/docs/authentication/overview#authentication-overview) docs.
-
-- #### Media
-
-  This is the uploads enabled collection. It features pre-configured sizes, focal point and manual resizing to help you manage your pictures.
-
-### Docker
-
-Alternatively, you can use [Docker](https://www.docker.com) to spin up this template locally. To do so, follow these steps:
-
-1. Follow [steps 1 and 2 from above](#development), the docker-compose file will automatically use the `.env` file in your project root
-1. Next run `docker-compose up`
-1. Follow [steps 4 and 5 from above](#development) to login and create your first admin user
-
-That's it! The Docker instance will help you get up and running quickly while also standardizing the development environment across your teams.
+See `package.json` for the full list. Common ones: `dev`, `build`, `start`, `seed`, `generate:types`, `test:int` (Vitest), `test:e2e` (Playwright).
 
 ## Questions
 
-If you have any issues or questions, reach out to us on [Discord](https://discord.com/invite/payload) or start a [GitHub discussion](https://github.com/payloadcms/payload/discussions).
+If you have Payload-specific questions, see the [Payload docs](https://payloadcms.com/docs) or their [Discord](https://discord.com/invite/payload).

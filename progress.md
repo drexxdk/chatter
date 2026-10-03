@@ -13,7 +13,7 @@ Last updated: 2026-10-03
   - `PublicRooms.ts` — room config collection (admin-managed). `read` is now public (`() => true`) so the web lobby can list rooms without authenticating; writes still `super-admin`-only.
   - `Bans.ts` — hashed-identifier ban list. `read` restricted to `service` or `super-admin` roles only (verified: unauthenticated `GET /api/bans` → 403); writes still `super-admin`-only.
 - `payload.config.ts` wired up with all three collections, Postgres adapter reading `DATABASE_URL`, Lexical editor, types output to `payload-types.ts`. Removed default Media collection/sharp dependency (not needed — no file uploads in this app).
-- Seed script added: `apps/admin/src/seed/index.ts` + `npm run seed` script (`tsx`) to create the first `super-admin` from env vars. Verified working: created `admin@chatter.local`.
+- Seed script added: `apps/admin/src/seed/index.ts` + `npm run seed` script (`tsx`) to create the first `super-admin` from env vars. Verified working: created `admin@chatter.local`. Extended to also seed 5 sample `PublicRooms` (General, Random, Tech Talk, Gaming, Music) when none exist yet — idempotent, safe to re-run.
 - Fixed `apps/admin/next.config.ts`: `turbopack.root` was pointing at `apps/admin` itself, which broke Turbopack's resolution of hoisted monorepo deps (`next` lives in the root `node_modules` via npm workspaces), causing `Could not find the Next.js package` on `npm run dev`. Changed to `path.resolve(dirname, '../..')` (the repo root). Dev server now boots cleanly.
 - Verified end-to-end locally:
   - `docker compose up -d` brings up `chatter-postgres-1` (5432) and `chatter-redis-1` (6379), both healthy.
@@ -29,7 +29,7 @@ Last updated: 2026-10-03
 - `apps/web` (React + Vite + Tailwind + i18n chat frontend) — not created yet.
 - Service-to-service API key flow (chat-server calling Payload) not implemented.
 - No tests written yet (Vitest/Playwright scaffolding exists from `create-payload-app` template but no project-specific tests added).
-- Login at `/admin` UI not manually verified in a browser yet (API-level checks only).
+- ~~Login at `/admin` UI not manually verified in a browser yet~~ — confirmed working by user.
 
 ### Environment notes
 
