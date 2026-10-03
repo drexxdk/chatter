@@ -33,13 +33,14 @@ Last updated: 2026-10-03
   - `GET /health` and `GET /rooms` (served from the Redis cache of Payload's public rooms).
   - `payloadClient.ts` authenticates to Payload with the `service` account API key (`Authorization: admins API-Key <key>`); `rooms.ts` / `bans.ts` poll Payload and cache into Redis (`chatter:public-rooms`, `chatter:bans`); `bans.ts` exposes `isBanned(identifierHash)` (honours `expiresAt`).
   - `socket.ts` creates the Socket.IO server with the Redis adapter (horizontal scaling ready) and implements the guest flow: nickname-validated handshake, salted-IP-hash ban check (fails closed), `room:join`/`room:leave` with `maxMembers` enforcement, `room:presence`, and rate-limited `message:send` → `message:new` (relay only, nothing persisted). Protocol is documented in `apps/chat-server/README.md`; `BAN_HASH_SALT` is a new required env var.
-  - Verified live with throwaway Socket.IO client scripts (since deleted), then replaced by a permanent Vitest suite (`npm run test:chat-server`, 42 tests, ~1s, no Docker/Redis/Payload needed): `identity.test.ts` (nickname validation, IP hashing), `bans.test.ts` (permanent/temporary/expired bans, cache failure propagates), `socket.test.ts` (real Socket.IO server + real clients over a local port with Redis adapter, ban cache and room cache mocked: handshake rejection/ban/fail-closed, join/leave/switch, `maxMembers`, presence, broadcast, size and rate limits, room isolation, no-ack events). Confirmed it catches regressions by temporarily breaking the capacity check. Build uses `tsconfig.build.json` so tests aren't emitted to `dist`.
+  - Verified live with throwaway Socket.IO client scripts (since deleted), then replaced by a permanent Vitest suite (`npm run test:chat-server`, 45 tests, ~2s, no Docker/Redis/Payload needed): `identity.test.ts` (nickname validation, IP hashing), `bans.test.ts` (permanent/temporary/expired bans, cache failure propagates), `socket.test.ts` (real Socket.IO server + real clients over a local port with Redis adapter, ban cache and room cache mocked: handshake rejection/ban/fail-closed, join/leave/switch, `maxMembers`, presence, broadcast, size and rate limits, room isolation, no-ack events). Confirmed it catches regressions by temporarily breaking the capacity check. Build uses `tsconfig.build.json` so tests aren't emitted to `dist`.
+  - Added inactivity handling (guests silent for `INACTIVITY_TIMEOUT_MS`, default 15 min, `0` disables, get a `kicked` event and are disconnected so their seat frees up) and made joins atomic per room within one process (in-memory per-room lock). Both were written test-first: the new tests failed against the old code, then passed. The race test needed the mocked adapter to return `fetchSockets` snapshots late (like the real Redis round trip); with an instant in-memory adapter the bug was invisible.
   - Seed script now also creates the `chat-server@chatter.local` `service` admin with an API key (printed once; goes into `apps/chat-server/.env` as `PAYLOAD_SERVICE_API_KEY`, gitignored).
   - Verified live: server starts, `/health` ok, `/rooms` returns the 5 seeded rooms, both Redis cache keys populated (so the service key can read `/api/bans`).
 
 ### Not yet done
 
-- `apps/chat-server` socket logic still missing: inactivity timeouts, message history/persistence, atomic room-capacity check (current check can be exceeded by simultaneous joins), and `X-Forwarded-For` handling for the ban IP when deployed behind a proxy (currently uses the raw socket address, which is the safe default).
+- `apps/chat-server` socket logic still missing: message history/persistence, capacity enforcement across multiple nodes (joins are serialized per room by an in-process lock; a Redis-side counter is needed before running more than one instance), and `X-Forwarded-For` handling for the ban IP when deployed behind a proxy (currently uses the raw socket address, which is the safe default).
 - `apps/web` (React + Vite + Tailwind + i18n chat frontend) — not created yet.
 - No tests for the Redis-backed sync jobs (`rooms.ts`, `payloadClient.ts`) or the HTTP routes yet; the socket tests mock those layers.
 - No project-specific tests added beyond fixing the template's existing Vitest/Playwright scaffolding to match the real collections.
@@ -53,9 +54,8 @@ Last updated: 2026-10-03
 
 ## Next Steps (in order)
 
-1. Finish chat-server: inactivity timeouts and an atomic room-capacity check (add tests alongside each).
-2. Scaffold `apps/web`: Vite + React + TS + Tailwind + react-i18next (en/da/de locale files), lobby + guest-join modal.
-3. Continue through remaining plan phases (guest auth, room runtime, messaging, presence/inactivity, frontend features, security hardening pass).
+1. Scaffold `apps/web`: Vite + React + TS + Tailwind + react-i18next (en/da/de locale files), lobby + guest-join modal.
+2. Continue through remaining plan phases (frontend features, message history if wanted, security hardening pass).
 
 ## Reference
 

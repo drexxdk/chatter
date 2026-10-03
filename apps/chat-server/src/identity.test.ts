@@ -38,6 +38,8 @@ describe("hashIdentifier", () => {
   });
 
   it("differs per IP", () => {
-    expect(hashIdentifier("203.0.113.7")).not.toBe(hashIdentifier("203.0.113.8"));
+    expect(hashIdentifier("203.0.113.7")).not.toBe(
+      hashIdentifier("203.0.113.8"),
+    );
   });
 });

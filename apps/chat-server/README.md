@@ -27,6 +27,7 @@ Connect with `io(url, { auth: { nickname } })`. Nicknames are 2-24 characters (l
 | client to server | `message:send`  | `{ text }`                                          | Max 1000 characters, 5 messages per 5 seconds per socket. Errors: `not_in_room` / `invalid_message` / `rate_limited`.               |
 | server to room   | `room:presence` | `{ roomSlug, members: [{ guestId, nickname }] }`    | Sent on join, leave and disconnect.                                                                                                 |
 | server to room   | `message:new`   | `{ id, roomSlug, guestId, nickname, text, sentAt }` | Messages are relayed only, not stored.                                                                                              |
+| server to client | `kicked`        | `{ reason: "inactivity" }`                           | Sent just before the server disconnects a guest who sent no events for `INACTIVITY_TIMEOUT_MS` (default 15 minutes, `0` disables). Any client event counts as activity. |
 
 ## Tests
 
@@ -34,4 +35,4 @@ Connect with `io(url, { auth: { nickname } })`. Nicknames are 2-24 characters (l
 
 ## Status
 
-Handshake guest auth, ban check, room join/leave with `maxMembers` enforcement, presence and rate-limited messaging are implemented. Not yet implemented: inactivity timeouts, message history, and an atomic room-capacity check (simultaneous joins can briefly exceed `maxMembers`).
+Handshake guest auth, ban check, room join/leave with `maxMembers` enforcement, presence, rate-limited messaging and inactivity disconnects are implemented. Joins are serialized per room within one process, so simultaneous joins can't exceed `maxMembers`. Not yet implemented: message history, and capacity enforcement across multiple server nodes (that needs a Redis-side counter).

@@ -26,6 +26,25 @@ type Ack = (
 
 const roomKey = (slug: string) => `room:${slug}`;
 
+// Runs tasks for the same room one at a time so a capacity check and the join that follows can't interleave.
+// Only covers this process; multiple nodes would need a Redis-side counter.
+const roomLocks = new Map<string, Promise<void>>();
+
+function withRoomLock<T>(slug: string, task: () => Promise<T>): Promise<T> {
+  const result = (roomLocks.get(slug) ?? Promise.resolve()).then(task);
+  const tail = result.then(
+    () => {},
+    () => {},
+  );
+
+  roomLocks.set(slug, tail);
+  void tail.then(() => {
+    if (roomLocks.get(slug) === tail) roomLocks.delete(slug);
+  });
+
+  return result;
+}
+
 function stringField(payload: unknown, field: string): string {
   const value = (payload as Record<string, unknown> | null | undefined)?.[
     field
@@ -33,7 +52,12 @@ function stringField(payload: unknown, field: string): string {
   return typeof value === "string" ? value : "";
 }
 
-export function createSocketServer(httpServer: HttpServer): Server {
+export function createSocketServer(
+  httpServer: HttpServer,
+  options: { inactivityTimeoutMs?: number } = {},
+): Server {
+  const inactivityTimeoutMs =
+    options.inactivityTimeoutMs ?? env.INACTIVITY_TIMEOUT_MS;
   const io = new Server(httpServer, {
     cors: { origin: env.WEB_ORIGIN, credentials: true },
   });
@@ -91,6 +115,21 @@ export function createSocketServer(httpServer: HttpServer): Server {
 
     socket.emit("session", { guestId: data.guestId, nickname: data.nickname });
 
+    // Any client event counts as activity. A non-positive timeout disables the check.
+    let idleTimer: NodeJS.Timeout | undefined;
+    const resetIdleTimer = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        socket.emit("kicked", { reason: "inactivity" });
+        socket.disconnect(true);
+      }, inactivityTimeoutMs);
+    };
+
+    if (Number.isFinite(inactivityTimeoutMs) && inactivityTimeoutMs > 0) {
+      resetIdleTimer();
+      socket.onAny(resetIdleTimer);
+    }
+
     socket.on("room:join", async (payload: unknown, ack?: Ack) => {
       const reply: Ack = typeof ack === "function" ? ack : () => {};
       const slug = stringField(payload, "slug");
@@ -103,21 +142,26 @@ export function createSocketServer(httpServer: HttpServer): Server {
         return reply({ ok: false, error: "room_not_found" });
       }
 
-      if (data.roomSlug === slug) {
-        return reply({ ok: true, roomSlug: slug });
-      }
+      const outcome = await withRoomLock(slug, async () => {
+        if (socket.disconnected) return "disconnected" as const;
+        if (data.roomSlug === slug) return "already_joined" as const;
 
-      // Not atomic across simultaneous joins; acceptable until real load needs a Redis-side counter.
-      const members = await io.in(roomKey(slug)).fetchSockets();
+        const members = await io.in(roomKey(slug)).fetchSockets();
+        if (members.length >= room.maxMembers) return "room_full" as const;
 
-      if (members.length >= room.maxMembers) {
+        await leaveRoom();
+        data.roomSlug = slug;
+        await socket.join(roomKey(slug));
+        return "joined" as const;
+      });
+
+      if (outcome === "room_full") {
         return reply({ ok: false, error: "room_full" });
       }
 
-      await leaveRoom();
-      data.roomSlug = slug;
-      await socket.join(roomKey(slug));
-      await emitPresence(slug);
+      if (outcome === "joined") {
+        await emitPresence(slug);
+      }
 
       reply({ ok: true, roomSlug: slug });
     });
@@ -163,6 +207,8 @@ export function createSocketServer(httpServer: HttpServer): Server {
     });
 
     socket.on("disconnect", () => {
+      clearTimeout(idleTimer);
+
       // Socket.IO has already removed the socket from its rooms; just refresh presence for the others.
       if (data.roomSlug) {
         emitPresence(data.roomSlug).catch((error) =>
