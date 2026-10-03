@@ -14,7 +14,15 @@ interface ChatRoomProps {
   onLeave: () => void;
 }
 
-export function ChatRoom({ roomName, session, members, messages, error, onSend, onLeave }: ChatRoomProps) {
+export function ChatRoom({
+  roomName,
+  session,
+  members,
+  messages,
+  error,
+  onSend,
+  onLeave,
+}: ChatRoomProps) {
   const { t } = useTranslation();
   const [text, setText] = useState("");
   const logRef = useRef<HTMLOListElement>(null);
@@ -33,16 +41,25 @@ export function ChatRoom({ roomName, session, members, messages, error, onSend, 
   }
 
   return (
-    <section aria-labelledby="room-heading" className="grid gap-4 md:grid-cols-[1fr_14rem]">
+    <section
+      aria-labelledby="room-heading"
+      className="grid gap-4 md:grid-cols-[1fr_14rem]"
+    >
       <div className="space-y-3 md:col-start-1">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h2 id="room-heading" className="text-xl font-semibold">
               {roomName}
             </h2>
-            <p className="text-sm text-slate-400">{t("room.chattingAs", { nickname: session.nickname })}</p>
+            <p className="text-sm text-slate-400">
+              {t("room.chattingAs", { nickname: session.nickname })}
+            </p>
           </div>
-          <button type="button" onClick={onLeave} className="rounded-md bg-slate-800 px-3 py-1.5 hover:bg-slate-700">
+          <button
+            type="button"
+            onClick={onLeave}
+            className="rounded-md bg-slate-800 px-3 py-1.5 hover:bg-slate-700"
+          >
             {t("room.leave")}
           </button>
         </div>
@@ -54,13 +71,24 @@ export function ChatRoom({ roomName, session, members, messages, error, onSend, 
           aria-label={roomName}
           className="h-96 space-y-2 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900 p-3"
         >
-          {messages.length === 0 && <li className="text-slate-500">{t("room.empty")}</li>}
+          {messages.length === 0 && (
+            <li className="text-slate-500">{t("room.empty")}</li>
+          )}
           {messages.map((message) => (
             <li key={message.id}>
-              <span className={message.guestId === session.guestId ? "font-semibold text-indigo-300" : "font-semibold"}>
+              <span
+                className={
+                  message.guestId === session.guestId
+                    ? "font-semibold text-indigo-300"
+                    : "font-semibold"
+                }
+              >
                 {message.nickname}
               </span>
-              <time dateTime={message.sentAt} className="ml-2 text-xs text-slate-500">
+              <time
+                dateTime={message.sentAt}
+                className="ml-2 text-xs text-slate-500"
+              >
                 {new Date(message.sentAt).toLocaleTimeString()}
               </time>
               {/* Rendered as text, never as HTML. */}
@@ -84,21 +112,32 @@ export function ChatRoom({ roomName, session, members, messages, error, onSend, 
             placeholder={t("room.messagePlaceholder")}
             className="flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
           />
-          <button type="submit" className="rounded-md bg-indigo-600 px-4 py-2 font-medium hover:bg-indigo-500">
+          <button
+            type="submit"
+            className="rounded-md bg-indigo-600 px-4 py-2 font-medium hover:bg-indigo-500"
+          >
             {t("room.send")}
           </button>
         </form>
       </div>
 
-      <aside aria-labelledby="members-heading" className="md:col-start-2 md:row-start-1">
-        <h3 id="members-heading" className="mb-2 text-sm font-semibold text-slate-300">
+      <aside
+        aria-labelledby="members-heading"
+        className="md:col-start-2 md:row-start-1"
+      >
+        <h3
+          id="members-heading"
+          className="mb-2 text-sm font-semibold text-slate-300"
+        >
           {t("room.members", { count: members.length })}
         </h3>
         <ul className="space-y-1 text-sm">
           {members.map((member) => (
             <li key={member.guestId}>
               {member.nickname}
-              {member.guestId === session.guestId && <span className="ml-1 text-slate-500">({t("room.you")})</span>}
+              {member.guestId === session.guestId && (
+                <span className="ml-1 text-slate-500">({t("room.you")})</span>
+              )}
             </li>
           ))}
         </ul>

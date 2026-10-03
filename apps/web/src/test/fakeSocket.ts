@@ -23,7 +23,8 @@ export class FakeSocket implements ChatSocket {
     handshakeError?: string,
   ) {
     queueMicrotask(() => {
-      if (handshakeError) this.serverEmit("connect_error", new Error(handshakeError));
+      if (handshakeError)
+        this.serverEmit("connect_error", new Error(handshakeError));
       else this.serverEmit("session", { guestId: "guest-me", nickname });
     });
   }
@@ -38,7 +39,9 @@ export class FakeSocket implements ChatSocket {
     if (typeof ack !== "function") return;
 
     queueMicrotask(() => {
-      const response: { ok?: boolean } = this.acks[event]?.(payload) ?? { ok: true };
+      const response: { ok?: boolean } = this.acks[event]?.(payload) ?? {
+        ok: true,
+      };
 
       // The real server broadcasts presence before it acknowledges a successful join.
       if (event === "room:join" && response.ok) {
@@ -63,7 +66,9 @@ export class FakeSocket implements ChatSocket {
   }
 
   emittedEvents(event: string) {
-    return this.emitted.filter((entry) => entry.event === event).map((entry) => entry.payload);
+    return this.emitted
+      .filter((entry) => entry.event === event)
+      .map((entry) => entry.payload);
   }
 }
 

@@ -6,11 +6,22 @@ import { App } from "./App";
 import { makeFakeServer } from "./test/fakeSocket";
 
 const ROOMS = [
-  { id: 1, name: "General", slug: "general", maxMembers: 100, description: "Open chat" },
+  {
+    id: 1,
+    name: "General",
+    slug: "general",
+    maxMembers: 100,
+    description: "Open chat",
+  },
   { id: 2, name: "Music", slug: "music", maxMembers: 30, description: null },
 ];
 
-function stubRooms(response: () => Promise<unknown> = async () => ({ ok: true, json: async () => ROOMS })) {
+function stubRooms(
+  response: () => Promise<unknown> = async () => ({
+    ok: true,
+    json: async () => ROOMS,
+  }),
+) {
   const fetchMock = vi.fn(response);
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
@@ -22,8 +33,14 @@ function setup(server = makeFakeServer()) {
   return { user, server, unmount };
 }
 
-async function joinRoom(user: ReturnType<typeof userEvent.setup>, roomName = "General", nickname = "Alice") {
-  await user.click(await screen.findByRole("button", { name: `Join ${roomName}` }));
+async function joinRoom(
+  user: ReturnType<typeof userEvent.setup>,
+  roomName = "General",
+  nickname = "Alice",
+) {
+  await user.click(
+    await screen.findByRole("button", { name: `Join ${roomName}` }),
+  );
   await user.type(await screen.findByLabelText("Nickname"), nickname);
   await user.click(screen.getByRole("button", { name: "Continue" }));
 }
@@ -49,7 +66,9 @@ describe("lobby", () => {
     setup();
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading rooms");
-    expect(await screen.findByRole("heading", { name: "General" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "General" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Music" })).toBeInTheDocument();
     expect(screen.getByText("Open chat")).toBeInTheDocument();
     expect(screen.getByText("Up to 30 people")).toBeInTheDocument();
@@ -59,12 +78,18 @@ describe("lobby", () => {
     const fetchMock = stubRooms(async () => ({ ok: false, status: 503 }));
     const { user } = setup();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load the rooms.");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not load the rooms.",
+    );
 
-    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => ROOMS }) as never);
+    fetchMock.mockImplementation(
+      async () => ({ ok: true, json: async () => ROOMS }) as never,
+    );
     await user.click(screen.getByRole("button", { name: "Try again" }));
 
-    expect(await screen.findByRole("heading", { name: "General" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "General" }),
+    ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -72,7 +97,9 @@ describe("lobby", () => {
     stubRooms(async () => ({ ok: true, json: async () => [] }));
     setup();
 
-    expect(await screen.findByText("No rooms are available yet.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("No rooms are available yet."),
+    ).toBeInTheDocument();
   });
 });
 
@@ -84,8 +111,12 @@ describe("joining a room", () => {
 
     expect(await screen.findByText("Chatting as Alice")).toBeInTheDocument();
     expect(server.createSocket).toHaveBeenCalledWith("Alice");
-    expect(server.latest.emittedEvents("room:join")).toEqual([{ slug: "general" }]);
-    expect(screen.getByRole("heading", { name: "General", level: 2 })).toBeInTheDocument();
+    expect(server.latest.emittedEvents("room:join")).toEqual([
+      { slug: "general" },
+    ]);
+    expect(
+      screen.getByRole("heading", { name: "General", level: 2 }),
+    ).toBeInTheDocument();
   });
 
   it("lists the guest as a member right after joining", async () => {
@@ -94,7 +125,9 @@ describe("joining a room", () => {
     await joinRoom(user);
 
     // The server sends presence before it acknowledges the join, so it must not be dropped.
-    expect(await screen.findByRole("heading", { name: "In this room (1)" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "In this room (1)" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("(you)")).toBeInTheDocument();
   });
 
@@ -103,31 +136,44 @@ describe("joining a room", () => {
 
     await joinRoom(user, "General", "<b>");
 
-    expect(screen.getByLabelText("Nickname")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Nickname")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
     expect(server.createSocket).not.toHaveBeenCalled();
   });
 
   it("keeps the dialog open and explains a server-side rejection", async () => {
-    const { user, server } = setup(makeFakeServer({ handshakeError: "banned" }));
+    const { user, server } = setup(
+      makeFakeServer({ handshakeError: "banned" }),
+    );
 
     await joinRoom(user);
 
-    expect(await within(screen.getByRole("dialog")).findByRole("alert")).toHaveTextContent("You are banned from this chat.");
+    expect(
+      await within(screen.getByRole("dialog")).findByRole("alert"),
+    ).toHaveTextContent("You are banned from this chat.");
     expect(server.latest.emittedEvents("room:join")).toEqual([]);
   });
 
   it("reports an unreachable server as a connection problem", async () => {
-    const { user } = setup(makeFakeServer({ handshakeError: "websocket error" }));
+    const { user } = setup(
+      makeFakeServer({ handshakeError: "websocket error" }),
+    );
 
     await joinRoom(user);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Could not reach the chat server.");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not reach the chat server.",
+    );
   });
 
   it("lets the user cancel the nickname dialog", async () => {
     const { user, server } = setup();
 
-    await user.click(await screen.findByRole("button", { name: "Join General" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Join General" }),
+    );
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -141,9 +187,13 @@ describe("joining a room", () => {
 
     await joinRoom(user);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("This room is full.");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This room is full.",
+    );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Public rooms" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Public rooms" }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -168,7 +218,9 @@ describe("inside a room", () => {
       }),
     );
 
-    expect(screen.getByRole("heading", { name: "In this room (2)" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "In this room (2)" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Bob")).toBeInTheDocument();
     expect(screen.getByText("(you)")).toBeInTheDocument();
   });
@@ -177,8 +229,14 @@ describe("inside a room", () => {
     const { server } = await enterRoom();
 
     act(() => {
-      server.latest.serverEmit("room:presence", { roomSlug: "music", members: [{ guestId: "x", nickname: "Elsewhere" }] });
-      server.latest.serverEmit("message:new", message({ roomSlug: "music", text: "wrong room" }));
+      server.latest.serverEmit("room:presence", {
+        roomSlug: "music",
+        members: [{ guestId: "x", nickname: "Elsewhere" }],
+      });
+      server.latest.serverEmit(
+        "message:new",
+        message({ roomSlug: "music", text: "wrong room" }),
+      );
     });
 
     expect(screen.queryByText("Elsewhere")).not.toBeInTheDocument();
@@ -194,15 +252,26 @@ describe("inside a room", () => {
     });
 
     const log = screen.getByRole("log");
-    expect(within(log).getAllByText(/first|second/).map((node) => node.textContent)).toEqual(["first", "second"]);
+    expect(
+      within(log)
+        .getAllByText(/first|second/)
+        .map((node) => node.textContent),
+    ).toEqual(["first", "second"]);
   });
 
   it("renders message text literally instead of as HTML", async () => {
     const { server } = await enterRoom();
 
-    act(() => server.latest.serverEmit("message:new", message({ text: '<img src=x onerror="alert(1)">' })));
+    act(() =>
+      server.latest.serverEmit(
+        "message:new",
+        message({ text: '<img src=x onerror="alert(1)">' }),
+      ),
+    );
 
-    expect(screen.getByText('<img src=x onerror="alert(1)">')).toBeInTheDocument();
+    expect(
+      screen.getByText('<img src=x onerror="alert(1)">'),
+    ).toBeInTheDocument();
     expect(document.querySelector("img")).toBeNull();
   });
 
@@ -212,8 +281,12 @@ describe("inside a room", () => {
     await user.type(screen.getByLabelText("Message"), "  hi all  ");
     await user.click(screen.getByRole("button", { name: "Send" }));
 
-    await waitFor(() => expect(screen.getByLabelText("Message")).toHaveValue(""));
-    expect(server.latest.emittedEvents("message:send")).toEqual([{ text: "hi all" }]);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Message")).toHaveValue(""),
+    );
+    expect(server.latest.emittedEvents("message:send")).toEqual([
+      { text: "hi all" },
+    ]);
   });
 
   it("does not send an empty message", async () => {
@@ -227,12 +300,17 @@ describe("inside a room", () => {
 
   it("keeps the draft and explains why when a message is rejected", async () => {
     const { user, server } = await enterRoom();
-    server.latest.acks["message:send"] = () => ({ ok: false, error: "rate_limited" });
+    server.latest.acks["message:send"] = () => ({
+      ok: false,
+      error: "rate_limited",
+    });
 
     await user.type(screen.getByLabelText("Message"), "too fast");
     await user.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("You're sending messages too fast.");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You're sending messages too fast.",
+    );
     expect(screen.getByLabelText("Message")).toHaveValue("too fast");
   });
 
@@ -240,15 +318,22 @@ describe("inside a room", () => {
     const { user, server } = await enterRoom();
 
     await user.click(screen.getByRole("button", { name: "Leave room" }));
-    expect(await screen.findByRole("heading", { name: "Public rooms" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Public rooms" }),
+    ).toBeInTheDocument();
     expect(server.latest.emittedEvents("room:leave")).toHaveLength(1);
 
     await user.click(screen.getByRole("button", { name: "Join Music" }));
 
-    expect(await screen.findByRole("heading", { name: "Music", level: 2 })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Music", level: 2 }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(server.createSocket).toHaveBeenCalledTimes(1);
-    expect(server.latest.emittedEvents("room:join")).toEqual([{ slug: "general" }, { slug: "music" }]);
+    expect(server.latest.emittedEvents("room:join")).toEqual([
+      { slug: "general" },
+      { slug: "music" },
+    ]);
   });
 
   it("explains an inactivity disconnect and returns to the lobby", async () => {
@@ -259,8 +344,12 @@ describe("inside a room", () => {
       server.latest.serverEmit("disconnect", "io server disconnect");
     });
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("You were disconnected for being inactive.");
-    expect(screen.getByRole("heading", { name: "Public rooms" })).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You were disconnected for being inactive.",
+    );
+    expect(
+      screen.getByRole("heading", { name: "Public rooms" }),
+    ).toBeInTheDocument();
   });
 
   it("closes the connection when the app unmounts", async () => {
@@ -282,7 +371,9 @@ describe("language", () => {
 
     await user.selectOptions(screen.getByLabelText("Language"), "da");
 
-    expect(await screen.findByRole("heading", { name: "Offentlige rum" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Offentlige rum" }),
+    ).toBeInTheDocument();
     expect(localStorage.getItem("chatter.language")).toBe("da");
     expect(document.documentElement.lang).toBe("da");
   });

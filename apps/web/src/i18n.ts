@@ -29,7 +29,11 @@ export function setLanguage(code: string): void {
 }
 
 void i18n.use(initReactI18next).init({
-  resources: { en: { translation: en }, da: { translation: da }, de: { translation: de } },
+  resources: {
+    en: { translation: en },
+    da: { translation: da },
+    de: { translation: de },
+  },
   lng: initialLanguage(),
   fallbackLng: "en",
   interpolation: { escapeValue: false },

@@ -65,7 +65,11 @@ export function App({ createSocket }: { createSocket?: CreateSocket }) {
         ) : (
           <>
             {!pendingRoom && <ErrorAlert code={chat.error} />}
-            <Lobby state={roomsState} onRetry={retry} onSelect={(room) => void handleSelect(room)} />
+            <Lobby
+              state={roomsState}
+              onRetry={retry}
+              onSelect={(room) => void handleSelect(room)}
+            />
           </>
         )}
       </main>

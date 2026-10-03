@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { createSocket as defaultCreateSocket, type ChatSocket, type CreateSocket } from "./socket";
+import {
+  createSocket as defaultCreateSocket,
+  type ChatSocket,
+  type CreateSocket,
+} from "./socket";
 
 export interface Session {
   guestId: string;
@@ -71,17 +75,25 @@ export function useChat(createSocket: CreateSocket = defaultCreateSocket) {
           socketRef.current = null;
           socket.disconnect();
           setStatus("idle");
-          setError(HANDSHAKE_ERRORS.has(cause.message) ? cause.message : "connection");
+          setError(
+            HANDSHAKE_ERRORS.has(cause.message) ? cause.message : "connection",
+          );
           resolve(false);
         });
 
-        socket.on("room:presence", (presence: { roomSlug: string; members: Member[] }) => {
-          if (isCurrent() && presence.roomSlug === roomRef.current) setMembers(presence.members);
-        });
+        socket.on(
+          "room:presence",
+          (presence: { roomSlug: string; members: Member[] }) => {
+            if (isCurrent() && presence.roomSlug === roomRef.current)
+              setMembers(presence.members);
+          },
+        );
 
         socket.on("message:new", (message: ChatMessage) => {
           if (isCurrent() && message.roomSlug === roomRef.current) {
-            setMessages((previous) => [...previous, message].slice(-MAX_MESSAGES));
+            setMessages((previous) =>
+              [...previous, message].slice(-MAX_MESSAGES),
+            );
           }
         });
 
@@ -101,12 +113,15 @@ export function useChat(createSocket: CreateSocket = defaultCreateSocket) {
     [createSocket, resetRoom],
   );
 
-  const emitWithAck = useCallback((event: string, payload?: unknown): Promise<Ack> => {
-    const socket = socketRef.current;
-    if (!socket) return Promise.resolve({ ok: false, error: "connection" });
+  const emitWithAck = useCallback(
+    (event: string, payload?: unknown): Promise<Ack> => {
+      const socket = socketRef.current;
+      if (!socket) return Promise.resolve({ ok: false, error: "connection" });
 
-    return new Promise((resolve) => socket.emit(event, payload, resolve));
-  }, []);
+      return new Promise((resolve) => socket.emit(event, payload, resolve));
+    },
+    [],
+  );
 
   const joinRoom = useCallback(
     async (slug: string): Promise<boolean> => {
@@ -125,7 +140,9 @@ export function useChat(createSocket: CreateSocket = defaultCreateSocket) {
         return false;
       }
 
-      setMessages((existing) => existing.filter((message) => message.roomSlug === slug));
+      setMessages((existing) =>
+        existing.filter((message) => message.roomSlug === slug),
+      );
       setRoomSlug(slug);
       return true;
     },

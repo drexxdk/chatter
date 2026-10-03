@@ -11,7 +11,12 @@ interface NicknameDialogProps {
   onCancel: () => void;
 }
 
-export function NicknameDialog({ connecting, error, onSubmit, onCancel }: NicknameDialogProps) {
+export function NicknameDialog({
+  connecting,
+  error,
+  onSubmit,
+  onCancel,
+}: NicknameDialogProps) {
   const { t } = useTranslation();
   const [value, setValue] = useState("");
   const [touched, setTouched] = useState(false);
@@ -53,7 +58,12 @@ export function NicknameDialog({ connecting, error, onSubmit, onCancel }: Nickna
             aria-describedby="nickname-hint"
             className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
           />
-          <p id="nickname-hint" className={showInvalid ? "text-sm text-red-300" : "text-sm text-slate-500"}>
+          <p
+            id="nickname-hint"
+            className={
+              showInvalid ? "text-sm text-red-300" : "text-sm text-slate-500"
+            }
+          >
             {t("nickname.hint")}
           </p>
         </div>
@@ -61,7 +71,11 @@ export function NicknameDialog({ connecting, error, onSubmit, onCancel }: Nickna
         <ErrorAlert code={error} />
 
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className="rounded-md px-3 py-1.5 hover:bg-slate-800">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md px-3 py-1.5 hover:bg-slate-800"
+          >
             {t("nickname.cancel")}
           </button>
           <button
