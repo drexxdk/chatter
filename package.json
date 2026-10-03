@@ -11,6 +11,7 @@
     "dev:web": "npm run dev --workspace apps/web",
     "test:chat-server": "npm test --workspace apps/chat-server",
     "test:web": "npm test --workspace apps/web",
+    "test:web:e2e": "npm run test:e2e --workspace apps/web",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",

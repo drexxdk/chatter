@@ -20,4 +20,6 @@ export const env = {
   INACTIVITY_TIMEOUT_MS: Number(
     process.env.INACTIVITY_TIMEOUT_MS ?? 15 * 60_000,
   ),
+  SYNC_INTERVAL_MS: Number(process.env.SYNC_INTERVAL_MS ?? 30_000),
+  SOCKET_ADAPTER_KEY: process.env.SOCKET_ADAPTER_KEY ?? "socket.io",
 };

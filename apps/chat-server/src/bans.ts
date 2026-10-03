@@ -1,8 +1,8 @@
+import { env } from "./env.js";
 import { redis } from "./redis.js";
 import { fetchBans, type Ban } from "./payloadClient.js";
 
 const CACHE_KEY = "chatter:bans";
-const SYNC_INTERVAL_MS = 30_000;
 
 async function syncBans(): Promise<void> {
   const bans = await fetchBans();
@@ -31,5 +31,5 @@ export function startBansSync(): NodeJS.Timeout {
 
   return setInterval(() => {
     syncBans().catch((error) => console.error("Failed to sync bans:", error));
-  }, SYNC_INTERVAL_MS);
+  }, env.SYNC_INTERVAL_MS);
 }

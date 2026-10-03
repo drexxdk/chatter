@@ -42,11 +42,12 @@ Last updated: 2026-10-03
   - Verified in a real browser against the real chat-server and Payload: lobby loads (CORS ok), join flow works, a second real guest's message arrives with its HTML shown as literal text. That run found a bug the fake server hid: the server broadcasts `room:presence` before acknowledging a join, so the client dropped it and showed an empty member list. Fixed in `useChat.joinRoom` with a regression test, and the fake now follows the real event order.
   - Test setup works around Node 26's experimental `localStorage` global shadowing jsdom's (`src/test/setup.ts`); browsers are unaffected.
 - Formatting: root `.prettierrc.json` (double quotes, semicolons, width 80) now governs `apps/chat-server` and `apps/web`, which editors had been reformatting after every commit; `apps/admin` keeps its own `.prettierrc.json` (single quotes, no semicolons). Both set `endOfLine: "auto"` because this machine has `core.autocrlf=true`, so working copies are CRLF and Prettier's LF default flagged every file. `npm run format:check` / `npm run format` at the root; the whole repo passes. Generated files are in `.prettierignore`.
+- Playwright e2e suite for `apps/web` (`npm run test:web:e2e`, 3 scenarios, ~13s) against a real browser, real chat-server, real Redis and the running admin: two guests chat and see presence change (HTML in a message stays literal text), a full room turns the next guest away, and a ban blocks the connection until it is lifted. It starts its own chat-server (port 4100, Redis db 1, own ban salt and Socket.IO channel) and web client (port 5174), so a dev session can stay running, and creates and removes its own `e2e-` rooms and bans through the admin API (leftovers are swept on the next run; the database was verified clean afterwards). To support that, chat-server gained two optional settings: `SYNC_INTERVAL_MS` (cache refresh, default 30s) and `SOCKET_ADAPTER_KEY` (Redis channel prefix; without it two servers on one Redis would share rooms and capacity counts). Verified the suite fails when the capacity check or the ban check is broken in the chat-server.
 
 ### Not yet done
 
 - `apps/chat-server` socket logic still missing: message history/persistence, capacity enforcement across multiple nodes (joins are serialized per room by an in-process lock; a Redis-side counter is needed before running more than one instance), and `X-Forwarded-For` handling for the ban IP when deployed behind a proxy (currently uses the raw socket address, which is the safe default).
-- `apps/web` gaps: no reconnection handling (a dropped connection returns the guest to the lobby), no typing/unread indicators, no mobile-specific layout work beyond Tailwind defaults, no automated end-to-end test against the real servers (only the manual browser check above), and the web tests don't run in any CI yet.
+- `apps/web` gaps: no reconnection handling (a dropped connection returns the guest to the lobby), no typing/unread indicators, no mobile-specific layout work beyond Tailwind defaults, and no CI yet (neither the unit nor the e2e tests run automatically).
 - No tests for the Redis-backed sync jobs (`rooms.ts`, `payloadClient.ts`) or the HTTP routes yet; the socket tests mock those layers.
 - No project-specific tests added beyond fixing the template's existing Vitest/Playwright scaffolding to match the real collections.
 - ~~Login at `/admin` UI not manually verified in a browser yet~~ — confirmed working by user.
@@ -59,8 +60,8 @@ Last updated: 2026-10-03
 
 ## Next Steps (in order)
 
-1. Playwright end-to-end test for `apps/web` against the real chat-server (guest joins, second guest chats, ban blocks connect) so the manual browser check becomes permanent.
-2. Continue through remaining plan phases (frontend polish, message history if wanted, security hardening pass, CI).
+1. Set up CI (typecheck, format check, unit tests for all three apps, and the e2e suite with Postgres and Redis services).
+2. Continue through remaining plan phases (frontend polish such as reconnection handling, message history if wanted, security hardening pass).
 
 ## Reference
 

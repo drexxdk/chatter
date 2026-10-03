@@ -18,3 +18,12 @@ The end-user chat client: a lobby of public rooms, a nickname prompt, and the ch
 ## Tests
 
 `npm run test:web` (Vitest + Testing Library). The tests run the real components, hook and i18n against a fake Socket.IO server (`src/test/fakeSocket.ts`) that replays the real protocol, including the server's event ordering. No network or running backend is needed. If the chat-server protocol changes, update the fake to match.
+
+### End-to-end
+
+`npm run test:web:e2e` (Playwright) drives a real browser against the real chat-server. It covers two guests chatting (including HTML shown as text), a full room turning a guest away, and a ban blocking the connection until it is lifted.
+
+- Requires `apps/admin` running on http://localhost:3000 with its database seeded, plus Postgres and Redis (`docker compose up -d`). Everything else is started by the tests.
+- It runs its own chat-server (port 4100) and web client (port 5174), so a dev session can stay open. The e2e chat-server uses Redis database 1, its own Socket.IO channel (`SOCKET_ADAPTER_KEY`), its own ban salt and a 500ms cache sync.
+- It creates rooms prefixed `e2e-` and bans through the admin API and removes them afterwards; leftovers from an interrupted run are swept at the start of the next one. It reads the admin credentials from `apps/admin/.env`.
+- The ban test blocks loopback addresses for the e2e chat-server, so tests run one at a time.

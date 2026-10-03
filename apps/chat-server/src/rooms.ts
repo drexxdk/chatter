@@ -1,8 +1,8 @@
+import { env } from "./env.js";
 import { redis } from "./redis.js";
 import { fetchPublicRooms, type PublicRoom } from "./payloadClient.js";
 
 const CACHE_KEY = "chatter:public-rooms";
-const SYNC_INTERVAL_MS = 30_000;
 
 async function syncPublicRooms(): Promise<void> {
   const rooms = await fetchPublicRooms();
@@ -24,5 +24,5 @@ export function startPublicRoomsSync(): NodeJS.Timeout {
     syncPublicRooms().catch((error) =>
       console.error("Failed to sync public rooms:", error),
     );
-  }, SYNC_INTERVAL_MS);
+  }, env.SYNC_INTERVAL_MS);
 }

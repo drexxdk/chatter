@@ -33,3 +33,7 @@ media/
 # Misc
 *.tsbuildinfo
 coverage/
+
+# Playwright output
+test-results/
+playwright-report/

@@ -62,7 +62,9 @@ export function createSocketServer(
     cors: { origin: env.WEB_ORIGIN, credentials: true },
   });
 
-  io.adapter(createAdapter(pubClient, subClient));
+  io.adapter(
+    createAdapter(pubClient, subClient, { key: env.SOCKET_ADAPTER_KEY }),
+  );
 
   async function emitPresence(slug: string): Promise<void> {
     const members = await io.in(roomKey(slug)).fetchSockets();
