@@ -45,7 +45,23 @@ It is one workspace inside the root npm-workspaces monorepo (`apps/*`), not a st
 
 ## Scripts
 
-See `package.json` for the full list. Common ones: `dev`, `build`, `start`, `seed`, `generate:types`, `test:int` (Vitest), `test:e2e` (Playwright).
+See `package.json` for the full list. Common ones: `dev`, `build`, `start`, `seed`, `generate:types`, `test:int` (Vitest), `test:e2e` (Playwright), `migrate`, `migrate:create`, `migrate:status`.
+
+## Database migrations
+
+Schema changes live in `src/migrations`. `next dev` pushes collection changes to your local database on its own, but a production build (`next build` and `next start`) never creates or alters tables, so any environment that is not `next dev` needs the migrations applied first:
+
+```
+npm run migrate --workspace apps/admin
+```
+
+When you change a collection (a field, an index, a new collection), create a migration and commit it together with the change:
+
+```
+npm run migrate:create --workspace apps/admin -- add_room_topic
+```
+
+CI applies the migrations to an empty database and fails if the collections differ from them, so a forgotten migration is caught before it reaches a deployment. A local database that was created by `next dev` has no migration history; recreate it (`docker compose down -v`, then `up -d`) before trying `migrate` on it.
 
 ## Questions
 

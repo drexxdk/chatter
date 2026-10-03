@@ -24,5 +24,10 @@ export default defineConfig([
       ],
     },
   },
-  globalIgnores(['.next/', 'src/payload-types.ts', 'src/payload-generated-schema.ts']),
+  globalIgnores([
+    '.next/',
+    'src/payload-types.ts',
+    'src/payload-generated-schema.ts',
+    'src/migrations/',
+  ]),
 ])

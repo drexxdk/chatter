@@ -103,6 +103,21 @@ jobs:
             echo "SEED_ADMIN_PASSWORD=$SEED_ADMIN_PASSWORD"
           } > apps/admin/.env
 
+      - name: Apply the database migrations
+        # Production builds never create tables on their own, so this is how the schema gets there.
+        run: npm run migrate --workspace apps/admin
+
+      - name: Check the migrations match the collections
+        # Fails when a collection changed without a migration. Payload writes a new file only if the schema differs.
+        timeout-minutes: 3
+        run: |
+          npm run payload --workspace apps/admin -- migrate:create ci_check --skip-empty
+          if [ -n "$(git status --porcelain -- apps/admin/src/migrations)" ]; then
+            echo "A collection changed without a migration. Run: npm run migrate:create --workspace apps/admin -- <name>" >&2
+            git status --porcelain -- apps/admin/src/migrations >&2
+            exit 1
+          fi
+
       - name: Seed the database and create the chat-server API key
         id: seed
         run: |
