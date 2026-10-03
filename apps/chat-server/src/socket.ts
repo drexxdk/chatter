@@ -63,11 +63,10 @@ export function createSocketServer(
 ): Server {
   const inactivityTimeoutMs =
     options.inactivityTimeoutMs ?? env.INACTIVITY_TIMEOUT_MS;
+  // Undefined means no cap.
   const maxConnectionsPerIp =
     options.maxConnectionsPerIp ?? env.MAX_CONNECTIONS_PER_IP;
   const trustedProxyHops = options.trustedProxyHops ?? env.TRUST_PROXY_HOPS;
-  const connectionCapEnabled =
-    Number.isFinite(maxConnectionsPerIp) && maxConnectionsPerIp > 0;
   // Live connections per hashed IP on this process; with several nodes the cap applies to each separately.
   const connectionsPerIp = new Map<string, number>();
   const io = new Server(httpServer, {
@@ -117,7 +116,7 @@ export function createSocketServer(
       return next(new Error("closed"));
     }
 
-    if (connectionCapEnabled) {
+    if (maxConnectionsPerIp !== undefined) {
       const current = connectionsPerIp.get(ipHash) ?? 0;
 
       if (current >= maxConnectionsPerIp) {
@@ -141,7 +140,7 @@ export function createSocketServer(
 
     // First, so the slot reserved in the middleware is always given back.
     socket.on("disconnect", () => {
-      if (!connectionCapEnabled) return;
+      if (maxConnectionsPerIp === undefined) return;
 
       const remaining = (connectionsPerIp.get(data.ipHash) ?? 1) - 1;
       if (remaining > 0) connectionsPerIp.set(data.ipHash, remaining);

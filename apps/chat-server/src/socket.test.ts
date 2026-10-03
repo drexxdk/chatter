@@ -542,8 +542,9 @@ describe("connections per IP", () => {
     expect(isBanned).not.toHaveBeenCalledWith(hashIdentifier("203.0.113.9"));
   });
 
-  it("applies no cap when it is set to 0", async () => {
-    const { port } = await startServer({ maxConnectionsPerIp: 0 });
+  it("applies no cap when none is configured", async () => {
+    // Nothing is passed and MAX_CONNECTIONS_PER_IP is unset, so every connection is accepted.
+    const { port } = await startServer();
 
     for (const name of ["One", "Two", "Three", "Four"]) {
       await connectGuest(name, port);
