@@ -28,6 +28,10 @@ Connect with `io(url, { auth: { nickname } })`. Nicknames are 2-24 characters (l
 | server to room   | `room:presence` | `{ roomSlug, members: [{ guestId, nickname }] }`    | Sent on join, leave and disconnect.                                                                                                 |
 | server to room   | `message:new`   | `{ id, roomSlug, guestId, nickname, text, sentAt }` | Messages are relayed only, not stored.                                                                                              |
 
+## Tests
+
+`npm test --workspace apps/chat-server` (or `npm run test:chat-server` from the repo root) runs the Vitest suite. It needs no Docker, Redis or Payload: the socket tests start the real Socket.IO server on a local port and mock only the Redis adapter, the ban cache and the room cache. Add a test next to any behavior you change in `src/`.
+
 ## Status
 
 Handshake guest auth, ban check, room join/leave with `maxMembers` enforcement, presence and rate-limited messaging are implemented. Not yet implemented: inactivity timeouts, message history, and an atomic room-capacity check (simultaneous joins can briefly exceed `maxMembers`).
