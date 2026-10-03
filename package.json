@@ -16,9 +16,11 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "audit": "audit-ci --config audit-ci.jsonc"
   },
   "devDependencies": {
+    "audit-ci": "^7.1.0",
     "prettier": "^3.4.2"
   },
   "engines": {

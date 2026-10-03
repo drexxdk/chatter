@@ -1,0 +1,13 @@
+{
+  // Production dependencies only: dev tooling is never shipped.
+  "skip-dev": true,
+  "high": true,
+  "package-manager": "npm",
+  "show-not-found": true,
+  "allowlist": [
+    // braces <=3.0.3 stack exhaustion, pulled in by Payload's sass/chokidar. No patched release exists (3.0.3 is the
+    // latest) and npm's suggested fix is a downgrade of @payloadcms/richtext-lexical. It only matters when braces
+    // expands untrusted patterns, which sass's file watcher does not. Remove this once braces publishes a fix.
+    "GHSA-vfj7-8cjw-p6xm",
+  ],
+}
