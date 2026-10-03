@@ -1,0 +1,45 @@
+{
+  "app": { "title": "Chatter" },
+  "language": { "label": "Language" },
+  "lobby": {
+    "heading": "Public rooms",
+    "intro": "Pick a room to start chatting. No account needed.",
+    "loading": "Loading rooms…",
+    "loadError": "Could not load the rooms.",
+    "retry": "Try again",
+    "empty": "No rooms are available yet.",
+    "capacity": "Up to {{count}} people",
+    "join": "Join {{name}}"
+  },
+  "nickname": {
+    "title": "Choose a nickname",
+    "label": "Nickname",
+    "hint": "2–24 letters, numbers, spaces, or _ . -",
+    "submit": "Continue",
+    "connecting": "Connecting…",
+    "cancel": "Cancel"
+  },
+  "room": {
+    "leave": "Leave room",
+    "chattingAs": "Chatting as {{nickname}}",
+    "members": "In this room ({{count}})",
+    "you": "you",
+    "empty": "No messages yet. Say hello!",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Write a message",
+    "send": "Send"
+  },
+  "errors": {
+    "invalid_nickname": "That nickname isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",
+    "banned": "You are banned from this chat.",
+    "unavailable": "The chat is temporarily unavailable. Please try again shortly.",
+    "connection": "Could not reach the chat server.",
+    "room_full": "This room is full.",
+    "room_not_found": "That room no longer exists.",
+    "rate_limited": "You're sending messages too fast. Slow down a little.",
+    "invalid_message": "That message can't be sent.",
+    "not_in_room": "Join a room first.",
+    "inactivity": "You were disconnected for being inactive.",
+    "unknown": "Something went wrong."
+  }
+}

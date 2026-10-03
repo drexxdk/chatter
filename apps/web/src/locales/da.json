@@ -1,0 +1,45 @@
+{
+  "app": { "title": "Chatter" },
+  "language": { "label": "Sprog" },
+  "lobby": {
+    "heading": "Offentlige rum",
+    "intro": "Vælg et rum for at komme i gang. Du behøver ikke en konto.",
+    "loading": "Henter rum…",
+    "loadError": "Rummene kunne ikke hentes.",
+    "retry": "Prøv igen",
+    "empty": "Der er ingen rum endnu.",
+    "capacity": "Op til {{count}} personer",
+    "join": "Deltag i {{name}}"
+  },
+  "nickname": {
+    "title": "Vælg et kaldenavn",
+    "label": "Kaldenavn",
+    "hint": "2–24 bogstaver, tal, mellemrum eller _ . -",
+    "submit": "Fortsæt",
+    "connecting": "Forbinder…",
+    "cancel": "Annuller"
+  },
+  "room": {
+    "leave": "Forlad rum",
+    "chattingAs": "Du chatter som {{nickname}}",
+    "members": "I dette rum ({{count}})",
+    "you": "dig",
+    "empty": "Ingen beskeder endnu. Sig hej!",
+    "messageLabel": "Besked",
+    "messagePlaceholder": "Skriv en besked",
+    "send": "Send"
+  },
+  "errors": {
+    "invalid_nickname": "Det kaldenavn er ikke tilladt. Brug 2–24 bogstaver, tal, mellemrum eller _ . -",
+    "banned": "Du er udelukket fra denne chat.",
+    "unavailable": "Chatten er midlertidigt utilgængelig. Prøv igen om lidt.",
+    "connection": "Kunne ikke få forbindelse til chatserveren.",
+    "room_full": "Dette rum er fuldt.",
+    "room_not_found": "Det rum findes ikke længere.",
+    "rate_limited": "Du sender beskeder for hurtigt. Tag det lidt roligere.",
+    "invalid_message": "Den besked kan ikke sendes.",
+    "not_in_room": "Deltag i et rum først.",
+    "inactivity": "Du blev koblet fra på grund af inaktivitet.",
+    "unknown": "Noget gik galt."
+  }
+}

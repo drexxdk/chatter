@@ -1,0 +1,45 @@
+{
+  "app": { "title": "Chatter" },
+  "language": { "label": "Sprache" },
+  "lobby": {
+    "heading": "Öffentliche Räume",
+    "intro": "Wähle einen Raum und leg los. Ein Konto ist nicht nötig.",
+    "loading": "Räume werden geladen…",
+    "loadError": "Die Räume konnten nicht geladen werden.",
+    "retry": "Erneut versuchen",
+    "empty": "Es gibt noch keine Räume.",
+    "capacity": "Bis zu {{count}} Personen",
+    "join": "{{name}} beitreten"
+  },
+  "nickname": {
+    "title": "Wähle einen Spitznamen",
+    "label": "Spitzname",
+    "hint": "2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",
+    "submit": "Weiter",
+    "connecting": "Verbinde…",
+    "cancel": "Abbrechen"
+  },
+  "room": {
+    "leave": "Raum verlassen",
+    "chattingAs": "Du chattest als {{nickname}}",
+    "members": "In diesem Raum ({{count}})",
+    "you": "du",
+    "empty": "Noch keine Nachrichten. Sag Hallo!",
+    "messageLabel": "Nachricht",
+    "messagePlaceholder": "Nachricht schreiben",
+    "send": "Senden"
+  },
+  "errors": {
+    "invalid_nickname": "Dieser Spitzname ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",
+    "banned": "Du wurdest aus diesem Chat gesperrt.",
+    "unavailable": "Der Chat ist vorübergehend nicht verfügbar. Bitte versuche es gleich noch einmal.",
+    "connection": "Der Chat-Server ist nicht erreichbar.",
+    "room_full": "Dieser Raum ist voll.",
+    "room_not_found": "Dieser Raum existiert nicht mehr.",
+    "rate_limited": "Du sendest Nachrichten zu schnell. Bitte etwas langsamer.",
+    "invalid_message": "Diese Nachricht kann nicht gesendet werden.",
+    "not_in_room": "Tritt zuerst einem Raum bei.",
+    "inactivity": "Du wurdest wegen Inaktivität getrennt.",
+    "unknown": "Etwas ist schiefgelaufen."
+  }
+}

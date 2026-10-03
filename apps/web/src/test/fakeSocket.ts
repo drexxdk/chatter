@@ -1,0 +1,90 @@
+import { vi } from "vitest";
+
+import type { ChatSocket, CreateSocket } from "../chat/socket";
+
+type Handler = (...args: any[]) => void;
+type AckResponder = (payload: any) => unknown;
+
+// Stands in for the Socket.IO client and replays the chat-server protocol documented in apps/chat-server/README.md.
+export class FakeSocket implements ChatSocket {
+  private handlers = new Map<string, Handler[]>();
+  emitted: { event: string; payload: unknown }[] = [];
+  disconnected = false;
+
+  // Override per test to simulate server-side rejections.
+  acks: Record<string, AckResponder> = {
+    "room:join": () => ({ ok: true }),
+    "room:leave": () => ({ ok: true }),
+    "message:send": () => ({ ok: true }),
+  };
+
+  constructor(
+    readonly nickname: string,
+    handshakeError?: string,
+  ) {
+    queueMicrotask(() => {
+      if (handshakeError) this.serverEmit("connect_error", new Error(handshakeError));
+      else this.serverEmit("session", { guestId: "guest-me", nickname });
+    });
+  }
+
+  on(event: string, handler: Handler) {
+    this.handlers.set(event, [...(this.handlers.get(event) ?? []), handler]);
+  }
+
+  emit(event: string, payload?: unknown, ack?: (response: unknown) => void) {
+    this.emitted.push({ event, payload });
+
+    if (typeof ack !== "function") return;
+
+    queueMicrotask(() => {
+      const response: { ok?: boolean } = this.acks[event]?.(payload) ?? { ok: true };
+
+      // The real server broadcasts presence before it acknowledges a successful join.
+      if (event === "room:join" && response.ok) {
+        this.serverEmit("room:presence", {
+          roomSlug: (payload as { slug: string }).slug,
+          members: [{ guestId: "guest-me", nickname: this.nickname }],
+        });
+      }
+
+      ack(response);
+    });
+  }
+
+  disconnect() {
+    if (this.disconnected) return;
+    this.disconnected = true;
+    this.serverEmit("disconnect", "io client disconnect");
+  }
+
+  serverEmit(event: string, ...args: unknown[]) {
+    this.handlers.get(event)?.forEach((handler) => handler(...args));
+  }
+
+  emittedEvents(event: string) {
+    return this.emitted.filter((entry) => entry.event === event).map((entry) => entry.payload);
+  }
+}
+
+export function makeFakeServer(options: { handshakeError?: string } = {}) {
+  const sockets: FakeSocket[] = [];
+  // Applied to every socket created, e.g. { "room:join": () => ({ ok: false, error: "room_full" }) }.
+  const acks: Record<string, AckResponder> = {};
+
+  const createSocket = vi.fn<CreateSocket>((nickname) => {
+    const socket = new FakeSocket(nickname, options.handshakeError);
+    Object.assign(socket.acks, acks);
+    sockets.push(socket);
+    return socket;
+  });
+
+  return {
+    acks,
+    sockets,
+    get latest() {
+      return sockets[sockets.length - 1];
+    },
+    createSocket,
+  };
+}

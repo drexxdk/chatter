@@ -37,11 +37,15 @@ Last updated: 2026-10-03
   - Added inactivity handling (guests silent for `INACTIVITY_TIMEOUT_MS`, default 15 min, `0` disables, get a `kicked` event and are disconnected so their seat frees up) and made joins atomic per room within one process (in-memory per-room lock). Both were written test-first: the new tests failed against the old code, then passed. The race test needed the mocked adapter to return `fetchSockets` snapshots late (like the real Redis round trip); with an instant in-memory adapter the bug was invisible.
   - Seed script now also creates the `chat-server@chatter.local` `service` admin with an API key (printed once; goes into `apps/chat-server/.env` as `PAYLOAD_SERVICE_API_KEY`, gitignored).
   - Verified live: server starts, `/health` ok, `/rooms` returns the 5 seeded rooms, both Redis cache keys populated (so the service key can read `/api/bans`).
+- `apps/web` scaffolded (React 19 + Vite 7 + Tailwind 4 + react-i18next, port 5173): lobby listing rooms from chat-server `/rooms`, nickname dialog (client-side validation mirroring the server), chat room with member list, message log, send form, leave, and a language switcher (en/da/de, remembered in localStorage). All socket logic is in `src/chat/useChat.ts`; server error codes are translated under `errors.*`. Messages render as text only.
+  - 36 Vitest + Testing Library tests (`npm run test:web`) run the real UI against a fake Socket.IO server that replays the real protocol (`src/test/fakeSocket.ts`). `locales.test.ts` keeps the three locale files in sync (same keys, same placeholders, every server error code translated). Checked they fail when behavior breaks by temporarily injecting two bugs.
+  - Verified in a real browser against the real chat-server and Payload: lobby loads (CORS ok), join flow works, a second real guest's message arrives with its HTML shown as literal text. That run found a bug the fake server hid: the server broadcasts `room:presence` before acknowledging a join, so the client dropped it and showed an empty member list. Fixed in `useChat.joinRoom` with a regression test, and the fake now follows the real event order.
+  - Test setup works around Node 26's experimental `localStorage` global shadowing jsdom's (`src/test/setup.ts`); browsers are unaffected.
 
 ### Not yet done
 
 - `apps/chat-server` socket logic still missing: message history/persistence, capacity enforcement across multiple nodes (joins are serialized per room by an in-process lock; a Redis-side counter is needed before running more than one instance), and `X-Forwarded-For` handling for the ban IP when deployed behind a proxy (currently uses the raw socket address, which is the safe default).
-- `apps/web` (React + Vite + Tailwind + i18n chat frontend) — not created yet.
+- `apps/web` gaps: no reconnection handling (a dropped connection returns the guest to the lobby), no typing/unread indicators, no mobile-specific layout work beyond Tailwind defaults, no automated end-to-end test against the real servers (only the manual browser check above), and the web tests don't run in any CI yet.
 - No tests for the Redis-backed sync jobs (`rooms.ts`, `payloadClient.ts`) or the HTTP routes yet; the socket tests mock those layers.
 - No project-specific tests added beyond fixing the template's existing Vitest/Playwright scaffolding to match the real collections.
 - ~~Login at `/admin` UI not manually verified in a browser yet~~ — confirmed working by user.
@@ -54,8 +58,9 @@ Last updated: 2026-10-03
 
 ## Next Steps (in order)
 
-1. Scaffold `apps/web`: Vite + React + TS + Tailwind + react-i18next (en/da/de locale files), lobby + guest-join modal.
-2. Continue through remaining plan phases (frontend features, message history if wanted, security hardening pass).
+1. Playwright end-to-end test for `apps/web` against the real chat-server (guest joins, second guest chats, ban blocks connect) so the manual browser check becomes permanent.
+2. Add a shared Prettier config at the repo root so editors stop reformatting `apps/chat-server` and `apps/web` after each commit.
+3. Continue through remaining plan phases (frontend polish, message history if wanted, security hardening pass, CI).
 
 ## Reference
 
