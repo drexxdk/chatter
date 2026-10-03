@@ -7,7 +7,8 @@ The realtime backend end-users connect to. Built with Express + Socket.IO, backe
 - Serves the Socket.IO endpoint the chat client (`apps/web`) connects to.
 - Authenticates to `apps/admin` (Payload) as a `service`-role account using an API key, and periodically syncs public room configs and the ban list into Redis so socket handshakes never block on an upstream HTTP call.
 - `GET /health` — liveness check.
-- `GET /rooms` — cached public room list (mirrors Payload's `/api/public-rooms`).
+- `GET /rooms` — cached public room list (mirrors Payload's `/api/public-rooms`, but only `id`, `name`, `slug`, `maxMembers` and `description`). Limited to 60 requests per minute per client IP: over that it answers `429 { "error": "rate_limited" }` with a `Retry-After` header, and every answer carries a `RateLimit` header with the remaining allowance. Counted per server process, like the per-IP connection cap, and the client IP follows `TRUST_PROXY_HOPS`.
+- All HTTP answers carry the standard security headers (Helmet). The Socket.IO endpoint is served by the same HTTP server but is not an Express route, so it does not get them.
 
 ## Local setup
 
