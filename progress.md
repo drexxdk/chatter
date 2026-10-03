@@ -21,6 +21,7 @@ Last updated: 2026-10-03
   - `npm run seed --workspace apps/admin` creates the first super-admin.
   - `GET /api/public-rooms` unauthenticated → 200 (public read confirmed).
   - `GET /api/bans` unauthenticated → 403 (locked down as intended).
+- Security: resolved `npm audit` findings (22 → 9, all remaining are a single unpatched advisory). Bumped `next` to `16.3.8` (fixes a critical RCE in `next/og`) and `vitest` to `4.1.11` in `apps/admin/package.json`. Added root-level `overrides` in `package.json` (`esbuild@^0.25.0`, `undici@^7.30.0`, `dompurify@^3.4.16`, `braces@^3.0.3`) to force patched versions of transitive deps pulled in by `drizzle-kit`/`payload`/`monaco-editor`. Remaining `braces` advisory (GHSA-vfj7-8cjw-p6xm) has no upstream fix yet (affects all versions including latest 3.0.3) — pulled in transitively via `sass`'s dev-only file watcher inside `@payloadcms/next`; not reachable by user input in this app, accepted as a known gap until upstream patches. Verified admin app still boots and serves correctly after all version bumps.
 
 ### Not yet done
 
