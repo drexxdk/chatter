@@ -28,6 +28,9 @@ function hashIdentifier(ip: string) {
     .digest("hex");
 }
 
+// A wedged admin dev server accepts connections but never answers; fail with a message instead of hanging.
+const REQUEST_TIMEOUT_MS = 30_000;
+
 export class PayloadApi {
   private token = "";
 
@@ -36,6 +39,7 @@ export class PayloadApi {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(adminCredentials()),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok)
@@ -45,6 +49,7 @@ export class PayloadApi {
 
   private async request(path: string, init: RequestInit = {}) {
     const response = await fetch(`${E2E.payloadUrl}/api/${path}`, {
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       ...init,
       headers: {
         "Content-Type": "application/json",

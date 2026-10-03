@@ -12,6 +12,8 @@ export default defineConfig({
       MAX_CONNECTIONS_PER_IP: "",
       TRUST_PROXY_HOPS: "0",
       INACTIVITY_TIMEOUT_MS: "900000",
+      ROOM_HISTORY_SIZE: "50",
+      ROOM_HISTORY_TTL_SECONDS: "3600",
     },
   },
 });

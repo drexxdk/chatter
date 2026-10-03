@@ -27,7 +27,7 @@ export interface ChatMessage {
 
 export type ChatStatus = "idle" | "connecting" | "connected" | "reconnecting";
 
-type Ack = { ok: true } | { ok: false; error: string };
+type Ack = { ok: true; history?: unknown } | { ok: false; error: string };
 type DropHandler = (reason: string) => void;
 
 const MAX_MESSAGES = 200;
@@ -47,6 +47,39 @@ const DELIBERATE_DISCONNECTS = new Set([
   "io client disconnect",
   "io server disconnect",
 ]);
+
+function isChatMessage(value: unknown): value is ChatMessage {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    ["id", "roomSlug", "guestId", "nickname", "text", "sentAt"] as const
+  ).every((field) => typeof candidate[field] === "string");
+}
+
+// The server's remembered messages for the room, merged into what is already on screen. The same message can arrive
+// both live and in the history, so ids decide what is new; timestamps keep the whole list in the order it was sent.
+function mergeHistory(
+  existing: ChatMessage[],
+  history: unknown,
+  roomSlug: string,
+): ChatMessage[] {
+  if (!Array.isArray(history)) return existing;
+
+  const known = new Set(existing.map((message) => message.id));
+  const added = history.filter(
+    (message): message is ChatMessage =>
+      isChatMessage(message) &&
+      message.roomSlug === roomSlug &&
+      !known.has(message.id),
+  );
+
+  if (added.length === 0) return existing;
+
+  return [...existing, ...added]
+    .sort((a, b) => (a.sentAt < b.sentAt ? -1 : a.sentAt > b.sentAt ? 1 : 0))
+    .slice(-MAX_MESSAGES);
+}
 
 export function useChat(
   createSocket: CreateSocket = defaultCreateSocket,
@@ -208,6 +241,10 @@ export function useChat(
           if (!ack.ok) {
             resetRoom();
             setError(ack.error);
+          } else {
+            setMessages((existing) =>
+              mergeHistory(existing, ack.history, slug),
+            );
           }
           return;
         }
@@ -276,7 +313,11 @@ export function useChat(
       }
 
       setMessages((existing) =>
-        existing.filter((message) => message.roomSlug === slug),
+        mergeHistory(
+          existing.filter((message) => message.roomSlug === slug),
+          ack.history,
+          slug,
+        ),
       );
       setRoomSlug(slug);
       return true;

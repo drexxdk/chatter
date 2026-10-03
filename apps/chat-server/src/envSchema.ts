@@ -78,6 +78,12 @@ export const envSchema = z.object({
   ),
   INACTIVITY_TIMEOUT_MS: setting(positive(defaultOf(900_000)).default(900_000)),
   SYNC_INTERVAL_MS: setting(positive(defaultOf(30_000)).default(30_000)),
+  ROOM_HISTORY_SIZE: setting(
+    wholeNumber("from 1 to 200", 1, 200, defaultOf(50)).default(50),
+  ),
+  ROOM_HISTORY_TTL_SECONDS: setting(
+    wholeNumber("from 1 to 604800", 1, 604_800, defaultOf(3600)).default(3600),
+  ),
   SOCKET_ADAPTER_KEY: setting(z.string().default("socket.io")),
   // Unset means no cap.
   MAX_CONNECTIONS_PER_IP: setting(positive("for no limit").optional()),

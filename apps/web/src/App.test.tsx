@@ -58,6 +58,10 @@ async function joinRoom(
   await user.click(screen.getByRole("button", { name: "Continue" }));
 }
 
+// A fixed clock for messages whose order matters.
+const at = (second: number) =>
+  new Date(Date.UTC(2026, 9, 3, 12, 0, second)).toISOString();
+
 function message(overrides: Partial<Record<string, string>> = {}) {
   return {
     id: crypto.randomUUID(),
@@ -403,6 +407,103 @@ describe("inside a room", () => {
   });
 });
 
+describe("message history", () => {
+  const shown = () =>
+    within(screen.getByRole("log"))
+      .queryAllByText(/^(earlier|between|later|elsewhere)/)
+      .map((node) => node.textContent);
+
+  async function joinWithHistory(history: unknown, live: unknown[] = []) {
+    const server = makeFakeServer();
+    server.acks["room:join"] = () => {
+      // The server delivers live messages before it acknowledges the join.
+      live.forEach((m) => server.latest.serverEmit("message:new", m));
+      return { ok: true, history };
+    };
+    const result = setup(server);
+    await joinRoom(result.user);
+    await screen.findByText("Chatting as Alice");
+    return result;
+  }
+
+  it("shows the room's earlier messages to a guest who joins", async () => {
+    await joinWithHistory([
+      message({ text: "earlier one", sentAt: at(1) }),
+      message({ text: "earlier two", sentAt: at(2) }),
+    ]);
+
+    expect(shown()).toEqual(["earlier one", "earlier two"]);
+  });
+
+  it("shows a message once when it is both in the history and delivered live", async () => {
+    const duplicate = message({ text: "earlier one", sentAt: at(1) });
+
+    await joinWithHistory([duplicate], [duplicate]);
+
+    expect(shown()).toEqual(["earlier one"]);
+  });
+
+  it("puts history and live messages in the order they were sent", async () => {
+    await joinWithHistory(
+      [
+        message({ text: "earlier one", sentAt: at(1) }),
+        message({ text: "later one", sentAt: at(3) }),
+      ],
+      [message({ text: "between them", sentAt: at(2) })],
+    );
+
+    expect(shown()).toEqual(["earlier one", "between them", "later one"]);
+  });
+
+  it("keeps messages that arrive after joining at the end", async () => {
+    const { server } = await joinWithHistory([
+      message({ text: "earlier one", sentAt: at(1) }),
+    ]);
+
+    act(() =>
+      server.latest.serverEmit(
+        "message:new",
+        message({ text: "later one", sentAt: new Date().toISOString() }),
+      ),
+    );
+
+    expect(shown()).toEqual(["earlier one", "later one"]);
+  });
+
+  it("ignores history entries that belong to another room", async () => {
+    await joinWithHistory([
+      message({ text: "earlier one", sentAt: at(1) }),
+      message({ roomSlug: "music", text: "elsewhere", sentAt: at(2) }),
+    ]);
+
+    expect(shown()).toEqual(["earlier one"]);
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["not a list", "oops"],
+    ["null", null],
+  ])("copes with a history that is %s", async (_label, history) => {
+    await joinWithHistory(history);
+
+    expect(shown()).toEqual([]);
+    expect(screen.getByLabelText("Message")).toBeEnabled();
+  });
+
+  it("leaves a room's history behind when moving to another room", async () => {
+    const { user } = await joinWithHistory([
+      message({ text: "earlier one", sentAt: at(1) }),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Leave room" }));
+    await screen.findByRole("heading", { name: "Public rooms" });
+    await user.click(screen.getByRole("button", { name: "Join Music" }));
+    await screen.findByRole("heading", { name: "Music", level: 2 });
+
+    expect(shown()).toEqual([]);
+  });
+});
+
 describe("losing the connection", () => {
   const DROP = "transport close";
 
@@ -476,6 +577,26 @@ describe("losing the connection", () => {
 
     expect(server.latest.guestId).toBe("guest-me-2");
     expect(author()).toHaveClass("text-indigo-300");
+  });
+
+  it("fills in the messages missed while disconnected, without repeating the ones already shown", async () => {
+    const { server } = await enterRoom();
+    const seen = message({ text: "already seen", sentAt: at(1) });
+    const missed = message({ text: "sent while away", sentAt: at(2) });
+    act(() => server.latest.serverEmit("message:new", seen));
+
+    // The server's history on the rejoin holds both: the one shown before the drop and the one sent during it.
+    server.acks["room:join"] = () => ({ ok: true, history: [seen, missed] });
+    dropConnection(server);
+    await waitFor(() => expect(server.createSocket).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.queryByRole("status")).not.toBeInTheDocument(),
+    );
+
+    const texts = within(screen.getByRole("log"))
+      .getAllByText(/already seen|sent while away/)
+      .map((node) => node.textContent);
+    expect(texts).toEqual(["already seen", "sent while away"]);
   });
 
   it("can send again after reconnecting", async () => {

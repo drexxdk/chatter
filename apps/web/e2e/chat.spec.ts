@@ -155,6 +155,61 @@ test("a guest whose connection drops is reconnected to the same room", async ({
   await expect(bob.getByRole("log")).toContainText("I'm back");
 });
 
+test("a guest who joins later sees what was said earlier in the room", async ({
+  browser,
+}) => {
+  // The room's history outlives a test, so the message is made unique to this run.
+  const earlier = `said before you arrived ${Date.now()}`;
+  const alice = await newGuest(browser);
+  const bob = await newGuest(browser);
+
+  await enterRoom(alice, LOUNGE.name, "Alice");
+  await send(alice, earlier);
+  await expect(alice.getByRole("log")).toContainText(earlier);
+
+  await enterRoom(bob, LOUNGE.name, "Bob");
+
+  await expect(bob.getByRole("log")).toContainText(earlier);
+  await expect(bob.getByRole("log").getByText(earlier)).toHaveCount(1);
+});
+
+test("messages sent while a guest was disconnected appear once they reconnect", async ({
+  browser,
+}) => {
+  const whileAway = `sent while you were away ${Date.now()}`;
+  const alice = await newGuest(browser);
+  const bob = await newGuest(browser);
+
+  const connections: { close: () => Promise<void> }[] = [];
+  await alice.routeWebSocket(/socket\.io/, (ws) => {
+    const server = ws.connectToServer();
+    connections.push({
+      close: async () => {
+        await ws.close();
+        await server.close();
+      },
+    });
+  });
+
+  await enterRoom(alice, LOUNGE.name, "Alice");
+  await enterRoom(bob, LOUNGE.name, "Bob");
+  await expect(
+    alice.getByRole("heading", { name: "In this room (2)" }),
+  ).toBeVisible();
+
+  await connections[0].close();
+  await expect(alice.getByRole("status")).toHaveText(
+    "Connection lost. Reconnecting…",
+  );
+
+  // Alice's first reconnect attempt waits a second, so this is sent while she is away.
+  await send(bob, whileAway);
+
+  await expect(alice.getByRole("status")).toHaveCount(0);
+  await expect(alice.getByRole("log")).toContainText(whileAway);
+  await expect(alice.getByRole("log").getByText(whileAway)).toHaveCount(1);
+});
+
 test("a full room turns the next guest away", async ({ browser }) => {
   const alice = await newGuest(browser);
   const bob = await newGuest(browser);

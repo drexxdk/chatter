@@ -5,6 +5,7 @@ import { createAdapter } from "@socket.io/redis-adapter";
 
 import { isBanned } from "./bans.js";
 import { env } from "./env.js";
+import { getHistory, recordMessage } from "./history.js";
 import { hashIdentifier, getClientIp, validateNickname } from "./identity.js";
 import { pubClient, subClient } from "./redis.js";
 import { getCachedPublicRooms } from "./rooms.js";
@@ -209,7 +210,14 @@ export function createSocketServer(
         await emitPresence(slug);
       }
 
-      reply({ ok: true, roomSlug: slug });
+      // Read after joining, so a message sent in between is in the history, delivered live, or both (the client
+      // removes the duplicate by id), but never neither.
+      const history = await getHistory(slug).catch((error) => {
+        console.error("Failed to read room history:", error);
+        return [];
+      });
+
+      reply({ ok: true, roomSlug: slug, history });
     });
 
     socket.on("room:leave", async (_payload: unknown, ack?: Ack) => {
@@ -217,7 +225,7 @@ export function createSocketServer(
       if (typeof ack === "function") ack({ ok: true });
     });
 
-    socket.on("message:send", (payload: unknown, ack?: Ack) => {
+    socket.on("message:send", async (payload: unknown, ack?: Ack) => {
       const reply: Ack = typeof ack === "function" ? ack : () => {};
       const text = stringField(payload, "text").trim();
 
@@ -240,14 +248,24 @@ export function createSocketServer(
 
       data.recentMessageTimes.push(now);
 
-      io.to(roomKey(data.roomSlug)).emit("message:new", {
+      const message = {
         id: crypto.randomUUID(),
         roomSlug: data.roomSlug,
         guestId: data.guestId,
         nickname: data.nickname,
         text,
         sentAt: new Date(now).toISOString(),
-      });
+      };
+
+      // Recorded before it is delivered, so whatever a guest has seen live is also in the history a later joiner
+      // reads. A Redis failure costs the history entry, not the message.
+      try {
+        await recordMessage(message);
+      } catch (error) {
+        console.error("Failed to record message:", error);
+      }
+
+      io.to(roomKey(message.roomSlug)).emit("message:new", message);
 
       reply({ ok: true });
     });

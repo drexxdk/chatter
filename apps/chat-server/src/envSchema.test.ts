@@ -21,6 +21,8 @@ describe("parseEnv defaults", () => {
       INACTIVITY_TIMEOUT_MS: 900_000,
       SYNC_INTERVAL_MS: 30_000,
       SOCKET_ADAPTER_KEY: "socket.io",
+      ROOM_HISTORY_SIZE: 50,
+      ROOM_HISTORY_TTL_SECONDS: 3600,
       MAX_CONNECTIONS_PER_IP: undefined,
       TRUST_PROXY_HOPS: 0,
     });
@@ -61,6 +63,8 @@ describe("parseEnv numbers", () => {
       INACTIVITY_TIMEOUT_MS: "5000",
       MAX_CONNECTIONS_PER_IP: "10",
       TRUST_PROXY_HOPS: "2",
+      ROOM_HISTORY_SIZE: "200",
+      ROOM_HISTORY_TTL_SECONDS: "86400",
     });
 
     expect(env).toMatchObject({
@@ -68,6 +72,8 @@ describe("parseEnv numbers", () => {
       SYNC_INTERVAL_MS: 1,
       INACTIVITY_TIMEOUT_MS: 5000,
       MAX_CONNECTIONS_PER_IP: 10,
+      ROOM_HISTORY_SIZE: 200,
+      ROOM_HISTORY_TTL_SECONDS: 86_400,
       TRUST_PROXY_HOPS: 2,
     });
   });
@@ -86,6 +92,13 @@ describe("parseEnv numbers", () => {
     ["INACTIVITY_TIMEOUT_MS", "15m", /1 or more/],
     ["INACTIVITY_TIMEOUT_MS", "never", /1 or more/],
     ["SYNC_INTERVAL_MS", "0", /1 or more.*default of 30000/],
+    ["ROOM_HISTORY_SIZE", "0", /from 1 to 200.*default of 50/],
+    ["ROOM_HISTORY_SIZE", "fifty", /from 1 to 200/],
+    // The web client keeps at most 200 messages, so a longer history would only waste Redis memory.
+    ["ROOM_HISTORY_SIZE", "201", /from 1 to 200/],
+    ["ROOM_HISTORY_TTL_SECONDS", "0", /from 1 to 604800.*default of 3600/],
+    ["ROOM_HISTORY_TTL_SECONDS", "1h", /from 1 to 604800/],
+    ["ROOM_HISTORY_TTL_SECONDS", "604801", /from 1 to 604800/],
     ["SYNC_INTERVAL_MS", "30s", /1 or more/],
     ["MAX_CONNECTIONS_PER_IP", "0", /1 or more.*no limit/],
     ["MAX_CONNECTIONS_PER_IP", "10 per ip", /1 or more/],

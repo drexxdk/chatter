@@ -13,14 +13,18 @@ import {
   vi,
 } from "vitest";
 
-const { isBanned, getCachedPublicRooms } = vi.hoisted(() => ({
-  isBanned: vi.fn(),
-  getCachedPublicRooms: vi.fn(),
-}));
+const { isBanned, getCachedPublicRooms, recordMessage, getHistory } =
+  vi.hoisted(() => ({
+    isBanned: vi.fn(),
+    getCachedPublicRooms: vi.fn(),
+    recordMessage: vi.fn(),
+    getHistory: vi.fn(),
+  }));
 
 vi.mock("./redis.js", () => ({ pubClient: {}, subClient: {} }));
 vi.mock("./bans.js", () => ({ isBanned }));
 vi.mock("./rooms.js", () => ({ getCachedPublicRooms }));
+vi.mock("./history.js", () => ({ recordMessage, getHistory }));
 // In-memory adapter standing in for Redis. fetchSockets is delayed because the real adapter does a
 // network round trip there, which is what lets simultaneous joins interleave.
 vi.mock("@socket.io/redis-adapter", async () => {
@@ -150,9 +154,12 @@ afterAll(async () => {
 beforeEach(() => {
   isBanned.mockReset().mockResolvedValue(false);
   getCachedPublicRooms.mockReset().mockResolvedValue(ROOMS);
+  recordMessage.mockReset().mockResolvedValue(undefined);
+  getHistory.mockReset().mockResolvedValue([]);
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   clients.forEach((socket) => socket.disconnect());
   clients = [];
   // Otherwise members left over from one test show up in the next test's presence lists.
@@ -218,6 +225,7 @@ describe("rooms", () => {
     expect(await emit(alice, "room:join", { slug: "general" })).toEqual({
       ok: true,
       roomSlug: "general",
+      history: [],
     });
 
     const bothPresent = waitFor<Presence>(
@@ -242,6 +250,7 @@ describe("rooms", () => {
     expect(await emit(alice, "room:join", { slug: "tiny" })).toEqual({
       ok: true,
       roomSlug: "tiny",
+      history: [],
     });
   });
 
@@ -438,6 +447,135 @@ describe("messaging", () => {
     expect(
       (await emit(alice, "message:send", { text: "still alive" })).ok,
     ).toBe(true);
+  });
+});
+
+describe("history", () => {
+  const stored = [
+    {
+      id: "old-1",
+      roomSlug: "general",
+      guestId: "guest-x",
+      nickname: "Zed",
+      text: "earlier",
+      sentAt: "2026-10-03T12:00:00.000Z",
+    },
+  ];
+
+  it("hands the room's recent messages to a guest who joins", async () => {
+    getHistory.mockResolvedValue(stored);
+    const alice = await connectGuest("Alice");
+
+    expect(await emit(alice, "room:join", { slug: "general" })).toEqual({
+      ok: true,
+      roomSlug: "general",
+      history: stored,
+    });
+    expect(getHistory).toHaveBeenCalledWith("general");
+  });
+
+  // A message sent while the history is being read is then either in the history or delivered live (or both),
+  // never neither. The client removes the duplicate by id.
+  it("reads the history only after the guest is in the room", async () => {
+    let membersWhenRead = -1;
+    getHistory.mockImplementation(async () => {
+      membersWhenRead = (await ioServer.in("room:general").fetchSockets())
+        .length;
+      return [];
+    });
+    const alice = await connectGuest("Alice");
+
+    await emit(alice, "room:join", { slug: "general" });
+
+    expect(membersWhenRead).toBe(1);
+  });
+
+  it("does not hand out history when the join is refused", async () => {
+    const alice = await connectGuest("Alice");
+    const bob = await connectGuest("Bob");
+    await emit(alice, "room:join", { slug: "tiny" });
+
+    expect(await emit(bob, "room:join", { slug: "tiny" })).toEqual({
+      ok: false,
+      error: "room_full",
+    });
+    expect(await emit(bob, "room:join", { slug: "nope" })).toMatchObject({
+      ok: false,
+    });
+    // Alice's own join read it once; the two refusals must not have.
+    expect(getHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it("still lets a guest join when the history cannot be read", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    getHistory.mockRejectedValue(new Error("redis down"));
+    const alice = await connectGuest("Alice");
+
+    expect(await emit(alice, "room:join", { slug: "general" })).toEqual({
+      ok: true,
+      roomSlug: "general",
+      history: [],
+    });
+  });
+
+  it("records each message that is sent, as it was broadcast", async () => {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    const delivered = waitFor<Record<string, unknown>>(alice, "message:new");
+    await emit(alice, "message:send", { text: "  hello  " });
+
+    expect(recordMessage).toHaveBeenCalledTimes(1);
+    expect(recordMessage).toHaveBeenCalledWith(await delivered);
+  });
+
+  // Anything a guest has seen live must also be in the history a later joiner reads.
+  it("records a message before delivering it", async () => {
+    let finishRecording!: () => void;
+    recordMessage.mockReturnValue(
+      new Promise<void>((resolve) => (finishRecording = resolve)),
+    );
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    const received = vi.fn();
+    alice.on("message:new", received);
+    const acked = emit(alice, "message:send", { text: "hello" });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(received).not.toHaveBeenCalled();
+
+    finishRecording();
+    expect((await acked).ok).toBe(true);
+    await vi.waitFor(() => expect(received).toHaveBeenCalledTimes(1));
+  });
+
+  it("still delivers a message when it cannot be recorded", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    recordMessage.mockRejectedValue(new Error("redis down"));
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    const delivered = waitFor<Record<string, unknown>>(alice, "message:new");
+
+    expect(await emit(alice, "message:send", { text: "hello" })).toEqual({
+      ok: true,
+    });
+    expect(await delivered).toMatchObject({ text: "hello" });
+  });
+
+  it("does not record messages that are refused", async () => {
+    const alice = await connectGuest("Alice");
+
+    await emit(alice, "message:send", { text: "outside a room" });
+    await emit(alice, "room:join", { slug: "general" });
+    await emit(alice, "message:send", { text: "   " });
+    await emit(alice, "message:send", { text: "x".repeat(1001) });
+    for (let i = 0; i < 5; i++)
+      await emit(alice, "message:send", { text: "m" });
+    await emit(alice, "message:send", { text: "rate limited" });
+
+    expect(recordMessage).toHaveBeenCalledTimes(5);
   });
 });
 
