@@ -428,7 +428,9 @@ describe("inactivity", () => {
   it("disconnects an idle guest, says why, and frees their seat", async () => {
     const idle = await connectGuest("Idle", server.port);
     const kicked = waitFor<{ reason: string }>(idle, "kicked");
-    const disconnected = new Promise((resolve) => idle.once("disconnect", resolve));
+    const disconnected = new Promise((resolve) =>
+      idle.once("disconnect", resolve),
+    );
 
     await emit(idle, "room:join", { slug: "tiny" });
 

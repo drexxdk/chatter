@@ -17,5 +17,7 @@ export const env = {
   PAYLOAD_SERVICE_API_KEY: required("PAYLOAD_SERVICE_API_KEY"),
   BAN_HASH_SALT: required("BAN_HASH_SALT"),
   WEB_ORIGIN: process.env.WEB_ORIGIN ?? "http://localhost:5173",
-  INACTIVITY_TIMEOUT_MS: Number(process.env.INACTIVITY_TIMEOUT_MS ?? 15 * 60_000),
+  INACTIVITY_TIMEOUT_MS: Number(
+    process.env.INACTIVITY_TIMEOUT_MS ?? 15 * 60_000,
+  ),
 };
