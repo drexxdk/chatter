@@ -46,13 +46,15 @@ Last updated: 2026-10-03
 - GitHub Actions CI (`.github/workflows/ci.yml`, runs on pushes to `main` and on pull requests, Node 24, read-only token, older runs of the same branch are cancelled):
   - `check` job: `npm ci`, `format:check`, `typecheck` (now includes `apps/admin`, which gained a `typecheck` script), builds of chat-server and web, and both unit suites.
   - `e2e` job: Postgres 16 and Redis 7 service containers, installs Chromium, writes `apps/admin/.env` from throwaway values, seeds the database, extracts the chat-server API key from the seed output into `apps/chat-server/.env`, builds and starts admin, then runs the Playwright suite. Seed output is not printed (it contains the key) unless seeding fails, and then with hex strings redacted. Playwright report, traces and the admin log are uploaded as an artifact on failure.
-  - Verified locally in clean Linux Node 24 containers from fresh clones of the commit, running the exact commands from the workflow (the e2e job's steps were generated from `ci.yml` itself, with Postgres and Redis in throwaway containers): the `check` job passes (81 unit tests) and the e2e job passes (3/3). This also proved the lockfile installs on Linux without any private registry. That check found and fixed one real problem: the first draft printed the API key into the job log. The workflow itself has not yet run on GitHub, so expect small environment differences on the first real run.
+  - Verified locally in clean Linux Node 24 containers from fresh clones of the commit, running the exact commands from the workflow (the e2e job's steps were generated from `ci.yml` itself, with Postgres and Redis in throwaway containers): the `check` job passes (81 unit tests) and the e2e job passes (3/3). This also proved the lockfile installs on Linux without any private registry. That check found and fixed one real problem: the first draft printed the API key into the job log.
+  - First real GitHub run (#1, commit `e812266`): both jobs passed on `ubuntu-latest` (`check` about 1 minute, `e2e` under 2), so the local container checks matched the real runners.
+  - Admin lint is part of the `check` job. The admin ESLint config was migrated from the legacy `FlatCompat` shim (which crashed with "Converting circular structure to JSON") to the flat configs that `eslint-config-next` 16 ships natively (`eslint-config-next/core-web-vitals` and `/typescript`), keeping the existing rule overrides and ignores. Checked that it enforces rules (a planted conditional-hook and `<img>` file produced a `rules-of-hooks` error and Next/a11y warnings) and that it passes from a clean Linux clone. The 3 leftover template warnings in the admin e2e specs were fixed, so lint starts at zero warnings; the admin e2e tests still pass (4/4). Only `apps/admin` has ESLint; chat-server and web do not.
 
 ### Not yet done
 
 - `apps/chat-server` socket logic still missing: message history/persistence, capacity enforcement across multiple nodes (joins are serialized per room by an in-process lock; a Redis-side counter is needed before running more than one instance), and `X-Forwarded-For` handling for the ban IP when deployed behind a proxy (currently uses the raw socket address, which is the safe default).
 - `apps/web` gaps: no reconnection handling (a dropped connection returns the guest to the lobby), no typing/unread indicators, no mobile-specific layout work beyond Tailwind defaults.
-- `apps/admin` lint is broken independent of CI: `npm run lint --workspace apps/admin` crashes inside ESLint with "Converting circular structure to JSON" from the template's `eslint.config.mjs` (a legacy `eslint-config-next` extend under flat config), so lint is not part of CI. Fixing it means migrating that config to the flat format.
+- `apps/chat-server` and `apps/web` have no ESLint setup (type checking and Prettier only).
 - CI has no dependency audit step yet (the 9 known `braces` highs would fail a plain `npm audit`), and no deployment pipeline.
 - No tests for the Redis-backed sync jobs (`rooms.ts`, `payloadClient.ts`) or the HTTP routes yet; the socket tests mock those layers.
 - No project-specific tests added beyond fixing the template's existing Vitest/Playwright scaffolding to match the real collections.
@@ -66,9 +68,7 @@ Last updated: 2026-10-03
 
 ## Next Steps (in order)
 
-1. Push and watch the first real GitHub Actions run; fix any environment differences it reveals.
-2. Fix the admin ESLint config so lint can join CI.
-3. Continue through remaining plan phases (frontend polish such as reconnection handling, message history if wanted, security hardening pass).
+1. Continue through remaining plan phases: frontend polish (reconnection handling first, since a dropped connection currently sends the guest back to the lobby), message history if wanted, and a security hardening pass (including the `X-Forwarded-For` question and a dependency audit step).
 
 ## Reference
 
