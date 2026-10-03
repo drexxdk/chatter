@@ -5,7 +5,7 @@ import { createAdapter } from "@socket.io/redis-adapter";
 
 import { isBanned } from "./bans.js";
 import { env } from "./env.js";
-import { getHistory, recordMessage } from "./history.js";
+import { getHistory, recordMessage, redactMessagesFrom } from "./history.js";
 import { hashIdentifier, getClientIp, validateNickname } from "./identity.js";
 import { pubClient, subClient } from "./redis.js";
 import { getCachedPublicRooms } from "./rooms.js";
@@ -18,6 +18,8 @@ interface SocketData {
   guestId: string;
   nickname: string;
   ipHash: string;
+  // Set when a ban removes the guest, so a message still being recorded at that moment is dropped.
+  banned?: boolean;
   roomSlug?: string;
   recentMessageTimes: number[];
 }
@@ -258,11 +260,21 @@ export function createSocketServer(
       };
 
       // Recorded before it is delivered, so whatever a guest has seen live is also in the history a later joiner
-      // reads. A Redis failure costs the history entry, not the message.
+      // reads. The stored copy also names the sender's IP hash so a later ban can reach it; that never leaves the
+      // server. A Redis failure costs the history entry, not the message.
       try {
-        await recordMessage(message);
+        await recordMessage({ ...message, ipHash: data.ipHash });
       } catch (error) {
         console.error("Failed to record message:", error);
+      }
+
+      // A ban can land while the message is being recorded: it is neither delivered nor left in the history.
+      if (data.banned) {
+        await redactMessagesFrom(message.roomSlug, [data.ipHash]).catch(
+          (error) =>
+            console.error("Failed to replace a banned guest's message:", error),
+        );
+        return reply({ ok: false, error: "banned" });
       }
 
       io.to(roomKey(message.roomSlug)).emit("message:new", message);
@@ -283,4 +295,51 @@ export function createSocketServer(
   });
 
   return io;
+}
+
+// Makes a ban reach what is already in the chat: guests of this node who are banned are disconnected, and their
+// remembered messages are replaced with placeholders that the rest of the room is told about. Every node runs this
+// for its own guests; replacing in Redis is atomic, so whichever node gets there first reports the stored ids.
+export async function enforceBans(
+  io: Server,
+  bannedHashes: string[],
+): Promise<void> {
+  if (bannedHashes.length === 0) return;
+
+  const banned = new Set(bannedHashes);
+  const removedGuestsByRoom = new Map<string, string[]>();
+
+  for (const socket of io.sockets.sockets.values()) {
+    const data = socket.data as SocketData;
+    if (!banned.has(data.ipHash)) continue;
+
+    if (data.roomSlug) {
+      removedGuestsByRoom.set(data.roomSlug, [
+        ...(removedGuestsByRoom.get(data.roomSlug) ?? []),
+        data.guestId,
+      ]);
+    }
+
+    data.banned = true;
+    socket.emit("kicked", { reason: "banned" });
+    socket.disconnect(true);
+  }
+
+  for (const room of await getCachedPublicRooms()) {
+    try {
+      const ids = await redactMessagesFrom(room.slug, bannedHashes);
+      // Their older messages may still be on screens although the history no longer holds them.
+      const guestIds = removedGuestsByRoom.get(room.slug) ?? [];
+
+      if (ids.length > 0 || guestIds.length > 0) {
+        io.to(roomKey(room.slug)).emit("message:redacted", {
+          roomSlug: room.slug,
+          ids,
+          guestIds,
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to replace messages in ${room.slug}:`, error);
+    }
+  }
 }

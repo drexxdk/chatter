@@ -28,7 +28,8 @@
     "messageLabel": "Message",
     "messagePlaceholder": "Write a message",
     "send": "Send",
-    "reconnecting": "Connection lost. Reconnecting…"
+    "reconnecting": "Connection lost. Reconnecting…",
+    "bannedMessage": "This user was banned"
   },
   "errors": {
     "invalid_nickname": "That nickname isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",

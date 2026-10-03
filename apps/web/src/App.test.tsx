@@ -504,6 +504,196 @@ describe("message history", () => {
   });
 });
 
+describe("banned authors", () => {
+  const PLACEHOLDER = "This user was banned";
+  const placeholder = (id: string, sentAt: string, roomSlug = "general") => ({
+    id,
+    roomSlug,
+    sentAt,
+    banned: true,
+  });
+
+  const log = () => within(screen.getByRole("log"));
+
+  async function joinWith(history: unknown[] = [], live: unknown[] = []) {
+    const server = makeFakeServer();
+    server.acks["room:join"] = () => {
+      live.forEach((m) => server.latest.serverEmit("message:new", m));
+      return { ok: true, history };
+    };
+    const result = setup(server);
+    await joinRoom(result.user);
+    await screen.findByText("Chatting as Alice");
+    return result;
+  }
+
+  const redact = (
+    server: ReturnType<typeof makeFakeServer>,
+    payload: unknown,
+  ) => act(() => server.latest.serverEmit("message:redacted", payload));
+
+  it("replaces a message on screen when the server says its author was banned", async () => {
+    const bad = message({ text: "something awful", nickname: "Mallory" });
+    const { server } = await joinWith();
+    act(() => server.latest.serverEmit("message:new", bad));
+    expect(log().getByText("something awful")).toBeInTheDocument();
+
+    redact(server, { roomSlug: "general", ids: [bad.id], guestIds: [] });
+
+    expect(log().queryByText("something awful")).not.toBeInTheDocument();
+    expect(log().queryByText("Mallory")).not.toBeInTheDocument();
+    expect(log().getByText(PLACEHOLDER)).toBeInTheDocument();
+  });
+
+  it("shows the placeholder in red", async () => {
+    const bad = message();
+    const { server } = await joinWith([], [bad]);
+
+    redact(server, { roomSlug: "general", ids: [bad.id], guestIds: [] });
+
+    expect(log().getByText(PLACEHOLDER)).toHaveClass("text-red-400");
+  });
+
+  it("also replaces that guest's older messages, which the server may no longer hold", async () => {
+    const older = message({
+      guestId: "guest-mal",
+      text: "old rant",
+      sentAt: at(1),
+    });
+    const newer = message({
+      guestId: "guest-mal",
+      text: "new rant",
+      sentAt: at(3),
+    });
+    const innocent = message({
+      guestId: "guest-bob",
+      text: "fine",
+      sentAt: at(2),
+    });
+    const { server } = await joinWith([], [older, innocent, newer]);
+
+    redact(server, { roomSlug: "general", ids: [], guestIds: ["guest-mal"] });
+
+    expect(log().queryByText("old rant")).not.toBeInTheDocument();
+    expect(log().queryByText("new rant")).not.toBeInTheDocument();
+    expect(log().getByText("fine")).toBeInTheDocument();
+    expect(log().getAllByText(PLACEHOLDER)).toHaveLength(2);
+  });
+
+  it("leaves everyone else's messages alone", async () => {
+    const bad = message({ text: "awful" });
+    const fine = message({
+      guestId: "guest-carol",
+      nickname: "Carol",
+      text: "lovely",
+    });
+    const { server } = await joinWith([], [bad, fine]);
+
+    redact(server, { roomSlug: "general", ids: [bad.id], guestIds: [] });
+
+    expect(log().getByText("lovely")).toBeInTheDocument();
+    expect(log().getByText("Carol")).toBeInTheDocument();
+  });
+
+  it("keeps the order of the conversation", async () => {
+    const first = message({ text: "first", sentAt: at(1) });
+    const bad = message({ text: "awful", sentAt: at(2) });
+    const last = message({ text: "last", sentAt: at(3) });
+    const { server } = await joinWith([], [first, bad, last]);
+
+    redact(server, { roomSlug: "general", ids: [bad.id], guestIds: [] });
+
+    const items = within(screen.getByRole("log")).getAllByRole("listitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      expect.stringContaining("first"),
+      expect.stringContaining(PLACEHOLDER),
+      expect.stringContaining("last"),
+    ]);
+  });
+
+  it("ignores a notice about another room", async () => {
+    const bad = message({ text: "awful" });
+    const { server } = await joinWith([], [bad]);
+
+    redact(server, {
+      roomSlug: "music",
+      ids: [bad.id],
+      guestIds: [bad.guestId],
+    });
+
+    expect(log().getByText("awful")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["nothing", undefined],
+    ["null", null],
+    ["no lists", { roomSlug: "general" }],
+    ["lists of the wrong kind", { roomSlug: "general", ids: "x", guestIds: 3 }],
+  ])("copes with a notice that carries %s", async (_label, payload) => {
+    const bad = message({ text: "awful" });
+    const { server } = await joinWith([], [bad]);
+
+    redact(server, payload);
+
+    expect(log().getByText("awful")).toBeInTheDocument();
+  });
+
+  it("shows a placeholder that comes with the room's history", async () => {
+    await joinWith([
+      message({ text: "before", sentAt: at(1) }),
+      placeholder("gone", at(2)),
+      message({ text: "after", sentAt: at(3) }),
+    ]);
+
+    expect(log().getByText(PLACEHOLDER)).toBeInTheDocument();
+    expect(log().getByText("before")).toBeInTheDocument();
+    expect(log().getByText("after")).toBeInTheDocument();
+  });
+
+  // The guest may already have seen the message live; the history is newer news about it.
+  it("lets a placeholder in the history replace a copy that was delivered live", async () => {
+    const bad = message({ text: "awful", sentAt: at(1) });
+
+    await joinWith([placeholder(bad.id, bad.sentAt)], [bad]);
+
+    expect(log().queryByText("awful")).not.toBeInTheDocument();
+    expect(log().getAllByText(PLACEHOLDER)).toHaveLength(1);
+  });
+
+  it("does not let a late live copy bring a replaced message back", async () => {
+    const bad = message({ text: "awful", sentAt: at(1) });
+    const { server } = await joinWith([placeholder(bad.id, bad.sentAt)]);
+
+    act(() => server.latest.serverEmit("message:new", bad));
+
+    expect(log().queryByText("awful")).not.toBeInTheDocument();
+    expect(log().getAllByText(PLACEHOLDER)).toHaveLength(1);
+  });
+
+  it("ignores a placeholder that belongs to another room", async () => {
+    await joinWith([placeholder("x", at(1), "music")]);
+
+    expect(log().queryByText(PLACEHOLDER)).not.toBeInTheDocument();
+  });
+
+  it("tells a banned guest why they were disconnected and returns to the lobby", async () => {
+    const { server } = await joinWith();
+
+    act(() => {
+      server.latest.serverEmit("kicked", { reason: "banned" });
+      server.latest.serverEmit("disconnect", "io server disconnect");
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You are banned from this chat.",
+    );
+    expect(
+      screen.getByRole("heading", { name: "Public rooms" }),
+    ).toBeInTheDocument();
+    expect(server.createSocket).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("losing the connection", () => {
   const DROP = "transport close";
 

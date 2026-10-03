@@ -13,18 +13,28 @@ import {
   vi,
 } from "vitest";
 
-const { isBanned, getCachedPublicRooms, recordMessage, getHistory } =
-  vi.hoisted(() => ({
-    isBanned: vi.fn(),
-    getCachedPublicRooms: vi.fn(),
-    recordMessage: vi.fn(),
-    getHistory: vi.fn(),
-  }));
+const {
+  isBanned,
+  getCachedPublicRooms,
+  recordMessage,
+  getHistory,
+  redactMessagesFrom,
+} = vi.hoisted(() => ({
+  isBanned: vi.fn(),
+  getCachedPublicRooms: vi.fn(),
+  recordMessage: vi.fn(),
+  getHistory: vi.fn(),
+  redactMessagesFrom: vi.fn(),
+}));
 
 vi.mock("./redis.js", () => ({ pubClient: {}, subClient: {} }));
 vi.mock("./bans.js", () => ({ isBanned }));
 vi.mock("./rooms.js", () => ({ getCachedPublicRooms }));
-vi.mock("./history.js", () => ({ recordMessage, getHistory }));
+vi.mock("./history.js", () => ({
+  recordMessage,
+  getHistory,
+  redactMessagesFrom,
+}));
 // In-memory adapter standing in for Redis. fetchSockets is delayed because the real adapter does a
 // network round trip there, which is what lets simultaneous joins interleave.
 vi.mock("@socket.io/redis-adapter", async () => {
@@ -44,7 +54,7 @@ vi.mock("@socket.io/redis-adapter", async () => {
   return { createAdapter: () => LatentAdapter };
 });
 
-const { createSocketServer } = await import("./socket.js");
+const { createSocketServer, enforceBans } = await import("./socket.js");
 const { hashIdentifier } = await import("./identity.js");
 
 type Ack = { ok: boolean; error?: string; [key: string]: unknown };
@@ -156,6 +166,7 @@ beforeEach(() => {
   getCachedPublicRooms.mockReset().mockResolvedValue(ROOMS);
   recordMessage.mockReset().mockResolvedValue(undefined);
   getHistory.mockReset().mockResolvedValue([]);
+  redactMessagesFrom.mockReset().mockResolvedValue([]);
 });
 
 afterEach(async () => {
@@ -524,9 +535,30 @@ describe("history", () => {
 
     const delivered = waitFor<Record<string, unknown>>(alice, "message:new");
     await emit(alice, "message:send", { text: "  hello  " });
+    const message = await delivered;
 
     expect(recordMessage).toHaveBeenCalledTimes(1);
-    expect(recordMessage).toHaveBeenCalledWith(await delivered);
+    expect(recordMessage).toHaveBeenCalledWith({
+      ...message,
+      ipHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+    });
+  });
+
+  // A ban is tied to the IP hash, so the stored copy needs it; nobody else may ever see it.
+  it("stores the sender's IP hash with the message but never broadcasts it", async () => {
+    const { port } = await startServer({ trustedProxyHops: 1 });
+    const alice = await connectGuest("Alice", port, {
+      "x-forwarded-for": "203.0.113.9",
+    });
+    await emit(alice, "room:join", { slug: "general" });
+
+    const delivered = waitFor<Record<string, unknown>>(alice, "message:new");
+    await emit(alice, "message:send", { text: "hello" });
+
+    expect(recordMessage.mock.calls[0][0].ipHash).toBe(
+      hashIdentifier("203.0.113.9"),
+    );
+    expect(await delivered).not.toHaveProperty("ipHash");
   });
 
   // Anything a guest has seen live must also be in the history a later joiner reads.
@@ -576,6 +608,204 @@ describe("history", () => {
     await emit(alice, "message:send", { text: "rate limited" });
 
     expect(recordMessage).toHaveBeenCalledTimes(5);
+  });
+});
+
+describe("ban enforcement", () => {
+  const MALLORY_IP = "203.0.113.1";
+  const BOB_IP = "203.0.113.2";
+  const malloryHash = hashIdentifier(MALLORY_IP);
+
+  // Each guest comes from its own address, so a ban can hit one of them.
+  async function guestAt(port: number, nickname: string, ip: string) {
+    const { socket, session } = await connect({ nickname }, port, {
+      "x-forwarded-for": ip,
+    });
+    if (!socket || !session) throw new Error(`${nickname} failed to connect`);
+    return { socket, guestId: (await session).guestId };
+  }
+
+  async function setup(room = "general") {
+    const { io, port } = await startServer({ trustedProxyHops: 1 });
+    const mallory = await guestAt(port, "Mallory", MALLORY_IP);
+    const bob = await guestAt(port, "Bob", BOB_IP);
+    await emit(mallory.socket, "room:join", { slug: room });
+    await emit(bob.socket, "room:join", { slug: room });
+    return { io, port, mallory, bob };
+  }
+
+  const quietFor = (ms = 60) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+  it("disconnects a banned guest who is still connected, saying why", async () => {
+    const { io, mallory, bob } = await setup();
+    const kicked = waitFor(mallory.socket, "kicked");
+    const closed = new Promise((resolve) =>
+      mallory.socket.once("disconnect", resolve),
+    );
+
+    await enforceBans(io, [malloryHash]);
+
+    expect(await kicked).toEqual({ reason: "banned" });
+    await closed;
+    expect(bob.socket.connected).toBe(true);
+  });
+
+  it("disconnects every guest behind a banned address", async () => {
+    const { io, port, mallory } = await setup();
+    const second = await guestAt(port, "Mallory2", MALLORY_IP);
+
+    await enforceBans(io, [malloryHash]);
+    await vi.waitFor(() => {
+      expect(mallory.socket.connected).toBe(false);
+      expect(second.socket.connected).toBe(false);
+    });
+  });
+
+  it("asks for every room's messages from the banned addresses to be replaced", async () => {
+    const { io } = await setup();
+
+    await enforceBans(io, [malloryHash, "other-hash"]);
+
+    expect(redactMessagesFrom.mock.calls.map((call) => call[0]).sort()).toEqual(
+      ["general", "open", "random", "tiny"],
+    );
+    for (const call of redactMessagesFrom.mock.calls) {
+      expect(call[1]).toEqual([malloryHash, "other-hash"]);
+    }
+  });
+
+  it("tells the room which messages to replace, by id and by the banned guest", async () => {
+    const { io, mallory, bob } = await setup();
+    redactMessagesFrom.mockImplementation(async (slug: string) =>
+      slug === "general" ? ["m1", "m2"] : [],
+    );
+    const notice = waitFor(bob.socket, "message:redacted");
+
+    await enforceBans(io, [malloryHash]);
+
+    expect(await notice).toEqual({
+      roomSlug: "general",
+      ids: ["m1", "m2"],
+      guestIds: [mallory.guestId],
+    });
+  });
+
+  // Their earlier messages may be on screens although the server's history no longer holds them.
+  it("still names the banned guest when none of their messages are in the history", async () => {
+    const { io, mallory, bob } = await setup();
+    const notice = waitFor(bob.socket, "message:redacted");
+
+    await enforceBans(io, [malloryHash]);
+
+    expect(await notice).toEqual({
+      roomSlug: "general",
+      ids: [],
+      guestIds: [mallory.guestId],
+    });
+  });
+
+  it("sends the notice only to the room the messages were in", async () => {
+    const { io, port, bob } = await setup("general");
+    const elsewhere = await guestAt(port, "Carol", "203.0.113.3");
+    await emit(elsewhere.socket, "room:join", { slug: "random" });
+    const received = vi.fn();
+    elsewhere.socket.on("message:redacted", received);
+    const inRoom = waitFor(bob.socket, "message:redacted");
+
+    await enforceBans(io, [malloryHash]);
+    await inRoom;
+    await quietFor();
+
+    expect(received).not.toHaveBeenCalled();
+  });
+
+  it("does not send the notice to the guest who was just removed", async () => {
+    const { io, mallory } = await setup();
+    const received = vi.fn();
+    mallory.socket.on("message:redacted", received);
+
+    await enforceBans(io, [malloryHash]);
+    await quietFor();
+
+    expect(received).not.toHaveBeenCalled();
+  });
+
+  it("replaces messages even when the author has already left", async () => {
+    const { io, bob } = await setup();
+    redactMessagesFrom.mockImplementation(async (slug: string) =>
+      slug === "general" ? ["left-behind"] : [],
+    );
+    const notice = waitFor(bob.socket, "message:redacted");
+
+    await enforceBans(io, ["hash-of-someone-not-connected"]);
+
+    expect(await notice).toEqual({
+      roomSlug: "general",
+      ids: ["left-behind"],
+      guestIds: [],
+    });
+    expect(bob.socket.connected).toBe(true);
+  });
+
+  it("stays silent when there is nothing to replace", async () => {
+    const { io, bob } = await setup();
+    const received = vi.fn();
+    bob.socket.on("message:redacted", received);
+    const kicked = vi.fn();
+    bob.socket.on("kicked", kicked);
+
+    await enforceBans(io, ["hash-of-someone-not-connected"]);
+    await quietFor();
+
+    expect(received).not.toHaveBeenCalled();
+    expect(kicked).not.toHaveBeenCalled();
+  });
+
+  it("does nothing for an empty list", async () => {
+    const { io, bob } = await setup();
+
+    await enforceBans(io, []);
+
+    expect(redactMessagesFrom).not.toHaveBeenCalled();
+    expect(bob.socket.connected).toBe(true);
+  });
+
+  // Recording takes a moment; a ban that lands in it must neither let the message through nor leave it stored.
+  it("neither delivers nor keeps a message that was being recorded when the ban landed", async () => {
+    const { io, mallory, bob } = await setup();
+    let finishRecording!: () => void;
+    recordMessage.mockReturnValue(
+      new Promise<void>((resolve) => (finishRecording = resolve)),
+    );
+    const received = vi.fn();
+    bob.socket.on("message:new", received);
+
+    mallory.socket.emit("message:send", { text: "last words" });
+    await vi.waitFor(() => expect(recordMessage).toHaveBeenCalledTimes(1));
+    await enforceBans(io, [malloryHash]);
+    redactMessagesFrom.mockClear();
+    finishRecording();
+
+    await vi.waitFor(() =>
+      expect(redactMessagesFrom).toHaveBeenCalledWith("general", [malloryHash]),
+    );
+    await quietFor();
+    expect(received).not.toHaveBeenCalled();
+  });
+
+  it("carries on with the other rooms when one room fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { io, bob } = await setup("random");
+    redactMessagesFrom.mockImplementation(async (slug: string) => {
+      if (slug === "general") throw new Error("redis down");
+      return slug === "random" ? ["m9"] : [];
+    });
+    const notice = waitFor(bob.socket, "message:redacted");
+
+    await expect(enforceBans(io, [malloryHash])).resolves.toBeUndefined();
+
+    expect(await notice).toMatchObject({ roomSlug: "random", ids: ["m9"] });
   });
 });
 

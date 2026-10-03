@@ -28,7 +28,8 @@
     "messageLabel": "Nachricht",
     "messagePlaceholder": "Nachricht schreiben",
     "send": "Senden",
-    "reconnecting": "Verbindung unterbrochen. Verbinde erneut…"
+    "reconnecting": "Verbindung unterbrochen. Verbinde erneut…",
+    "bannedMessage": "Dieser Nutzer wurde gesperrt"
   },
   "errors": {
     "invalid_nickname": "Dieser Spitzname ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",

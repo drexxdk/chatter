@@ -23,6 +23,8 @@ export interface ChatMessage {
   nickname: string;
   text: string;
   sentAt: string;
+  // The author was banned: the text and name are gone and only a placeholder is shown.
+  banned?: boolean;
 }
 
 export type ChatStatus = "idle" | "connecting" | "connected" | "reconnecting";
@@ -48,17 +50,60 @@ const DELIBERATE_DISCONNECTS = new Set([
   "io server disconnect",
 ]);
 
-function isChatMessage(value: unknown): value is ChatMessage {
-  if (typeof value !== "object" || value === null) return false;
-  const candidate = value as Record<string, unknown>;
-
-  return (
-    ["id", "roomSlug", "guestId", "nickname", "text", "sentAt"] as const
-  ).every((field) => typeof candidate[field] === "string");
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
+
+function placeholderFor(message: {
+  id: string;
+  roomSlug: string;
+  sentAt: string;
+}): ChatMessage {
+  return {
+    id: message.id,
+    roomSlug: message.roomSlug,
+    sentAt: message.sentAt,
+    guestId: "",
+    nickname: "",
+    text: "",
+    banned: true,
+  };
+}
+
+// A message as the server sends it: either a full message or, once its author was banned, a bare placeholder.
+function parseMessage(value: unknown): ChatMessage | undefined {
+  if (!isRecord(value)) return undefined;
+  const { id, roomSlug, sentAt } = value;
+
+  if (
+    typeof id !== "string" ||
+    typeof roomSlug !== "string" ||
+    typeof sentAt !== "string"
+  ) {
+    return undefined;
+  }
+
+  if (value.banned === true) return placeholderFor({ id, roomSlug, sentAt });
+
+  const { guestId, nickname, text } = value;
+
+  if (
+    typeof guestId !== "string" ||
+    typeof nickname !== "string" ||
+    typeof text !== "string"
+  ) {
+    return undefined;
+  }
+
+  return { id, roomSlug, guestId, nickname, text, sentAt };
+}
+
+const byTime = (a: ChatMessage, b: ChatMessage) =>
+  a.sentAt < b.sentAt ? -1 : a.sentAt > b.sentAt ? 1 : 0;
 
 // The server's remembered messages for the room, merged into what is already on screen. The same message can arrive
 // both live and in the history, so ids decide what is new; timestamps keep the whole list in the order it was sent.
+// A placeholder in the history wins over a copy that was delivered live: it is the newer news.
 function mergeHistory(
   existing: ChatMessage[],
   history: unknown,
@@ -66,19 +111,55 @@ function mergeHistory(
 ): ChatMessage[] {
   if (!Array.isArray(history)) return existing;
 
-  const known = new Set(existing.map((message) => message.id));
-  const added = history.filter(
-    (message): message is ChatMessage =>
-      isChatMessage(message) &&
-      message.roomSlug === roomSlug &&
-      !known.has(message.id),
+  const byId = new Map(existing.map((message) => [message.id, message]));
+  let changed = false;
+
+  for (const entry of history) {
+    const message = parseMessage(entry);
+    if (!message || message.roomSlug !== roomSlug) continue;
+
+    const current = byId.get(message.id);
+
+    if (!current || (message.banned && !current.banned)) {
+      byId.set(message.id, message);
+      changed = true;
+    }
+  }
+
+  if (!changed) return existing;
+
+  return [...byId.values()].sort(byTime).slice(-MAX_MESSAGES);
+}
+
+function strings(value: unknown): Set<string> {
+  return new Set(
+    Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string")
+      : [],
   );
+}
 
-  if (added.length === 0) return existing;
+// The server banned someone: their messages, named by id or by the guest they were sent as, turn into placeholders.
+function applyRedaction(
+  existing: ChatMessage[],
+  notice: unknown,
+  roomSlug: string | null,
+): ChatMessage[] {
+  if (!isRecord(notice) || notice.roomSlug !== roomSlug) return existing;
 
-  return [...existing, ...added]
-    .sort((a, b) => (a.sentAt < b.sentAt ? -1 : a.sentAt > b.sentAt ? 1 : 0))
-    .slice(-MAX_MESSAGES);
+  const ids = strings(notice.ids);
+  const guestIds = strings(notice.guestIds);
+  guestIds.delete("");
+
+  if (ids.size === 0 && guestIds.size === 0) return existing;
+
+  return existing.map((message) =>
+    !message.banned &&
+    message.roomSlug === roomSlug &&
+    (ids.has(message.id) || guestIds.has(message.guestId))
+      ? placeholderFor(message)
+      : message,
+  );
 }
 
 export function useChat(
@@ -172,10 +253,20 @@ export function useChat(
 
         socket.on("message:new", (message: ChatMessage) => {
           if (isCurrent() && message.roomSlug === roomRef.current) {
+            // Already known, e.g. it came with the history or was since replaced by a placeholder.
             setMessages((previous) =>
-              [...previous, message].slice(-MAX_MESSAGES),
+              previous.some((known) => known.id === message.id)
+                ? previous
+                : [...previous, message].slice(-MAX_MESSAGES),
             );
           }
+        });
+
+        socket.on("message:redacted", (notice: unknown) => {
+          if (!isCurrent()) return;
+          setMessages((previous) =>
+            applyRedaction(previous, notice, roomRef.current),
+          );
         });
 
         socket.on("kicked", (payload: { reason: string }) => {

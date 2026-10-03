@@ -6,7 +6,11 @@ import {
   type Page,
 } from "@playwright/test";
 
-import { waitForConnectionState, waitForRooms } from "./chatServer";
+import {
+  connectRawGuest,
+  waitForConnectionState,
+  waitForRooms,
+} from "./chatServer";
 import { E2E } from "./constants";
 import { PayloadApi } from "./payload";
 
@@ -221,6 +225,54 @@ test("a full room turns the next guest away", async ({ browser }) => {
   await expect(
     bob.getByRole("heading", { name: "Public rooms" }),
   ).toBeVisible();
+});
+
+test("a guest who is banned while chatting is removed and their messages are replaced for everyone", async ({
+  browser,
+}) => {
+  // Browsers share the loopback address, so the banned guest is a raw client with an address of its own.
+  const MALLORY_ADDRESS = "203.0.113.60";
+  const awful = `something awful ${Date.now()}`;
+  const bob = await newGuest(browser);
+  const mallory = await connectRawGuest("Mallory", MALLORY_ADDRESS);
+
+  try {
+    await enterRoom(bob, LOUNGE.name, "Bob");
+    expect(await mallory.join(LOUNGE.slug)).toMatchObject({ ok: true });
+    expect(await mallory.send(awful)).toEqual({ ok: true });
+    await expect(bob.getByRole("log")).toContainText(awful);
+
+    // The room's history outlives a run, so it may already hold placeholders from earlier ones.
+    const placeholder = "This user was banned";
+    const before = await bob.getByText(placeholder).count();
+
+    const banIds = await payload.ban([MALLORY_ADDRESS]);
+
+    try {
+      // Bob is still in the room and sees the message change on his screen, with no reload.
+      await expect(bob.getByText(placeholder)).toHaveCount(before + 1);
+      await expect(bob.getByRole("log")).not.toContainText(awful);
+      await expect(bob.getByRole("log")).not.toContainText("Mallory");
+
+      // Mallory was still connected, so the server removes her and says why.
+      expect(await mallory.kicked).toEqual({ reason: "banned" });
+
+      // A guest who arrives afterwards gets the placeholder from the room's history, never the text.
+      const carol = await newGuest(browser);
+      await enterRoom(carol, LOUNGE.name, "Carol");
+      await expect(carol.getByText(placeholder)).toHaveCount(before + 1);
+      await expect(carol.getByRole("log")).not.toContainText(awful);
+
+      // Bob is untouched by a ban on somebody else's address.
+      await expect(
+        bob.getByRole("heading", { name: LOUNGE.name, level: 2 }),
+      ).toBeVisible();
+    } finally {
+      await Promise.all(banIds.map((id) => payload.remove("bans", id)));
+    }
+  } finally {
+    mallory.close();
+  }
 });
 
 test("a banned guest is turned away until the ban is lifted", async ({

@@ -28,7 +28,8 @@
     "messageLabel": "Besked",
     "messagePlaceholder": "Skriv en besked",
     "send": "Send",
-    "reconnecting": "Forbindelsen blev afbrudt. Forbinder igen…"
+    "reconnecting": "Forbindelsen blev afbrudt. Forbinder igen…",
+    "bannedMessage": "Denne bruger blev udelukket"
   },
   "errors": {
     "invalid_nickname": "Det kaldenavn er ikke tilladt. Brug 2–24 bogstaver, tal, mellemrum eller _ . -",

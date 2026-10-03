@@ -78,27 +78,43 @@ export function ChatRoom({
           {messages.length === 0 && (
             <li className="text-slate-500">{t("room.empty")}</li>
           )}
-          {messages.map((message) => (
-            <li key={message.id}>
-              <span
-                className={
-                  ownGuestIds.includes(message.guestId)
-                    ? "font-semibold text-indigo-300"
-                    : "font-semibold"
-                }
-              >
-                {message.nickname}
-              </span>
-              <time
-                dateTime={message.sentAt}
-                className="ml-2 text-xs text-slate-500"
-              >
-                {new Date(message.sentAt).toLocaleTimeString()}
-              </time>
-              {/* Rendered as text, never as HTML. */}
-              <p className="whitespace-pre-wrap break-words">{message.text}</p>
-            </li>
-          ))}
+          {messages.map((message) =>
+            message.banned ? (
+              <li key={message.id}>
+                <span className="font-semibold italic text-red-400">
+                  {t("room.bannedMessage")}
+                </span>
+                <time
+                  dateTime={message.sentAt}
+                  className="ml-2 text-xs text-slate-500"
+                >
+                  {new Date(message.sentAt).toLocaleTimeString()}
+                </time>
+              </li>
+            ) : (
+              <li key={message.id}>
+                <span
+                  className={
+                    ownGuestIds.includes(message.guestId)
+                      ? "font-semibold text-indigo-300"
+                      : "font-semibold"
+                  }
+                >
+                  {message.nickname}
+                </span>
+                <time
+                  dateTime={message.sentAt}
+                  className="ml-2 text-xs text-slate-500"
+                >
+                  {new Date(message.sentAt).toLocaleTimeString()}
+                </time>
+                {/* Rendered as text, never as HTML. */}
+                <p className="whitespace-pre-wrap break-words">
+                  {message.text}
+                </p>
+              </li>
+            ),
+          )}
         </ol>
 
         <ErrorAlert code={error} />

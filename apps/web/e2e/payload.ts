@@ -78,9 +78,13 @@ export class PayloadApi {
   }
 
   async banLoopback() {
+    return this.ban(LOOPBACK_ADDRESSES);
+  }
+
+  async ban(addresses: readonly string[]) {
     const ids: number[] = [];
 
-    for (const ip of LOOPBACK_ADDRESSES) {
+    for (const ip of addresses) {
       const { doc } = await this.request("bans", {
         method: "POST",
         body: JSON.stringify({
