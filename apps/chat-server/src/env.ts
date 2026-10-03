@@ -10,11 +10,12 @@ function required(name: string): string {
   return value;
 }
 
-// A limit that is simply absent when there is none. Anything else must be a positive whole number, and a bad value stops
-// the server: quietly treating a typo as "no limit" would switch the protection off without anyone noticing.
-export function optionalPositiveInt(
+// Settings that must be a positive whole number. A bad value stops the server: quietly treating a typo (or a magic
+// "0") as "off" would switch a protection off without anyone noticing.
+function parsePositiveInt(
   name: string,
   raw: string | undefined,
+  whenUnset: string,
 ): number | undefined {
   const text = raw?.trim();
   if (!text) return undefined;
@@ -23,11 +24,29 @@ export function optionalPositiveInt(
 
   if (!Number.isInteger(value) || value < 1) {
     throw new Error(
-      `${name} must be a positive whole number, or left unset for no limit (got "${text}")`,
+      `${name} must be a positive whole number, or left unset ${whenUnset} (got "${text}")`,
     );
   }
 
   return value;
+}
+
+// Absent when there is no limit.
+export function optionalPositiveInt(
+  name: string,
+  raw: string | undefined,
+): number | undefined {
+  return parsePositiveInt(name, raw, "for no limit");
+}
+
+export function positiveIntOrDefault(
+  name: string,
+  raw: string | undefined,
+  fallback: number,
+): number {
+  return (
+    parsePositiveInt(name, raw, `to use the default of ${fallback}`) ?? fallback
+  );
 }
 
 export const env = {
@@ -37,8 +56,10 @@ export const env = {
   PAYLOAD_SERVICE_API_KEY: required("PAYLOAD_SERVICE_API_KEY"),
   BAN_HASH_SALT: required("BAN_HASH_SALT"),
   WEB_ORIGIN: process.env.WEB_ORIGIN ?? "http://localhost:5173",
-  INACTIVITY_TIMEOUT_MS: Number(
-    process.env.INACTIVITY_TIMEOUT_MS ?? 15 * 60_000,
+  INACTIVITY_TIMEOUT_MS: positiveIntOrDefault(
+    "INACTIVITY_TIMEOUT_MS",
+    process.env.INACTIVITY_TIMEOUT_MS,
+    15 * 60_000,
   ),
   SYNC_INTERVAL_MS: Number(process.env.SYNC_INTERVAL_MS ?? 30_000),
   SOCKET_ADAPTER_KEY: process.env.SOCKET_ADAPTER_KEY ?? "socket.io",

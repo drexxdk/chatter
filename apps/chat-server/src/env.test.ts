@@ -1,6 +1,39 @@
 import { describe, expect, it } from "vitest";
 
-import { optionalPositiveInt } from "./env.js";
+import { optionalPositiveInt, positiveIntOrDefault } from "./env.js";
+
+describe("positiveIntOrDefault", () => {
+  const FIFTEEN_MINUTES = 900_000;
+
+  it.each([
+    ["unset", undefined],
+    ["empty", ""],
+    ["blank", "   "],
+  ])("uses the default when %s", (_label, raw) => {
+    expect(
+      positiveIntOrDefault("INACTIVITY_TIMEOUT_MS", raw, FIFTEEN_MINUTES),
+    ).toBe(FIFTEEN_MINUTES);
+  });
+
+  it("reads a positive whole number", () => {
+    expect(positiveIntOrDefault("INACTIVITY_TIMEOUT_MS", "5000", 1)).toBe(5000);
+  });
+
+  // 0 used to mean "never time out"; a magic value like that, or a typo, must not quietly switch the check off.
+  it.each([
+    ["zero", "0"],
+    ["negative", "-1"],
+    ["fractional", "1.5"],
+    ["words", "never"],
+    ["a duration", "15m"],
+  ])("rejects %s and names the setting and the default", (_label, raw) => {
+    expect(() =>
+      positiveIntOrDefault("INACTIVITY_TIMEOUT_MS", raw, FIFTEEN_MINUTES),
+    ).toThrow(
+      /INACTIVITY_TIMEOUT_MS.*positive whole number.*default of 900000/,
+    );
+  });
+});
 
 describe("optionalPositiveInt", () => {
   it.each([

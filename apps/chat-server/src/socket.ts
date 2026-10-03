@@ -158,7 +158,7 @@ export function createSocketServer(
 
     socket.emit("session", { guestId: data.guestId, nickname: data.nickname });
 
-    // Any client event counts as activity. A non-positive timeout disables the check.
+    // Any client event counts as activity.
     let idleTimer: NodeJS.Timeout | undefined;
     const resetIdleTimer = () => {
       clearTimeout(idleTimer);
@@ -168,10 +168,8 @@ export function createSocketServer(
       }, inactivityTimeoutMs);
     };
 
-    if (Number.isFinite(inactivityTimeoutMs) && inactivityTimeoutMs > 0) {
-      resetIdleTimer();
-      socket.onAny(resetIdleTimer);
-    }
+    resetIdleTimer();
+    socket.onAny(resetIdleTimer);
 
     socket.on("room:join", async (payload: unknown, ack?: Ack) => {
       const reply: Ack = typeof ack === "function" ? ack : () => {};
