@@ -493,3 +493,47 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
     await payload.remove("admins", accountId);
   }
 });
+
+test("a moderator whose account is removed is signed out", async ({
+  browser,
+}) => {
+  const unique = String(Date.now()).slice(-6);
+  const email = `${E2E.moderatorEmailPrefix}${unique}@chatter.test`;
+  const password = crypto.randomUUID();
+  const accountId = await payload.createModerator(
+    email,
+    password,
+    `E2E Mod ${unique}`,
+  );
+  let removed = false;
+
+  try {
+    const moderator = await newGuest(browser);
+    await moderator.goto("/");
+    await moderator
+      .getByRole("button", { name: `Join ${LOUNGE.name}` })
+      .click();
+    await moderator
+      .getByRole("button", { name: "Sign in as moderator" })
+      .click();
+    await moderator.getByRole("textbox", { name: "Email" }).fill(email);
+    await moderator.getByLabel("Password").fill(password);
+    await moderator.getByRole("button", { name: "Sign in" }).click();
+    await expect(
+      moderator.getByRole("heading", { name: LOUNGE.name, level: 2 }),
+    ).toBeVisible();
+
+    await payload.remove("admins", accountId);
+    removed = true;
+
+    // The chat server notices on its next sync.
+    await expect(moderator.getByRole("alert")).toHaveText(
+      "Your moderator session has expired. Sign in again.",
+    );
+    await expect(
+      moderator.getByRole("heading", { name: "Public rooms" }),
+    ).toBeVisible();
+  } finally {
+    if (!removed) await payload.remove("admins", accountId);
+  }
+});

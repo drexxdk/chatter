@@ -1,8 +1,8 @@
 import { env } from "./env.js";
-import { fetchModeratorNames } from "./payloadClient.js";
+import { fetchModerators, type Moderator } from "./payloadClient.js";
 import { redis } from "./redis.js";
 
-const CACHE_KEY = "chatter:moderator-names";
+const CACHE_KEY = "chatter:moderators";
 
 // Words that make a name look official. Short ones only count as the whole name, or "Modesty" would be refused.
 const AUTHORITY_WORDS = [
@@ -37,20 +37,63 @@ export function isReservedNickname(
   );
 }
 
-export async function getModeratorNames(): Promise<string[]> {
+// Undefined until the first sync: nobody has checked yet, which is not the same as nobody being a moderator.
+export async function getModerators(): Promise<Moderator[] | undefined> {
   const cached = await redis.get(CACHE_KEY);
-  return cached ? (JSON.parse(cached) as string[]) : [];
+  return cached ? (JSON.parse(cached) as Moderator[]) : undefined;
 }
 
-async function syncModeratorNames(): Promise<void> {
-  await redis.set(CACHE_KEY, JSON.stringify(await fetchModeratorNames()));
+export async function getModeratorNames(): Promise<string[]> {
+  const moderators = (await getModerators()) ?? [];
+  return moderators
+    .map((moderator) => moderator.name)
+    .filter((name): name is string => Boolean(name));
+}
+
+// Called when somebody has just proved they are a moderator, so a brand-new account works before the next sync.
+// The sync stays the authority: it overwrites the list with what Payload says.
+export async function rememberModerator(moderator: Moderator): Promise<void> {
+  const moderators = await getModerators();
+
+  // Starting a list from one account would turn every other moderator away until the first sync.
+  if (!moderators) return;
+
+  const index = moderators.findIndex((known) => known.id === moderator.id);
+  const updated =
+    index === -1
+      ? [...moderators, moderator]
+      : moderators.map((known, i) => (i === index ? moderator : known));
+
+  await redis.set(CACHE_KEY, JSON.stringify(updated));
+}
+
+// Called after every sync with the ids of the accounts that may moderate right now, so a removed moderator is
+// cut off even though their token has not expired.
+export type ModeratorsListener = (accountIds: number[]) => unknown;
+
+async function syncModerators(
+  onModerators?: ModeratorsListener,
+): Promise<void> {
+  const moderators = await fetchModerators();
+  await redis.set(CACHE_KEY, JSON.stringify(moderators));
+
+  if (!onModerators) return;
+
+  // The list is already cached, so a failure here is not a failed sync.
+  try {
+    await onModerators(moderators.map((moderator) => moderator.id));
+  } catch (error) {
+    console.error("Failed to enforce moderator access:", error);
+  }
 }
 
 // Polls Payload on an interval so handshakes never wait on an upstream HTTP call.
-export function startModeratorNamesSync(): NodeJS.Timeout {
+export function startModeratorsSync(
+  onModerators?: ModeratorsListener,
+): NodeJS.Timeout {
   const sync = () =>
-    syncModeratorNames().catch((error) =>
-      console.error("Failed to sync moderator names:", error),
+    syncModerators(onModerators).catch((error) =>
+      console.error("Failed to sync moderators:", error),
     );
 
   void sync();

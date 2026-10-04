@@ -24,6 +24,7 @@ describe("ROLE_RULES", () => {
   it("gives guests no special powers", () => {
     expect(ROLE_RULES.guest).toEqual({
       ignoresIpBans: false,
+      ignoresConnectionCap: false,
       canAnnounce: false,
     });
   });
@@ -31,6 +32,7 @@ describe("ROLE_RULES", () => {
   it("lets moderators announce and ignore bans on a shared address", () => {
     expect(ROLE_RULES.moderator).toEqual({
       ignoresIpBans: true,
+      ignoresConnectionCap: true,
       canAnnounce: true,
     });
   });

@@ -53,10 +53,10 @@ Failures: `400 invalid_request`, `401 invalid_credentials`, `403 not_a_moderator
 Good to know:
 
 - `AUTH_TOKEN_SECRET` is optional. Without it moderator sign-in is off and every token is refused; guests are unaffected. Changing it signs every moderator out.
-- A token is not re-checked against Payload while it is valid, so removing a moderator's account or role takes effect when their token expires (at most 8 hours) or when the secret is changed.
+- A token is also checked against the moderators the server last read from Payload (every `SYNC_INTERVAL_MS`): at sign-in a token for an account that may no longer moderate is refused with `invalid_token`, and after every sync connected moderators whose account was removed, or lost the role, get `kicked { reason: "invalid_token" }` and are disconnected. So removing a moderator takes effect within one sync interval, not when the token expires. If the list has never been read, or Redis cannot be reached, sign-in fails closed with `unavailable`. Signing in through `POST /moderator/login` records the account in that list at once, so a new moderator is not turned away before the next sync.
 - Guests may not use a moderator's name (compared ignoring case, spaces and punctuation) or a name that starts or ends with `moderator`, `administrator`, `admin`, `staff`, `support` or `system`, or is exactly `mod`. Moderator names are synced into Redis every `SYNC_INTERVAL_MS`.
 - A moderator's stored history copy carries no IP hash, so a ban can never redact their messages, and `enforceBans` never kicks them. Slow mode and the flood limit apply to moderators as to everyone.
-- Moderators still count toward `MAX_CONNECTIONS_PER_IP`.
+- Moderators do not count toward `MAX_CONNECTIONS_PER_IP` and are not refused when it is full, so somebody can always moderate while guests fill the limit.
 
 ## Announcements
 

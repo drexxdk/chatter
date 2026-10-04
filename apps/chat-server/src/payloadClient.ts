@@ -127,16 +127,26 @@ export async function loginAccount(
   return { id, role, displayName: displayName ?? null };
 }
 
-// The names of the accounts that can moderate, so guests cannot pick one of them.
-export async function fetchModeratorNames(): Promise<string[]> {
+export interface Moderator {
+  id: number;
+  // Moderators without a display name cannot sign in to the chat, but their names are not theirs to take either.
+  name: string | null;
+}
+
+// The accounts that can moderate: their names so guests cannot pick one, and their ids so a removed account stops
+// working before its token expires.
+export async function fetchModerators(): Promise<Moderator[]> {
   const data = await payloadFetch(
     "/api/admins?where[role][in]=moderator,super-admin&limit=100&depth=0",
     z.object({
-      docs: z.array(z.object({ displayName: z.string().nullish() })),
+      docs: z.array(
+        z.object({ id: z.number(), displayName: z.string().nullish() }),
+      ),
     }),
   );
 
-  return data.docs
-    .map((doc) => doc.displayName)
-    .filter((name): name is string => Boolean(name));
+  return data.docs.map((doc) => ({
+    id: doc.id,
+    name: doc.displayName || null,
+  }));
 }

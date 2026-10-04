@@ -3,10 +3,14 @@ import http from "node:http";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { loginAccount } = vi.hoisted(() => ({ loginAccount: vi.fn() }));
+const { loginAccount, rememberModerator } = vi.hoisted(() => ({
+  loginAccount: vi.fn(),
+  rememberModerator: vi.fn(),
+}));
 
 vi.mock("./rooms.js", () => ({ getCachedPublicRooms: vi.fn() }));
 vi.mock("./payloadClient.js", () => ({ loginAccount }));
+vi.mock("./names.js", () => ({ rememberModerator }));
 
 import { createApp } from "./app.js";
 import { verifyToken } from "./tokens.js";
@@ -39,6 +43,7 @@ const account = { id: 7, role: "moderator", displayName: "Ada Mod" };
 
 beforeEach(() => {
   loginAccount.mockReset().mockResolvedValue(account);
+  rememberModerator.mockReset().mockResolvedValue(undefined);
 });
 
 afterEach(async () => {
@@ -74,6 +79,49 @@ describe("POST /moderator/login", () => {
       role: "moderator",
     });
     expect(body.expiresAt).toBeGreaterThan(Date.now());
+  });
+
+  // Otherwise somebody signing in just after their account was made would be turned away at the socket until the
+  // next sync.
+  it("makes sure the chat server knows the account is a moderator before handing out the token", async () => {
+    const login = await start();
+
+    await login(credentials);
+
+    expect(rememberModerator).toHaveBeenCalledWith({ id: 7, name: "Ada Mod" });
+  });
+
+  it("answers 503 and hands out no token when that cannot be recorded", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    rememberModerator.mockRejectedValue(new Error("redis down"));
+    const login = await start();
+
+    const res = await login(credentials);
+
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "unavailable" });
+  });
+
+  it.each([
+    [
+      "credentials are refused",
+      () => loginAccount.mockResolvedValue(undefined),
+    ],
+    [
+      "the account is a service account",
+      () => loginAccount.mockResolvedValue({ ...account, role: "service" }),
+    ],
+    [
+      "there is no display name",
+      () => loginAccount.mockResolvedValue({ ...account, displayName: null }),
+    ],
+  ])("records nothing when %s", async (_label, arrange) => {
+    arrange();
+    const login = await start();
+
+    await login(credentials);
+
+    expect(rememberModerator).not.toHaveBeenCalled();
   });
 
   it("lets a super-admin in as a moderator", async () => {

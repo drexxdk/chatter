@@ -13,7 +13,11 @@ import {
 import { env } from "./env.js";
 import { getHistory, recordMessage, redactMessagesFrom } from "./history.js";
 import { hashIdentifier, getClientIp, validateNickname } from "./identity.js";
-import { getModeratorNames, isReservedNickname } from "./names.js";
+import {
+  getModerators,
+  getModeratorNames,
+  isReservedNickname,
+} from "./names.js";
 import { pubClient, subClient } from "./redis.js";
 import { ROLE_RULES, type ChatRole } from "./roles.js";
 import { getCachedPublicRooms } from "./rooms.js";
@@ -129,6 +133,23 @@ export function createSocketServer(
 
       if (!claims) return next(new Error("invalid_token"));
 
+      // The token proves who signed in, not that they still may moderate: the account could have been removed since.
+      try {
+        const moderators = await getModerators();
+
+        if (!moderators) {
+          console.error("Moderators have not been read from Payload yet");
+          return next(new Error("unavailable"));
+        }
+
+        if (!moderators.some((moderator) => moderator.id === claims.sub)) {
+          return next(new Error("invalid_token"));
+        }
+      } catch (error) {
+        console.error("Moderator check failed:", error);
+        return next(new Error("unavailable"));
+      }
+
       nickname = claims.name;
       role = claims.role;
       accountId = claims.sub;
@@ -168,7 +189,10 @@ export function createSocketServer(
       return next(new Error("closed"));
     }
 
-    if (maxConnectionsPerIp !== undefined) {
+    if (
+      maxConnectionsPerIp !== undefined &&
+      !ROLE_RULES[role].ignoresConnectionCap
+    ) {
       const current = connectionsPerIp.get(ipHash) ?? 0;
 
       if (current >= maxConnectionsPerIp) {
@@ -194,7 +218,12 @@ export function createSocketServer(
 
     // First, so the slot reserved in the middleware is always given back.
     socket.on("disconnect", () => {
-      if (maxConnectionsPerIp === undefined) return;
+      if (
+        maxConnectionsPerIp === undefined ||
+        ROLE_RULES[data.role].ignoresConnectionCap
+      ) {
+        return;
+      }
 
       const remaining = (connectionsPerIp.get(data.ipHash) ?? 1) - 1;
       if (remaining > 0) connectionsPerIp.set(data.ipHash, remaining);
@@ -443,6 +472,24 @@ export function createSocketServer(
   });
 
   return io;
+}
+
+// Cuts off signed-in accounts that may no longer moderate, even though their token has not expired. Like bans, every
+// node does this for its own connections.
+export async function enforceModerators(
+  io: Server,
+  moderatorIds: number[],
+): Promise<void> {
+  const allowed = new Set(moderatorIds);
+
+  for (const socket of io.sockets.sockets.values()) {
+    const { accountId } = socket.data as SocketData;
+
+    if (accountId === undefined || allowed.has(accountId)) continue;
+
+    socket.emit("kicked", { reason: "invalid_token" });
+    socket.disconnect(true);
+  }
 }
 
 // Makes a ban reach what is already in the chat: guests of this node who are banned are disconnected, and their

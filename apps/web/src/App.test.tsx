@@ -1211,6 +1211,27 @@ describe("moderators", () => {
       // Retrying cannot help, so it stops at once.
       expect(server.createSocket).toHaveBeenCalledTimes(2);
     });
+
+    it("sends the moderator back to the lobby at once when their account is removed", async () => {
+      stubBackend(accepted);
+      const server = makeFakeServer();
+      const { user } = setup(server, [0]);
+      await signIn(user);
+      await screen.findByText("Chatting as Ada Mod");
+
+      act(() => {
+        server.latest.serverEmit("kicked", { reason: "invalid_token" });
+        server.latest.serverEmit("disconnect", "io server disconnect");
+      });
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Your moderator session has expired",
+      );
+      expect(
+        screen.getByRole("heading", { name: "Public rooms" }),
+      ).toBeInTheDocument();
+      expect(server.createSocket).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("how they look", () => {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchModeratorNames, loginAccount } from "./payloadClient.js";
+import { fetchModerators, loginAccount } from "./payloadClient.js";
 
 function respondWith(body: unknown, init: ResponseInit = { status: 200 }) {
   const fetchMock = vi.fn(async () => Response.json(body, init));
@@ -91,11 +91,11 @@ describe("loginAccount", () => {
   });
 });
 
-describe("fetchModeratorNames", () => {
+describe("fetchModerators", () => {
   it("asks for the moderating accounts with the service key", async () => {
     const fetchMock = respondWith({ docs: [] });
 
-    await fetchModeratorNames();
+    await fetchModerators();
 
     const [url, init] = fetchMock.mock.calls[0] as unknown as [
       string,
@@ -110,7 +110,7 @@ describe("fetchModeratorNames", () => {
     });
   });
 
-  it("returns the names, leaving out accounts without one", async () => {
+  it("returns the accounts with their names, and no name for an empty or missing one", async () => {
     respondWith({
       docs: [
         { id: 1, displayName: "Ada Mod", email: "ada@example.com" },
@@ -121,12 +121,24 @@ describe("fetchModeratorNames", () => {
       ],
     });
 
-    expect(await fetchModeratorNames()).toEqual(["Ada Mod", "Grace"]);
+    expect(await fetchModerators()).toEqual([
+      { id: 1, name: "Ada Mod" },
+      { id: 2, name: null },
+      { id: 3, name: null },
+      { id: 4, name: null },
+      { id: 5, name: "Grace" },
+    ]);
+  });
+
+  it("rejects an account without an id", async () => {
+    respondWith({ docs: [{ displayName: "Ada Mod" }] });
+
+    await expect(fetchModerators()).rejects.toThrow(/docs\.0\.id/);
   });
 
   it("rejects a response it cannot read", async () => {
     respondWith({ docs: "nope" });
 
-    await expect(fetchModeratorNames()).rejects.toThrow(/docs/);
+    await expect(fetchModerators()).rejects.toThrow(/docs/);
   });
 });

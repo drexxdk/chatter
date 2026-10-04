@@ -20,6 +20,7 @@ const {
   getHistory,
   redactMessagesFrom,
   getModeratorNames,
+  getModerators,
   saveAnnouncement,
   getLatestAnnouncement,
   claimAnnouncementSlot,
@@ -30,6 +31,7 @@ const {
   getHistory: vi.fn(),
   redactMessagesFrom: vi.fn(),
   getModeratorNames: vi.fn(),
+  getModerators: vi.fn(),
   saveAnnouncement: vi.fn(),
   getLatestAnnouncement: vi.fn(),
   claimAnnouncementSlot: vi.fn(),
@@ -47,6 +49,7 @@ vi.mock("./announcements.js", () => ({
 vi.mock("./names.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./names.js")>()),
   getModeratorNames,
+  getModerators,
 }));
 vi.mock("./history.js", () => ({
   recordMessage,
@@ -72,7 +75,8 @@ vi.mock("@socket.io/redis-adapter", async () => {
   return { createAdapter: () => LatentAdapter };
 });
 
-const { createSocketServer, enforceBans } = await import("./socket.js");
+const { createSocketServer, enforceBans, enforceModerators } =
+  await import("./socket.js");
 const { signToken } = await import("./tokens.js");
 const { hashIdentifier } = await import("./identity.js");
 
@@ -190,6 +194,11 @@ beforeEach(() => {
   getHistory.mockReset().mockResolvedValue([]);
   redactMessagesFrom.mockReset().mockResolvedValue([]);
   getModeratorNames.mockReset().mockResolvedValue([]);
+  // The accounts the tokens in these tests belong to (see tokenFor).
+  getModerators.mockReset().mockResolvedValue([
+    { id: 7, name: "Ada Mod" },
+    { id: 8, name: "Grace" },
+  ]);
   saveAnnouncement.mockReset().mockResolvedValue(undefined);
   getLatestAnnouncement.mockReset().mockResolvedValue(undefined);
   claimAnnouncementSlot.mockReset().mockResolvedValue(0);
@@ -1234,6 +1243,48 @@ describe("roles", () => {
 });
 
 describe("connections per IP", () => {
+  const SECRET = "a-secret-that-is-long-enough-for-tests";
+  const moderatorAuth = () => ({
+    token: signToken(
+      { sub: 7, name: "Ada Mod", role: "moderator" },
+      { secret: SECRET, ttlMs: 3_600_000 },
+    ),
+  });
+
+  // Somebody has to be able to moderate when guests are filling the limit.
+  it("lets a moderator in when the cap is full, without counting them", async () => {
+    const { io, port } = await startServer({
+      maxConnectionsPerIp: 1,
+      authTokenSecret: SECRET,
+    });
+    await connectGuest("One", port);
+
+    const first = await connect(moderatorAuth(), port);
+    const second = await connect(moderatorAuth(), port);
+
+    expect(first.socket).toBeDefined();
+    expect(second.socket).toBeDefined();
+    expect(await io.fetchSockets()).toHaveLength(3);
+  });
+
+  it("does not free somebody else's slot when a moderator leaves", async () => {
+    const { io, port } = await startServer({
+      maxConnectionsPerIp: 1,
+      authTokenSecret: SECRET,
+    });
+    await connectGuest("One", port);
+    const { socket } = await connect(moderatorAuth(), port);
+
+    socket?.disconnect();
+    await vi.waitFor(async () =>
+      expect(await io.fetchSockets()).toHaveLength(1),
+    );
+
+    expect((await connect({ nickname: "Two" }, port)).error).toBe(
+      "too_many_connections",
+    );
+  });
+
   it("turns away connections beyond the cap", async () => {
     const { port } = await startServer({ maxConnectionsPerIp: 2 });
 
@@ -1600,5 +1651,131 @@ describe("announcements", () => {
 
     expect(alice.socket.connected).toBe(true);
     expect(await emit(alice.socket, "room:leave")).toEqual({ ok: true });
+  });
+});
+
+describe("moderator access", () => {
+  const SECRET = "a-secret-that-is-long-enough-for-tests";
+  const authFor = (sub: number) => ({
+    token: signToken(
+      { sub, name: "Ada Mod", role: "moderator" },
+      { secret: SECRET, ttlMs: 3_600_000 },
+    ),
+  });
+
+  describe("signing in", () => {
+    it("refuses a token whose account may no longer moderate", async () => {
+      getModerators.mockResolvedValue([{ id: 8, name: "Grace" }]);
+      const { port } = await startServer({ authTokenSecret: SECRET });
+
+      expect((await connect(authFor(7), port)).error).toBe("invalid_token");
+    });
+
+    it("refuses every token when nobody may moderate", async () => {
+      getModerators.mockResolvedValue([]);
+      const { port } = await startServer({ authTokenSecret: SECRET });
+
+      expect((await connect(authFor(7), port)).error).toBe("invalid_token");
+    });
+
+    it.each([
+      ["has never been read", undefined],
+      ["cannot be read", new Error("redis down")],
+    ])(
+      "fails closed when the list of moderators %s",
+      async (_label, outcome) => {
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        if (outcome instanceof Error) getModerators.mockRejectedValue(outcome);
+        else getModerators.mockResolvedValue(outcome);
+        const { port } = await startServer({ authTokenSecret: SECRET });
+
+        expect((await connect(authFor(7), port)).error).toBe("unavailable");
+      },
+    );
+
+    it("does not look at the list for a guest", async () => {
+      await connect({ nickname: "Alice" });
+
+      expect(getModerators).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("while connected", () => {
+    async function connectAll() {
+      const { io, port } = await startServer({ authTokenSecret: SECRET });
+      const ada = await connect(authFor(7), port);
+      const grace = await connect(authFor(8), port);
+      const alice = await connect({ nickname: "Alice" }, port);
+      const kicked = (socket?: Socket) => {
+        const events: unknown[] = [];
+        socket?.on("kicked", (reason) => events.push(reason));
+        return events;
+      };
+
+      return {
+        io,
+        ada: ada.socket!,
+        grace: grace.socket!,
+        alice: alice.socket!,
+        adaKicks: kicked(ada.socket),
+        graceKicks: kicked(grace.socket),
+        aliceKicks: kicked(alice.socket),
+      };
+    }
+
+    it("removes a moderator who may no longer moderate, saying their session is over", async () => {
+      const { io, ada, adaKicks, grace, alice } = await connectAll();
+      const gone = new Promise((resolve) => ada.once("disconnect", resolve));
+
+      await enforceModerators(io, [8]);
+      await gone;
+
+      expect(adaKicks).toEqual([{ reason: "invalid_token" }]);
+      expect(grace.connected).toBe(true);
+      expect(alice.connected).toBe(true);
+    });
+
+    it("removes every moderator, but no guest, when nobody may moderate", async () => {
+      const { io, ada, grace, alice, aliceKicks } = await connectAll();
+      const gone = Promise.all(
+        [ada, grace].map(
+          (socket) =>
+            new Promise((resolve) => socket.once("disconnect", resolve)),
+        ),
+      );
+
+      await enforceModerators(io, []);
+      await gone;
+
+      expect(aliceKicks).toEqual([]);
+      expect(alice.connected).toBe(true);
+    });
+
+    it("leaves moderators who still may moderate alone", async () => {
+      const { io, adaKicks, graceKicks, ada, grace } = await connectAll();
+
+      await enforceModerators(io, [7, 8]);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect([adaKicks, graceKicks]).toEqual([[], []]);
+      expect([ada.connected, grace.connected]).toEqual([true, true]);
+    });
+
+    it("tells the room when a removed moderator was in it", async () => {
+      const { io, ada, alice } = await connectAll();
+      await emit(ada, "room:join", { slug: "general" });
+      await emit(alice, "room:join", { slug: "general" });
+      const left = waitFor<Presence>(
+        alice,
+        "room:presence",
+        (presence) => presence.members.length === 1,
+      );
+
+      await enforceModerators(io, []);
+
+      expect((await left).members.map((member) => member.nickname)).toEqual([
+        "Alice",
+      ]);
+    });
   });
 });

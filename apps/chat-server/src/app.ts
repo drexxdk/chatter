@@ -5,6 +5,7 @@ import helmet from "helmet";
 import { z } from "zod";
 
 import { env } from "./env.js";
+import { rememberModerator } from "./names.js";
 import { loginAccount } from "./payloadClient.js";
 import { chatRoleFor } from "./roles.js";
 import { getCachedPublicRooms } from "./rooms.js";
@@ -104,6 +105,16 @@ export function createApp(
 
       if (!account.displayName) {
         return res.status(403).json({ error: "no_display_name" });
+      }
+
+      try {
+        await rememberModerator({
+          id: account.id,
+          name: account.displayName,
+        });
+      } catch (error) {
+        console.error("Failed to record the moderator:", error);
+        return res.status(503).json({ error: "unavailable" });
       }
 
       const token = signToken(
