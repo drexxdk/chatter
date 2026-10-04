@@ -167,7 +167,7 @@ export interface PublicRoom {
    */
   maxMembers?: number | null;
   /**
-   * Seconds a guest must wait between messages. Leave empty to apply only the general flood limit (5 messages per 5 seconds).
+   * Seconds a guest must wait between messages. Leave empty to use the chat server's default (10 seconds unless it is configured otherwise).
    */
   slowModeSeconds?: number | null;
   description?: string | null;

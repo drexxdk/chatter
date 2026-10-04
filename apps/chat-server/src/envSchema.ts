@@ -79,6 +79,8 @@ export const envSchema = z.object({
   ),
   INACTIVITY_TIMEOUT_MS: setting(positive(defaultOf(900_000)).default(900_000)),
   SYNC_INTERVAL_MS: setting(positive(defaultOf(30_000)).default(30_000)),
+  // For rooms whose slow mode is left empty in Payload. There is no way to switch it off.
+  DEFAULT_SLOW_MODE_SECONDS: setting(positive(defaultOf(10)).default(10)),
   ROOM_HISTORY_SIZE: setting(
     wholeNumber("from 1 to 200", 1, 200, defaultOf(50)).default(50),
   ),

@@ -9,6 +9,8 @@ export const E2E = {
   banHashSalt: "e2e-only-ban-salt-not-a-secret",
   authTokenSecret: "e2e-only-token-secret-not-a-secret-123456",
   syncIntervalMs: 500,
+  // The shortest slow mode there is; the production default of 10 seconds would make every test wait.
+  defaultSlowModeSeconds: 1,
   // Marks data created by these tests so leftovers from a crashed run can be swept.
   slugPrefix: "e2e-",
   banReason: "e2e-test",

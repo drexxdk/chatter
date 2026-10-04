@@ -14,6 +14,7 @@ export default defineConfig({
       INACTIVITY_TIMEOUT_MS: "900000",
       ROOM_HISTORY_SIZE: "50",
       ROOM_HISTORY_TTL_SECONDS: "3600",
+      DEFAULT_SLOW_MODE_SECONDS: "",
     },
   },
 });

@@ -31,7 +31,9 @@ describe("fetchPublicRooms", () => {
   it("returns the rooms and sends the service key", async () => {
     const fetchMock = respondWith({ docs: [room] });
 
-    expect(await fetchPublicRooms()).toEqual([room]);
+    expect(await fetchPublicRooms()).toEqual([
+      { ...room, slowModeSeconds: 10 },
+    ]);
 
     const [url, init] = fetchMock.mock.calls[0] as unknown as [
       string,
@@ -63,18 +65,27 @@ describe("fetchPublicRooms", () => {
   });
 
   it("keeps a room's slow mode, which guests are shown", async () => {
-    respondWith({
-      docs: [
-        { ...room, slowModeSeconds: 10 },
-        { ...room, id: 2, slug: "other", slowModeSeconds: null },
-      ],
-    });
+    respondWith({ docs: [{ ...room, slowModeSeconds: 30 }] });
 
-    const [slow, normal] = await fetchPublicRooms();
+    const [slow] = await fetchPublicRooms();
 
-    expect(slow.slowModeSeconds).toBe(10);
-    expect(normal.slowModeSeconds).toBeNull();
+    expect(slow.slowModeSeconds).toBe(30);
   });
+
+  // Nobody gets to chat without a wait because an administrator left the field empty.
+  it.each([
+    ["empty", null],
+    ["missing", undefined],
+  ])(
+    "gives a room whose slow mode is %s the server's default of 10 seconds",
+    async (_label, value) => {
+      respondWith({ docs: [{ ...room, slowModeSeconds: value }] });
+
+      const [normal] = await fetchPublicRooms();
+
+      expect(normal.slowModeSeconds).toBe(10);
+    },
+  );
 
   // /rooms publishes these to anyone, so a field added to the collection later must not leak through.
   it("drops fields it does not know", async () => {
@@ -82,7 +93,9 @@ describe("fetchPublicRooms", () => {
       docs: [{ ...room, internalNotes: "private", createdAt: "2026-01-01" }],
     });
 
-    expect(await fetchPublicRooms()).toEqual([room]);
+    expect(await fetchPublicRooms()).toEqual([
+      { ...room, slowModeSeconds: 10 },
+    ]);
   });
 
   it.each([

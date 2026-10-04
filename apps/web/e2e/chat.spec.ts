@@ -294,6 +294,19 @@ test("a guest who is banned while chatting is removed and their messages are rep
   }
 });
 
+test("a room whose slow mode is left empty still has the server's default", async ({
+  browser,
+}) => {
+  const alice = await newGuest(browser);
+  await enterRoom(alice, LOUNGE.name, "Alice");
+
+  await expect(
+    alice.getByText(
+      `Slow mode: one message every ${E2E.defaultSlowModeSeconds} s.`,
+    ),
+  ).toBeVisible();
+});
+
 test("a room with slow mode makes a guest wait between messages", async ({
   browser,
 }) => {

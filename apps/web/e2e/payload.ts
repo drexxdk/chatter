@@ -69,7 +69,8 @@ export class PayloadApi {
     };
   }
 
-  // Payload fills in a slow mode of 10 seconds unless it is sent explicitly, which would slow every test down.
+  // Payload fills in a slow mode of 10 seconds unless it is sent explicitly; null leaves the room on the e2e
+  // server's short default instead.
   async createRoom(
     name: string,
     slug: string,

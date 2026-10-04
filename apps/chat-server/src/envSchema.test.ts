@@ -20,6 +20,7 @@ describe("parseEnv defaults", () => {
       WEB_ORIGIN: "http://localhost:5173",
       INACTIVITY_TIMEOUT_MS: 900_000,
       SYNC_INTERVAL_MS: 30_000,
+      DEFAULT_SLOW_MODE_SECONDS: 10,
       SOCKET_ADAPTER_KEY: "socket.io",
       ROOM_HISTORY_SIZE: 50,
       ROOM_HISTORY_TTL_SECONDS: 3600,
@@ -38,9 +39,11 @@ describe("parseEnv defaults", () => {
       TRUST_PROXY_HOPS: blank,
       WEB_ORIGIN: blank,
       SOCKET_ADAPTER_KEY: blank,
+      DEFAULT_SLOW_MODE_SECONDS: blank,
     });
 
     expect(env.PORT).toBe(4000);
+    expect(env.DEFAULT_SLOW_MODE_SECONDS).toBe(10);
     expect(env.SYNC_INTERVAL_MS).toBe(30_000);
     expect(env.INACTIVITY_TIMEOUT_MS).toBe(900_000);
     expect(env.MAX_CONNECTIONS_PER_IP).toBeUndefined();
@@ -66,10 +69,12 @@ describe("parseEnv numbers", () => {
       TRUST_PROXY_HOPS: "2",
       ROOM_HISTORY_SIZE: "200",
       ROOM_HISTORY_TTL_SECONDS: "86400",
+      DEFAULT_SLOW_MODE_SECONDS: "30",
     });
 
     expect(env).toMatchObject({
       PORT: 8080,
+      DEFAULT_SLOW_MODE_SECONDS: 30,
       SYNC_INTERVAL_MS: 1,
       INACTIVITY_TIMEOUT_MS: 5000,
       MAX_CONNECTIONS_PER_IP: 10,
@@ -101,6 +106,8 @@ describe("parseEnv numbers", () => {
     ["ROOM_HISTORY_TTL_SECONDS", "1h", /from 1 to 604800/],
     ["ROOM_HISTORY_TTL_SECONDS", "604801", /from 1 to 604800/],
     ["SYNC_INTERVAL_MS", "30s", /1 or more/],
+    ["DEFAULT_SLOW_MODE_SECONDS", "0", /1 or more.*default of 10/],
+    ["DEFAULT_SLOW_MODE_SECONDS", "ten", /1 or more/],
     ["MAX_CONNECTIONS_PER_IP", "0", /1 or more.*no limit/],
     ["MAX_CONNECTIONS_PER_IP", "10 per ip", /1 or more/],
     ["TRUST_PROXY_HOPS", "-1", /0 or more.*default of 0/],
