@@ -25,6 +25,7 @@ describe("ROLE_RULES", () => {
     expect(ROLE_RULES.guest).toEqual({
       ignoresIpBans: false,
       ignoresConnectionCap: false,
+      blockable: true,
       canAnnounce: false,
     });
   });
@@ -33,6 +34,7 @@ describe("ROLE_RULES", () => {
     expect(ROLE_RULES.moderator).toEqual({
       ignoresIpBans: true,
       ignoresConnectionCap: true,
+      blockable: false,
       canAnnounce: true,
     });
   });

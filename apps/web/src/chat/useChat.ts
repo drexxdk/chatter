@@ -1,10 +1,32 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  addDirectMessage,
+  applyPresence,
+  markReturned,
+  markRead,
+  parseDirectMessage,
+  redactDirect,
+  type DirectThread,
+  type Partner,
+} from "./direct";
+import { movements, type RoomEvent } from "./roomEvents";
+import { parseAvatar, type Avatar } from "./avatar";
+import {
   createSocket as defaultCreateSocket,
   type ChatSocket,
   type CreateSocket,
+  type Resume,
 } from "./socket";
+
+export type { Avatar } from "./avatar";
+export type {
+  DirectEntry,
+  DirectMessage,
+  DirectStatus,
+  DirectThread,
+  Partner,
+} from "./direct";
 
 export type Role = "guest" | "moderator";
 
@@ -12,12 +34,15 @@ export interface Session {
   guestId: string;
   nickname: string;
   role?: Role;
+  avatar?: Avatar;
+  resumeSecret?: string;
 }
 
 export interface Member {
   guestId: string;
   nickname: string;
   role?: Role;
+  avatar?: Avatar;
 }
 
 export interface ChatMessage {
@@ -29,11 +54,29 @@ export interface ChatMessage {
   sentAt: string;
   // Who the server says sent it; absent means an ordinary guest.
   role?: Role;
+  avatar?: Avatar;
+  // The guest's place in what arrived live (see roomEvents.ts); not sent by the server.
+  seq?: number;
   // The author was banned: the text and name are gone and only a placeholder is shown.
   banned?: boolean;
 }
 
 export type ChatStatus = "idle" | "connecting" | "connected" | "reconnecting";
+
+export interface ConnectOptions {
+  // A moderator's signed token, in place of a nickname.
+  token?: string;
+  avatar?: Avatar;
+  // The ids this guest had on earlier connections (before a reload), so what they wrote is still theirs.
+  previousGuestIds?: string[];
+  // The identity to take over, when this is the same guest on a new page load.
+  resume?: Resume;
+  // What the guest had open before a reload.
+  threads?: DirectThread[];
+  blockedIds?: string[];
+  // The conversation that was open, to be open again if that person is still in the room.
+  openGuestId?: string;
+}
 
 // What a moderator told everyone.
 export interface Announcement {
@@ -43,16 +86,55 @@ export interface Announcement {
   name: string;
 }
 
-export type AnnounceResult =
+export type ActionResult =
   { ok: true } | { ok: false; error: string; retryAfterSeconds?: number };
+export type AnnounceResult = ActionResult;
 
 type Ack =
   | { ok: true; history?: unknown }
   | { ok: false; error: string; retryAfterMs?: number };
 type DropHandler = (reason: string) => void;
 
+function toResult(ack: Ack): ActionResult {
+  if (ack.ok) return { ok: true };
+
+  return {
+    ok: false,
+    error: ack.error,
+    retryAfterSeconds: ack.retryAfterMs
+      ? Math.ceil(ack.retryAfterMs / 1000)
+      : undefined,
+  };
+}
+
 const MAX_MESSAGES = 200;
-const DEFAULT_RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 15_000];
+const MAX_ROOM_EVENTS = 200;
+// About four minutes of trying, never more than 30 seconds apart: long enough for a server restart or a patchy
+// network, and a tab in the background has its timers slowed down by the browser anyway.
+export const DEFAULT_RECONNECT_DELAYS_MS = [
+  1_000, 2_000, 4_000, 8_000, 15_000, 15_000, 30_000, 30_000, 30_000, 30_000,
+  30_000, 30_000,
+];
+
+// Waits out a delay, but not when the browser says the network is back or the guest has returned to the tab: that is
+// the moment a retry is most likely to work, and a background tab's timers may have been held up.
+function waitOrWake(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      window.removeEventListener("online", done);
+      document.removeEventListener("visibilitychange", onVisibility);
+      resolve();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState !== "hidden") done();
+    };
+    const timer = setTimeout(done, ms);
+
+    window.addEventListener("online", done);
+    document.addEventListener("visibilitychange", onVisibility);
+  });
+}
 // Errors the server reports in connect_error; anything else (network failure, CORS) is a connection problem.
 const HANDSHAKE_ERRORS = new Set([
   "invalid_nickname",
@@ -129,6 +211,7 @@ function parseMessage(value: unknown): ChatMessage | undefined {
     text,
     sentAt,
     role: value.role === "moderator" ? "moderator" : "guest",
+    avatar: parseAvatar(value.avatar),
   };
 }
 
@@ -221,6 +304,12 @@ export function useChat(
   const nicknameRef = useRef<string | null>(null);
   // Proof that a moderator signed in, kept so a dropped connection can be restored without asking again.
   const tokenRef = useRef<string | null>(null);
+  // What the guest chose to be shown as; sent again when the connection is restored.
+  const avatarRef = useRef<Avatar | null>(null);
+  // Lets a new connection (a dropped one restored, or a reloaded page) be the same guest as the one before it.
+  const resumeRef = useRef<Resume | null>(null);
+  // Which room the last list of people was for, so a different room's list is not mistaken for people leaving.
+  const presenceRoomRef = useRef<string | null>(null);
   // Bumped to cancel a reconnect loop in progress.
   const reconnectRunRef = useRef(0);
   const reconnectingRef = useRef(false);
@@ -232,9 +321,27 @@ export function useChat(
   const [session, setSession] = useState<Session | null>(null);
   // The server issues a new guest id per connection, so earlier messages stay recognisable as ours.
   const [ownGuestIds, setOwnGuestIds] = useState<string[]>([]);
+  const ownGuestIdsRef = useRef<string[]>([]);
   const [roomSlug, setRoomSlug] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [roomEvents, setRoomEvents] = useState<RoomEvent[]>([]);
+  // Counts what arrives live, so messages and events can be put in the order they came.
+  const arrivalRef = useRef(0);
+  const lastMembersRef = useRef<Member[]>([]);
+  // Guests banned while here: nothing about them is announced.
+  const bannedGuestIdsRef = useRef(new Set<string>());
+  // A conversation restored after a reload stays open only if the other person turns out to be in the room.
+  const restoredPartnerRef = useRef<string | null>(null);
+  // Direct messages live only as long as the connection: guests are new people every time they connect.
+  const [threads, setThreads] = useState<DirectThread[]>([]);
+  // Who the guest has open, whether or not anything has been said yet.
+  const [partner, setPartner] = useState<Partner | null>(null);
+  const [blockedIds, setBlockedIds] = useState<string[]>([]);
+  const partnerRef = useRef<Partner | null>(null);
+  const blockedRef = useRef<string[]>([]);
+  const membersRef = useRef<Member[]>([]);
+  const selfGuestIdRef = useRef<string | null>(null);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   // The server repeats the latest announcement on every connection; one that was dismissed must not return.
   const dismissedAnnouncementRef = useRef<string | null>(null);
@@ -250,11 +357,22 @@ export function useChat(
       options.reconnectDelaysMs ?? DEFAULT_RECONNECT_DELAYS_MS;
   }, [options.reconnectDelaysMs]);
 
+  useEffect(() => {
+    membersRef.current = members;
+  }, [members]);
+
   const resetRoom = useCallback(() => {
     roomRef.current = null;
+    partnerRef.current = null;
+    presenceRoomRef.current = null;
+    restoredPartnerRef.current = null;
+    lastMembersRef.current = [];
+    bannedGuestIdsRef.current = new Set();
+    setPartner(null);
     setRoomSlug(null);
     setMembers([]);
     setMessages([]);
+    setRoomEvents([]);
   }, []);
 
   const cancelReconnect = useCallback(() => {
@@ -273,6 +391,9 @@ export function useChat(
     setStatus("idle");
     setSession(null);
     setAnnouncement(null);
+    setThreads([]);
+    blockedRef.current = [];
+    setBlockedIds([]);
     resetRoom();
   }, [resetRoom]);
 
@@ -280,21 +401,45 @@ export function useChat(
   const openSocket = useCallback(
     (nickname: string, onDrop: DropHandler): Promise<string | null> => {
       const token = tokenRef.current;
-      const socket = token
-        ? createSocket(nickname, token)
-        : createSocket(nickname);
+      const avatar = avatarRef.current;
+      const resume = resumeRef.current;
+      // Trailing arguments that are not needed are left off, so a plain guest's call is just the nickname.
+      const args: [string, string?, Avatar?, Resume?] = [
+        nickname,
+        token ?? undefined,
+        avatar ?? undefined,
+        resume ?? undefined,
+      ];
+      while (args.length > 1 && args[args.length - 1] === undefined) args.pop();
+      const socket = createSocket(...args);
       socketRef.current = socket;
       const isCurrent = () => socketRef.current === socket;
 
       return new Promise((resolve) => {
         socket.on("session", (next: Session) => {
           if (!isCurrent()) return;
+          selfGuestIdRef.current = next.guestId;
+          // Same guest as before: whoever they were talking to saw them leave and come back.
+          if (resume?.guestId === next.guestId) {
+            setThreads((previous) =>
+              markReturned(previous, new Date().toISOString(), () =>
+                crypto.randomUUID(),
+              ),
+            );
+          }
+          // Each connection gets a new secret; this is the one the next connection has to present.
+          resumeRef.current = next.resumeSecret
+            ? { guestId: next.guestId, secret: next.resumeSecret }
+            : null;
+          // The server forgets who was blocked when a connection ends, so a new one is told again.
+          for (const guestId of blockedRef.current) {
+            socket.emit("dm:block", { guestId });
+          }
           setSession(next);
-          setOwnGuestIds((previous) =>
-            previous.includes(next.guestId)
-              ? previous
-              : [...previous, next.guestId],
-          );
+          if (!ownGuestIdsRef.current.includes(next.guestId)) {
+            ownGuestIdsRef.current = [...ownGuestIdsRef.current, next.guestId];
+          }
+          setOwnGuestIds(ownGuestIdsRef.current);
           resolve(null);
         });
 
@@ -309,18 +454,69 @@ export function useChat(
         socket.on(
           "room:presence",
           (presence: { roomSlug: string; members: Member[] }) => {
-            if (isCurrent() && presence.roomSlug === roomRef.current)
+            if (isCurrent() && presence.roomSlug === roomRef.current) {
               setMembers(presence.members);
+
+              const silent = presenceRoomRef.current !== presence.roomSlug;
+              const before = lastMembersRef.current;
+              presenceRoomRef.current = presence.roomSlug;
+              lastMembersRef.current = presence.members;
+
+              if (!silent) {
+                const added = movements(
+                  before,
+                  presence.members,
+                  selfGuestIdRef.current,
+                  presence.roomSlug,
+                  new Date().toISOString(),
+                  () => ++arrivalRef.current,
+                  () => crypto.randomUUID(),
+                ).filter(
+                  (event) => !bannedGuestIdsRef.current.has(event.guestId),
+                );
+
+                if (added.length > 0) {
+                  setRoomEvents((previous) =>
+                    [...previous, ...added].slice(-MAX_ROOM_EVENTS),
+                  );
+                }
+              }
+
+              // The conversation from before the reload is only carried on with somebody who is here.
+              const restored = restoredPartnerRef.current;
+              if (restored) {
+                restoredPartnerRef.current = null;
+
+                if (
+                  !presence.members.some(
+                    (member) => member.guestId === restored,
+                  )
+                ) {
+                  partnerRef.current = null;
+                  setPartner(null);
+                }
+              }
+              setThreads((previous) =>
+                applyPresence(
+                  previous,
+                  new Set(presence.members.map((member) => member.guestId)),
+                  new Date().toISOString(),
+                  silent,
+                  () => crypto.randomUUID(),
+                ),
+              );
+            }
           },
         );
 
         socket.on("message:new", (message: ChatMessage) => {
           if (isCurrent() && message.roomSlug === roomRef.current) {
+            const live = { ...message, seq: ++arrivalRef.current };
             // Already known, e.g. it came with the history or was since replaced by a placeholder.
             setMessages((previous) =>
               previous.some((known) => known.id === message.id)
                 ? previous
-                : [...previous, message].slice(-MAX_MESSAGES),
+                : [...previous, live].slice(-MAX_MESSAGES),
             );
           }
         });
@@ -337,8 +533,46 @@ export function useChat(
           }
         });
 
+        socket.on("dm:new", (value: unknown) => {
+          const message = parseDirectMessage(value);
+          if (!isCurrent() || !message) return;
+
+          const mine = message.fromGuestId === selfGuestIdRef.current;
+          const known = membersRef.current.find(
+            (member) => member.guestId === message.toGuestId,
+          );
+          const other: Partner = mine
+            ? {
+                guestId: message.toGuestId,
+                nickname: message.toNickname,
+                role: known?.role ?? "guest",
+                avatar: message.toAvatar,
+              }
+            : {
+                guestId: message.fromGuestId,
+                nickname: message.fromNickname,
+                role: message.fromRole,
+                avatar: message.fromAvatar,
+              };
+          const viewing = partnerRef.current?.guestId === other.guestId;
+
+          setThreads((previous) =>
+            addDirectMessage(previous, other, message, !mine && !viewing),
+          );
+        });
+
         socket.on("message:redacted", (notice: unknown) => {
           if (!isCurrent()) return;
+          setThreads((previous) => redactDirect(previous, notice));
+          // Their name goes from the messages, so it must not stay in the lines about them coming and going.
+          const banned = strings(isRecord(notice) ? notice.guestIds : []);
+          banned.delete("");
+          if (banned.size > 0) {
+            for (const id of banned) bannedGuestIdsRef.current.add(id);
+            setRoomEvents((previous) =>
+              previous.filter((event) => !banned.has(event.guestId)),
+            );
+          }
           setMessages((previous) =>
             applyRedaction(previous, notice, roomRef.current),
           );
@@ -388,7 +622,7 @@ export function useChat(
       };
 
       for (const delay of delaysRef.current) {
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await waitOrWake(delay);
         if (cancelled()) return;
 
         const failure = await openSocket(nickname, onDrop);
@@ -439,14 +673,38 @@ export function useChat(
   );
 
   const connect = useCallback(
-    async (nickname: string, token?: string): Promise<boolean> => {
+    async (
+      nickname: string,
+      options: ConnectOptions = {},
+    ): Promise<boolean> => {
+      const { token, avatar, previousGuestIds = [], resume } = options;
+
       cancelReconnect();
       closeSocket();
       setError(null);
-      setOwnGuestIds([]);
+      resumeRef.current = resume ?? null;
+      ownGuestIdsRef.current = previousGuestIds;
+      setOwnGuestIds(previousGuestIds);
+      setThreads(options.threads ?? []);
+      blockedRef.current = options.blockedIds ?? [];
+      setBlockedIds(blockedRef.current);
+      const open = options.threads?.find(
+        (thread) => thread.guestId === options.openGuestId,
+      );
+      partnerRef.current = open
+        ? {
+            guestId: open.guestId,
+            nickname: open.nickname,
+            role: open.role,
+            avatar: open.avatar,
+          }
+        : null;
+      restoredPartnerRef.current = open ? open.guestId : null;
+      setPartner(partnerRef.current);
       setStatus("connecting");
       nicknameRef.current = nickname;
       tokenRef.current = token ?? null;
+      avatarRef.current = avatar ?? null;
 
       const failure = await openSocket(nickname, handleDrop);
 
@@ -476,9 +734,18 @@ export function useChat(
       if (!ack.ok) {
         roomRef.current = previous;
         setError(ack.error);
+        // Whatever was restored for that room has nowhere to go.
+        if (restoredPartnerRef.current) {
+          restoredPartnerRef.current = null;
+          partnerRef.current = null;
+          setPartner(null);
+        }
         return false;
       }
 
+      setRoomEvents((existing) =>
+        existing.filter((event) => event.roomSlug === slug),
+      );
       setMessages((existing) =>
         mergeHistory(
           existing.filter((message) => message.roomSlug === slug),
@@ -528,18 +795,42 @@ export function useChat(
   );
 
   const sendAnnouncement = useCallback(
-    async (text: string): Promise<AnnounceResult> => {
-      const ack = await emitWithAck("announce:send", { text });
+    async (text: string): Promise<AnnounceResult> =>
+      toResult(await emitWithAck("announce:send", { text })),
+    [emitWithAck],
+  );
 
-      if (ack.ok) return { ok: true };
+  const openDirect = useCallback((next: Partner) => {
+    partnerRef.current = next;
+    setPartner(next);
+    setThreads((previous) => markRead(previous, next.guestId));
+  }, []);
 
-      return {
-        ok: false,
-        error: ack.error,
-        retryAfterSeconds: ack.retryAfterMs
-          ? Math.ceil(ack.retryAfterMs / 1000)
-          : undefined,
-      };
+  const closeDirect = useCallback(() => {
+    partnerRef.current = null;
+    setPartner(null);
+  }, []);
+
+  const sendDirect = useCallback(
+    async (toGuestId: string, text: string): Promise<ActionResult> =>
+      toResult(await emitWithAck("dm:send", { toGuestId, text })),
+    [emitWithAck],
+  );
+
+  const setBlocked = useCallback(
+    async (guestId: string, blocked: boolean): Promise<ActionResult> => {
+      const result = toResult(
+        await emitWithAck(blocked ? "dm:block" : "dm:unblock", { guestId }),
+      );
+
+      if (result.ok) {
+        blockedRef.current = blocked
+          ? [...blockedRef.current.filter((id) => id !== guestId), guestId]
+          : blockedRef.current.filter((id) => id !== guestId);
+        setBlockedIds(blockedRef.current);
+      }
+
+      return result;
     },
     [emitWithAck],
   );
@@ -553,6 +844,22 @@ export function useChat(
 
   const clearError = useCallback(() => setError(null), []);
 
+  const activeThread = partner
+    ? threads.find((thread) => thread.guestId === partner.guestId)
+    : undefined;
+  const direct = {
+    threads,
+    // The conversation that is open; it has no messages until something has been said.
+    active: partner
+      ? { ...partner, entries: activeThread?.entries ?? [] }
+      : null,
+    blockedIds,
+    open: openDirect,
+    close: closeDirect,
+    send: sendDirect,
+    setBlocked,
+  };
+
   useEffect(
     () => () => {
       cancelReconnect();
@@ -565,12 +872,16 @@ export function useChat(
     status,
     session,
     ownGuestIds,
+    guestIds: () => ownGuestIdsRef.current,
+    resume: () => resumeRef.current,
     roomSlug,
     members,
     messages,
+    roomEvents: roomEvents.filter((event) => event.roomSlug === roomSlug),
     error,
     retryAfterSeconds,
     announcement,
+    direct,
     connect,
     joinRoom,
     leaveRoom,
@@ -581,3 +892,5 @@ export function useChat(
     clearError,
   };
 }
+
+export type DirectApi = ReturnType<typeof useChat>["direct"];

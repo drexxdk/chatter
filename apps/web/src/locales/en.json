@@ -30,6 +30,7 @@
     "leave": "Leave room",
     "chattingAs": "Chatting as {{nickname}}",
     "members": "In this room ({{count}})",
+    "people": "People in this room",
     "you": "you",
     "empty": "No messages yet. Say hello!",
     "messageLabel": "Message",
@@ -38,7 +39,10 @@
     "reconnecting": "Connection lost. Reconnecting…",
     "bannedMessage": "This user was banned",
     "moderatorBadge": "Moderator",
-    "slowMode": "Slow mode: one message every {{seconds}} s."
+    "slowMode": "Slow mode: one message every {{seconds}} s.",
+    "joined": "{{name}} joined the room.",
+    "left": "{{name}} left the room.",
+    "showMovements": "Show when people join and leave"
   },
   "announcement": {
     "title": "Announcement",
@@ -48,7 +52,35 @@
     "placeholder": "Write an announcement for everyone",
     "send": "Announce"
   },
+  "avatar": {
+    "legend": "Avatar",
+    "male": "Male",
+    "female": "Female",
+    "trans": "Trans",
+    "other": "Other"
+  },
+  "dm": {
+    "left": "{{name}} left the room.",
+    "rejoined": "{{name}} rejoined the room.",
+    "heading": "Direct messages",
+    "list": "Direct messages",
+    "none": "No direct messages yet.",
+    "unread_one": "{{count}} unread message",
+    "unread_other": "{{count}} unread messages",
+    "title": "Direct message with {{name}}",
+    "back": "Back to the room",
+    "empty": "No messages yet. Say hello!",
+    "label": "Message to {{name}}",
+    "away": "{{name}} is not in this room right now.",
+    "block": "Block {{name}}",
+    "unblock": "Unblock {{name}}",
+    "blocked": "You blocked {{name}}. Their messages no longer reach you."
+  },
   "errors": {
+    "replaced": "You opened the chat in another window, so this one was closed.",
+    "user_not_found": "That person is not in this room any more.",
+    "invalid_recipient": "You can only write to somebody else in this room.",
+    "too_many_blocked": "You have blocked as many people as you can.",
     "announce_wait": "You can announce again in {{seconds}} s.",
     "forbidden": "Only moderators can send announcements.",
     "invalid_nickname": "That nickname isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",

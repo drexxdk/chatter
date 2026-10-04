@@ -30,6 +30,7 @@
     "leave": "Raum verlassen",
     "chattingAs": "Du chattest als {{nickname}}",
     "members": "In diesem Raum ({{count}})",
+    "people": "Personen in diesem Raum",
     "you": "du",
     "empty": "Noch keine Nachrichten. Sag Hallo!",
     "messageLabel": "Nachricht",
@@ -38,7 +39,10 @@
     "reconnecting": "Verbindung unterbrochen. Verbinde erneut…",
     "bannedMessage": "Dieser Nutzer wurde gesperrt",
     "moderatorBadge": "Moderator",
-    "slowMode": "Langsamer Modus: eine Nachricht alle {{seconds}} s."
+    "slowMode": "Langsamer Modus: eine Nachricht alle {{seconds}} s.",
+    "joined": "{{name}} hat den Raum betreten.",
+    "left": "{{name}} hat den Raum verlassen.",
+    "showMovements": "Anzeigen, wann Leute kommen und gehen"
   },
   "announcement": {
     "title": "Ankündigung",
@@ -48,7 +52,35 @@
     "placeholder": "Schreibe eine Ankündigung für alle",
     "send": "Ankündigen"
   },
+  "avatar": {
+    "legend": "Avatar",
+    "male": "Männlich",
+    "female": "Weiblich",
+    "trans": "Trans",
+    "other": "Andere"
+  },
+  "dm": {
+    "left": "{{name}} hat den Raum verlassen.",
+    "rejoined": "{{name}} ist wieder im Raum.",
+    "heading": "Direktnachrichten",
+    "list": "Direktnachrichten",
+    "none": "Noch keine Direktnachrichten.",
+    "unread_one": "{{count}} ungelesene Nachricht",
+    "unread_other": "{{count}} ungelesene Nachrichten",
+    "title": "Direktnachricht an {{name}}",
+    "back": "Zurück zum Raum",
+    "empty": "Noch keine Nachrichten. Sag Hallo!",
+    "label": "Nachricht an {{name}}",
+    "away": "{{name}} ist gerade nicht in diesem Raum.",
+    "block": "{{name}} blockieren",
+    "unblock": "Blockierung von {{name}} aufheben",
+    "blocked": "Du hast {{name}} blockiert. Deren Nachrichten erreichen dich nicht mehr."
+  },
   "errors": {
+    "replaced": "Du hast den Chat in einem anderen Fenster geöffnet, daher wurde dieses geschlossen.",
+    "user_not_found": "Diese Person ist nicht mehr in diesem Raum.",
+    "invalid_recipient": "Du kannst nur jemand anderem in diesem Raum schreiben.",
+    "too_many_blocked": "Du hast so viele Personen blockiert, wie möglich.",
     "announce_wait": "Du kannst in {{seconds}} s wieder eine Ankündigung senden.",
     "forbidden": "Nur Moderatoren können Ankündigungen senden.",
     "invalid_nickname": "Dieser Spitzname ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",

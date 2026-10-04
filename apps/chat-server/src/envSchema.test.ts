@@ -21,6 +21,7 @@ describe("parseEnv defaults", () => {
       INACTIVITY_TIMEOUT_MS: 900_000,
       SYNC_INTERVAL_MS: 30_000,
       DEFAULT_SLOW_MODE_SECONDS: 10,
+      ROOMS_RATE_LIMIT_PER_MINUTE: 60,
       SOCKET_ADAPTER_KEY: "socket.io",
       ROOM_HISTORY_SIZE: 50,
       ROOM_HISTORY_TTL_SECONDS: 3600,
@@ -70,10 +71,12 @@ describe("parseEnv numbers", () => {
       ROOM_HISTORY_SIZE: "200",
       ROOM_HISTORY_TTL_SECONDS: "86400",
       DEFAULT_SLOW_MODE_SECONDS: "30",
+      ROOMS_RATE_LIMIT_PER_MINUTE: "600",
     });
 
     expect(env).toMatchObject({
       PORT: 8080,
+      ROOMS_RATE_LIMIT_PER_MINUTE: 600,
       DEFAULT_SLOW_MODE_SECONDS: 30,
       SYNC_INTERVAL_MS: 1,
       INACTIVITY_TIMEOUT_MS: 5000,
@@ -108,6 +111,8 @@ describe("parseEnv numbers", () => {
     ["SYNC_INTERVAL_MS", "30s", /1 or more/],
     ["DEFAULT_SLOW_MODE_SECONDS", "0", /1 or more.*default of 10/],
     ["DEFAULT_SLOW_MODE_SECONDS", "ten", /1 or more/],
+    ["ROOMS_RATE_LIMIT_PER_MINUTE", "0", /1 or more.*default of 60/],
+    ["ROOMS_RATE_LIMIT_PER_MINUTE", "lots", /1 or more/],
     ["MAX_CONNECTIONS_PER_IP", "0", /1 or more.*no limit/],
     ["MAX_CONNECTIONS_PER_IP", "10 per ip", /1 or more/],
     ["TRUST_PROXY_HOPS", "-1", /0 or more.*default of 0/],

@@ -10,6 +10,8 @@ export class FakeSocket implements ChatSocket {
   private handlers = new Map<string, Handler[]>();
   emitted: { event: string; payload: unknown }[] = [];
   disconnected = false;
+  // Who else is in the room when this connection joins it.
+  others: unknown[] = [];
 
   // Override per test to simulate server-side rejections.
   acks: Record<string, AckResponder> = {
@@ -17,6 +19,9 @@ export class FakeSocket implements ChatSocket {
     "room:leave": () => ({ ok: true }),
     "message:send": () => ({ ok: true }),
     "announce:send": () => ({ ok: true }),
+    "dm:send": () => ({ ok: true }),
+    "dm:block": () => ({ ok: true }),
+    "dm:unblock": () => ({ ok: true }),
   };
 
   constructor(
@@ -28,6 +33,9 @@ export class FakeSocket implements ChatSocket {
     readonly token?: string,
     // What the real server sends right behind the session when an announcement is still current.
     waitingAnnouncement?: unknown,
+    readonly avatar: string = "other",
+    // The secret the real server hands each connection for resuming its identity.
+    readonly resumeSecret?: string,
   ) {
     queueMicrotask(() => {
       if (handshakeError)
@@ -37,6 +45,8 @@ export class FakeSocket implements ChatSocket {
           guestId: this.guestId,
           nickname,
           role: token ? "moderator" : "guest",
+          avatar: token ? "other" : avatar,
+          resumeSecret: this.resumeSecret,
         });
         if (waitingAnnouncement)
           this.serverEmit("announcement:new", waitingAnnouncement);
@@ -67,7 +77,9 @@ export class FakeSocket implements ChatSocket {
               guestId: this.guestId,
               nickname: this.nickname,
               role: this.token ? "moderator" : "guest",
+              avatar: this.token ? "other" : this.avatar,
             },
+            ...this.others,
           ],
         });
       }
@@ -94,7 +106,16 @@ export class FakeSocket implements ChatSocket {
 }
 
 export function makeFakeServer(
-  options: { handshakeError?: string; waitingAnnouncement?: unknown } = {},
+  options: {
+    handshakeError?: string;
+    waitingAnnouncement?: unknown;
+    // Gives every connection a new guest id even when it presents the old one, as a server does once the secret has run out.
+    refuseResume?: boolean;
+    // Who is already in a room when a connection joins it.
+    others?: unknown[];
+    // A server that gives no secret for resuming.
+    withoutSecret?: boolean;
+  } = {},
 ) {
   const sockets: FakeSocket[] = [];
   // Applied to every socket created, e.g. { "room:join": () => ({ ok: false, error: "room_full" }) }.
@@ -102,20 +123,27 @@ export function makeFakeServer(
   // Handshake errors for the next connection attempts, consumed in order (e.g. to fail reconnects).
   const upcomingHandshakeErrors: string[] = [];
 
-  const createSocket = vi.fn<CreateSocket>((nickname, token) => {
-    const guestId =
-      sockets.length === 0 ? "guest-me" : `guest-me-${sockets.length + 1}`;
-    const socket = new FakeSocket(
-      nickname,
-      upcomingHandshakeErrors.shift() ?? options.handshakeError,
-      guestId,
-      token,
-      options.waitingAnnouncement,
-    );
-    Object.assign(socket.acks, acks);
-    sockets.push(socket);
-    return socket;
-  });
+  const createSocket = vi.fn<CreateSocket>(
+    (nickname, token, avatar, resume) => {
+      // A real server honours a resume with the right secret; the fake always accepts it unless told otherwise.
+      const guestId =
+        (options.refuseResume ? undefined : resume?.guestId) ??
+        (sockets.length === 0 ? "guest-me" : `guest-me-${sockets.length + 1}`);
+      const socket = new FakeSocket(
+        nickname,
+        upcomingHandshakeErrors.shift() ?? options.handshakeError,
+        guestId,
+        token,
+        options.waitingAnnouncement,
+        avatar,
+        options.withoutSecret ? undefined : `secret-${sockets.length + 1}`,
+      );
+      Object.assign(socket.acks, acks);
+      socket.others = options.others ?? [];
+      sockets.push(socket);
+      return socket;
+    },
+  );
 
   return {
     acks,

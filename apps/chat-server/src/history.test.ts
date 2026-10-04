@@ -32,6 +32,7 @@ const message = (n: number, roomSlug = "general") => ({
   guestId: `guest-${n}`,
   nickname: "Alice",
   role: "guest" as const,
+  avatar: "other" as const,
   text: `hello ${n}`,
   sentAt: new Date(Date.UTC(2026, 9, 3, 12, 0, n)).toISOString(),
 });
@@ -138,6 +139,26 @@ describe("getHistory", () => {
     expect(await getHistory("general")).toEqual([
       { ...message(1), role: "moderator" },
     ]);
+  });
+
+  it("keeps the author's avatar", async () => {
+    redis.lrange.mockResolvedValue([
+      JSON.stringify({ ...stored(1), avatar: "trans" }),
+    ]);
+
+    expect(await getHistory("general")).toEqual([
+      { ...message(1), avatar: "trans" },
+    ]);
+  });
+
+  // An avatar is decoration, so one that is missing (an older version) or not known still shows the message.
+  it.each([
+    ["without one", undefined],
+    ["with one it does not know", "robot"],
+  ])("gives a message stored %s the plain avatar", async (_label, avatar) => {
+    redis.lrange.mockResolvedValue([JSON.stringify({ ...stored(1), avatar })]);
+
+    expect(await getHistory("general")).toEqual([message(1)]);
   });
 
   it("treats a message stored without a role as a guest's", async () => {

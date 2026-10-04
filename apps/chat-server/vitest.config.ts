@@ -15,6 +15,7 @@ export default defineConfig({
       ROOM_HISTORY_SIZE: "50",
       ROOM_HISTORY_TTL_SECONDS: "3600",
       DEFAULT_SLOW_MODE_SECONDS: "",
+      ROOMS_RATE_LIMIT_PER_MINUTE: "",
     },
   },
 });

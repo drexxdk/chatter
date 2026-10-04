@@ -30,6 +30,7 @@
     "leave": "Forlad rum",
     "chattingAs": "Du chatter som {{nickname}}",
     "members": "I dette rum ({{count}})",
+    "people": "Personer i dette rum",
     "you": "dig",
     "empty": "Ingen beskeder endnu. Sig hej!",
     "messageLabel": "Besked",
@@ -38,7 +39,10 @@
     "reconnecting": "Forbindelsen blev afbrudt. Forbinder igen…",
     "bannedMessage": "Denne bruger blev udelukket",
     "moderatorBadge": "Moderator",
-    "slowMode": "Langsom tilstand: én besked hvert {{seconds}}. sekund."
+    "slowMode": "Langsom tilstand: én besked hvert {{seconds}}. sekund.",
+    "joined": "{{name}} kom ind i rummet.",
+    "left": "{{name}} forlod rummet.",
+    "showMovements": "Vis, når folk kommer og går"
   },
   "announcement": {
     "title": "Meddelelse",
@@ -48,7 +52,35 @@
     "placeholder": "Skriv en meddelelse til alle",
     "send": "Meddel"
   },
+  "avatar": {
+    "legend": "Avatar",
+    "male": "Mand",
+    "female": "Kvinde",
+    "trans": "Trans",
+    "other": "Andet"
+  },
+  "dm": {
+    "left": "{{name}} forlod rummet.",
+    "rejoined": "{{name}} er kommet tilbage til rummet.",
+    "heading": "Direkte beskeder",
+    "list": "Direkte beskeder",
+    "none": "Ingen direkte beskeder endnu.",
+    "unread_one": "{{count}} ulæst besked",
+    "unread_other": "{{count}} ulæste beskeder",
+    "title": "Direkte besked til {{name}}",
+    "back": "Tilbage til rummet",
+    "empty": "Ingen beskeder endnu. Sig hej!",
+    "label": "Besked til {{name}}",
+    "away": "{{name}} er ikke i rummet lige nu.",
+    "block": "Bloker {{name}}",
+    "unblock": "Fjern blokering af {{name}}",
+    "blocked": "Du har blokeret {{name}}. Vedkommendes beskeder når ikke længere frem til dig."
+  },
   "errors": {
+    "replaced": "Du har åbnet chatten i et andet vindue, så dette blev lukket.",
+    "user_not_found": "Vedkommende er ikke længere i rummet.",
+    "invalid_recipient": "Du kan kun skrive til en anden i dette rum.",
+    "too_many_blocked": "Du har blokeret så mange, som du kan.",
     "announce_wait": "Du kan sende en ny meddelelse om {{seconds}} sek.",
     "forbidden": "Kun moderatorer kan sende meddelelser.",
     "invalid_nickname": "Det kaldenavn er ikke tilladt. Brug 2–24 bogstaver, tal, mellemrum eller _ . -",

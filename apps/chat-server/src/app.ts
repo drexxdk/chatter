@@ -12,7 +12,7 @@ import { getCachedPublicRooms } from "./rooms.js";
 import { signToken } from "./tokens.js";
 
 // Counted per process, like the per-IP connection cap.
-const ROOMS_RATE_LIMIT = { max: 60, windowMs: 60_000 };
+const ROOMS_RATE_LIMIT_WINDOW_MS = 60_000;
 // Few, because every attempt is a guess at someone's password (and Payload locks an account after five of them).
 const LOGIN_RATE_LIMIT = { max: 10, windowMs: 15 * 60_000 };
 // How long a moderator stays signed in after the password was checked.
@@ -59,7 +59,12 @@ export function createApp(
 
   app.get(
     "/rooms",
-    limiter(options.roomsRateLimit ?? ROOMS_RATE_LIMIT),
+    limiter(
+      options.roomsRateLimit ?? {
+        max: env.ROOMS_RATE_LIMIT_PER_MINUTE,
+        windowMs: ROOMS_RATE_LIMIT_WINDOW_MS,
+      },
+    ),
     async (_req, res) => {
       res.json(await getCachedPublicRooms());
     },

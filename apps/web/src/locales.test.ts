@@ -37,6 +37,10 @@ const ERROR_CODES = [
   "invalid_request",
   "announce_wait",
   "forbidden",
+  "user_not_found",
+  "invalid_recipient",
+  "too_many_blocked",
+  "replaced",
   "unknown",
 ];
 

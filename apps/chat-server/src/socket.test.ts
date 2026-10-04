@@ -24,6 +24,8 @@ const {
   saveAnnouncement,
   getLatestAnnouncement,
   claimAnnouncementSlot,
+  rememberResume,
+  verifyResume,
 } = vi.hoisted(() => ({
   isBanned: vi.fn(),
   getCachedPublicRooms: vi.fn(),
@@ -35,11 +37,19 @@ const {
   saveAnnouncement: vi.fn(),
   getLatestAnnouncement: vi.fn(),
   claimAnnouncementSlot: vi.fn(),
+  rememberResume: vi.fn(),
+  verifyResume: vi.fn(),
 }));
 
 vi.mock("./redis.js", () => ({ pubClient: {}, subClient: {} }));
 vi.mock("./bans.js", () => ({ isBanned }));
 vi.mock("./rooms.js", () => ({ getCachedPublicRooms }));
+// The store is mocked, the secrets it hands out are real.
+vi.mock("./resume.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./resume.js")>()),
+  rememberResume,
+  verifyResume,
+}));
 vi.mock("./announcements.js", () => ({
   saveAnnouncement,
   getLatestAnnouncement,
@@ -75,15 +85,19 @@ vi.mock("@socket.io/redis-adapter", async () => {
   return { createAdapter: () => LatentAdapter };
 });
 
-const { createSocketServer, enforceBans, enforceModerators } =
-  await import("./socket.js");
+const {
+  createSocketServer,
+  enforceBans,
+  enforceModerators,
+  directMessageWaitMs,
+} = await import("./socket.js");
 const { signToken } = await import("./tokens.js");
 const { hashIdentifier } = await import("./identity.js");
 
 type Ack = { ok: boolean; error?: string; [key: string]: unknown };
 type Presence = {
   roomSlug: string;
-  members: { guestId: string; nickname: string }[];
+  members: { guestId: string; nickname: string; avatar?: string }[];
 };
 
 const ROOMS = [
@@ -101,7 +115,13 @@ let port: number;
 let clients: Socket[] = [];
 const extraServers: Server[] = [];
 
-type Session = { guestId: string; nickname: string; role?: string };
+type Session = {
+  guestId: string;
+  nickname: string;
+  role?: string;
+  avatar?: string;
+  resumeSecret?: string;
+};
 
 function connect(
   auth: Record<string, unknown>,
@@ -202,6 +222,8 @@ beforeEach(() => {
   saveAnnouncement.mockReset().mockResolvedValue(undefined);
   getLatestAnnouncement.mockReset().mockResolvedValue(undefined);
   claimAnnouncementSlot.mockReset().mockResolvedValue(0);
+  rememberResume.mockReset().mockResolvedValue(undefined);
+  verifyResume.mockReset().mockResolvedValue(false);
 });
 
 afterEach(async () => {
@@ -1776,6 +1798,738 @@ describe("moderator access", () => {
       expect((await left).members.map((member) => member.nickname)).toEqual([
         "Alice",
       ]);
+    });
+  });
+});
+
+describe("direct messages", () => {
+  const SECRET = "a-secret-that-is-long-enough-for-tests";
+  const RATE_WINDOW_MS = 5_000;
+
+  function clock(start = Date.now()) {
+    let now = start;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    return (ms: number) => void (now += ms);
+  }
+
+  async function inRoom(
+    auth: Record<string, unknown>,
+    slug = "general",
+    targetPort: number = port,
+  ) {
+    const { socket, session, error } = await connect(auth, targetPort);
+    if (!socket || !session) throw new Error(`could not connect: ${error}`);
+    const { guestId, nickname } = await session;
+    await emit(socket, "room:join", { slug });
+    const received: DirectMessage[] = [];
+    socket.on("dm:new", (message) => received.push(message));
+
+    return { socket, guestId, nickname, received };
+  }
+
+  type DirectMessage = {
+    id: string;
+    fromGuestId: string;
+    fromNickname: string;
+    fromRole: string;
+    toGuestId: string;
+    toNickname: string;
+    text: string;
+    sentAt: string;
+  };
+
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 60));
+  const send = (
+    from: { socket: Socket },
+    to: { guestId: string },
+    text = "hello",
+  ) => emit(from.socket, "dm:send", { toGuestId: to.guestId, text });
+
+  describe("sending", () => {
+    it("delivers a message to the other guest, and shows it to the sender too", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      const heardByBob = waitFor<DirectMessage>(bob.socket, "dm:new");
+      const heardByAlice = waitFor<DirectMessage>(alice.socket, "dm:new");
+
+      const ack = await send(alice, bob, "  hello Bob  ");
+
+      expect(ack).toEqual({ ok: true });
+      const expected = {
+        id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        fromGuestId: alice.guestId,
+        fromNickname: "Alice",
+        fromRole: "guest",
+        fromAvatar: "other",
+        toGuestId: bob.guestId,
+        toNickname: "Bob",
+        toAvatar: "other",
+        text: "hello Bob",
+        sentAt: expect.stringMatching(/^\d{4}-\d\d-\d\dT/),
+      };
+      expect(await heardByBob).toEqual(expected);
+      expect(await heardByAlice).toEqual(expected);
+    });
+
+    it("says who a moderator is", async () => {
+      const { port } = await startServer({ authTokenSecret: SECRET });
+      const token = signToken(
+        { sub: 7, name: "Ada Mod", role: "moderator" },
+        { secret: SECRET, ttlMs: 3_600_000 },
+      );
+      const ada = await inRoom({ token }, "general", port);
+      const bob = await inRoom({ nickname: "Bob" }, "general", port);
+      const heard = waitFor<DirectMessage>(bob.socket, "dm:new");
+
+      await send(ada, bob, "please keep it friendly");
+
+      expect(await heard).toMatchObject({
+        fromNickname: "Ada Mod",
+        fromRole: "moderator",
+      });
+    });
+
+    it("keeps it between the two of them", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      const carol = await inRoom({ nickname: "Carol" });
+
+      await send(alice, bob);
+      await settle();
+
+      expect(bob.received).toHaveLength(1);
+      expect(carol.received).toEqual([]);
+    });
+
+    it("does not put it in any room's history", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+
+      await send(alice, bob);
+
+      expect(recordMessage).not.toHaveBeenCalled();
+    });
+
+    it("needs the sender to be in a room", async () => {
+      const bob = await inRoom({ nickname: "Bob" });
+      const { socket } = await connect({ nickname: "Alice" });
+
+      expect(await send({ socket: socket! }, bob)).toEqual({
+        ok: false,
+        error: "not_in_room",
+      });
+    });
+
+    it.each([
+      ["in another room", "random"],
+      ["no longer connected", undefined],
+    ])("refuses somebody who is %s", async (_label, slug) => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" }, slug ?? "general");
+      if (!slug) {
+        bob.socket.disconnect();
+        await vi.waitFor(async () =>
+          expect(
+            (await ioServer.fetchSockets()).map((s) => s.data.nickname),
+          ).toEqual(["Alice"]),
+        );
+      }
+
+      expect(await send(alice, bob)).toEqual({
+        ok: false,
+        error: "user_not_found",
+      });
+      expect(bob.received).toEqual([]);
+    });
+
+    it.each([
+      ["nobody", { text: "hi" }],
+      ["a number", { toGuestId: 5, text: "hi" }],
+    ])("refuses a message to %s", async (_label, payload) => {
+      const alice = await inRoom({ nickname: "Alice" });
+
+      expect(await emit(alice.socket, "dm:send", payload)).toEqual({
+        ok: false,
+        error: "invalid_recipient",
+      });
+    });
+
+    it("refuses a message to oneself", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+
+      expect(await send(alice, alice)).toEqual({
+        ok: false,
+        error: "invalid_recipient",
+      });
+    });
+
+    it.each([
+      ["empty", ""],
+      ["only spaces", "   "],
+      ["missing", undefined],
+      ["a number", 42],
+      ["too long", "x".repeat(1001)],
+    ])("refuses a message that is %s", async (_label, text) => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+
+      expect(
+        await emit(alice.socket, "dm:send", { toGuestId: bob.guestId, text }),
+      ).toEqual({ ok: false, error: "invalid_message" });
+      expect(bob.received).toEqual([]);
+    });
+
+    it("accepts the longest allowed message", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+
+      expect(await send(alice, bob, "x".repeat(1000))).toEqual({ ok: true });
+    });
+
+    it("answers unavailable when the room cannot be looked up", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      vi.spyOn(ioServer, "in").mockImplementation(() => {
+        throw new Error("redis down");
+      });
+
+      expect(await send(alice, bob)).toEqual({
+        ok: false,
+        error: "unavailable",
+      });
+    });
+  });
+
+  describe("blocking", () => {
+    it("stops a guest's messages reaching the person who blocked them, without telling the sender", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      await emit(bob.socket, "dm:block", { guestId: alice.guestId });
+      const echoed = waitFor<DirectMessage>(alice.socket, "dm:new");
+
+      const ack = await send(alice, bob, "are you there?");
+
+      expect(ack).toEqual({ ok: true });
+      expect((await echoed).text).toBe("are you there?");
+      await settle();
+      expect(bob.received).toEqual([]);
+    });
+
+    it("lets the blocked guest through again once unblocked", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      await emit(bob.socket, "dm:block", { guestId: alice.guestId });
+      await emit(bob.socket, "dm:unblock", { guestId: alice.guestId });
+      const heard = waitFor<DirectMessage>(bob.socket, "dm:new");
+
+      await send(alice, bob);
+
+      expect((await heard).fromNickname).toBe("Alice");
+    });
+
+    it("only blocks the one person", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      const carol = await inRoom({ nickname: "Carol" });
+      await emit(bob.socket, "dm:block", { guestId: alice.guestId });
+      const heard = waitFor<DirectMessage>(bob.socket, "dm:new");
+
+      await send(carol, bob);
+
+      expect((await heard).fromNickname).toBe("Carol");
+    });
+
+    it("does not stop what bob sends to alice", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      await emit(bob.socket, "dm:block", { guestId: alice.guestId });
+      const heard = waitFor<DirectMessage>(alice.socket, "dm:new");
+
+      await send(bob, alice);
+
+      expect((await heard).fromNickname).toBe("Bob");
+    });
+
+    // A moderator has to be able to warn somebody who would rather not hear it.
+    it("cannot stop a moderator", async () => {
+      const { port } = await startServer({ authTokenSecret: SECRET });
+      const token = signToken(
+        { sub: 7, name: "Ada Mod", role: "moderator" },
+        { secret: SECRET, ttlMs: 3_600_000 },
+      );
+      const ada = await inRoom({ token }, "general", port);
+      const bob = await inRoom({ nickname: "Bob" }, "general", port);
+      await emit(bob.socket, "dm:block", { guestId: ada.guestId });
+      const heard = waitFor<DirectMessage>(bob.socket, "dm:new");
+
+      await send(ada, bob, "this is a warning");
+
+      expect((await heard).text).toBe("this is a warning");
+    });
+
+    it.each([
+      ["nobody", {}],
+      ["an empty id", { guestId: "" }],
+      ["a number", { guestId: 5 }],
+      ["a very long id", { guestId: "x".repeat(100) }],
+    ])("refuses to block %s", async (_label, payload) => {
+      const alice = await inRoom({ nickname: "Alice" });
+
+      expect(await emit(alice.socket, "dm:block", payload)).toEqual({
+        ok: false,
+        error: "invalid_request",
+      });
+    });
+
+    it("keeps the list of blocked people to a sensible size", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+
+      for (let n = 0; n < 100; n += 1) {
+        await emit(alice.socket, "dm:block", { guestId: `guest-${n}` });
+      }
+
+      expect(
+        await emit(alice.socket, "dm:block", { guestId: "one-too-many" }),
+      ).toEqual({ ok: false, error: "too_many_blocked" });
+      // Somebody already on the list can still be blocked again.
+      expect(
+        await emit(alice.socket, "dm:block", { guestId: "guest-3" }),
+      ).toEqual({ ok: true });
+    });
+  });
+
+  describe("limits", () => {
+    it("shares the flood limit with room messages", async () => {
+      const advance = clock();
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+
+      for (let n = 0; n < 3; n += 1) {
+        await emit(alice.socket, "message:send", { text: `room ${n}` });
+      }
+      await send(alice, bob, "one");
+      await send(alice, bob, "two");
+      advance(1_000);
+      const refused = await send(alice, bob, "three");
+
+      expect(refused).toEqual({
+        ok: false,
+        error: "rate_limited",
+        retryAfterMs: RATE_WINDOW_MS - 1_000,
+      });
+    });
+
+    it("lets them send again once the window has passed", async () => {
+      const advance = clock();
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      for (let n = 0; n < 5; n += 1) await send(alice, bob);
+
+      advance(RATE_WINDOW_MS);
+
+      expect((await send(alice, bob)).ok).toBe(true);
+    });
+
+    it("does not count a message that was refused", async () => {
+      const advance = clock();
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      for (let n = 0; n < 4; n += 1) await send(alice, bob);
+      await emit(alice.socket, "dm:send", {
+        toGuestId: "nobody-here",
+        text: "x",
+      });
+      await emit(alice.socket, "dm:send", { toGuestId: bob.guestId, text: "" });
+
+      expect((await send(alice, bob)).ok).toBe(true);
+      advance(0);
+    });
+
+    describe("new conversations", () => {
+      const FLOOD_WINDOW_MS = 5_000;
+
+      async function guests(count: number) {
+        const people = [];
+        for (let n = 0; n < count; n += 1) {
+          people.push(await inRoom({ nickname: `Guest ${n}` }));
+        }
+        return people;
+      }
+
+      // Five messages fit in the flood window, so five conversations can be started at once.
+      async function startFive(
+        alice: Awaited<ReturnType<typeof inRoom>>,
+        others: Awaited<ReturnType<typeof inRoom>>[],
+      ) {
+        for (const other of others.slice(0, 5)) {
+          expect((await send(alice, other)).ok).toBe(true);
+        }
+      }
+
+      it("allows five new conversations a minute, then says how long to wait", async () => {
+        const advance = clock();
+        const alice = await inRoom({ nickname: "Alice" });
+        const others = await guests(6);
+        await startFive(alice, others);
+
+        advance(FLOOD_WINDOW_MS);
+        const refused = await send(alice, others[5]);
+
+        expect(refused).toEqual({
+          ok: false,
+          error: "rate_limited",
+          retryAfterMs: 60_000 - FLOOD_WINDOW_MS,
+        });
+        expect(others[5].received).toEqual([]);
+      });
+
+      // Tested on the rule itself: moving the clock a whole minute would make the live connections time out.
+      it("allows another once the oldest is a minute old", () => {
+        const data = {
+          recentMessageTimes: [],
+          dmPartners: ["a", "b", "c", "d", "e"],
+          dmStartTimes: [1_000, 1_001, 1_002, 1_003, 1_004],
+        } as unknown as Parameters<typeof directMessageWaitMs>[0];
+
+        expect(directMessageWaitMs(data, "f", 60_999)).toBe(1);
+        expect(directMessageWaitMs(data, "f", 61_000)).toBe(0);
+      });
+
+      it("does not count more messages in a conversation already started", async () => {
+        const advance = clock();
+        const alice = await inRoom({ nickname: "Alice" });
+        const others = await guests(5);
+        await startFive(alice, others);
+
+        advance(FLOOD_WINDOW_MS);
+
+        expect((await send(alice, others[0], "and another")).ok).toBe(true);
+      });
+
+      it("does not count a message that never arrived", async () => {
+        const advance = clock();
+        const alice = await inRoom({ nickname: "Alice" });
+        const others = await guests(6);
+        for (let n = 0; n < 6; n += 1) {
+          await emit(alice.socket, "dm:send", {
+            toGuestId: `nobody-${n}`,
+            text: "hi",
+          });
+        }
+
+        await startFive(alice, others);
+        advance(FLOOD_WINDOW_MS);
+
+        // Exactly five counted: the sixth is the one refused.
+        expect((await send(alice, others[5])).ok).toBe(false);
+      });
+    });
+  });
+});
+
+describe("avatars", () => {
+  const SECRET = "a-secret-that-is-long-enough-for-tests";
+
+  it.each(["male", "female", "trans", "other"])(
+    "tells everyone the %s avatar a guest chose",
+    async (avatar) => {
+      const { session } = await connect({ nickname: "Alice", avatar });
+
+      expect((await session)?.avatar).toBe(avatar);
+    },
+  );
+
+  // Not worth refusing somebody over: they simply get the plain one.
+  it.each([
+    ["missing", undefined],
+    ["unknown", "robot"],
+    ["a number", 5],
+    ["null", null],
+    ["in other letters", "FEMALE"],
+  ])(
+    "gives a guest the plain avatar when theirs is %s",
+    async (_label, avatar) => {
+      const { session } = await connect({ nickname: "Alice", avatar });
+
+      expect((await session)?.avatar).toBe("other");
+    },
+  );
+
+  it("does not let a moderator pick one, whatever they send", async () => {
+    const { port } = await startServer({ authTokenSecret: SECRET });
+    const token = signToken(
+      { sub: 7, name: "Ada Mod", role: "moderator" },
+      { secret: SECRET, ttlMs: 3_600_000 },
+    );
+
+    const { session } = await connect({ token, avatar: "male" }, port);
+
+    expect((await session)?.avatar).toBe("other");
+  });
+
+  it("shows each person's avatar in the room's list of members", async () => {
+    const alice = await connect({ nickname: "Alice", avatar: "female" });
+    const bob = await connect({ nickname: "Bob", avatar: "trans" });
+    const seen = waitFor<Presence & { members: { avatar: string }[] }>(
+      alice.socket!,
+      "room:presence",
+      (presence) => presence.members.length === 2,
+    );
+
+    await emit(alice.socket!, "room:join", { slug: "general" });
+    await emit(bob.socket!, "room:join", { slug: "general" });
+
+    expect(
+      (await seen).members.map((member) => [member.nickname, member.avatar]),
+    ).toEqual([
+      ["Alice", "female"],
+      ["Bob", "trans"],
+    ]);
+  });
+
+  it("sends the author's avatar with a message, and keeps it with the stored copy", async () => {
+    const alice = await connect({ nickname: "Alice", avatar: "male" });
+    const bob = await connect({ nickname: "Bob" });
+    await emit(alice.socket!, "room:join", { slug: "general" });
+    await emit(bob.socket!, "room:join", { slug: "general" });
+    const heard = waitFor<{ avatar: string }>(bob.socket!, "message:new");
+
+    await emit(alice.socket!, "message:send", { text: "hi" });
+
+    expect((await heard).avatar).toBe("male");
+    expect(recordMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ avatar: "male" }),
+    );
+  });
+
+  it("sends both people's avatars with a direct message", async () => {
+    const alice = await connect({ nickname: "Alice", avatar: "female" });
+    const bob = await connect({ nickname: "Bob", avatar: "trans" });
+    const aliceSession = await alice.session!;
+    const bobSession = await bob.session!;
+    await emit(alice.socket!, "room:join", { slug: "general" });
+    await emit(bob.socket!, "room:join", { slug: "general" });
+    const heard = waitFor<{ fromAvatar: string; toAvatar: string }>(
+      bob.socket!,
+      "dm:new",
+    );
+
+    await emit(alice.socket!, "dm:send", {
+      toGuestId: bobSession.guestId,
+      text: "hi",
+    });
+
+    expect(await heard).toMatchObject({
+      fromAvatar: "female",
+      toAvatar: "trans",
+    });
+    expect(aliceSession.avatar).toBe("female");
+  });
+});
+
+describe("resuming an identity", () => {
+  const SECRET = "a-secret-that-is-long-enough-for-tests";
+
+  it("gives each connection a secret for resuming, remembered by the server", async () => {
+    const { session } = await connect({ nickname: "Alice" });
+    const { guestId, resumeSecret } = (await session)!;
+
+    expect(resumeSecret).toMatch(/^[0-9a-f]{64}$/);
+    expect(rememberResume).toHaveBeenCalledWith(guestId, resumeSecret);
+  });
+
+  it("gives every connection its own secret", async () => {
+    const first = await (await connect({ nickname: "Alice" })).session!;
+    const second = await (await connect({ nickname: "Bob" })).session!;
+
+    expect(first.resumeSecret).not.toBe(second.resumeSecret);
+  });
+
+  it("gives a connection that resumes a new secret, so the one it presented is spent", async () => {
+    verifyResume.mockResolvedValue(true);
+
+    const { session } = await connect({
+      nickname: "Alice",
+      guestId: "guest-before",
+      resumeSecret: "the-secret",
+    });
+
+    const { resumeSecret } = (await session)!;
+    expect(resumeSecret).not.toBe("the-secret");
+    expect(resumeSecret).toMatch(/^[0-9a-f]{64}$/);
+    expect(rememberResume).toHaveBeenCalledWith("guest-before", resumeSecret);
+  });
+
+  it("never shows the secret to anybody else", async () => {
+    const alice = await connect({ nickname: "Alice" });
+    const bob = await connect({ nickname: "Bob" });
+    const aliceSession = await alice.session!;
+    const seen = waitFor<Presence>(
+      bob.socket!,
+      "room:presence",
+      (presence) => presence.members.length === 2,
+    );
+    await emit(alice.socket!, "room:join", { slug: "general" });
+    await emit(bob.socket!, "room:join", { slug: "general" });
+
+    const everything = JSON.stringify(await seen);
+
+    expect(everything).not.toContain(aliceSession.resumeSecret!);
+    expect(everything).not.toContain("resumeSecret");
+  });
+
+  it("lets a new connection take over a guest id with the right secret", async () => {
+    verifyResume.mockResolvedValue(true);
+
+    const { session } = await connect({
+      nickname: "Alice",
+      guestId: "guest-before",
+      resumeSecret: "the-secret",
+    });
+
+    expect((await session)?.guestId).toBe("guest-before");
+    expect(verifyResume).toHaveBeenCalledWith("guest-before", "the-secret");
+  });
+
+  it("gives a connection a new id of its own when the secret is not right", async () => {
+    verifyResume.mockResolvedValue(false);
+
+    const { session } = await connect({
+      nickname: "Alice",
+      guestId: "guest-before",
+      resumeSecret: "wrong",
+    });
+
+    const { guestId } = (await session)!;
+    expect(guestId).not.toBe("guest-before");
+    expect(guestId).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it.each([
+    ["no id", { resumeSecret: "s" }],
+    ["no secret", { guestId: "guest-before" }],
+    ["numbers", { guestId: 5, resumeSecret: 6 }],
+    ["empty text", { guestId: "", resumeSecret: "" }],
+  ])("does not try to resume with %s", async (_label, extra) => {
+    const { session } = await connect({ nickname: "Alice", ...extra });
+
+    expect((await session)?.guestId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(verifyResume).not.toHaveBeenCalled();
+  });
+
+  it("turns the connection away when the store cannot be read, rather than guessing", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    verifyResume.mockRejectedValue(new Error("redis down"));
+
+    const { error } = await connect({
+      nickname: "Alice",
+      guestId: "guest-before",
+      resumeSecret: "s",
+    });
+
+    expect(error).toBe("unavailable");
+  });
+
+  it("turns the connection away when the new secret cannot be kept", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    rememberResume.mockRejectedValue(new Error("redis down"));
+
+    expect((await connect({ nickname: "Alice" })).error).toBe("unavailable");
+  });
+
+  it("keeps the nickname and avatar the new connection asks for, not the old ones", async () => {
+    verifyResume.mockResolvedValue(true);
+
+    const { session } = await connect({
+      nickname: "Alice the Second",
+      avatar: "female",
+      guestId: "guest-before",
+      resumeSecret: "s",
+    });
+
+    expect(await session).toMatchObject({
+      guestId: "guest-before",
+      nickname: "Alice the Second",
+      avatar: "female",
+    });
+  });
+
+  describe("when the old connection is still there", () => {
+    it("removes it, telling it why, so the guest is only in the room once", async () => {
+      verifyResume.mockResolvedValue(true);
+      const old = await connect({
+        nickname: "Alice",
+        guestId: "guest-before",
+        resumeSecret: "s",
+      });
+      await emit(old.socket!, "room:join", { slug: "general" });
+      const kicked = waitFor<{ reason: string }>(old.socket!, "kicked");
+      const gone = new Promise((resolve) =>
+        old.socket!.once("disconnect", resolve),
+      );
+
+      const next = await connect({
+        nickname: "Alice",
+        guestId: "guest-before",
+        resumeSecret: "s",
+      });
+      await emit(next.socket!, "room:join", { slug: "general" });
+
+      expect(await kicked).toEqual({ reason: "replaced" });
+      await gone;
+      const members = (await ioServer.fetchSockets()).filter(
+        (socket) => socket.data.guestId === "guest-before",
+      );
+      expect(members).toHaveLength(1);
+    });
+
+    it("tells the room the guest left and came back", async () => {
+      verifyResume.mockResolvedValue(true);
+      const bob = await connect({ nickname: "Bob" });
+      await emit(bob.socket!, "room:join", { slug: "general" });
+      const old = await connect({
+        nickname: "Alice",
+        guestId: "guest-before",
+        resumeSecret: "s",
+      });
+      await emit(old.socket!, "room:join", { slug: "general" });
+      const lists: string[][] = [];
+      bob.socket!.on("room:presence", (presence: Presence) =>
+        lists.push(presence.members.map((member) => member.guestId)),
+      );
+
+      const next = await connect({
+        nickname: "Alice",
+        guestId: "guest-before",
+        resumeSecret: "s",
+      });
+      await emit(next.socket!, "room:join", { slug: "general" });
+
+      await vi.waitFor(() => {
+        expect(lists.some((list) => !list.includes("guest-before"))).toBe(true);
+        expect(lists.at(-1)).toContain("guest-before");
+      });
+    });
+  });
+
+  it("lets a moderator resume too, with the name from their account", async () => {
+    verifyResume.mockResolvedValue(true);
+    const { port } = await startServer({ authTokenSecret: SECRET });
+    const token = signToken(
+      { sub: 7, name: "Ada Mod", role: "moderator" },
+      { secret: SECRET, ttlMs: 3_600_000 },
+    );
+
+    const { session } = await connect(
+      { token, guestId: "guest-before", resumeSecret: "s" },
+      port,
+    );
+
+    expect(await session).toMatchObject({
+      guestId: "guest-before",
+      nickname: "Ada Mod",
+      role: "moderator",
     });
   });
 });

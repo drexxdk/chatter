@@ -41,6 +41,8 @@ export default defineConfig({
         DEFAULT_SLOW_MODE_SECONDS: String(E2E.defaultSlowModeSeconds),
         // Lets a test give a guest its own address through X-Forwarded-For, so a ban can hit one guest of several.
         TRUST_PROXY_HOPS: "1",
+        // Every test opens the lobby from the same address, which would pass the production limit.
+        ROOMS_RATE_LIMIT_PER_MINUTE: "100000",
         WEB_ORIGIN: WEB_URL,
       },
     },

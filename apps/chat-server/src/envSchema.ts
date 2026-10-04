@@ -87,6 +87,8 @@ export const envSchema = z.object({
   ROOM_HISTORY_TTL_SECONDS: setting(
     wholeNumber("from 1 to 604800", 1, 604_800, defaultOf(3600)).default(3600),
   ),
+  // How often one address may fetch the room list per minute.
+  ROOMS_RATE_LIMIT_PER_MINUTE: setting(positive(defaultOf(60)).default(60)),
   SOCKET_ADAPTER_KEY: setting(z.string().default("socket.io")),
   // Signs the moderator session tokens. Unset means moderators cannot sign in to the chat.
   AUTH_TOKEN_SECRET: setting(

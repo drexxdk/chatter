@@ -10,17 +10,21 @@ export const ROLE_RULES: Record<
   {
     ignoresIpBans: boolean;
     ignoresConnectionCap: boolean;
+    // Whether a guest can stop this role's direct messages from reaching them.
+    blockable: boolean;
     canAnnounce: boolean;
   }
 > = {
   guest: {
     ignoresIpBans: false,
     ignoresConnectionCap: false,
+    blockable: true,
     canAnnounce: false,
   },
   moderator: {
     ignoresIpBans: true,
     ignoresConnectionCap: true,
+    blockable: false,
     canAnnounce: true,
   },
 };

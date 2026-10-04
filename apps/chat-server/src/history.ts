@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { avatarSchema } from "./avatars.js";
 import { env } from "./env.js";
 import { redis } from "./redis.js";
 import { chatRoleSchema } from "./roles.js";
@@ -17,6 +18,7 @@ const storedSchema = z.object({
   nickname: z.string(),
   // Messages stored before roles existed were all from guests.
   role: chatRoleSchema.default("guest"),
+  avatar: avatarSchema.catch("other"),
   text: z.string(),
   ipHash: z.string(),
 });
