@@ -162,6 +162,10 @@ export interface PublicRoom {
    * Leave empty for no limit.
    */
   maxMembers?: number | null;
+  /**
+   * Seconds a guest must wait between messages. Leave empty to apply only the general flood limit (5 messages per 5 seconds).
+   */
+  slowModeSeconds?: number | null;
   description?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -295,6 +299,7 @@ export interface PublicRoomsSelect<T extends boolean = true> {
   name?: T;
   slug?: T;
   maxMembers?: T;
+  slowModeSeconds?: T;
   description?: T;
   updatedAt?: T;
   createdAt?: T;

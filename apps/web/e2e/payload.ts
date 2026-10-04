@@ -69,10 +69,16 @@ export class PayloadApi {
     };
   }
 
-  async createRoom(name: string, slug: string, maxMembers: number) {
+  // Payload fills in a slow mode of 10 seconds unless it is sent explicitly, which would slow every test down.
+  async createRoom(
+    name: string,
+    slug: string,
+    maxMembers: number,
+    slowModeSeconds: number | null = null,
+  ) {
     const { doc } = await this.request("public-rooms", {
       method: "POST",
-      body: JSON.stringify({ name, slug, maxMembers }),
+      body: JSON.stringify({ name, slug, maxMembers, slowModeSeconds }),
     });
     return doc!.id;
   }

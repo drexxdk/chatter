@@ -6,6 +6,8 @@ export interface Room {
   slug: string;
   // Absent or null means the room has no limit.
   maxMembers?: number | null;
+  // Seconds a guest must wait between messages; absent or null means only the general flood limit applies.
+  slowModeSeconds?: number | null;
   description?: string | null;
 }
 

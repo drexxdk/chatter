@@ -22,6 +22,7 @@ const ERROR_CODES = [
   "not_in_room",
   "invalid_message",
   "rate_limited",
+  "rate_limited_wait",
   "inactivity",
   "connection",
   "connection_lost",

@@ -355,6 +355,54 @@ describe("inside a room", () => {
     expect(screen.getByLabelText("Message")).toHaveValue("too fast");
   });
 
+  it("tells the guest how long to wait when a message is refused", async () => {
+    const { user, server } = await enterRoom();
+    server.latest.acks["message:send"] = () => ({
+      ok: false,
+      error: "rate_limited",
+      retryAfterMs: 6_200,
+    });
+
+    await user.type(screen.getByLabelText("Message"), "too fast");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    // Rounded up, so the guest is never told to try again too early.
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You can send again in 7 s.",
+    );
+    expect(screen.getByLabelText("Message")).toHaveValue("too fast");
+  });
+
+  describe("slow mode", () => {
+    async function enterSlowRoom(slowModeSeconds?: number | null) {
+      stubRooms(async () => ({
+        ok: true,
+        json: async () => [{ ...ROOMS[0], slowModeSeconds }, ROOMS[1]],
+      }));
+      const result = setup();
+      await joinRoom(result.user);
+      await screen.findByText("Chatting as Alice");
+      return result;
+    }
+
+    it("tells the guest how often they may write", async () => {
+      await enterSlowRoom(10);
+
+      expect(
+        screen.getByText("Slow mode: one message every 10 s."),
+      ).toBeInTheDocument();
+    });
+
+    it.each([
+      ["without the setting", undefined],
+      ["with it empty", null],
+    ])("says nothing about it in a room %s", async (_label, value) => {
+      await enterSlowRoom(value);
+
+      expect(screen.queryByText(/Slow mode/)).not.toBeInTheDocument();
+    });
+  });
+
   it("leaves the room and reuses the connection for the next room", async () => {
     const { user, server } = await enterRoom();
 

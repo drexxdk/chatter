@@ -67,6 +67,8 @@ export function App({
             members={chat.members}
             messages={chat.messages}
             error={chat.error}
+            retryAfterSeconds={chat.retryAfterSeconds}
+            slowModeSeconds={currentRoom?.slowModeSeconds}
             onSend={chat.sendMessage}
             onLeave={() => void chat.leaveRoom()}
           />

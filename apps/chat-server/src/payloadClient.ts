@@ -12,6 +12,8 @@ const publicRoomSchema = z.object({
   slug: z.string(),
   // Empty in Payload means the room has no limit.
   maxMembers: z.number().int().min(1).nullish(),
+  // Seconds a guest must wait between messages; empty means only the general flood limit applies.
+  slowModeSeconds: z.number().int().min(1).nullish(),
   description: z.string().nullish(),
 });
 

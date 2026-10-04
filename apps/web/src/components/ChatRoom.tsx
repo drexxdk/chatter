@@ -12,6 +12,8 @@ interface ChatRoomProps {
   members: Member[];
   messages: ChatMessage[];
   error: string | null;
+  retryAfterSeconds: number | null;
+  slowModeSeconds?: number | null;
   onSend: (text: string) => Promise<boolean>;
   onLeave: () => void;
 }
@@ -24,6 +26,8 @@ export function ChatRoom({
   members,
   messages,
   error,
+  retryAfterSeconds,
+  slowModeSeconds,
   onSend,
   onLeave,
 }: ChatRoomProps) {
@@ -58,6 +62,11 @@ export function ChatRoom({
             <p className="text-sm text-slate-400">
               {t("room.chattingAs", { nickname: session.nickname })}
             </p>
+            {slowModeSeconds ? (
+              <p className="text-sm text-amber-300">
+                {t("room.slowMode", { seconds: slowModeSeconds })}
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -117,7 +126,14 @@ export function ChatRoom({
           )}
         </ol>
 
-        <ErrorAlert code={error} />
+        <ErrorAlert
+          code={
+            error === "rate_limited" && retryAfterSeconds
+              ? "rate_limited_wait"
+              : error
+          }
+          values={{ seconds: retryAfterSeconds }}
+        />
 
         {!connected && (
           <p

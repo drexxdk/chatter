@@ -62,6 +62,20 @@ describe("fetchPublicRooms", () => {
     expect(rooms.map((r) => r.maxMembers ?? null)).toEqual([null, null]);
   });
 
+  it("keeps a room's slow mode, which guests are shown", async () => {
+    respondWith({
+      docs: [
+        { ...room, slowModeSeconds: 10 },
+        { ...room, id: 2, slug: "other", slowModeSeconds: null },
+      ],
+    });
+
+    const [slow, normal] = await fetchPublicRooms();
+
+    expect(slow.slowModeSeconds).toBe(10);
+    expect(normal.slowModeSeconds).toBeNull();
+  });
+
   // /rooms publishes these to anyone, so a field added to the collection later must not leak through.
   it("drops fields it does not know", async () => {
     respondWith({
@@ -89,6 +103,16 @@ describe("fetchPublicRooms", () => {
       "a fractional limit",
       { docs: [{ ...room, maxMembers: 2.5 }] },
       /docs\.0\.maxMembers/,
+    ],
+    [
+      "a zero slow mode",
+      { docs: [{ ...room, slowModeSeconds: 0 }] },
+      /docs\.0\.slowModeSeconds/,
+    ],
+    [
+      "a slow mode in words",
+      { docs: [{ ...room, slowModeSeconds: "10" }] },
+      /docs\.0\.slowModeSeconds/,
     ],
   ])("rejects %s and names the field", async (_label, body, field) => {
     respondWith(body);

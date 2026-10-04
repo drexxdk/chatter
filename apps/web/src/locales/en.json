@@ -29,7 +29,8 @@
     "messagePlaceholder": "Write a message",
     "send": "Send",
     "reconnecting": "Connection lost. Reconnecting…",
-    "bannedMessage": "This user was banned"
+    "bannedMessage": "This user was banned",
+    "slowMode": "Slow mode: one message every {{seconds}} s."
   },
   "errors": {
     "invalid_nickname": "That nickname isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",
@@ -41,6 +42,7 @@
     "room_full": "This room is full.",
     "room_not_found": "That room no longer exists.",
     "rate_limited": "You're sending messages too fast. Slow down a little.",
+    "rate_limited_wait": "You're sending messages too fast. You can send again in {{seconds}} s.",
     "invalid_message": "That message can't be sent.",
     "not_in_room": "Join a room first.",
     "inactivity": "You were disconnected for being inactive.",

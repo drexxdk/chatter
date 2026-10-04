@@ -22,10 +22,14 @@ interface SocketData {
   banned?: boolean;
   roomSlug?: string;
   recentMessageTimes: number[];
+  // When this guest last got a message through, for slow mode.
+  lastMessageAt?: number;
 }
 
 type Ack = (
-  response: { ok: true; [key: string]: unknown } | { ok: false; error: string },
+  response:
+    | { ok: true; [key: string]: unknown }
+    | { ok: false; error: string; retryAfterMs?: number },
 ) => void;
 
 const roomKey = (slug: string) => `room:${slug}`;
@@ -231,7 +235,9 @@ export function createSocketServer(
       const reply: Ack = typeof ack === "function" ? ack : () => {};
       const text = stringField(payload, "text").trim();
 
-      if (!data.roomSlug) {
+      const slug = data.roomSlug;
+
+      if (!slug) {
         return reply({ ok: false, error: "not_in_room" });
       }
 
@@ -239,20 +245,50 @@ export function createSocketServer(
         return reply({ ok: false, error: "invalid_message" });
       }
 
+      let slowModeMs = 0;
+
+      try {
+        const room = (await getCachedPublicRooms()).find(
+          (candidate) => candidate.slug === slug,
+        );
+        slowModeMs = (room?.slowModeSeconds ?? 0) * 1000;
+      } catch (error) {
+        console.error("Failed to read the room's settings:", error);
+        return reply({ ok: false, error: "unavailable" });
+      }
+
+      // Everything from here to the end of the check is synchronous, so two messages sent back to back cannot
+      // both pass it.
       const now = Date.now();
       data.recentMessageTimes = data.recentMessageTimes.filter(
         (time) => now - time < RATE_LIMIT_WINDOW_MS,
       );
 
-      if (data.recentMessageTimes.length >= RATE_LIMIT_MAX_MESSAGES) {
-        return reply({ ok: false, error: "rate_limited" });
+      // The general flood limit always applies; slow mode adds a longer wait that follows the guest between rooms,
+      // so hopping from room to room is no way round it.
+      const waitMs = Math.max(
+        data.recentMessageTimes.length >= RATE_LIMIT_MAX_MESSAGES
+          ? data.recentMessageTimes[0] + RATE_LIMIT_WINDOW_MS - now
+          : 0,
+        slowModeMs > 0 && data.lastMessageAt !== undefined
+          ? data.lastMessageAt + slowModeMs - now
+          : 0,
+      );
+
+      if (waitMs > 0) {
+        return reply({
+          ok: false,
+          error: "rate_limited",
+          retryAfterMs: waitMs,
+        });
       }
 
       data.recentMessageTimes.push(now);
+      data.lastMessageAt = now;
 
       const message = {
         id: crypto.randomUUID(),
-        roomSlug: data.roomSlug,
+        roomSlug: slug,
         guestId: data.guestId,
         nickname: data.nickname,
         text,

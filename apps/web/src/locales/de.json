@@ -29,7 +29,8 @@
     "messagePlaceholder": "Nachricht schreiben",
     "send": "Senden",
     "reconnecting": "Verbindung unterbrochen. Verbinde erneut…",
-    "bannedMessage": "Dieser Nutzer wurde gesperrt"
+    "bannedMessage": "Dieser Nutzer wurde gesperrt",
+    "slowMode": "Langsamer Modus: eine Nachricht alle {{seconds}} s."
   },
   "errors": {
     "invalid_nickname": "Dieser Spitzname ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",
@@ -41,6 +42,7 @@
     "room_full": "Dieser Raum ist voll.",
     "room_not_found": "Dieser Raum existiert nicht mehr.",
     "rate_limited": "Du sendest Nachrichten zu schnell. Bitte etwas langsamer.",
+    "rate_limited_wait": "Du sendest Nachrichten zu schnell. Du kannst in {{seconds}} s wieder senden.",
     "invalid_message": "Diese Nachricht kann nicht gesendet werden.",
     "not_in_room": "Tritt zuerst einem Raum bei.",
     "inactivity": "Du wurdest wegen Inaktivität getrennt.",

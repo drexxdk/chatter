@@ -20,6 +20,12 @@ const LOUNGE = {
   maxMembers: 5,
 };
 const TINY = { name: "E2E Tiny", slug: `${E2E.slugPrefix}tiny`, maxMembers: 1 };
+const SLOW = {
+  name: "E2E Slow",
+  slug: `${E2E.slugPrefix}slow`,
+  maxMembers: 5,
+  slowModeSeconds: 3,
+};
 
 const payload = new PayloadApi();
 const roomIds: number[] = [];
@@ -27,14 +33,26 @@ const roomIds: number[] = [];
 test.beforeAll(async () => {
   await payload.login();
 
-  for (const room of [LOUNGE, TINY]) {
+  const rooms: {
+    name: string;
+    slug: string;
+    maxMembers: number;
+    slowModeSeconds?: number;
+  }[] = [LOUNGE, TINY, SLOW];
+
+  for (const room of rooms) {
     roomIds.push(
-      await payload.createRoom(room.name, room.slug, room.maxMembers),
+      await payload.createRoom(
+        room.name,
+        room.slug,
+        room.maxMembers,
+        room.slowModeSeconds ?? null,
+      ),
     );
   }
 
   // The chat-server picks new rooms up on its next cache sync.
-  await waitForRooms([LOUNGE.slug, TINY.slug]);
+  await waitForRooms([LOUNGE.slug, TINY.slug, SLOW.slug]);
 });
 
 test.afterAll(async () => {
@@ -273,6 +291,37 @@ test("a guest who is banned while chatting is removed and their messages are rep
   } finally {
     mallory.close();
   }
+});
+
+test("a room with slow mode makes a guest wait between messages", async ({
+  browser,
+}) => {
+  const alice = await newGuest(browser);
+  await enterRoom(alice, SLOW.name, "Alice");
+  await expect(
+    alice.getByText("Slow mode: one message every 3 s."),
+  ).toBeVisible();
+
+  await send(alice, "first");
+  await expect(alice.getByRole("log")).toContainText("first");
+
+  // Straight away: refused, with the draft kept and the wait explained.
+  await send(alice, "too soon");
+  await expect(alice.getByRole("alert")).toContainText(
+    /You can send again in [1-3] s\./,
+  );
+  await expect(alice.getByRole("textbox", { name: "Message" })).toHaveValue(
+    "too soon",
+  );
+  await expect(alice.getByRole("log")).not.toContainText("too soon");
+
+  // Once the wait is over the same draft goes through.
+  await expect(async () => {
+    await alice.getByRole("button", { name: "Send" }).click();
+    await expect(alice.getByRole("log")).toContainText("too soon", {
+      timeout: 500,
+    });
+  }).toPass({ timeout: 10_000 });
 });
 
 test("a banned guest is turned away until the ban is lifted", async ({

@@ -29,7 +29,9 @@ export interface ChatMessage {
 
 export type ChatStatus = "idle" | "connecting" | "connected" | "reconnecting";
 
-type Ack = { ok: true; history?: unknown } | { ok: false; error: string };
+type Ack =
+  | { ok: true; history?: unknown }
+  | { ok: false; error: string; retryAfterMs?: number };
 type DropHandler = (reason: string) => void;
 
 const MAX_MESSAGES = 200;
@@ -185,6 +187,10 @@ export function useChat(
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   // Holds a translation key under `errors.` (a server error code, "connection" or "connection_lost").
   const [error, setError] = useState<string | null>(null);
+  // How long the server said to wait after refusing a message, rounded up to whole seconds.
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(
+    null,
+  );
 
   useEffect(() => {
     delaysRef.current =
@@ -437,9 +443,15 @@ export function useChat(
   const sendMessage = useCallback(
     async (text: string): Promise<boolean> => {
       setError(null);
+      setRetryAfterSeconds(null);
       const ack = await emitWithAck("message:send", { text });
 
-      if (!ack.ok) setError(ack.error);
+      if (!ack.ok) {
+        setError(ack.error);
+        if (ack.retryAfterMs) {
+          setRetryAfterSeconds(Math.ceil(ack.retryAfterMs / 1000));
+        }
+      }
       return ack.ok;
     },
     [emitWithAck],
@@ -463,6 +475,7 @@ export function useChat(
     members,
     messages,
     error,
+    retryAfterSeconds,
     connect,
     joinRoom,
     leaveRoom,

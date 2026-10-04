@@ -29,7 +29,8 @@
     "messagePlaceholder": "Skriv en besked",
     "send": "Send",
     "reconnecting": "Forbindelsen blev afbrudt. Forbinder igen…",
-    "bannedMessage": "Denne bruger blev udelukket"
+    "bannedMessage": "Denne bruger blev udelukket",
+    "slowMode": "Langsom tilstand: én besked hvert {{seconds}}. sekund."
   },
   "errors": {
     "invalid_nickname": "Det kaldenavn er ikke tilladt. Brug 2–24 bogstaver, tal, mellemrum eller _ . -",
@@ -41,6 +42,7 @@
     "room_full": "Dette rum er fuldt.",
     "room_not_found": "Det rum findes ikke længere.",
     "rate_limited": "Du sender beskeder for hurtigt. Tag det lidt roligere.",
+    "rate_limited_wait": "Du sender beskeder for hurtigt. Du kan sende igen om {{seconds}} s.",
     "invalid_message": "Den besked kan ikke sendes.",
     "not_in_room": "Deltag i et rum først.",
     "inactivity": "Du blev koblet fra på grund af inaktivitet.",

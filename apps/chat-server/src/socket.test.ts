@@ -69,6 +69,8 @@ const ROOMS = [
   { id: 3, name: "Tiny", slug: "tiny", maxMembers: 1 },
   // Payload returns null for a room whose limit field was left empty.
   { id: 4, name: "Open", slug: "open", maxMembers: null },
+  // Guests must wait this many seconds between messages.
+  { id: 5, name: "Slow", slug: "slow", maxMembers: null, slowModeSeconds: 10 },
 ];
 
 let ioServer: Server;
@@ -421,12 +423,21 @@ describe("messaging", () => {
       );
     }
 
-    expect(await emit(alice, "message:send", { text: "one too many" })).toEqual(
-      {
-        ok: false,
-        error: "rate_limited",
-      },
-    );
+    expect(
+      await emit(alice, "message:send", { text: "one too many" }),
+    ).toMatchObject({ ok: false, error: "rate_limited" });
+  });
+
+  it("says how long to wait when the limit is reached", async () => {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+    for (let i = 0; i < 5; i++)
+      await emit(alice, "message:send", { text: "m" });
+
+    const refused = await emit(alice, "message:send", { text: "too many" });
+
+    expect(refused.retryAfterMs).toBeGreaterThan(0);
+    expect(refused.retryAfterMs).toBeLessThanOrEqual(5000);
   });
 
   it("does not leak messages across rooms", async () => {
@@ -458,6 +469,149 @@ describe("messaging", () => {
     expect(
       (await emit(alice, "message:send", { text: "still alive" })).ok,
     ).toBe(true);
+  });
+});
+
+describe("slow mode", () => {
+  const SLOW_MS = 10_000;
+
+  // Moves the server's clock, which is all the rate limit looks at.
+  function clock(start = Date.now()) {
+    let now = start;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    return (ms: number) => void (now += ms);
+  }
+
+  async function slowRoomGuest() {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "slow" });
+    return alice;
+  }
+
+  it("lets a guest send one message, then makes them wait", async () => {
+    const advance = clock();
+    const alice = await slowRoomGuest();
+
+    expect(await emit(alice, "message:send", { text: "first" })).toEqual({
+      ok: true,
+    });
+    advance(3_000);
+    const refused = await emit(alice, "message:send", { text: "second" });
+
+    expect(refused).toEqual({
+      ok: false,
+      error: "rate_limited",
+      retryAfterMs: SLOW_MS - 3_000,
+    });
+  });
+
+  it("lets the guest send again once the wait is over", async () => {
+    const advance = clock();
+    const alice = await slowRoomGuest();
+    await emit(alice, "message:send", { text: "first" });
+
+    advance(SLOW_MS - 1);
+    expect((await emit(alice, "message:send", { text: "early" })).ok).toBe(
+      false,
+    );
+    advance(1);
+
+    expect((await emit(alice, "message:send", { text: "on time" })).ok).toBe(
+      true,
+    );
+  });
+
+  // Trying again must not push the end of the wait further away.
+  it("does not count refused attempts", async () => {
+    const advance = clock();
+    const alice = await slowRoomGuest();
+    await emit(alice, "message:send", { text: "first" });
+
+    for (let i = 0; i < 4; i++) {
+      advance(2_000);
+      await emit(alice, "message:send", { text: "impatient" });
+    }
+    advance(2_000);
+
+    expect((await emit(alice, "message:send", { text: "now" })).ok).toBe(true);
+  });
+
+  it("neither delivers nor records a refused message", async () => {
+    const advance = clock();
+    const alice = await slowRoomGuest();
+    await emit(alice, "message:send", { text: "first" });
+    recordMessage.mockClear();
+    const received = vi.fn();
+    alice.on("message:new", received);
+
+    advance(1_000);
+    await emit(alice, "message:send", { text: "second" });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(recordMessage).not.toHaveBeenCalled();
+    expect(received).not.toHaveBeenCalled();
+  });
+
+  it("counts each guest separately", async () => {
+    clock();
+    const alice = await slowRoomGuest();
+    const bob = await connectGuest("Bob");
+    await emit(bob, "room:join", { slug: "slow" });
+    await emit(alice, "message:send", { text: "first" });
+
+    expect((await emit(bob, "message:send", { text: "mine" })).ok).toBe(true);
+  });
+
+  // Otherwise hopping between rooms would be a way round the wait.
+  it("carries the wait from one room to another", async () => {
+    const advance = clock();
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+    await emit(alice, "message:send", { text: "in general" });
+    await emit(alice, "room:join", { slug: "slow" });
+
+    advance(2_000);
+    const refused = await emit(alice, "message:send", { text: "in slow" });
+
+    expect(refused).toMatchObject({ ok: false, error: "rate_limited" });
+  });
+
+  it("does not slow down a room that has no slow mode", async () => {
+    clock();
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+    await emit(alice, "message:send", { text: "one" });
+
+    expect((await emit(alice, "message:send", { text: "two" })).ok).toBe(true);
+  });
+
+  it("follows a change to the room's setting straight away", async () => {
+    clock();
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+    await emit(alice, "message:send", { text: "one" });
+
+    getCachedPublicRooms.mockResolvedValue(
+      ROOMS.map((room) =>
+        room.slug === "general" ? { ...room, slowModeSeconds: 30 } : room,
+      ),
+    );
+    const refused = await emit(alice, "message:send", { text: "two" });
+
+    expect(refused).toMatchObject({ ok: false, error: "rate_limited" });
+  });
+
+  it("reports the service as unavailable when the room settings cannot be read", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+    getCachedPublicRooms.mockRejectedValue(new Error("redis down"));
+
+    expect(await emit(alice, "message:send", { text: "hi" })).toEqual({
+      ok: false,
+      error: "unavailable",
+    });
+    expect(recordMessage).not.toHaveBeenCalled();
   });
 });
 
@@ -668,7 +822,7 @@ describe("ban enforcement", () => {
     await enforceBans(io, [malloryHash, "other-hash"]);
 
     expect(redactMessagesFrom.mock.calls.map((call) => call[0]).sort()).toEqual(
-      ["general", "open", "random", "tiny"],
+      ["general", "open", "random", "slow", "tiny"],
     );
     for (const call of redactMessagesFrom.mock.calls) {
       expect(call[1]).toEqual([malloryHash, "other-hash"]);
