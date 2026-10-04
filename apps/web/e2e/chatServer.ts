@@ -66,6 +66,40 @@ export async function connectRawGuest(nickname: string, address: string) {
   };
 }
 
+// Moderator names reach the chat-server through its periodic cache sync, like bans and rooms.
+export async function waitForReservedNickname(
+  nickname: string,
+  timeoutMs = 15_000,
+) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if ((await probeNickname(nickname)) === "reserved_nickname") return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  throw new Error(`Chat server never reserved the nickname "${nickname}"`);
+}
+
+function probeNickname(nickname: string): Promise<string> {
+  return new Promise((resolve) => {
+    const socket = io(CHAT_SERVER_URL, {
+      auth: { nickname },
+      reconnection: false,
+      transports: ["websocket"],
+    });
+
+    socket.on("connect", () => {
+      socket.disconnect();
+      resolve("ok");
+    });
+    socket.on("connect_error", (error) => {
+      socket.disconnect();
+      resolve(error.message);
+    });
+  });
+}
+
 // New rooms created in Payload reach the lobby after the chat-server's next cache sync.
 export async function waitForRooms(slugs: string[], timeoutMs = 15_000) {
   const deadline = Date.now() + timeoutMs;

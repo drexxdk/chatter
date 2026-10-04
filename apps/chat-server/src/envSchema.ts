@@ -42,6 +42,7 @@ const urlSetting = (protocol: RegExp, description: string) =>
   z.url({ protocol, error: `must be ${description}` });
 
 const MIN_SALT_LENGTH = 16;
+const MIN_TOKEN_SECRET_LENGTH = 32;
 
 // CORS compares the Origin header exactly, so a trailing slash or a path would block every browser without a clue.
 const ORIGIN_MESSAGE =
@@ -85,6 +86,16 @@ export const envSchema = z.object({
     wholeNumber("from 1 to 604800", 1, 604_800, defaultOf(3600)).default(3600),
   ),
   SOCKET_ADAPTER_KEY: setting(z.string().default("socket.io")),
+  // Signs the moderator session tokens. Unset means moderators cannot sign in to the chat.
+  AUTH_TOKEN_SECRET: setting(
+    z
+      .string()
+      .min(
+        MIN_TOKEN_SECRET_LENGTH,
+        `must be at least ${MIN_TOKEN_SECRET_LENGTH} characters`,
+      )
+      .optional(),
+  ),
   // Unset means no cap.
   MAX_CONNECTIONS_PER_IP: setting(positive("for no limit").optional()),
   // 0 is a real value here: no proxy in front of the server.

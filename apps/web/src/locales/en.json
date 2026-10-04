@@ -17,7 +17,14 @@
     "hint": "2–24 letters, numbers, spaces, or _ . -",
     "submit": "Continue",
     "connecting": "Connecting…",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "signInAsModerator": "Sign in as moderator",
+    "continueAsGuest": "Continue as guest",
+    "moderatorTitle": "Sign in as moderator",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…"
   },
   "room": {
     "leave": "Leave room",
@@ -30,11 +37,20 @@
     "send": "Send",
     "reconnecting": "Connection lost. Reconnecting…",
     "bannedMessage": "This user was banned",
+    "moderatorBadge": "Moderator",
     "slowMode": "Slow mode: one message every {{seconds}} s."
   },
   "errors": {
     "invalid_nickname": "That nickname isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",
     "banned": "You are banned from this chat.",
+    "reserved_nickname": "That nickname is reserved. Pick another one.",
+    "invalid_token": "Your moderator session has expired. Sign in again.",
+    "invalid_credentials": "Wrong email or password.",
+    "not_a_moderator": "This account cannot moderate the chat.",
+    "no_display_name": "This account has no display name yet. Ask an administrator to set one.",
+    "moderator_login_disabled": "Moderator sign-in is not available right now.",
+    "too_many_attempts": "Too many sign-in attempts. Try again in a few minutes.",
+    "invalid_request": "Enter a valid email address and password.",
     "too_many_connections": "Too many connections from your network. Close other chat tabs or try again in a minute.",
     "unavailable": "The chat is temporarily unavailable. Please try again shortly.",
     "connection": "Could not reach the chat server.",

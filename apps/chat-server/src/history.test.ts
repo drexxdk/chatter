@@ -31,6 +31,7 @@ const message = (n: number, roomSlug = "general") => ({
   roomSlug,
   guestId: `guest-${n}`,
   nickname: "Alice",
+  role: "guest" as const,
   text: `hello ${n}`,
   sentAt: new Date(Date.UTC(2026, 9, 3, 12, 0, n)).toISOString(),
 });
@@ -127,6 +128,32 @@ describe("getHistory", () => {
       "id-1",
       "id-4",
     ]);
+  });
+
+  it("keeps the sender's role, so moderators can be shown as such", async () => {
+    redis.lrange.mockResolvedValue([
+      JSON.stringify({ ...stored(1), role: "moderator", ipHash: "" }),
+    ]);
+
+    expect(await getHistory("general")).toEqual([
+      { ...message(1), role: "moderator" },
+    ]);
+  });
+
+  it("treats a message stored without a role as a guest's", async () => {
+    const { role: _role, ...withoutRole } = stored(1);
+    redis.lrange.mockResolvedValue([JSON.stringify(withoutRole)]);
+
+    expect(await getHistory("general")).toEqual([message(1)]);
+  });
+
+  it("skips a message with a role it does not know", async () => {
+    redis.lrange.mockResolvedValue([
+      JSON.stringify({ ...stored(1), role: "overlord" }),
+      JSON.stringify(stored(2)),
+    ]);
+
+    expect((await getHistory("general")).map((m) => m.id)).toEqual(["id-2"]);
   });
 
   it("never returns who sent a message", async () => {

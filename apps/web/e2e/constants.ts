@@ -7,10 +7,12 @@ export const E2E = {
   redisUrl: "redis://localhost:6379/1",
   socketAdapterKey: "chatter-e2e",
   banHashSalt: "e2e-only-ban-salt-not-a-secret",
+  authTokenSecret: "e2e-only-token-secret-not-a-secret-123456",
   syncIntervalMs: 500,
   // Marks data created by these tests so leftovers from a crashed run can be swept.
   slugPrefix: "e2e-",
   banReason: "e2e-test",
+  moderatorEmailPrefix: "e2e-mod-",
 } as const;
 
 export const WEB_URL = `http://localhost:${E2E.webPort}`;

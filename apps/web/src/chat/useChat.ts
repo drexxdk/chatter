@@ -6,14 +6,18 @@ import {
   type CreateSocket,
 } from "./socket";
 
+export type Role = "guest" | "moderator";
+
 export interface Session {
   guestId: string;
   nickname: string;
+  role?: Role;
 }
 
 export interface Member {
   guestId: string;
   nickname: string;
+  role?: Role;
 }
 
 export interface ChatMessage {
@@ -23,6 +27,8 @@ export interface ChatMessage {
   nickname: string;
   text: string;
   sentAt: string;
+  // Who the server says sent it; absent means an ordinary guest.
+  role?: Role;
   // The author was banned: the text and name are gone and only a placeholder is shown.
   banned?: boolean;
 }
@@ -39,13 +45,20 @@ const DEFAULT_RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 15_000];
 // Errors the server reports in connect_error; anything else (network failure, CORS) is a connection problem.
 const HANDSHAKE_ERRORS = new Set([
   "invalid_nickname",
+  "reserved_nickname",
+  "invalid_token",
   "banned",
   "unavailable",
   "too_many_connections",
 ]);
 // Rejections that retrying cannot fix. A full per-network limit is not one: the guest's own dropped connection may
 // still be counted for a while.
-const PERMANENT_ERRORS = new Set(["invalid_nickname", "banned"]);
+const PERMANENT_ERRORS = new Set([
+  "invalid_nickname",
+  "reserved_nickname",
+  "invalid_token",
+  "banned",
+]);
 // Disconnects somebody chose (this client, or the server kicking the guest); everything else is a dropped connection.
 const DELIBERATE_DISCONNECTS = new Set([
   "io client disconnect",
@@ -97,7 +110,15 @@ function parseMessage(value: unknown): ChatMessage | undefined {
     return undefined;
   }
 
-  return { id, roomSlug, guestId, nickname, text, sentAt };
+  return {
+    id,
+    roomSlug,
+    guestId,
+    nickname,
+    text,
+    sentAt,
+    role: value.role === "moderator" ? "moderator" : "guest",
+  };
 }
 
 const byTime = (a: ChatMessage, b: ChatMessage) =>
@@ -171,6 +192,8 @@ export function useChat(
   const socketRef = useRef<ChatSocket | null>(null);
   const roomRef = useRef<string | null>(null);
   const nicknameRef = useRef<string | null>(null);
+  // Proof that a moderator signed in, kept so a dropped connection can be restored without asking again.
+  const tokenRef = useRef<string | null>(null);
   // Bumped to cancel a reconnect loop in progress.
   const reconnectRunRef = useRef(0);
   const reconnectingRef = useRef(false);
@@ -225,7 +248,10 @@ export function useChat(
   // Resolves with null once the server has accepted the guest, or with the reason it was not.
   const openSocket = useCallback(
     (nickname: string, onDrop: DropHandler): Promise<string | null> => {
-      const socket = createSocket(nickname);
+      const token = tokenRef.current;
+      const socket = token
+        ? createSocket(nickname, token)
+        : createSocket(nickname);
       socketRef.current = socket;
       const isCurrent = () => socketRef.current === socket;
 
@@ -370,13 +396,14 @@ export function useChat(
   );
 
   const connect = useCallback(
-    async (nickname: string): Promise<boolean> => {
+    async (nickname: string, token?: string): Promise<boolean> => {
       cancelReconnect();
       closeSocket();
       setError(null);
       setOwnGuestIds([]);
       setStatus("connecting");
       nicknameRef.current = nickname;
+      tokenRef.current = token ?? null;
 
       const failure = await openSocket(nickname, handleDrop);
 

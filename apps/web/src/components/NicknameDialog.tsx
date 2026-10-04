@@ -6,28 +6,51 @@ import { ErrorAlert } from "./ErrorAlert";
 
 interface NicknameDialogProps {
   connecting: boolean;
+  signingIn: boolean;
   error: string | null;
   onSubmit: (nickname: string) => void;
+  onSignIn: (email: string, password: string) => void;
+  // Called when the guest switches between the two forms, so an error about one is not shown on the other.
+  onModeChange: () => void;
   onCancel: () => void;
 }
 
 export function NicknameDialog({
   connecting,
+  signingIn,
   error,
   onSubmit,
+  onSignIn,
+  onModeChange,
   onCancel,
 }: NicknameDialogProps) {
   const { t } = useTranslation();
+  const [moderator, setModerator] = useState(false);
   const [value, setValue] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [touched, setTouched] = useState(false);
 
   const nickname = normalizeNickname(value);
-  const showInvalid = touched && !nickname;
+  const busy = connecting || signingIn;
+  const showInvalid = touched && (moderator ? !email || !password : !nickname);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setTouched(true);
-    if (nickname) onSubmit(nickname);
+
+    if (moderator) {
+      if (email && password) onSignIn(email.trim(), password);
+    } else if (nickname) {
+      onSubmit(nickname);
+    }
+  }
+
+  function switchMode() {
+    setModerator((current) => !current);
+    setTouched(false);
+    setPassword("");
+    onModeChange();
   }
 
   return (
@@ -40,35 +63,79 @@ export function NicknameDialog({
         className="w-full max-w-sm space-y-4 rounded-lg border border-slate-700 bg-slate-900 p-5"
       >
         <h2 id="nickname-title" className="text-lg font-semibold">
-          {t("nickname.title")}
+          {moderator ? t("nickname.moderatorTitle") : t("nickname.title")}
         </h2>
 
-        <div className="space-y-1">
-          <label htmlFor="nickname" className="block text-sm font-medium">
-            {t("nickname.label")}
-          </label>
-          <input
-            id="nickname"
-            autoFocus
-            autoComplete="nickname"
-            maxLength={24}
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            aria-invalid={showInvalid}
-            aria-describedby="nickname-hint"
-            className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
-          />
-          <p
-            id="nickname-hint"
-            className={
-              showInvalid ? "text-sm text-red-300" : "text-sm text-slate-500"
-            }
-          >
-            {t("nickname.hint")}
-          </p>
-        </div>
+        {moderator ? (
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label htmlFor="email" className="block text-sm font-medium">
+                {t("nickname.email")}
+              </label>
+              <input
+                id="email"
+                type="email"
+                autoFocus
+                autoComplete="username"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                aria-invalid={showInvalid && !email}
+                className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="password" className="block text-sm font-medium">
+                {t("nickname.password")}
+              </label>
+              <input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                aria-invalid={showInvalid && !password}
+                className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <label htmlFor="nickname" className="block text-sm font-medium">
+              {t("nickname.label")}
+            </label>
+            <input
+              id="nickname"
+              autoFocus
+              autoComplete="nickname"
+              maxLength={24}
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              aria-invalid={showInvalid}
+              aria-describedby="nickname-hint"
+              className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
+            />
+            <p
+              id="nickname-hint"
+              className={
+                showInvalid ? "text-sm text-red-300" : "text-sm text-slate-500"
+              }
+            >
+              {t("nickname.hint")}
+            </p>
+          </div>
+        )}
 
         <ErrorAlert code={error} />
+
+        <button
+          type="button"
+          onClick={switchMode}
+          className="text-sm text-indigo-300 underline hover:text-indigo-200"
+        >
+          {moderator
+            ? t("nickname.continueAsGuest")
+            : t("nickname.signInAsModerator")}
+        </button>
 
         <div className="flex justify-end gap-2">
           <button
@@ -80,10 +147,16 @@ export function NicknameDialog({
           </button>
           <button
             type="submit"
-            disabled={connecting}
+            disabled={busy}
             className="rounded-md bg-indigo-600 px-3 py-1.5 font-medium hover:bg-indigo-500 disabled:opacity-60"
           >
-            {connecting ? t("nickname.connecting") : t("nickname.submit")}
+            {moderator
+              ? signingIn
+                ? t("nickname.signingIn")
+                : t("nickname.signIn")
+              : connecting
+                ? t("nickname.connecting")
+                : t("nickname.submit")}
           </button>
         </div>
       </form>

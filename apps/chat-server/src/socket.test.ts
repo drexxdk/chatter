@@ -19,17 +19,24 @@ const {
   recordMessage,
   getHistory,
   redactMessagesFrom,
+  getModeratorNames,
 } = vi.hoisted(() => ({
   isBanned: vi.fn(),
   getCachedPublicRooms: vi.fn(),
   recordMessage: vi.fn(),
   getHistory: vi.fn(),
   redactMessagesFrom: vi.fn(),
+  getModeratorNames: vi.fn(),
 }));
 
 vi.mock("./redis.js", () => ({ pubClient: {}, subClient: {} }));
 vi.mock("./bans.js", () => ({ isBanned }));
 vi.mock("./rooms.js", () => ({ getCachedPublicRooms }));
+// The cache is mocked, the rule about which names are reserved is not.
+vi.mock("./names.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./names.js")>()),
+  getModeratorNames,
+}));
 vi.mock("./history.js", () => ({
   recordMessage,
   getHistory,
@@ -55,6 +62,7 @@ vi.mock("@socket.io/redis-adapter", async () => {
 });
 
 const { createSocketServer, enforceBans } = await import("./socket.js");
+const { signToken } = await import("./tokens.js");
 const { hashIdentifier } = await import("./identity.js");
 
 type Ack = { ok: boolean; error?: string; [key: string]: unknown };
@@ -78,7 +86,7 @@ let port: number;
 let clients: Socket[] = [];
 const extraServers: Server[] = [];
 
-type Session = { guestId: string; nickname: string };
+type Session = { guestId: string; nickname: string; role?: string };
 
 function connect(
   auth: Record<string, unknown>,
@@ -118,6 +126,7 @@ async function startServer(options?: {
   inactivityTimeoutMs?: number;
   maxConnectionsPerIp?: number;
   trustedProxyHops?: number;
+  authTokenSecret?: string;
 }) {
   const server = http.createServer();
   const io = createSocketServer(server, options);
@@ -169,6 +178,7 @@ beforeEach(() => {
   recordMessage.mockReset().mockResolvedValue(undefined);
   getHistory.mockReset().mockResolvedValue([]);
   redactMessagesFrom.mockReset().mockResolvedValue([]);
+  getModeratorNames.mockReset().mockResolvedValue([]);
 });
 
 afterEach(async () => {
@@ -960,6 +970,252 @@ describe("ban enforcement", () => {
     await expect(enforceBans(io, [malloryHash])).resolves.toBeUndefined();
 
     expect(await notice).toMatchObject({ roomSlug: "random", ids: ["m9"] });
+  });
+});
+
+describe("roles", () => {
+  const SECRET = "a-secret-that-is-long-enough-for-tests";
+  const tokenFor = (
+    overrides: Record<string, unknown> = {},
+    secret = SECRET,
+    now = Date.now(),
+  ) =>
+    signToken(
+      { sub: 7, name: "Ada Mod", role: "moderator", ...overrides } as never,
+      { secret, ttlMs: 3_600_000, now },
+    );
+
+  async function moderator(
+    port: number,
+    extraHeaders?: Record<string, string>,
+  ) {
+    const { socket, session, error } = await connect(
+      { token: tokenFor() },
+      port,
+      extraHeaders,
+    );
+    if (!socket || !session) throw new Error(`sign-in failed: ${error}`);
+    return { socket, session: await session };
+  }
+
+  it("gives an ordinary guest the guest role", async () => {
+    const { session } = await connect({ nickname: "Alice" });
+
+    expect((await session)?.role).toBe("guest");
+  });
+
+  it("signs a moderator in with the name from their account, whatever nickname they send", async () => {
+    const { port } = await startServer({ authTokenSecret: SECRET });
+    const { socket, session } = await connect(
+      { token: tokenFor(), nickname: "Something Else" },
+      port,
+    );
+
+    expect(socket).toBeDefined();
+    expect(await session).toMatchObject({
+      nickname: "Ada Mod",
+      role: "moderator",
+    });
+  });
+
+  it.each([
+    ["garbage", () => "not-a-token"],
+    [
+      "another secret",
+      () => tokenFor({}, "some-other-secret-of-sufficient-length"),
+    ],
+    [
+      "an expired token",
+      () => tokenFor({}, SECRET, Date.now() - 2 * 3_600_000),
+    ],
+    ["an empty token", () => ""],
+    ["a number", () => 42],
+  ])("refuses %s", async (_label, make) => {
+    const { port } = await startServer({ authTokenSecret: SECRET });
+
+    expect((await connect({ token: make() }, port)).error).toBe(
+      "invalid_token",
+    );
+  });
+
+  // No secret means no moderators, and a token must not slip through as a plain guest either.
+  it("refuses every token when the server has no signing secret", async () => {
+    const { port } = await startServer({ authTokenSecret: "" });
+
+    expect((await connect({ token: tokenFor() }, port)).error).toBe(
+      "invalid_token",
+    );
+  });
+
+  it("lets a moderator in although their address is banned", async () => {
+    isBanned.mockResolvedValue(true);
+    const { port } = await startServer({ authTokenSecret: SECRET });
+
+    const { session } = await moderator(port);
+
+    expect(session.role).toBe("moderator");
+    expect(isBanned).not.toHaveBeenCalled();
+  });
+
+  it("still turns a banned guest away", async () => {
+    isBanned.mockResolvedValue(true);
+
+    expect((await connect({ nickname: "Mallory" })).error).toBe("banned");
+  });
+
+  describe("reserved nicknames", () => {
+    it.each(["Moderator", "Admin", "Site Admin", "mod"])(
+      "turns a guest named %j away",
+      async (nickname) => {
+        expect((await connect({ nickname })).error).toBe("reserved_nickname");
+      },
+    );
+
+    it("turns a guest away who picks a moderator's name", async () => {
+      getModeratorNames.mockResolvedValue(["Ada Mod"]);
+
+      expect((await connect({ nickname: "ada_mod" })).error).toBe(
+        "reserved_nickname",
+      );
+    });
+
+    it("does not ask whether the address is banned for a name it refuses anyway", async () => {
+      await connect({ nickname: "Admin" });
+
+      expect(isBanned).not.toHaveBeenCalled();
+    });
+
+    it("lets the moderator use their own name", async () => {
+      getModeratorNames.mockResolvedValue(["Ada Mod"]);
+      const { port } = await startServer({ authTokenSecret: SECRET });
+
+      expect((await moderator(port)).session.nickname).toBe("Ada Mod");
+    });
+
+    it("fails closed when the list of names cannot be read", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      getModeratorNames.mockRejectedValue(new Error("redis down"));
+
+      expect((await connect({ nickname: "Alice" })).error).toBe("unavailable");
+    });
+  });
+
+  describe("in a room", () => {
+    it("tells the room who is a moderator", async () => {
+      const { port } = await startServer({ authTokenSecret: SECRET });
+      const alice = await connectGuest("Alice", port);
+      const ada = await moderator(port);
+      await emit(alice, "room:join", { slug: "general" });
+      const presence = waitFor<Presence>(
+        alice,
+        "room:presence",
+        (p) => p.members.length === 2,
+      );
+
+      await emit(ada.socket, "room:join", { slug: "general" });
+
+      expect((await presence).members).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ nickname: "Alice", role: "guest" }),
+          expect.objectContaining({ nickname: "Ada Mod", role: "moderator" }),
+        ]),
+      );
+    });
+
+    it("stamps each message with the sender's role", async () => {
+      const { port } = await startServer({ authTokenSecret: SECRET });
+      const alice = await connectGuest("Alice", port);
+      const ada = await moderator(port);
+      await emit(alice, "room:join", { slug: "general" });
+      await emit(ada.socket, "room:join", { slug: "general" });
+      const received = waitFor<Record<string, unknown>>(
+        alice,
+        "message:new",
+        (m) => m.nickname === "Ada Mod",
+      );
+
+      await emit(ada.socket, "message:send", { text: "welcome" });
+
+      expect(await received).toMatchObject({
+        nickname: "Ada Mod",
+        role: "moderator",
+        text: "welcome",
+      });
+    });
+
+    it("stamps a guest's message as a guest's", async () => {
+      const alice = await connectGuest("Alice");
+      await emit(alice, "room:join", { slug: "general" });
+      const received = waitFor<Record<string, unknown>>(alice, "message:new");
+
+      await emit(alice, "message:send", { text: "hi" });
+
+      expect(await received).toMatchObject({ role: "guest" });
+    });
+
+    it("remembers the role with the message, and the IP hash only for guests", async () => {
+      const { port } = await startServer({
+        authTokenSecret: SECRET,
+        trustedProxyHops: 1,
+      });
+      const alice = await connectGuest("Alice", port, {
+        "x-forwarded-for": "203.0.113.5",
+      });
+      const ada = await moderator(port, { "x-forwarded-for": "203.0.113.6" });
+      await emit(alice, "room:join", { slug: "general" });
+      await emit(ada.socket, "room:join", { slug: "general" });
+
+      await emit(alice, "message:send", { text: "hi" });
+      await emit(ada.socket, "message:send", { text: "welcome" });
+
+      const [guestCopy, moderatorCopy] = recordMessage.mock.calls.map(
+        (call) => call[0],
+      );
+      expect(guestCopy).toMatchObject({
+        role: "guest",
+        ipHash: hashIdentifier("203.0.113.5"),
+      });
+      // A ban on a shared address must never be able to reach a moderator's messages.
+      expect(moderatorCopy).toMatchObject({ role: "moderator", ipHash: "" });
+    });
+
+    it("holds a moderator to the same slow mode as a guest", async () => {
+      let now = Date.now();
+      vi.spyOn(Date, "now").mockImplementation(() => now);
+      const { port } = await startServer({ authTokenSecret: SECRET });
+      const ada = await moderator(port);
+      await emit(ada.socket, "room:join", { slug: "slow" });
+      await emit(ada.socket, "message:send", { text: "first" });
+
+      now += 2_000;
+      const refused = await emit(ada.socket, "message:send", {
+        text: "second",
+      });
+
+      expect(refused).toMatchObject({ ok: false, error: "rate_limited" });
+    });
+  });
+
+  it("does not remove a moderator when their address is banned", async () => {
+    const { io, port } = await startServer({
+      authTokenSecret: SECRET,
+      trustedProxyHops: 1,
+    });
+    const ada = await moderator(port, { "x-forwarded-for": "203.0.113.9" });
+    const alice = await connectGuest("Alice", port, {
+      "x-forwarded-for": "203.0.113.9",
+    });
+    const gone = new Promise((resolve) => alice.once("disconnect", resolve));
+
+    await enforceBans(io, [hashIdentifier("203.0.113.9")]);
+    await gone;
+
+    // Checked on the server: the client would learn of a removal later than Alice's.
+    const stillConnected = [...io.sockets.sockets.values()].map(
+      (socket) => socket.data.nickname,
+    );
+    expect(stillConnected).toEqual(["Ada Mod"]);
+    expect(ada.socket.connected).toBe(true);
   });
 });
 

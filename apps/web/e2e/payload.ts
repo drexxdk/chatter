@@ -104,8 +104,21 @@ export class PayloadApi {
     return ids;
   }
 
-  async remove(collection: "public-rooms" | "bans", id: number) {
+  async remove(collection: "public-rooms" | "bans" | "admins", id: number) {
     await this.request(`${collection}/${id}`, { method: "DELETE" });
+  }
+
+  async createModerator(email: string, password: string, displayName: string) {
+    const { doc } = await this.request("admins", {
+      method: "POST",
+      body: JSON.stringify({
+        email,
+        password,
+        role: "moderator",
+        displayName,
+      }),
+    });
+    return doc!.id;
   }
 
   // Removes anything an earlier, interrupted run left behind.
@@ -116,10 +129,16 @@ export class PayloadApi {
     const bans = await this.request(
       `bans?limit=100&where[reason][equals]=${E2E.banReason}`,
     );
+    const moderators = await this.request(
+      `admins?limit=100&where[email][like]=${E2E.moderatorEmailPrefix}`,
+    );
 
     await Promise.all([
       ...(rooms.docs ?? []).map((room) => this.remove("public-rooms", room.id)),
       ...(bans.docs ?? []).map((ban) => this.remove("bans", ban.id)),
+      ...(moderators.docs ?? []).map((admin) =>
+        this.remove("admins", admin.id),
+      ),
     ]);
   }
 }

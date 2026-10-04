@@ -36,6 +36,7 @@ export default defineConfig({
         PAYLOAD_URL: E2E.payloadUrl,
         SOCKET_ADAPTER_KEY: E2E.socketAdapterKey,
         BAN_HASH_SALT: E2E.banHashSalt,
+        AUTH_TOKEN_SECRET: E2E.authTokenSecret,
         SYNC_INTERVAL_MS: String(E2E.syncIntervalMs),
         // Lets a test give a guest its own address through X-Forwarded-For, so a ban can hit one guest of several.
         TRUST_PROXY_HOPS: "1",

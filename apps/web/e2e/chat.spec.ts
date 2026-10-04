@@ -10,6 +10,7 @@ import {
   connectRawGuest,
   waitForConnectionState,
   waitForRooms,
+  waitForReservedNickname,
 } from "./chatServer";
 import { E2E } from "./constants";
 import { PayloadApi } from "./payload";
@@ -347,4 +348,73 @@ test("a banned guest is turned away until the ban is lifted", async ({
   await expect(
     page.getByRole("heading", { name: LOUNGE.name, level: 2 }),
   ).toBeVisible();
+});
+
+test("a moderator signs in, and guests see their messages stand out", async ({
+  browser,
+}) => {
+  // Room history outlives a run, so a name and words reused by an earlier run would match twice.
+  const unique = String(Date.now()).slice(-6);
+  const name = `E2E Mod ${unique}`;
+  const words = `Please keep it friendly ${unique}`;
+  const email = `${E2E.moderatorEmailPrefix}${Date.now()}@chatter.test`;
+  const password = crypto.randomUUID();
+  const accountId = await payload.createModerator(email, password, name);
+
+  try {
+    await waitForReservedNickname(name);
+
+    const alice = await newGuest(browser);
+    await enterRoom(alice, LOUNGE.name, "Alice");
+
+    const moderator = await newGuest(browser);
+    await moderator.goto("/");
+    await moderator
+      .getByRole("button", { name: `Join ${LOUNGE.name}` })
+      .click();
+    await moderator
+      .getByRole("button", { name: "Sign in as moderator" })
+      .click();
+
+    // A wrong password is explained and nothing is joined.
+    await moderator.getByRole("textbox", { name: "Email" }).fill(email);
+    await moderator.getByLabel("Password").fill("not the password");
+    await moderator.getByRole("button", { name: "Sign in" }).click();
+    await expect(moderator.getByRole("dialog").getByRole("alert")).toHaveText(
+      "Wrong email or password.",
+    );
+
+    await moderator.getByLabel("Password").fill(password);
+    await moderator.getByRole("button", { name: "Sign in" }).click();
+    await expect(moderator.getByText(`Chatting as ${name}`)).toBeVisible();
+
+    await send(moderator, words);
+
+    const message = alice.getByRole("log").getByText(words);
+    await expect(message).toBeVisible();
+    await expect(message).toHaveClass(/font-bold/);
+    await expect(alice.getByRole("log").getByText(name)).toHaveClass(
+      /text-green-400/,
+    );
+    await expect(
+      alice
+        .getByRole("log")
+        .getByRole("listitem")
+        .filter({ hasText: words })
+        .getByText("Moderator"),
+    ).toBeVisible();
+    await expect(alice.getByRole("complementary").getByText(name)).toHaveClass(
+      /text-green-400/,
+    );
+  } finally {
+    await payload.remove("admins", accountId);
+  }
+});
+
+test("a guest cannot take a name that sounds like staff", async ({ page }) => {
+  await startJoin(page, LOUNGE.name, "Admin");
+
+  await expect(page.getByRole("dialog").getByRole("alert")).toHaveText(
+    "That nickname is reserved. Pick another one.",
+  );
 });

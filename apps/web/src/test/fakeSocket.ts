@@ -23,11 +23,18 @@ export class FakeSocket implements ChatSocket {
     handshakeError?: string,
     // The real server issues a new guest id on every connection.
     readonly guestId = "guest-me",
+    // Present when a moderator signed in; the real server then reports the moderator role.
+    readonly token?: string,
   ) {
     queueMicrotask(() => {
       if (handshakeError)
         this.serverEmit("connect_error", new Error(handshakeError));
-      else this.serverEmit("session", { guestId: this.guestId, nickname });
+      else
+        this.serverEmit("session", {
+          guestId: this.guestId,
+          nickname,
+          role: token ? "moderator" : "guest",
+        });
     });
   }
 
@@ -49,7 +56,13 @@ export class FakeSocket implements ChatSocket {
       if (event === "room:join" && response.ok) {
         this.serverEmit("room:presence", {
           roomSlug: (payload as { slug: string }).slug,
-          members: [{ guestId: this.guestId, nickname: this.nickname }],
+          members: [
+            {
+              guestId: this.guestId,
+              nickname: this.nickname,
+              role: this.token ? "moderator" : "guest",
+            },
+          ],
         });
       }
 
@@ -81,13 +94,14 @@ export function makeFakeServer(options: { handshakeError?: string } = {}) {
   // Handshake errors for the next connection attempts, consumed in order (e.g. to fail reconnects).
   const upcomingHandshakeErrors: string[] = [];
 
-  const createSocket = vi.fn<CreateSocket>((nickname) => {
+  const createSocket = vi.fn<CreateSocket>((nickname, token) => {
     const guestId =
       sockets.length === 0 ? "guest-me" : `guest-me-${sockets.length + 1}`;
     const socket = new FakeSocket(
       nickname,
       upcomingHandshakeErrors.shift() ?? options.handshakeError,
       guestId,
+      token,
     );
     Object.assign(socket.acks, acks);
     sockets.push(socket);

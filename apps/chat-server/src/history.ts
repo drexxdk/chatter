@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { env } from "./env.js";
 import { redis } from "./redis.js";
+import { chatRoleSchema } from "./roles.js";
 
 const messageFields = {
   id: z.string(),
@@ -14,6 +15,8 @@ const storedSchema = z.object({
   ...messageFields,
   guestId: z.string(),
   nickname: z.string(),
+  // Messages stored before roles existed were all from guests.
+  role: chatRoleSchema.default("guest"),
   text: z.string(),
   ipHash: z.string(),
 });

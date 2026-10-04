@@ -125,7 +125,11 @@ export interface AdminAuthOperations {
  */
 export interface Admin {
   id: number;
-  role: 'super-admin' | 'service';
+  role: 'super-admin' | 'moderator' | 'service';
+  /**
+   * The name shown in the chat when this account moderates. Required for moderators; guests cannot take it. 2-24 letters, numbers, spaces, or _ . -
+   */
+  displayName?: string | null;
   updatedAt: string;
   createdAt: string;
   enableAPIKey?: boolean | null;
@@ -269,6 +273,7 @@ export interface PayloadMigration {
  */
 export interface AdminsSelect<T extends boolean = true> {
   role?: T;
+  displayName?: T;
   updatedAt?: T;
   createdAt?: T;
   enableAPIKey?: T;

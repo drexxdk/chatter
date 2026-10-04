@@ -17,7 +17,14 @@
     "hint": "2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",
     "submit": "Weiter",
     "connecting": "Verbinde…",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "signInAsModerator": "Als Moderator anmelden",
+    "continueAsGuest": "Als Gast fortfahren",
+    "moderatorTitle": "Als Moderator anmelden",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "signIn": "Anmelden",
+    "signingIn": "Melde an…"
   },
   "room": {
     "leave": "Raum verlassen",
@@ -30,11 +37,20 @@
     "send": "Senden",
     "reconnecting": "Verbindung unterbrochen. Verbinde erneut…",
     "bannedMessage": "Dieser Nutzer wurde gesperrt",
+    "moderatorBadge": "Moderator",
     "slowMode": "Langsamer Modus: eine Nachricht alle {{seconds}} s."
   },
   "errors": {
     "invalid_nickname": "Dieser Spitzname ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",
     "banned": "Du wurdest aus diesem Chat gesperrt.",
+    "reserved_nickname": "Dieser Spitzname ist reserviert. Wähle einen anderen.",
+    "invalid_token": "Deine Moderatoren-Sitzung ist abgelaufen. Melde dich erneut an.",
+    "invalid_credentials": "Falsche E-Mail oder falsches Passwort.",
+    "not_a_moderator": "Dieses Konto kann den Chat nicht moderieren.",
+    "no_display_name": "Dieses Konto hat noch keinen Anzeigenamen. Bitte einen Administrator, einen festzulegen.",
+    "moderator_login_disabled": "Die Moderatoren-Anmeldung ist gerade nicht verfügbar.",
+    "too_many_attempts": "Zu viele Anmeldeversuche. Versuche es in ein paar Minuten erneut.",
+    "invalid_request": "Gib eine gültige E-Mail-Adresse und ein Passwort ein.",
     "too_many_connections": "Zu viele Verbindungen aus deinem Netzwerk. Schließe andere Chat-Tabs oder versuche es gleich noch einmal.",
     "unavailable": "Der Chat ist vorübergehend nicht verfügbar. Bitte versuche es gleich noch einmal.",
     "connection": "Der Chat-Server ist nicht erreichbar.",

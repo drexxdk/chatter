@@ -137,6 +137,7 @@ jobs:
           {
             echo "PAYLOAD_SERVICE_API_KEY=$key"
             echo "BAN_HASH_SALT=ci-only-ban-salt-not-used-anywhere-else"
+            echo "AUTH_TOKEN_SECRET=ci-only-token-secret-not-used-anywhere-else-1234"
           } > apps/chat-server/.env
 
       - name: Build the admin app

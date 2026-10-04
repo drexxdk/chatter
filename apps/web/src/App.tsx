@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { Room } from "./api";
+import { SignInError, signInModerator, type Room } from "./api";
 import type { CreateSocket } from "./chat/socket";
 import { useChat } from "./chat/useChat";
 import { ChatRoom } from "./components/ChatRoom";
@@ -21,6 +21,8 @@ export function App({
   const chat = useChat(createSocket, { reconnectDelaysMs });
   const { state: roomsState, retry } = useRooms();
   const [pendingRoom, setPendingRoom] = useState<Room | null>(null);
+  const [signInError, setSignInError] = useState<string | null>(null);
+  const [signingIn, setSigningIn] = useState(false);
 
   const rooms = roomsState.status === "ready" ? roomsState.rooms : [];
   const currentRoom = rooms.find((room) => room.slug === chat.roomSlug);
@@ -45,9 +47,36 @@ export function App({
     await chat.joinRoom(slug);
   }
 
+  async function handleSignIn(email: string, password: string) {
+    if (!pendingRoom) return;
+
+    setSignInError(null);
+    chat.clearError();
+    setSigningIn(true);
+
+    try {
+      const moderator = await signInModerator(email, password);
+
+      if (!(await chat.connect(moderator.name, moderator.token))) return;
+
+      const { slug } = pendingRoom;
+      setPendingRoom(null);
+      await chat.joinRoom(slug);
+    } catch (cause) {
+      setSignInError(cause instanceof SignInError ? cause.code : "connection");
+    } finally {
+      setSigningIn(false);
+    }
+  }
+
+  function clearDialogErrors() {
+    setSignInError(null);
+    chat.clearError();
+  }
+
   function handleCancel() {
     setPendingRoom(null);
-    chat.clearError();
+    clearDialogErrors();
   }
 
   return (
@@ -87,8 +116,11 @@ export function App({
       {pendingRoom && (
         <NicknameDialog
           connecting={chat.status === "connecting"}
-          error={chat.error}
+          signingIn={signingIn}
+          error={signInError ?? chat.error}
           onSubmit={(nickname) => void handleNickname(nickname)}
+          onSignIn={(email, password) => void handleSignIn(email, password)}
+          onModeChange={clearDialogErrors}
           onCancel={handleCancel}
         />
       )}

@@ -27,6 +27,14 @@ const ERROR_CODES = [
   "connection",
   "connection_lost",
   "too_many_connections",
+  "reserved_nickname",
+  "invalid_token",
+  "invalid_credentials",
+  "not_a_moderator",
+  "no_display_name",
+  "moderator_login_disabled",
+  "too_many_attempts",
+  "invalid_request",
   "unknown",
 ];
 

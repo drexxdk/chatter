@@ -104,13 +104,20 @@ export function ChatRoom({
               <li key={message.id}>
                 <span
                   className={
-                    ownGuestIds.includes(message.guestId)
-                      ? "font-semibold text-indigo-300"
-                      : "font-semibold"
+                    message.role === "moderator"
+                      ? "font-bold text-green-400"
+                      : ownGuestIds.includes(message.guestId)
+                        ? "font-semibold text-indigo-300"
+                        : "font-semibold"
                   }
                 >
                   {message.nickname}
                 </span>
+                {message.role === "moderator" && (
+                  <span className="ml-2 rounded bg-green-500/20 px-1.5 py-0.5 text-xs font-semibold uppercase text-green-300">
+                    {t("room.moderatorBadge")}
+                  </span>
+                )}
                 <time
                   dateTime={message.sentAt}
                   className="ml-2 text-xs text-slate-500"
@@ -118,7 +125,13 @@ export function ChatRoom({
                   {new Date(message.sentAt).toLocaleTimeString()}
                 </time>
                 {/* Rendered as text, never as HTML. */}
-                <p className="whitespace-pre-wrap break-words">
+                <p
+                  className={
+                    message.role === "moderator"
+                      ? "whitespace-pre-wrap break-words font-bold text-green-300"
+                      : "whitespace-pre-wrap break-words"
+                  }
+                >
                   {message.text}
                 </p>
               </li>
@@ -181,7 +194,20 @@ export function ChatRoom({
         <ul className="space-y-1 text-sm">
           {members.map((member) => (
             <li key={member.guestId}>
-              {member.nickname}
+              <span
+                className={
+                  member.role === "moderator"
+                    ? "font-bold text-green-400"
+                    : undefined
+                }
+              >
+                {member.nickname}
+              </span>
+              {member.role === "moderator" && (
+                <span className="ml-1 text-xs text-green-300">
+                  ({t("room.moderatorBadge")})
+                </span>
+              )}
               {member.guestId === session.guestId && (
                 <span className="ml-1 text-slate-500">({t("room.you")})</span>
               )}

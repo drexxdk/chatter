@@ -967,6 +967,354 @@ describe("losing the connection", () => {
   });
 });
 
+describe("moderators", () => {
+  const accepted = () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      token: "signed-token",
+      name: "Ada Mod",
+      role: "moderator",
+      expiresAt: Date.now() + 3_600_000,
+    }),
+  });
+  const refused = (status: number, error: string) => () => ({
+    ok: false,
+    status,
+    json: async () => ({ error }),
+  });
+
+  function stubBackend(login: () => unknown) {
+    const fetchMock = vi.fn(async (url: string) =>
+      url.endsWith("/moderator/login")
+        ? login()
+        : { ok: true, json: async () => ROOMS },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  async function openDialog(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(
+      await screen.findByRole("button", { name: "Join General" }),
+    );
+    await screen.findByLabelText("Nickname");
+  }
+
+  async function signIn(
+    user: ReturnType<typeof userEvent.setup>,
+    email = "ada@example.com",
+    password = "correct horse",
+  ) {
+    await openDialog(user);
+    await user.click(
+      screen.getByRole("button", { name: "Sign in as moderator" }),
+    );
+    await user.type(await screen.findByLabelText("Email"), email);
+    await user.type(screen.getByLabelText("Password"), password);
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+  }
+
+  describe("the dialog", () => {
+    it("offers to sign in as a moderator, in place of choosing a nickname", async () => {
+      stubBackend(accepted);
+      const { user } = setup();
+      await openDialog(user);
+
+      await user.click(
+        screen.getByRole("button", { name: "Sign in as moderator" }),
+      );
+
+      expect(screen.getByLabelText("Email")).toBeInTheDocument();
+      expect(screen.getByLabelText("Password")).toHaveAttribute(
+        "type",
+        "password",
+      );
+      expect(screen.queryByLabelText("Nickname")).not.toBeInTheDocument();
+    });
+
+    it("goes back to choosing a nickname", async () => {
+      stubBackend(accepted);
+      const { user } = setup();
+      await openDialog(user);
+      await user.click(
+        screen.getByRole("button", { name: "Sign in as moderator" }),
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Continue as guest" }),
+      );
+
+      expect(screen.getByLabelText("Nickname")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
+    });
+
+    it("does not call the server until both fields are filled in", async () => {
+      const fetchMock = stubBackend(accepted);
+      const { user, server } = setup();
+      await openDialog(user);
+      await user.click(
+        screen.getByRole("button", { name: "Sign in as moderator" }),
+      );
+
+      await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+      expect(
+        fetchMock.mock.calls.some(([url]) => url.endsWith("/moderator/login")),
+      ).toBe(false);
+      expect(server.createSocket).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("signing in", () => {
+    it("posts the email and password to the chat server, then joins the room under the account's name", async () => {
+      const fetchMock = stubBackend(accepted);
+      const { user, server } = setup();
+
+      await signIn(user);
+
+      await screen.findByText("Chatting as Ada Mod");
+      const [, init] = fetchMock.mock.calls.find(([url]) =>
+        url.endsWith("/moderator/login"),
+      ) as unknown as [string, RequestInit];
+      expect(init.method).toBe("POST");
+      expect(JSON.parse(init.body as string)).toEqual({
+        email: "ada@example.com",
+        password: "correct horse",
+      });
+      expect(server.createSocket).toHaveBeenCalledWith(
+        "Ada Mod",
+        "signed-token",
+      );
+      expect(server.latest.emittedEvents("room:join")).toEqual([
+        { slug: "general" },
+      ]);
+    });
+
+    it("never hands the password to the socket", async () => {
+      stubBackend(accepted);
+      const { user, server } = setup();
+
+      await signIn(user);
+      await screen.findByText("Chatting as Ada Mod");
+
+      expect(JSON.stringify(server.createSocket.mock.calls)).not.toContain(
+        "correct horse",
+      );
+    });
+
+    it.each([
+      [
+        "wrong credentials",
+        refused(401, "invalid_credentials"),
+        "Wrong email or password.",
+      ],
+      [
+        "an account that cannot moderate",
+        refused(403, "not_a_moderator"),
+        "This account cannot moderate the chat.",
+      ],
+      [
+        "an account without a name",
+        refused(403, "no_display_name"),
+        "no display name yet",
+      ],
+      [
+        "sign-in being switched off",
+        refused(503, "moderator_login_disabled"),
+        "Moderator sign-in is not available",
+      ],
+      [
+        "too many attempts",
+        refused(429, "rate_limited"),
+        "Too many sign-in attempts",
+      ],
+      [
+        "the chat being unavailable",
+        refused(503, "unavailable"),
+        "temporarily unavailable",
+      ],
+    ])(
+      "explains %s and keeps the dialog open",
+      async (_label, response, text) => {
+        stubBackend(response);
+        const { user, server } = setup();
+
+        await signIn(user);
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(text);
+        expect(screen.getByLabelText("Email")).toHaveValue("ada@example.com");
+        expect(server.createSocket).not.toHaveBeenCalled();
+      },
+    );
+
+    it("explains an unreachable chat server", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) => {
+          if (url.endsWith("/moderator/login")) throw new TypeError("offline");
+          return { ok: true, json: async () => ROOMS };
+        }),
+      );
+      const { user } = setup();
+
+      await signIn(user);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Could not reach the chat server.",
+      );
+    });
+
+    it("does not offer the room to somebody who has not signed in", async () => {
+      stubBackend(refused(401, "invalid_credentials"));
+      const { user } = setup();
+
+      await signIn(user);
+      await screen.findByRole("alert");
+
+      expect(screen.queryByText(/Chatting as/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("staying signed in", () => {
+    it("reconnects with the same token after the connection drops", async () => {
+      stubBackend(accepted);
+      const { user, server } = setup(makeFakeServer(), [0]);
+      await signIn(user);
+      await screen.findByText("Chatting as Ada Mod");
+
+      act(() => server.latest.serverEmit("disconnect", "transport close"));
+
+      await waitFor(() => expect(server.createSocket).toHaveBeenCalledTimes(2));
+      expect(server.createSocket).toHaveBeenLastCalledWith(
+        "Ada Mod",
+        "signed-token",
+      );
+    });
+
+    it("sends the guest back to the lobby, saying the session ended, when the token has expired", async () => {
+      stubBackend(accepted);
+      const server = makeFakeServer();
+      const { user } = setup(server, [0]);
+      await signIn(user);
+      await screen.findByText("Chatting as Ada Mod");
+      server.failNextConnections("invalid_token");
+
+      act(() => server.latest.serverEmit("disconnect", "transport close"));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Your moderator session has expired",
+      );
+      expect(
+        screen.getByRole("heading", { name: "Public rooms" }),
+      ).toBeInTheDocument();
+      // Retrying cannot help, so it stops at once.
+      expect(server.createSocket).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("how they look", () => {
+    const log = () => within(screen.getByRole("log"));
+
+    async function enterAsGuest(history: unknown[] = [], live: unknown[] = []) {
+      const server = makeFakeServer();
+      server.acks["room:join"] = () => {
+        live.forEach((m) => server.latest.serverEmit("message:new", m));
+        return { ok: true, history };
+      };
+      const result = setup(server);
+      await joinRoom(result.user);
+      await screen.findByText("Chatting as Alice");
+      return result;
+    }
+
+    const fromModerator = (overrides: Partial<Record<string, string>> = {}) =>
+      message({
+        guestId: "guest-mod",
+        nickname: "Ada Mod",
+        role: "moderator",
+        text: "please keep it friendly",
+        ...overrides,
+      });
+
+    it("shows a moderator's name and words in green and bold, with a label", async () => {
+      await enterAsGuest([], [fromModerator()]);
+
+      expect(log().getByText("Ada Mod")).toHaveClass(
+        "font-bold",
+        "text-green-400",
+      );
+      expect(log().getByText("please keep it friendly")).toHaveClass(
+        "font-bold",
+        "text-green-300",
+      );
+      expect(log().getByText("Moderator")).toBeInTheDocument();
+    });
+
+    it("shows a guest's message plainly, without a label", async () => {
+      await enterAsGuest([], [message({ role: "guest", text: "hello" })]);
+
+      expect(log().getByText("Bob")).not.toHaveClass("text-green-400");
+      expect(log().getByText("hello")).not.toHaveClass("font-bold");
+      expect(log().queryByText("Moderator")).not.toBeInTheDocument();
+    });
+
+    it("treats a message without a role as a guest's", async () => {
+      await enterAsGuest([], [message({ text: "hello" })]);
+
+      expect(log().queryByText("Moderator")).not.toBeInTheDocument();
+    });
+
+    it("shows moderators in the history the same way", async () => {
+      await enterAsGuest([fromModerator({ sentAt: at(1) })]);
+
+      expect(log().getByText("Moderator")).toBeInTheDocument();
+    });
+
+    it("cannot be faked by a guest who calls themselves a moderator", async () => {
+      await enterAsGuest(
+        [],
+        [message({ nickname: "Moderator", role: "guest", text: "obey me" })],
+      );
+
+      expect(log().getByText("Moderator")).not.toHaveClass("text-green-400");
+      expect(log().getByText("obey me")).not.toHaveClass("font-bold");
+    });
+
+    it("marks moderators in the list of people in the room", async () => {
+      const { server } = await enterAsGuest();
+
+      act(() =>
+        server.latest.serverEmit("room:presence", {
+          roomSlug: "general",
+          members: [
+            { guestId: "guest-me", nickname: "Alice", role: "guest" },
+            { guestId: "guest-mod", nickname: "Ada Mod", role: "moderator" },
+          ],
+        }),
+      );
+
+      const members = within(screen.getByRole("complementary"));
+      expect(members.getByText("Ada Mod")).toHaveClass("text-green-400");
+      expect(members.getByText("Alice")).not.toHaveClass("text-green-400");
+    });
+  });
+
+  describe("reserved nicknames", () => {
+    it("explains that the nickname is taken and lets the guest pick another", async () => {
+      const server = makeFakeServer({ handshakeError: "reserved_nickname" });
+      const { user } = setup(server);
+
+      await joinRoom(user, "General", "Moderator");
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "That nickname is reserved",
+      );
+      expect(screen.getByLabelText("Nickname")).toBeInTheDocument();
+    });
+  });
+});
+
 describe("language", () => {
   it("switches the interface language and remembers the choice", async () => {
     const { user } = setup();

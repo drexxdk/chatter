@@ -28,6 +28,12 @@ const banSchema = z.object({
 export type PublicRoom = z.infer<typeof publicRoomSchema>;
 export type Ban = z.infer<typeof banSchema>;
 
+const describeIssues = (error: z.ZodError) =>
+  error.issues
+    .slice(0, 5)
+    .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+    .join("; ");
+
 // A response that fails validation is rejected whole, so the caller keeps serving its last good copy.
 // The message names the field only: ban hashes and reasons must not end up in logs.
 async function payloadFetch<T extends z.ZodType>(
@@ -47,12 +53,8 @@ async function payloadFetch<T extends z.ZodType>(
   const result = schema.safeParse(await res.json());
 
   if (!result.success) {
-    const problems = result.error.issues
-      .slice(0, 5)
-      .map((issue) => `${issue.path.join(".")}: ${issue.message}`);
-
     throw new Error(
-      `Unexpected response from Payload (${path}): ${problems.join("; ")}`,
+      `Unexpected response from Payload (${path}): ${describeIssues(result.error)}`,
     );
   }
 
@@ -73,4 +75,63 @@ export async function fetchBans(): Promise<Ban[]> {
     z.object({ docs: z.array(banSchema) }),
   );
   return data.docs;
+}
+
+export interface Account {
+  id: number;
+  role: string;
+  displayName: string | null;
+}
+
+// Payload checks the credentials itself (and locks an account after repeated failures). The service key is left
+// out on purpose: the person's own password is what vouches for them. Undefined means "not accepted", whatever the
+// reason, so a wrong email, a wrong password and a locked account look the same.
+export async function loginAccount(
+  email: string,
+  password: string,
+): Promise<Account | undefined> {
+  const res = await fetch(`${env.PAYLOAD_URL}/api/admins/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (res.status === 401 || res.status === 403) return undefined;
+
+  if (!res.ok) {
+    throw new Error(`Payload login failed: ${res.status} ${res.statusText}`);
+  }
+
+  const result = z
+    .object({
+      user: z.object({
+        id: z.number(),
+        role: z.string(),
+        displayName: z.string().nullish(),
+      }),
+    })
+    .safeParse(await res.json());
+
+  if (!result.success) {
+    throw new Error(
+      `Unexpected response from Payload (login): ${describeIssues(result.error)}`,
+    );
+  }
+
+  const { id, role, displayName } = result.data.user;
+  return { id, role, displayName: displayName ?? null };
+}
+
+// The names of the accounts that can moderate, so guests cannot pick one of them.
+export async function fetchModeratorNames(): Promise<string[]> {
+  const data = await payloadFetch(
+    "/api/admins?where[role][in]=moderator,super-admin&limit=100&depth=0",
+    z.object({
+      docs: z.array(z.object({ displayName: z.string().nullish() })),
+    }),
+  );
+
+  return data.docs
+    .map((doc) => doc.displayName)
+    .filter((name): name is string => Boolean(name));
 }

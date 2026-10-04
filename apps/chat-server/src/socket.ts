@@ -7,8 +7,11 @@ import { isBanned } from "./bans.js";
 import { env } from "./env.js";
 import { getHistory, recordMessage, redactMessagesFrom } from "./history.js";
 import { hashIdentifier, getClientIp, validateNickname } from "./identity.js";
+import { getModeratorNames, isReservedNickname } from "./names.js";
 import { pubClient, subClient } from "./redis.js";
+import { ROLE_RULES, type ChatRole } from "./roles.js";
 import { getCachedPublicRooms } from "./rooms.js";
+import { verifyToken } from "./tokens.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const RATE_LIMIT_MAX_MESSAGES = 5;
@@ -17,6 +20,7 @@ const RATE_LIMIT_WINDOW_MS = 5_000;
 interface SocketData {
   guestId: string;
   nickname: string;
+  role: ChatRole;
   ipHash: string;
   // Set when a ban removes the guest, so a message still being recorded at that moment is dropped.
   banned?: boolean;
@@ -66,8 +70,11 @@ export function createSocketServer(
     inactivityTimeoutMs?: number;
     maxConnectionsPerIp?: number;
     trustedProxyHops?: number;
+    // An empty string means no moderator can sign in, like leaving AUTH_TOKEN_SECRET unset.
+    authTokenSecret?: string;
   } = {},
 ): Server {
+  const authTokenSecret = options.authTokenSecret ?? env.AUTH_TOKEN_SECRET;
   const inactivityTimeoutMs =
     options.inactivityTimeoutMs ?? env.INACTIVITY_TIMEOUT_MS;
   // Undefined means no cap.
@@ -92,16 +99,43 @@ export function createSocketServer(
       members: members.map((member) => ({
         guestId: (member.data as SocketData).guestId,
         nickname: (member.data as SocketData).nickname,
+        role: (member.data as SocketData).role,
       })),
     });
   }
 
-  // Guest auth + ban check run before the connection is accepted; fails closed if the ban cache is unreachable.
+  // Sign-in, reserved-name and ban checks run before the connection is accepted; they fail closed when a cache is
+  // unreachable. A moderator arrives with a signed token and gets the name from their account; a guest picks a
+  // nickname, which must not look like a moderator's.
   io.use(async (socket, next) => {
-    const nickname = validateNickname(socket.handshake.auth?.nickname);
+    const auth = socket.handshake.auth ?? {};
+    let nickname: string | null;
+    let role: ChatRole = "guest";
 
-    if (!nickname) {
-      return next(new Error("invalid_nickname"));
+    if (auth.token !== undefined) {
+      const claims = authTokenSecret
+        ? verifyToken(auth.token, { secret: authTokenSecret })
+        : undefined;
+
+      if (!claims) return next(new Error("invalid_token"));
+
+      nickname = claims.name;
+      role = claims.role;
+    } else {
+      nickname = validateNickname(auth.nickname);
+
+      if (!nickname) {
+        return next(new Error("invalid_nickname"));
+      }
+
+      try {
+        if (isReservedNickname(nickname, await getModeratorNames())) {
+          return next(new Error("reserved_nickname"));
+        }
+      } catch (error) {
+        console.error("Moderator names unavailable:", error);
+        return next(new Error("unavailable"));
+      }
     }
 
     const ipHash = hashIdentifier(
@@ -109,7 +143,7 @@ export function createSocketServer(
     );
 
     try {
-      if (await isBanned(ipHash)) {
+      if (!ROLE_RULES[role].ignoresIpBans && (await isBanned(ipHash))) {
         return next(new Error("banned"));
       }
     } catch (error) {
@@ -136,6 +170,7 @@ export function createSocketServer(
     socket.data = {
       guestId: crypto.randomUUID(),
       nickname,
+      role,
       ipHash,
       recentMessageTimes: [],
     } satisfies SocketData;
@@ -163,7 +198,11 @@ export function createSocketServer(
       await emitPresence(slug);
     }
 
-    socket.emit("session", { guestId: data.guestId, nickname: data.nickname });
+    socket.emit("session", {
+      guestId: data.guestId,
+      nickname: data.nickname,
+      role: data.role,
+    });
 
     // Any client event counts as activity.
     let idleTimer: NodeJS.Timeout | undefined;
@@ -291,15 +330,21 @@ export function createSocketServer(
         roomSlug: slug,
         guestId: data.guestId,
         nickname: data.nickname,
+        role: data.role,
         text,
         sentAt: new Date(now).toISOString(),
       };
 
       // Recorded before it is delivered, so whatever a guest has seen live is also in the history a later joiner
       // reads. The stored copy also names the sender's IP hash so a later ban can reach it; that never leaves the
-      // server. A Redis failure costs the history entry, not the message.
+      // server. Roles that ignore IP bans store none, so a ban on a shared address cannot touch their messages. A
+      // Redis failure costs the history entry, not the message.
+      const storedIpHash = ROLE_RULES[data.role].ignoresIpBans
+        ? ""
+        : data.ipHash;
+
       try {
-        await recordMessage({ ...message, ipHash: data.ipHash });
+        await recordMessage({ ...message, ipHash: storedIpHash });
       } catch (error) {
         console.error("Failed to record message:", error);
       }
@@ -347,7 +392,9 @@ export async function enforceBans(
 
   for (const socket of io.sockets.sockets.values()) {
     const data = socket.data as SocketData;
-    if (!banned.has(data.ipHash)) continue;
+    if (!banned.has(data.ipHash) || ROLE_RULES[data.role].ignoresIpBans) {
+      continue;
+    }
 
     if (data.roomSlug) {
       removedGuestsByRoom.set(data.roomSlug, [

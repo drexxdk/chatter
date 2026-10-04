@@ -17,7 +17,14 @@
     "hint": "2–24 bogstaver, tal, mellemrum eller _ . -",
     "submit": "Fortsæt",
     "connecting": "Forbinder…",
-    "cancel": "Annuller"
+    "cancel": "Annuller",
+    "signInAsModerator": "Log ind som moderator",
+    "continueAsGuest": "Fortsæt som gæst",
+    "moderatorTitle": "Log ind som moderator",
+    "email": "E-mail",
+    "password": "Adgangskode",
+    "signIn": "Log ind",
+    "signingIn": "Logger ind…"
   },
   "room": {
     "leave": "Forlad rum",
@@ -30,11 +37,20 @@
     "send": "Send",
     "reconnecting": "Forbindelsen blev afbrudt. Forbinder igen…",
     "bannedMessage": "Denne bruger blev udelukket",
+    "moderatorBadge": "Moderator",
     "slowMode": "Langsom tilstand: én besked hvert {{seconds}}. sekund."
   },
   "errors": {
     "invalid_nickname": "Det kaldenavn er ikke tilladt. Brug 2–24 bogstaver, tal, mellemrum eller _ . -",
     "banned": "Du er udelukket fra denne chat.",
+    "reserved_nickname": "Det kaldenavn er reserveret. Vælg et andet.",
+    "invalid_token": "Din moderatorsession er udløbet. Log ind igen.",
+    "invalid_credentials": "Forkert e-mail eller adgangskode.",
+    "not_a_moderator": "Denne konto kan ikke moderere chatten.",
+    "no_display_name": "Denne konto har endnu ikke noget visningsnavn. Bed en administrator om at angive et.",
+    "moderator_login_disabled": "Moderatorlogin er ikke tilgængeligt lige nu.",
+    "too_many_attempts": "For mange loginforsøg. Prøv igen om nogle minutter.",
+    "invalid_request": "Angiv en gyldig e-mailadresse og adgangskode.",
     "too_many_connections": "For mange forbindelser fra dit netværk. Luk andre chatfaner, eller prøv igen om lidt.",
     "unavailable": "Chatten er midlertidigt utilgængelig. Prøv igen om lidt.",
     "connection": "Kunne ikke få forbindelse til chatserveren.",

@@ -9,11 +9,12 @@ export interface ChatSocket {
   disconnect(): unknown;
 }
 
-export type CreateSocket = (nickname: string) => ChatSocket;
+export type CreateSocket = (nickname: string, token?: string) => ChatSocket;
 
-export const createSocket: CreateSocket = (nickname) =>
+// A moderator presents the token from signing in; a guest presents a nickname.
+export const createSocket: CreateSocket = (nickname, token) =>
   io(CHAT_SERVER_URL, {
-    auth: { nickname },
+    auth: token ? { token } : { nickname },
     reconnection: false,
     transports: ["websocket"],
   });

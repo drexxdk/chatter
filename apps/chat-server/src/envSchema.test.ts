@@ -23,6 +23,7 @@ describe("parseEnv defaults", () => {
       SOCKET_ADAPTER_KEY: "socket.io",
       ROOM_HISTORY_SIZE: 50,
       ROOM_HISTORY_TTL_SECONDS: 3600,
+      AUTH_TOKEN_SECRET: undefined,
       MAX_CONNECTIONS_PER_IP: undefined,
       TRUST_PROXY_HOPS: 0,
     });
@@ -115,6 +116,31 @@ describe("parseEnv numbers", () => {
 });
 
 describe("parseEnv required settings", () => {
+  // Optional: without it moderators cannot sign in, and everything else works as before.
+  it("accepts AUTH_TOKEN_SECRET, unset, blank or long enough", () => {
+    const secret = "s".repeat(32);
+
+    expect(parse().AUTH_TOKEN_SECRET).toBeUndefined();
+    expect(
+      parse({ AUTH_TOKEN_SECRET: "  " }).AUTH_TOKEN_SECRET,
+    ).toBeUndefined();
+    expect(parse({ AUTH_TOKEN_SECRET: secret }).AUTH_TOKEN_SECRET).toBe(secret);
+  });
+
+  it("rejects a short AUTH_TOKEN_SECRET without printing it", () => {
+    const secret = "too-short-secret";
+
+    expect(() => parse({ AUTH_TOKEN_SECRET: secret })).toThrow(
+      /AUTH_TOKEN_SECRET: .*at least 32 characters/,
+    );
+
+    try {
+      parse({ AUTH_TOKEN_SECRET: secret });
+    } catch (error) {
+      expect((error as Error).message).not.toContain(secret);
+    }
+  });
+
   it("reports every missing variable at once", () => {
     expect(() => parseEnv({})).toThrow(
       /PAYLOAD_SERVICE_API_KEY: is required[\s\S]*BAN_HASH_SALT: is required/,
