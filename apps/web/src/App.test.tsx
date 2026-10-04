@@ -1315,6 +1315,282 @@ describe("moderators", () => {
   });
 });
 
+describe("announcements", () => {
+  const announcement = (overrides: Record<string, unknown> = {}) => ({
+    id: "ann-1",
+    text: "The chat closes for maintenance at noon",
+    sentAt: new Date().toISOString(),
+    name: "Ada Mod",
+    ...overrides,
+  });
+
+  const banner = () => screen.queryByRole("region", { name: "Announcement" });
+
+  async function enterAsGuest() {
+    const result = setup();
+    await joinRoom(result.user);
+    await screen.findByText("Chatting as Alice");
+    return result;
+  }
+
+  async function enterAsModerator() {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        url.endsWith("/moderator/login")
+          ? {
+              ok: true,
+              status: 200,
+              json: async () => ({ token: "signed-token", name: "Ada Mod" }),
+            }
+          : { ok: true, json: async () => ROOMS },
+      ),
+    );
+    const result = setup();
+    await result.user.click(
+      await screen.findByRole("button", { name: "Join General" }),
+    );
+    await result.user.click(
+      await screen.findByRole("button", { name: "Sign in as moderator" }),
+    );
+    await result.user.type(screen.getByLabelText("Email"), "ada@example.com");
+    await result.user.type(screen.getByLabelText("Password"), "correct horse");
+    await result.user.click(screen.getByRole("button", { name: "Sign in" }));
+    await screen.findByText("Chatting as Ada Mod");
+    return result;
+  }
+
+  describe("seeing them", () => {
+    it("shows an announcement, and who made it, in a way that stands out", async () => {
+      const { server } = await enterAsGuest();
+
+      act(() => server.latest.serverEmit("announcement:new", announcement()));
+
+      const region = within(
+        await screen.findByRole("region", { name: "Announcement" }),
+      );
+      expect(region.getByText("Announcement from Ada Mod")).toBeInTheDocument();
+      expect(
+        region.getByText("The chat closes for maintenance at noon"),
+      ).toHaveClass("font-bold", "text-green-300");
+    });
+
+    it("shows one that was waiting as soon as the guest connected", async () => {
+      const server = makeFakeServer({ waitingAnnouncement: announcement() });
+      const { user } = setup(server);
+      await joinRoom(user);
+
+      expect(
+        await screen.findByRole("region", { name: "Announcement" }),
+      ).toBeInTheDocument();
+    });
+
+    it("stays on screen after leaving the room", async () => {
+      const { user, server } = await enterAsGuest();
+      act(() => server.latest.serverEmit("announcement:new", announcement()));
+
+      await user.click(screen.getByRole("button", { name: "Leave room" }));
+
+      await screen.findByRole("heading", { name: "Public rooms" });
+      expect(banner()).toBeInTheDocument();
+    });
+
+    it("replaces an earlier announcement with a newer one", async () => {
+      const { server } = await enterAsGuest();
+      act(() => server.latest.serverEmit("announcement:new", announcement()));
+
+      act(() =>
+        server.latest.serverEmit(
+          "announcement:new",
+          announcement({ id: "ann-2", text: "Back to normal" }),
+        ),
+      );
+
+      const region = within(banner() as HTMLElement);
+      expect(region.getByText("Back to normal")).toBeInTheDocument();
+      expect(region.queryByText(/maintenance/)).not.toBeInTheDocument();
+    });
+
+    it("renders the words as text, never as markup", async () => {
+      const { server } = await enterAsGuest();
+
+      act(() =>
+        server.latest.serverEmit(
+          "announcement:new",
+          announcement({ text: "<img src=x onerror=alert(1)>" }),
+        ),
+      );
+
+      expect(
+        within(banner() as HTMLElement).getByText(
+          "<img src=x onerror=alert(1)>",
+        ),
+      ).toBeInTheDocument();
+      expect(document.querySelector("img")).toBeNull();
+    });
+
+    it.each([
+      ["without text", { text: undefined }],
+      ["with a number for text", { text: 5 }],
+      ["without an id", { id: undefined }],
+      ["without a name", { name: undefined }],
+    ])("ignores an announcement %s", async (_label, overrides) => {
+      const { server } = await enterAsGuest();
+
+      act(() =>
+        server.latest.serverEmit("announcement:new", announcement(overrides)),
+      );
+
+      expect(banner()).not.toBeInTheDocument();
+    });
+
+    it("goes away when the guest gives up reconnecting and leaves", async () => {
+      const server = makeFakeServer();
+      const { user } = setup(server, [150, 150]);
+      await joinRoom(user);
+      await screen.findByText("Chatting as Alice");
+      act(() => server.latest.serverEmit("announcement:new", announcement()));
+      act(() => server.latest.serverEmit("disconnect", "transport close"));
+
+      await user.click(screen.getByRole("button", { name: "Leave room" }));
+
+      await screen.findByRole("heading", { name: "Public rooms" });
+      expect(banner()).not.toBeInTheDocument();
+    });
+
+    it("can be dismissed", async () => {
+      const { user, server } = await enterAsGuest();
+      act(() => server.latest.serverEmit("announcement:new", announcement()));
+
+      await user.click(screen.getByRole("button", { name: "Dismiss" }));
+
+      expect(banner()).not.toBeInTheDocument();
+    });
+
+    it("does not come back when the server repeats it after a reconnect, but a new one does", async () => {
+      const server = makeFakeServer();
+      const { user } = setup(server, [0]);
+      await joinRoom(user);
+      await screen.findByText("Chatting as Alice");
+      act(() => server.latest.serverEmit("announcement:new", announcement()));
+      await user.click(screen.getByRole("button", { name: "Dismiss" }));
+
+      act(() => server.latest.serverEmit("disconnect", "transport close"));
+      await waitFor(() => expect(server.createSocket).toHaveBeenCalledTimes(2));
+      await screen.findByText("Chatting as Alice");
+      act(() => server.latest.serverEmit("announcement:new", announcement()));
+      expect(banner()).not.toBeInTheDocument();
+
+      act(() =>
+        server.latest.serverEmit(
+          "announcement:new",
+          announcement({ id: "ann-2", text: "Another one" }),
+        ),
+      );
+      expect(banner()).toBeInTheDocument();
+    });
+  });
+
+  describe("making them", () => {
+    it("is not offered to guests", async () => {
+      await enterAsGuest();
+
+      expect(screen.queryByLabelText("Announce to everyone")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Announce" })).toBeNull();
+    });
+
+    it("is offered to moderators", async () => {
+      await enterAsModerator();
+
+      expect(screen.getByLabelText("Announce to everyone")).toBeInTheDocument();
+    });
+
+    it("sends what the moderator wrote and clears the box", async () => {
+      const { user, server } = await enterAsModerator();
+
+      await user.type(
+        screen.getByLabelText("Announce to everyone"),
+        "  Maintenance at noon  ",
+      );
+      await user.click(screen.getByRole("button", { name: "Announce" }));
+
+      await waitFor(() =>
+        expect(server.latest.emittedEvents("announce:send")).toEqual([
+          { text: "Maintenance at noon" },
+        ]),
+      );
+      await waitFor(() =>
+        expect(screen.getByLabelText("Announce to everyone")).toHaveValue(""),
+      );
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("sends nothing when the box is empty", async () => {
+      const { user, server } = await enterAsModerator();
+
+      await user.type(screen.getByLabelText("Announce to everyone"), "   ");
+      await user.click(screen.getByRole("button", { name: "Announce" }));
+
+      expect(server.latest.emittedEvents("announce:send")).toEqual([]);
+    });
+
+    it("explains how long to wait, and keeps the words", async () => {
+      const { user, server } = await enterAsModerator();
+      server.latest.acks["announce:send"] = () => ({
+        ok: false,
+        error: "rate_limited",
+        retryAfterMs: 41_200,
+      });
+
+      await user.type(screen.getByLabelText("Announce to everyone"), "Again");
+      await user.click(screen.getByRole("button", { name: "Announce" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "You can announce again in 42 s.",
+      );
+      expect(screen.getByLabelText("Announce to everyone")).toHaveValue(
+        "Again",
+      );
+    });
+
+    it("explains other failures, and keeps the words", async () => {
+      const { user, server } = await enterAsModerator();
+      server.latest.acks["announce:send"] = () => ({
+        ok: false,
+        error: "unavailable",
+      });
+
+      await user.type(screen.getByLabelText("Announce to everyone"), "Hello");
+      await user.click(screen.getByRole("button", { name: "Announce" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "temporarily unavailable",
+      );
+      expect(screen.getByLabelText("Announce to everyone")).toHaveValue(
+        "Hello",
+      );
+    });
+
+    it("clears the explanation once the next try works", async () => {
+      const { user, server } = await enterAsModerator();
+      const responses = [
+        { ok: false, error: "rate_limited", retryAfterMs: 5_000 },
+        { ok: true },
+      ];
+      server.latest.acks["announce:send"] = () => responses.shift();
+
+      await user.type(screen.getByLabelText("Announce to everyone"), "Hello");
+      await user.click(screen.getByRole("button", { name: "Announce" }));
+      await screen.findByRole("alert");
+      await user.click(screen.getByRole("button", { name: "Announce" }));
+
+      await waitFor(() =>
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
+      );
+    });
+  });
+});
+
 describe("language", () => {
   it("switches the interface language and remembers the choice", async () => {
     const { user } = setup();

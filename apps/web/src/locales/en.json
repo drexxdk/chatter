@@ -40,7 +40,17 @@
     "moderatorBadge": "Moderator",
     "slowMode": "Slow mode: one message every {{seconds}} s."
   },
+  "announcement": {
+    "title": "Announcement",
+    "from": "Announcement from {{name}}",
+    "dismiss": "Dismiss",
+    "label": "Announce to everyone",
+    "placeholder": "Write an announcement for everyone",
+    "send": "Announce"
+  },
   "errors": {
+    "announce_wait": "You can announce again in {{seconds}} s.",
+    "forbidden": "Only moderators can send announcements.",
     "invalid_nickname": "That nickname isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",
     "banned": "You are banned from this chat.",
     "reserved_nickname": "That nickname is reserved. Pick another one.",

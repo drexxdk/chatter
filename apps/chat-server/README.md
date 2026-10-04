@@ -58,6 +58,16 @@ Good to know:
 - A moderator's stored history copy carries no IP hash, so a ban can never redact their messages, and `enforceBans` never kicks them. Slow mode and the flood limit apply to moderators as to everyone.
 - Moderators still count toward `MAX_CONNECTIONS_PER_IP`.
 
+## Announcements
+
+A moderator can tell everyone who is connected something, whether or not they are in a room.
+
+- `announce:send` `{ text }` (client to server, moderators only). The text is trimmed and must be 1-500 characters. Ack: `{ ok: true }`, or `{ ok: false, error }` with `forbidden` (not a moderator), `invalid_message`, `rate_limited` (with `retryAfterMs`) or `unavailable` (the wait could not be checked; nothing is sent).
+- `announcement:new` `{ id, text, sentAt, name }` (server to every connection, on every node). `name` is the moderator's display name.
+- A moderator may announce once a minute. The wait is kept in Redis per account, taken atomically, so a second connection or a second node is no way round it. An attempt that is refused for its text does not use up the turn.
+- Only the latest announcement is kept, in Redis for an hour. Every connection is sent it right after `session`, so someone who arrives later sees it too. If it cannot be kept, it is still delivered live; if it cannot be read, the guest connects without it.
+- Announcements are not part of any room's history and cannot be redacted. Clients decide how long to show one (the web client lets people dismiss it and does not show the same one again after a reconnect).
+
 ## Message history
 
 Every message is also appended to a Redis list for its room, so a guest who joins, or reconnects after a drop, receives what they missed in the `room:join` acknowledgement. The list keeps the newest `ROOM_HISTORY_SIZE` messages (default 50, at most 200) and is deleted `ROOM_HISTORY_TTL_SECONDS` after the room's last message (default one hour, at most seven days). Redis is shared by all server nodes, so every node serves the same history.

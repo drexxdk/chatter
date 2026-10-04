@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { SignInError, signInModerator, type Room } from "./api";
 import type { CreateSocket } from "./chat/socket";
 import { useChat } from "./chat/useChat";
+import { AnnouncementBanner } from "./components/AnnouncementBanner";
 import { ChatRoom } from "./components/ChatRoom";
 import { ErrorAlert } from "./components/ErrorAlert";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
@@ -87,6 +88,12 @@ export function App({
       </header>
 
       <main className="space-y-4">
+        {chat.announcement && (
+          <AnnouncementBanner
+            announcement={chat.announcement}
+            onDismiss={chat.dismissAnnouncement}
+          />
+        )}
         {chat.roomSlug && chat.session ? (
           <ChatRoom
             roomName={currentRoom?.name ?? chat.roomSlug}
@@ -99,6 +106,7 @@ export function App({
             retryAfterSeconds={chat.retryAfterSeconds}
             slowModeSeconds={currentRoom?.slowModeSeconds}
             onSend={chat.sendMessage}
+            onAnnounce={chat.sendAnnouncement}
             onLeave={() => void chat.leaveRoom()}
           />
         ) : (

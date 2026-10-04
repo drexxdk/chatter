@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { ChatMessage, Member, Session } from "../chat/useChat";
+import type {
+  AnnounceResult,
+  ChatMessage,
+  Member,
+  Session,
+} from "../chat/useChat";
+import { AnnounceForm } from "./AnnounceForm";
 import { ErrorAlert } from "./ErrorAlert";
 
 interface ChatRoomProps {
@@ -15,6 +21,7 @@ interface ChatRoomProps {
   retryAfterSeconds: number | null;
   slowModeSeconds?: number | null;
   onSend: (text: string) => Promise<boolean>;
+  onAnnounce: (text: string) => Promise<AnnounceResult>;
   onLeave: () => void;
 }
 
@@ -29,6 +36,7 @@ export function ChatRoom({
   retryAfterSeconds,
   slowModeSeconds,
   onSend,
+  onAnnounce,
   onLeave,
 }: ChatRoomProps) {
   const { t } = useTranslation();
@@ -179,6 +187,10 @@ export function ChatRoom({
             {t("room.send")}
           </button>
         </form>
+
+        {session.role === "moderator" && (
+          <AnnounceForm disabled={!connected} onAnnounce={onAnnounce} />
+        )}
       </div>
 
       <aside

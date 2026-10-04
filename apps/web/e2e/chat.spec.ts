@@ -431,3 +431,65 @@ test("a guest cannot take a name that sounds like staff", async ({ page }) => {
     "That nickname is reserved. Pick another one.",
   );
 });
+
+test("a moderator's announcement reaches everyone, including guests who arrive later", async ({
+  browser,
+}) => {
+  const unique = String(Date.now()).slice(-6);
+  const name = `E2E Mod ${unique}`;
+  const words = `Maintenance at noon ${unique}`;
+  const email = `${E2E.moderatorEmailPrefix}${unique}@chatter.test`;
+  const password = crypto.randomUUID();
+  const accountId = await payload.createModerator(email, password, name);
+  const announcementOn = (page: Page) =>
+    page.getByRole("region", { name: "Announcement" });
+
+  try {
+    const alice = await newGuest(browser);
+    await enterRoom(alice, LOUNGE.name, "Alice");
+    await expect(alice.getByLabel("Announce to everyone")).toHaveCount(0);
+
+    const moderator = await newGuest(browser);
+    await moderator.goto("/");
+    await moderator
+      .getByRole("button", { name: `Join ${LOUNGE.name}` })
+      .click();
+    await moderator
+      .getByRole("button", { name: "Sign in as moderator" })
+      .click();
+    await moderator.getByRole("textbox", { name: "Email" }).fill(email);
+    await moderator.getByLabel("Password").fill(password);
+    await moderator.getByRole("button", { name: "Sign in" }).click();
+    await expect(moderator.getByText(`Chatting as ${name}`)).toBeVisible();
+
+    await moderator.getByLabel("Announce to everyone").fill(words);
+    await moderator.getByRole("button", { name: "Announce" }).click();
+
+    await expect(announcementOn(alice)).toContainText(words);
+    await expect(announcementOn(alice)).toContainText(
+      `Announcement from ${name}`,
+    );
+
+    // Somebody who arrives afterwards is shown it too.
+    const bob = await newGuest(browser);
+    await enterRoom(bob, LOUNGE.name, "Bob");
+    await expect(announcementOn(bob)).toContainText(words);
+
+    // A second one straight away is refused, and the words are kept for later.
+    await moderator.getByLabel("Announce to everyone").fill("Too soon");
+    await moderator.getByRole("button", { name: "Announce" }).click();
+    await expect(moderator.getByRole("alert")).toContainText(
+      /You can announce again in \d+ s\./,
+    );
+    await expect(moderator.getByLabel("Announce to everyone")).toHaveValue(
+      "Too soon",
+    );
+    await expect(announcementOn(alice)).not.toContainText("Too soon");
+
+    await alice.getByRole("button", { name: "Dismiss" }).click();
+    await expect(announcementOn(alice)).toHaveCount(0);
+    await expect(announcementOn(bob)).toBeVisible();
+  } finally {
+    await payload.remove("admins", accountId);
+  }
+});

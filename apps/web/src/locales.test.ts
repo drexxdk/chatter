@@ -35,6 +35,8 @@ const ERROR_CODES = [
   "moderator_login_disabled",
   "too_many_attempts",
   "invalid_request",
+  "announce_wait",
+  "forbidden",
   "unknown",
 ];
 

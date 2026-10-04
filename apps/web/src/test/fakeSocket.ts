@@ -16,6 +16,7 @@ export class FakeSocket implements ChatSocket {
     "room:join": () => ({ ok: true }),
     "room:leave": () => ({ ok: true }),
     "message:send": () => ({ ok: true }),
+    "announce:send": () => ({ ok: true }),
   };
 
   constructor(
@@ -25,16 +26,21 @@ export class FakeSocket implements ChatSocket {
     readonly guestId = "guest-me",
     // Present when a moderator signed in; the real server then reports the moderator role.
     readonly token?: string,
+    // What the real server sends right behind the session when an announcement is still current.
+    waitingAnnouncement?: unknown,
   ) {
     queueMicrotask(() => {
       if (handshakeError)
         this.serverEmit("connect_error", new Error(handshakeError));
-      else
+      else {
         this.serverEmit("session", {
           guestId: this.guestId,
           nickname,
           role: token ? "moderator" : "guest",
         });
+        if (waitingAnnouncement)
+          this.serverEmit("announcement:new", waitingAnnouncement);
+      }
     });
   }
 
@@ -87,7 +93,9 @@ export class FakeSocket implements ChatSocket {
   }
 }
 
-export function makeFakeServer(options: { handshakeError?: string } = {}) {
+export function makeFakeServer(
+  options: { handshakeError?: string; waitingAnnouncement?: unknown } = {},
+) {
   const sockets: FakeSocket[] = [];
   // Applied to every socket created, e.g. { "room:join": () => ({ ok: false, error: "room_full" }) }.
   const acks: Record<string, AckResponder> = {};
@@ -102,6 +110,7 @@ export function makeFakeServer(options: { handshakeError?: string } = {}) {
       upcomingHandshakeErrors.shift() ?? options.handshakeError,
       guestId,
       token,
+      options.waitingAnnouncement,
     );
     Object.assign(socket.acks, acks);
     sockets.push(socket);

@@ -40,7 +40,17 @@
     "moderatorBadge": "Moderator",
     "slowMode": "Langsamer Modus: eine Nachricht alle {{seconds}} s."
   },
+  "announcement": {
+    "title": "Ankündigung",
+    "from": "Ankündigung von {{name}}",
+    "dismiss": "Schließen",
+    "label": "An alle ankündigen",
+    "placeholder": "Schreibe eine Ankündigung für alle",
+    "send": "Ankündigen"
+  },
   "errors": {
+    "announce_wait": "Du kannst in {{seconds}} s wieder eine Ankündigung senden.",
+    "forbidden": "Nur Moderatoren können Ankündigungen senden.",
     "invalid_nickname": "Dieser Spitzname ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",
     "banned": "Du wurdest aus diesem Chat gesperrt.",
     "reserved_nickname": "Dieser Spitzname ist reserviert. Wähle einen anderen.",

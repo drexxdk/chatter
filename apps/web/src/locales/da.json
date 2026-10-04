@@ -40,7 +40,17 @@
     "moderatorBadge": "Moderator",
     "slowMode": "Langsom tilstand: én besked hvert {{seconds}}. sekund."
   },
+  "announcement": {
+    "title": "Meddelelse",
+    "from": "Meddelelse fra {{name}}",
+    "dismiss": "Luk",
+    "label": "Meddel alle",
+    "placeholder": "Skriv en meddelelse til alle",
+    "send": "Meddel"
+  },
   "errors": {
+    "announce_wait": "Du kan sende en ny meddelelse om {{seconds}} sek.",
+    "forbidden": "Kun moderatorer kan sende meddelelser.",
     "invalid_nickname": "Det kaldenavn er ikke tilladt. Brug 2–24 bogstaver, tal, mellemrum eller _ . -",
     "banned": "Du er udelukket fra denne chat.",
     "reserved_nickname": "Det kaldenavn er reserveret. Vælg et andet.",

@@ -4,6 +4,12 @@ import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
 
 import { isBanned } from "./bans.js";
+import {
+  claimAnnouncementSlot,
+  getLatestAnnouncement,
+  saveAnnouncement,
+  type Announcement,
+} from "./announcements.js";
 import { env } from "./env.js";
 import { getHistory, recordMessage, redactMessagesFrom } from "./history.js";
 import { hashIdentifier, getClientIp, validateNickname } from "./identity.js";
@@ -14,6 +20,7 @@ import { getCachedPublicRooms } from "./rooms.js";
 import { verifyToken } from "./tokens.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
+const MAX_ANNOUNCEMENT_LENGTH = 500;
 const RATE_LIMIT_MAX_MESSAGES = 5;
 const RATE_LIMIT_WINDOW_MS = 5_000;
 
@@ -21,6 +28,8 @@ interface SocketData {
   guestId: string;
   nickname: string;
   role: ChatRole;
+  // The Payload account behind a signed-in role; guests have none.
+  accountId?: number;
   ipHash: string;
   // Set when a ban removes the guest, so a message still being recorded at that moment is dropped.
   banned?: boolean;
@@ -111,6 +120,7 @@ export function createSocketServer(
     const auth = socket.handshake.auth ?? {};
     let nickname: string | null;
     let role: ChatRole = "guest";
+    let accountId: number | undefined;
 
     if (auth.token !== undefined) {
       const claims = authTokenSecret
@@ -121,6 +131,7 @@ export function createSocketServer(
 
       nickname = claims.name;
       role = claims.role;
+      accountId = claims.sub;
     } else {
       nickname = validateNickname(auth.nickname);
 
@@ -171,6 +182,7 @@ export function createSocketServer(
       guestId: crypto.randomUUID(),
       nickname,
       role,
+      accountId,
       ipHash,
       recentMessageTimes: [],
     } satisfies SocketData;
@@ -204,6 +216,16 @@ export function createSocketServer(
       role: data.role,
     });
 
+    // Whoever connects sees the latest announcement, even one made before they arrived. Failing to read it must
+    // not stop anyone from chatting.
+    getLatestAnnouncement()
+      .then((latest) => {
+        if (latest) socket.emit("announcement:new", latest);
+      })
+      .catch((error) =>
+        console.error("Failed to read the announcement:", error),
+      );
+
     // Any client event counts as activity.
     let idleTimer: NodeJS.Timeout | undefined;
     const resetIdleTimer = () => {
@@ -216,6 +238,51 @@ export function createSocketServer(
 
     resetIdleTimer();
     socket.onAny(resetIdleTimer);
+
+    socket.on("announce:send", async (payload: unknown, ack?: Ack) => {
+      const reply: Ack = typeof ack === "function" ? ack : () => {};
+
+      if (!ROLE_RULES[data.role].canAnnounce || data.accountId === undefined) {
+        return reply({ ok: false, error: "forbidden" });
+      }
+
+      const text = stringField(payload, "text").trim();
+
+      // Checked before the wait is taken, so a refused attempt does not use up the moderator's turn.
+      if (!text || text.length > MAX_ANNOUNCEMENT_LENGTH) {
+        return reply({ ok: false, error: "invalid_message" });
+      }
+
+      const announcement: Announcement = {
+        id: crypto.randomUUID(),
+        text,
+        sentAt: new Date().toISOString(),
+        name: data.nickname,
+      };
+
+      try {
+        const waitMs = await claimAnnouncementSlot(data.accountId);
+
+        if (waitMs > 0) {
+          return reply({
+            ok: false,
+            error: "rate_limited",
+            retryAfterMs: waitMs,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to check the announcement wait:", error);
+        return reply({ ok: false, error: "unavailable" });
+      }
+
+      // Delivered live even if it cannot be kept; only people who connect later would miss it.
+      await saveAnnouncement(announcement).catch((error) =>
+        console.error("Failed to keep the announcement:", error),
+      );
+
+      io.emit("announcement:new", announcement);
+      reply({ ok: true });
+    });
 
     socket.on("room:join", async (payload: unknown, ack?: Ack) => {
       const reply: Ack = typeof ack === "function" ? ack : () => {};

@@ -35,6 +35,17 @@ export interface ChatMessage {
 
 export type ChatStatus = "idle" | "connecting" | "connected" | "reconnecting";
 
+// What a moderator told everyone.
+export interface Announcement {
+  id: string;
+  text: string;
+  sentAt: string;
+  name: string;
+}
+
+export type AnnounceResult =
+  { ok: true } | { ok: false; error: string; retryAfterSeconds?: number };
+
 type Ack =
   | { ok: true; history?: unknown }
   | { ok: false; error: string; retryAfterMs?: number };
@@ -119,6 +130,22 @@ function parseMessage(value: unknown): ChatMessage | undefined {
     sentAt,
     role: value.role === "moderator" ? "moderator" : "guest",
   };
+}
+
+function parseAnnouncement(value: unknown): Announcement | undefined {
+  if (!isRecord(value)) return undefined;
+  const { id, text, sentAt, name } = value;
+
+  if (
+    typeof id !== "string" ||
+    typeof text !== "string" ||
+    typeof sentAt !== "string" ||
+    typeof name !== "string"
+  ) {
+    return undefined;
+  }
+
+  return { id, text, sentAt, name };
 }
 
 const byTime = (a: ChatMessage, b: ChatMessage) =>
@@ -208,6 +235,9 @@ export function useChat(
   const [roomSlug, setRoomSlug] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [announcement, setAnnouncement] = useState<Announcement | null>(null);
+  // The server repeats the latest announcement on every connection; one that was dismissed must not return.
+  const dismissedAnnouncementRef = useRef<string | null>(null);
   // Holds a translation key under `errors.` (a server error code, "connection" or "connection_lost").
   const [error, setError] = useState<string | null>(null);
   // How long the server said to wait after refusing a message, rounded up to whole seconds.
@@ -242,6 +272,7 @@ export function useChat(
   const resetConnection = useCallback(() => {
     setStatus("idle");
     setSession(null);
+    setAnnouncement(null);
     resetRoom();
   }, [resetRoom]);
 
@@ -291,6 +322,18 @@ export function useChat(
                 ? previous
                 : [...previous, message].slice(-MAX_MESSAGES),
             );
+          }
+        });
+
+        socket.on("announcement:new", (value: unknown) => {
+          const next = parseAnnouncement(value);
+
+          if (
+            isCurrent() &&
+            next &&
+            next.id !== dismissedAnnouncementRef.current
+          ) {
+            setAnnouncement(next);
           }
         });
 
@@ -484,6 +527,30 @@ export function useChat(
     [emitWithAck],
   );
 
+  const sendAnnouncement = useCallback(
+    async (text: string): Promise<AnnounceResult> => {
+      const ack = await emitWithAck("announce:send", { text });
+
+      if (ack.ok) return { ok: true };
+
+      return {
+        ok: false,
+        error: ack.error,
+        retryAfterSeconds: ack.retryAfterMs
+          ? Math.ceil(ack.retryAfterMs / 1000)
+          : undefined,
+      };
+    },
+    [emitWithAck],
+  );
+
+  const dismissAnnouncement = useCallback(() => {
+    setAnnouncement((current) => {
+      if (current) dismissedAnnouncementRef.current = current.id;
+      return null;
+    });
+  }, []);
+
   const clearError = useCallback(() => setError(null), []);
 
   useEffect(
@@ -503,10 +570,13 @@ export function useChat(
     messages,
     error,
     retryAfterSeconds,
+    announcement,
     connect,
     joinRoom,
     leaveRoom,
     sendMessage,
+    sendAnnouncement,
+    dismissAnnouncement,
     disconnect,
     clearError,
   };

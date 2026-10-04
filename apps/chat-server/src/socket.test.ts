@@ -20,6 +20,9 @@ const {
   getHistory,
   redactMessagesFrom,
   getModeratorNames,
+  saveAnnouncement,
+  getLatestAnnouncement,
+  claimAnnouncementSlot,
 } = vi.hoisted(() => ({
   isBanned: vi.fn(),
   getCachedPublicRooms: vi.fn(),
@@ -27,11 +30,19 @@ const {
   getHistory: vi.fn(),
   redactMessagesFrom: vi.fn(),
   getModeratorNames: vi.fn(),
+  saveAnnouncement: vi.fn(),
+  getLatestAnnouncement: vi.fn(),
+  claimAnnouncementSlot: vi.fn(),
 }));
 
 vi.mock("./redis.js", () => ({ pubClient: {}, subClient: {} }));
 vi.mock("./bans.js", () => ({ isBanned }));
 vi.mock("./rooms.js", () => ({ getCachedPublicRooms }));
+vi.mock("./announcements.js", () => ({
+  saveAnnouncement,
+  getLatestAnnouncement,
+  claimAnnouncementSlot,
+}));
 // The cache is mocked, the rule about which names are reserved is not.
 vi.mock("./names.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./names.js")>()),
@@ -179,6 +190,9 @@ beforeEach(() => {
   getHistory.mockReset().mockResolvedValue([]);
   redactMessagesFrom.mockReset().mockResolvedValue([]);
   getModeratorNames.mockReset().mockResolvedValue([]);
+  saveAnnouncement.mockReset().mockResolvedValue(undefined);
+  getLatestAnnouncement.mockReset().mockResolvedValue(undefined);
+  claimAnnouncementSlot.mockReset().mockResolvedValue(0);
 });
 
 afterEach(async () => {
@@ -1371,5 +1385,220 @@ describe("inactivity", () => {
 
     expect(active.connected).toBe(true);
     expect(onKicked).not.toHaveBeenCalled();
+  });
+});
+
+describe("announcements", () => {
+  const SECRET = "a-secret-that-is-long-enough-for-tests";
+  const token = (sub = 7) =>
+    signToken(
+      { sub, name: "Ada Mod", role: "moderator" },
+      {
+        secret: SECRET,
+        ttlMs: 3_600_000,
+      },
+    );
+
+  // Listens before connecting: a waiting announcement arrives right behind the session.
+  function open(port: number, auth: Record<string, unknown>) {
+    const received: Record<string, unknown>[] = [];
+    const socket = connectClient(`http://localhost:${port}`, {
+      auth,
+      reconnection: false,
+      transports: ["websocket"],
+    });
+    socket.on("announcement:new", (value) => received.push(value));
+    clients.push(socket);
+
+    return new Promise<{ socket: Socket; received: typeof received }>(
+      (resolve, reject) => {
+        socket.on("connect", () => resolve({ socket, received }));
+        socket.on("connect_error", reject);
+      },
+    );
+  }
+
+  async function startWithModerators() {
+    return (await startServer({ authTokenSecret: SECRET })).port;
+  }
+
+  it("shows a moderator's announcement to everyone connected, in a room or not", async () => {
+    const port = await startWithModerators();
+    const ada = await open(port, { token: token() });
+    const alice = await open(port, { nickname: "Alice" });
+    const bob = await open(port, { nickname: "Bob" });
+    await emit(bob.socket, "room:join", { slug: "general" });
+    const heardByAlice = waitFor(alice.socket, "announcement:new");
+    const heardByBob = waitFor(bob.socket, "announcement:new");
+    const heardByAda = waitFor(ada.socket, "announcement:new");
+
+    const ack = await emit(ada.socket, "announce:send", {
+      text: "  Maintenance at noon  ",
+    });
+
+    expect(ack).toEqual({ ok: true });
+    for (const heard of [heardByAlice, heardByBob, heardByAda]) {
+      expect(await heard).toEqual({
+        id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        text: "Maintenance at noon",
+        sentAt: expect.stringMatching(/^\d{4}-\d\d-\d\dT/),
+        name: "Ada Mod",
+      });
+    }
+  });
+
+  it("remembers it for people who connect later", async () => {
+    const port = await startWithModerators();
+    const ada = await open(port, { token: token() });
+    const heard = waitFor<{ id: string }>(ada.socket, "announcement:new");
+
+    await emit(ada.socket, "announce:send", { text: "Maintenance at noon" });
+
+    expect(saveAnnouncement).toHaveBeenCalledWith({
+      id: (await heard).id,
+      text: "Maintenance at noon",
+      sentAt: expect.any(String),
+      name: "Ada Mod",
+    });
+  });
+
+  it("does not put it in any room's history", async () => {
+    const port = await startWithModerators();
+    const ada = await open(port, { token: token() });
+    await emit(ada.socket, "room:join", { slug: "general" });
+
+    await emit(ada.socket, "announce:send", { text: "Maintenance at noon" });
+
+    expect(recordMessage).not.toHaveBeenCalled();
+  });
+
+  it("refuses a guest, and says nothing to anyone", async () => {
+    const port = await startWithModerators();
+    const alice = await open(port, { nickname: "Alice" });
+    const bob = await open(port, { nickname: "Bob" });
+
+    const ack = await emit(alice.socket, "announce:send", {
+      text: "Free prizes",
+    });
+    await emit(bob.socket, "room:leave");
+
+    expect(ack).toEqual({ ok: false, error: "forbidden" });
+    expect(bob.received).toEqual([]);
+    expect(claimAnnouncementSlot).not.toHaveBeenCalled();
+    expect(saveAnnouncement).not.toHaveBeenCalled();
+  });
+
+  // A refused attempt must not use up the minute.
+  it.each([
+    ["empty", ""],
+    ["only spaces", "   "],
+    ["missing", undefined],
+    ["a number", 42],
+    ["too long", "x".repeat(501)],
+  ])("refuses an announcement that is %s", async (_label, text) => {
+    const port = await startWithModerators();
+    const ada = await open(port, { token: token() });
+
+    expect(await emit(ada.socket, "announce:send", { text })).toEqual({
+      ok: false,
+      error: "invalid_message",
+    });
+    expect(claimAnnouncementSlot).not.toHaveBeenCalled();
+  });
+
+  it("accepts the longest allowed announcement", async () => {
+    const port = await startWithModerators();
+    const ada = await open(port, { token: token() });
+
+    expect(
+      await emit(ada.socket, "announce:send", { text: "x".repeat(500) }),
+    ).toEqual({ ok: true });
+  });
+
+  it("makes a moderator wait when they announced a moment ago, and says for how long", async () => {
+    claimAnnouncementSlot.mockResolvedValue(42_000);
+    const port = await startWithModerators();
+    const ada = await open(port, { token: token() });
+    const alice = await open(port, { nickname: "Alice" });
+
+    const ack = await emit(ada.socket, "announce:send", { text: "Again" });
+    await emit(alice.socket, "room:leave");
+
+    expect(ack).toEqual({
+      ok: false,
+      error: "rate_limited",
+      retryAfterMs: 42_000,
+    });
+    expect(alice.received).toEqual([]);
+    expect(saveAnnouncement).not.toHaveBeenCalled();
+  });
+
+  it("counts the wait per account, so a second connection is no way round it", async () => {
+    const port = await startWithModerators();
+    const first = await open(port, { token: token(7) });
+    const other = await open(port, { token: token(8) });
+
+    await emit(first.socket, "announce:send", { text: "One" });
+    await emit(other.socket, "announce:send", { text: "Two" });
+
+    expect(claimAnnouncementSlot.mock.calls).toEqual([[7], [8]]);
+  });
+
+  it("refuses when the wait cannot be checked, and says nothing", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    claimAnnouncementSlot.mockRejectedValue(new Error("redis down"));
+    const port = await startWithModerators();
+    const ada = await open(port, { token: token() });
+    const alice = await open(port, { nickname: "Alice" });
+
+    const ack = await emit(ada.socket, "announce:send", { text: "Hello" });
+    await emit(alice.socket, "room:leave");
+
+    expect(ack).toEqual({ ok: false, error: "unavailable" });
+    expect(alice.received).toEqual([]);
+  });
+
+  it("still delivers it live when it cannot be remembered", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    saveAnnouncement.mockRejectedValue(new Error("redis down"));
+    const port = await startWithModerators();
+    const ada = await open(port, { token: token() });
+    const alice = await open(port, { nickname: "Alice" });
+    const heard = waitFor(alice.socket, "announcement:new");
+
+    expect(await emit(ada.socket, "announce:send", { text: "Hello" })).toEqual({
+      ok: true,
+    });
+    expect(await heard).toMatchObject({ text: "Hello" });
+  });
+
+  it("hands the latest announcement to anyone who connects", async () => {
+    const latest = {
+      id: "a-1",
+      text: "Maintenance at noon",
+      sentAt: "2026-10-04T10:00:00.000Z",
+      name: "Ada Mod",
+    };
+    getLatestAnnouncement.mockResolvedValue(latest);
+
+    const alice = await open(port, { nickname: "Alice" });
+    await vi.waitFor(() => expect(alice.received).toEqual([latest]));
+  });
+
+  it("sends nothing to a newcomer when there is no announcement", async () => {
+    const alice = await open(port, { nickname: "Alice" });
+    await emit(alice.socket, "room:leave");
+
+    expect(alice.received).toEqual([]);
+  });
+
+  it("lets a newcomer in even when the latest announcement cannot be read", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    getLatestAnnouncement.mockRejectedValue(new Error("redis down"));
+
+    const alice = await open(port, { nickname: "Alice" });
+
+    expect(alice.socket.connected).toBe(true);
+    expect(await emit(alice.socket, "room:leave")).toEqual({ ok: true });
   });
 });
