@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import type {
+  ActionResult,
   AnnounceResult,
   ChatMessage,
   DirectApi,
@@ -10,12 +11,13 @@ import type {
 } from "../chat/useChat";
 import { AnnounceForm } from "./AnnounceForm";
 import { PLAIN_AVATAR } from "../chat/avatar";
-import { timeline, type RoomEvent } from "../chat/roomEvents";
+import type { Partner } from "../chat/direct";
+import { timeline, withDirect, type RoomEvent } from "../chat/roomEvents";
 import { loadShowMovements, saveShowMovements } from "../preferences";
 import { DirectChat } from "./DirectChat";
 import { PeopleList, ThreadList } from "./DirectLists";
 import { ErrorAlert } from "./ErrorAlert";
-import { MessageRow, StatusRow } from "./MessageRow";
+import { DirectRow, MessageRow, StatusRow } from "./MessageRow";
 
 interface ChatRoomProps {
   roomName: string;
@@ -54,20 +56,68 @@ export function ChatRoom({
   const [text, setText] = useState("");
   const logRef = useRef<HTMLOListElement>(null);
   const [showMovements, setShowMovements] = useState(loadShowMovements);
-  const items = timeline(messages, showMovements ? events : []);
+  const items = withDirect(
+    timeline(messages, showMovements ? events : []),
+    direct.threads,
+  );
+  // Who the room's input writes to privately, when a private message was clicked.
+  const [replyTo, setReplyTo] = useState<Partner | null>(null);
+  const [replyFailure, setReplyFailure] = useState<
+    ActionResult & { ok: false }
+  >();
+  const replyPresent =
+    !replyTo || members.some((member) => member.guestId === replyTo.guestId);
 
   useEffect(() => {
     const log = logRef.current;
     if (log) log.scrollTop = log.scrollHeight;
-  }, [messages, events, showMovements]);
+  }, [messages, events, showMovements, direct.threads]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const trimmed = text.trim();
     if (!trimmed) return;
 
+    if (replyTo) {
+      const result = await direct.send(replyTo.guestId, trimmed);
+
+      if (result.ok) {
+        setText("");
+        setReplyFailure(undefined);
+      } else {
+        setReplyFailure(result);
+      }
+
+      return;
+    }
+
     if (await onSend(trimmed)) setText("");
   }
+
+  function startReply(partner: Partner | null) {
+    setReplyTo(partner);
+    setReplyFailure(undefined);
+  }
+
+  // Everybody else in the room, plus the chosen person if they have left, so the choice does not silently change.
+  const recipients: Partner[] = [
+    ...members
+      .filter((member) => member.guestId !== session.guestId)
+      .map((member) => ({
+        guestId: member.guestId,
+        nickname: member.nickname,
+        role: member.role ?? "guest",
+        avatar: member.avatar ?? PLAIN_AVATAR,
+      })),
+    ...(replyTo && !replyPresent ? [replyTo] : []),
+  ];
+
+  function chooseRecipient(guestId: string) {
+    startReply(recipients.find((person) => person.guestId === guestId) ?? null);
+  }
+
+  const replyWaiting =
+    replyFailure?.error === "rate_limited" && replyFailure.retryAfterSeconds;
 
   return (
     <section
@@ -121,7 +171,7 @@ export function ChatRoom({
               role="log"
               aria-live="polite"
               aria-label={roomName}
-              className="h-96 space-y-2 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900 p-3"
+              className="flex h-96 flex-col gap-2 overflow-y-auto rounded-lg [&>*]:shrink-0 [&>:first-child]:mt-auto border border-slate-800 bg-slate-900 p-3"
             >
               {items.length === 0 && (
                 <li className="text-slate-500">{t("room.empty")}</li>
@@ -134,6 +184,16 @@ export function ChatRoom({
                       name: item.event.nickname,
                     })}
                     sentAt={item.event.sentAt}
+                  />
+                ) : item.kind === "direct" ? (
+                  <DirectRow
+                    key={item.message.id}
+                    mine={ownGuestIds.includes(item.message.fromGuestId)}
+                    partner={item.partner}
+                    sentAt={item.message.sentAt}
+                    text={item.message.text}
+                    banned={item.message.banned}
+                    onReply={() => startReply(item.partner)}
                   />
                 ) : item.message.banned ? (
                   <li key={item.message.id}>
@@ -175,11 +235,19 @@ export function ChatRoom({
 
             <ErrorAlert
               code={
-                error === "rate_limited" && retryAfterSeconds
-                  ? "rate_limited_wait"
-                  : error
+                replyFailure
+                  ? replyWaiting
+                    ? "rate_limited_wait"
+                    : replyFailure.error
+                  : error === "rate_limited" && retryAfterSeconds
+                    ? "rate_limited_wait"
+                    : error
               }
-              values={{ seconds: retryAfterSeconds }}
+              values={{
+                seconds: replyFailure
+                  ? replyFailure.retryAfterSeconds
+                  : retryAfterSeconds,
+              }}
             />
           </>
         )}
@@ -196,8 +264,26 @@ export function ChatRoom({
         {!direct.active && (
           <>
             <form onSubmit={handleSubmit} className="flex gap-2">
+              <label htmlFor="recipient" className="sr-only">
+                {t("dm.recipient")}
+              </label>
+              <select
+                id="recipient"
+                value={replyTo?.guestId ?? ""}
+                onChange={(event) => chooseRecipient(event.target.value)}
+                className="max-w-[9rem] rounded-md border border-slate-700 bg-slate-950 px-2 py-2"
+              >
+                <option value="">{t("dm.all")}</option>
+                {recipients.map((person) => (
+                  <option key={person.guestId} value={person.guestId}>
+                    {person.nickname}
+                  </option>
+                ))}
+              </select>
               <label htmlFor="message" className="sr-only">
-                {t("room.messageLabel")}
+                {replyTo
+                  ? t("dm.label", { name: replyTo.nickname })
+                  : t("room.messageLabel")}
               </label>
               <input
                 id="message"
@@ -205,18 +291,28 @@ export function ChatRoom({
                 onChange={(event) => setText(event.target.value)}
                 maxLength={1000}
                 autoComplete="off"
-                disabled={!connected}
-                placeholder={t("room.messagePlaceholder")}
+                disabled={!connected || !replyPresent}
+                placeholder={
+                  replyTo
+                    ? t("dm.replyPlaceholder", { name: replyTo.nickname })
+                    : t("room.messagePlaceholder")
+                }
                 className="flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
               />
               <button
                 type="submit"
-                disabled={!connected}
+                disabled={!connected || !replyPresent}
                 className="rounded-md bg-indigo-600 px-4 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
               >
                 {t("room.send")}
               </button>
             </form>
+
+            {replyTo && !replyPresent && (
+              <p role="status" className="text-sm text-amber-300">
+                {t("dm.away", { name: replyTo.nickname })}
+              </p>
+            )}
 
             {session.role === "moderator" && (
               <AnnounceForm disabled={!connected} onAnnounce={onAnnounce} />

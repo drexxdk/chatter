@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import type { Avatar } from "../chat/avatar";
+import type { Partner } from "../chat/direct";
 import type { Role } from "../chat/useChat";
 import { AvatarIcon } from "./Avatar";
 
@@ -66,6 +67,60 @@ export function MessageRow({
         >
           {text}
         </p>
+      </div>
+    </li>
+  );
+}
+
+// A private message shown among the room's: marked as direct, and on the side of whoever wrote it. Clicking the text
+// makes the room's input write to that person.
+export function DirectRow({
+  mine,
+  partner,
+  sentAt,
+  text,
+  banned,
+  onReply,
+}: {
+  mine: boolean;
+  partner: Partner;
+  sentAt: string;
+  text: string;
+  banned?: boolean;
+  onReply: () => void;
+}) {
+  const { t } = useTranslation();
+  const label = t(mine ? "dm.to" : "dm.from", { name: partner.nickname });
+
+  return (
+    <li
+      data-kind="direct"
+      data-side={mine ? "right" : "left"}
+      className={`flex items-end gap-2 ${mine ? "flex-row-reverse" : ""}`}
+    >
+      {!mine && <AvatarIcon avatar={partner.avatar} />}
+      <div
+        className={`flex min-w-0 max-w-[80%] flex-col gap-0.5 ${mine ? "items-end" : "items-start"}`}
+      >
+        <div className="flex items-center gap-2 text-xs">
+          <span className="font-semibold text-amber-300">{label}</span>
+          <time dateTime={sentAt} className="text-slate-500">
+            {new Date(sentAt).toLocaleTimeString()}
+          </time>
+        </div>
+        {/* Rendered as text, never as HTML. */}
+        <button
+          type="button"
+          onClick={onReply}
+          title={t("dm.reply", { name: partner.nickname })}
+          className={`whitespace-pre-wrap break-words rounded-2xl border border-dashed border-amber-400/60 px-3 py-1 text-left hover:bg-amber-400/20 ${
+            banned
+              ? "bg-amber-400/10 font-semibold italic text-red-400"
+              : "bg-amber-400/10"
+          }`}
+        >
+          {banned ? t("room.bannedMessage") : text}
+        </button>
       </div>
     </li>
   );

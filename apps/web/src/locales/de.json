@@ -74,7 +74,13 @@
     "away": "{{name}} ist gerade nicht in diesem Raum.",
     "block": "{{name}} blockieren",
     "unblock": "Blockierung von {{name}} aufheben",
-    "blocked": "Du hast {{name}} blockiert. Deren Nachrichten erreichen dich nicht mehr."
+    "blocked": "Du hast {{name}} blockiert. Deren Nachrichten erreichen dich nicht mehr.",
+    "from": "Direktnachricht von {{name}}",
+    "to": "Direktnachricht an {{name}}",
+    "reply": "Privat an {{name}} antworten",
+    "recipient": "Senden an",
+    "all": "Alle",
+    "replyPlaceholder": "Private Nachricht an {{name}} schreiben"
   },
   "errors": {
     "replaced": "Du hast den Chat in einem anderen Fenster geöffnet, daher wurde dieses geschlossen.",

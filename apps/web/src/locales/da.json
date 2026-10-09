@@ -74,7 +74,13 @@
     "away": "{{name}} er ikke i rummet lige nu.",
     "block": "Bloker {{name}}",
     "unblock": "Fjern blokering af {{name}}",
-    "blocked": "Du har blokeret {{name}}. Vedkommendes beskeder når ikke længere frem til dig."
+    "blocked": "Du har blokeret {{name}}. Vedkommendes beskeder når ikke længere frem til dig.",
+    "from": "Direkte besked fra {{name}}",
+    "to": "Direkte besked til {{name}}",
+    "reply": "Svar privat til {{name}}",
+    "recipient": "Send til",
+    "all": "Alle",
+    "replyPlaceholder": "Skriv en privat besked til {{name}}"
   },
   "errors": {
     "replaced": "Du har åbnet chatten i et andet vindue, så dette blev lukket.",

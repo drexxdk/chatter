@@ -1702,6 +1702,100 @@ describe("direct messages", () => {
   const log = (name: string) =>
     within(screen.getByRole("log", { name: `Direct message with ${name}` }));
 
+  describe("in the room's own chat", () => {
+    const roomLog = () => within(screen.getByRole("log"));
+
+    it("shows a received message marked as direct, without opening the conversation", async () => {
+      const { server } = await enter();
+
+      receive(server, dm({ text: "psst" }));
+
+      expect(
+        roomLog().getByText("Direct message from Bob"),
+      ).toBeInTheDocument();
+      expect(roomLog().getByText("psst")).toBeInTheDocument();
+      expect(pane("Bob")).toBeNull();
+    });
+
+    it("shows what the guest wrote to somebody, marked as to them", async () => {
+      const { server } = await enter();
+
+      receive(server, fromMe(carol, "hello Carol"));
+
+      expect(
+        roomLog().getByText("Direct message to Carol"),
+      ).toBeInTheDocument();
+      expect(roomLog().getByText("hello Carol")).toBeInTheDocument();
+    });
+
+    it("keeps the guest in the room and writes privately from the room's input when the message is clicked", async () => {
+      const { user, server } = await enter();
+      receive(server, dm({ text: "psst" }));
+
+      await user.click(roomLog().getByRole("button", { name: "psst" }));
+
+      expect(pane("Bob")).toBeNull();
+      expect(screen.getByRole("combobox", { name: "Send to" })).toHaveValue(
+        "guest-bob",
+      );
+
+      await user.type(
+        screen.getByRole("textbox", { name: "Message to Bob" }),
+        "hey",
+      );
+      await user.click(screen.getByRole("button", { name: "Send" }));
+
+      await waitFor(() =>
+        expect(server.latest.emittedEvents("dm:send")).toEqual([
+          { toGuestId: "guest-bob", text: "hey" },
+        ]),
+      );
+      expect(server.latest.emittedEvents("message:send")).toEqual([]);
+    });
+
+    it("sends to everybody by default, and to one person when chosen from the dropdown", async () => {
+      const { user, server } = await enter();
+      const select = screen.getByRole("combobox", { name: "Send to" });
+
+      expect(select).toHaveValue("");
+      expect(
+        within(select)
+          .getAllByRole("option")
+          .map((option) => option.textContent),
+      ).toEqual(["All", "Bob", "Carol", "Ada Mod"]);
+
+      await user.selectOptions(select, "Carol");
+      await user.type(
+        screen.getByRole("textbox", { name: "Message to Carol" }),
+        "psst",
+      );
+      await user.click(screen.getByRole("button", { name: "Send" }));
+      await waitFor(() =>
+        expect(server.latest.emittedEvents("dm:send")).toEqual([
+          { toGuestId: "guest-carol", text: "psst" },
+        ]),
+      );
+
+      await user.selectOptions(select, "All");
+
+      expect(
+        screen.getByRole("textbox", { name: "Message" }),
+      ).toBeInTheDocument();
+    });
+
+    it("changes who the guest writes to when another person's message is clicked", async () => {
+      const { user, server } = await enter();
+      const select = screen.getByRole("combobox", { name: "Send to" });
+      await user.selectOptions(select, "Carol");
+      receive(server, dm({ text: "psst" }));
+
+      await user.click(roomLog().getByRole("button", { name: "psst" }));
+
+      expect(select).toHaveValue("guest-bob");
+      expect(pane("Bob")).toBeNull();
+    });
+  });
+
   describe("the lists", () => {
     it("shows the people in the room as buttons, and no direct messages yet", async () => {
       await enter();

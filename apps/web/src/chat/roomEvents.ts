@@ -1,3 +1,9 @@
+import {
+  isStatus,
+  type DirectMessage,
+  type DirectThread,
+  type Partner,
+} from "./direct";
 import type { ChatMessage, Member } from "./useChat";
 
 // Somebody came into the room or went out of it, as far as this client noticed. `seq` says where it fell among the
@@ -14,7 +20,8 @@ export interface RoomEvent {
 
 export type TimelineItem =
   | { kind: "message"; message: ChatMessage }
-  | { kind: "event"; event: RoomEvent };
+  | { kind: "event"; event: RoomEvent }
+  | { kind: "direct"; message: DirectMessage; partner: Partner };
 
 // Who left and who came, comparing two lists of the room's people. The guest themselves is not announced to themselves.
 export function movements(
@@ -78,4 +85,46 @@ export function timeline(
   }
 
   return items;
+}
+
+const timeOf = (item: TimelineItem) =>
+  Date.parse(item.kind === "event" ? item.event.sentAt : item.message.sentAt);
+
+// The guest's private messages, sent and received, set into the room's timeline by the time they were sent.
+export function withDirect(
+  items: TimelineItem[],
+  threads: DirectThread[],
+): TimelineItem[] {
+  const direct: TimelineItem[] = threads
+    .flatMap((thread) =>
+      thread.entries.flatMap((entry) =>
+        isStatus(entry)
+          ? []
+          : [
+              {
+                kind: "direct" as const,
+                message: entry,
+                partner: {
+                  guestId: thread.guestId,
+                  nickname: thread.nickname,
+                  role: thread.role,
+                  avatar: thread.avatar,
+                },
+              },
+            ],
+      ),
+    )
+    .sort((a, b) => timeOf(a) - timeOf(b));
+
+  if (direct.length === 0) return items;
+
+  const result = [...items];
+
+  for (const item of direct) {
+    let index = result.length;
+    while (index > 0 && timeOf(result[index - 1]) > timeOf(item)) index--;
+    result.splice(index, 0, item);
+  }
+
+  return result;
 }

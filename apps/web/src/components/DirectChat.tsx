@@ -100,7 +100,7 @@ export function DirectChat({
         role="log"
         aria-live="polite"
         aria-label={label}
-        className="h-80 space-y-2 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900 p-3"
+        className="flex h-80 flex-col gap-2 overflow-y-auto rounded-lg [&>*]:shrink-0 [&>:first-child]:mt-auto border border-slate-800 bg-slate-900 p-3"
       >
         {partner.entries.length === 0 && (
           <li className="text-slate-500">{t("dm.empty")}</li>
