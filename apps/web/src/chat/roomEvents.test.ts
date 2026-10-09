@@ -90,7 +90,11 @@ const said = (id: string, seq?: number): ChatMessage => ({
 
 const names = (items: ReturnType<typeof timeline>) =>
   items.map((item) =>
-    item.kind === "event" ? item.event.id : item.message.id,
+    item.kind === "event"
+      ? item.event.id
+      : item.kind === "notice"
+        ? item.status.id
+        : item.message.id,
   );
 
 describe("timeline", () => {

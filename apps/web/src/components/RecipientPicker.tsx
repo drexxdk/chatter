@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { AVATARS, type Avatar } from "../chat/avatar";
 import type { DirectThread, Partner } from "../chat/direct";
 import { AvatarIcon } from "./Avatar";
-import { BlockedTag, ThreadSection } from "./DirectLists";
+import { BlockedByTag, BlockedTag, ThreadSection } from "./DirectLists";
 import { SideDrawer } from "./SideDrawer";
 
 const chip = (active: boolean) =>
@@ -30,6 +30,7 @@ export function RecipientPicker({
   onNotifyChange,
   onSetMuted,
   blockedIds,
+  blockedByIds,
   onSetBlocked,
 }: {
   recipients: Partner[];
@@ -43,6 +44,8 @@ export function RecipientPicker({
   onSetMuted: (guestId: string, muted: boolean) => void;
   onNotifyChange: (notify: boolean) => void;
   blockedIds: string[];
+  // Whoever has blocked the guest is greyed out and cannot be chosen.
+  blockedByIds: string[];
   onSetBlocked: (guestId: string, blocked: boolean) => void;
 }) {
   const { t } = useTranslation();
@@ -174,12 +177,13 @@ export function RecipientPicker({
           </li>
           {shown.map((person) => {
             const blocked = blockedIds.includes(person.guestId);
+            const blockedBy = blockedByIds.includes(person.guestId);
 
             return (
               <li key={person.guestId} className="flex items-center gap-1">
                 <button
                   type="button"
-                  disabled={blocked}
+                  disabled={blocked || blockedBy}
                   aria-current={value?.guestId === person.guestId}
                   onClick={() => choose(person.guestId)}
                   className={`${row(value?.guestId === person.guestId)} min-w-0 flex-1 disabled:opacity-60 disabled:hover:bg-transparent`}
@@ -195,6 +199,7 @@ export function RecipientPicker({
                     {person.nickname}
                   </span>
                   {blocked && <BlockedTag />}
+                  {blockedBy && <BlockedByTag />}
                 </button>
                 {blocked && (
                   <button

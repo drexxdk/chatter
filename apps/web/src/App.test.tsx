@@ -2756,7 +2756,8 @@ describe("direct messages", () => {
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),
       ).toBeDisabled();
-      expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+      expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Block Bob" })).toBeNull();
 
       await user.click(
         screen.getAllByRole("button", { name: "Unblock Bob" })[0],
@@ -2773,6 +2774,233 @@ describe("direct messages", () => {
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),
       ).toBeEnabled();
+    });
+
+    it("stops saying that a blocked person leaves or joins the room, and starts again once unblocked", async () => {
+      const { user, server } = await enter();
+      receive(server, dm());
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
+      await user.click(screen.getByRole("button", { name: "Block Bob" }));
+      await screen.findAllByRole("button", { name: "Unblock Bob" });
+
+      present(server, [carol, ada]);
+      present(server, [bob, carol, ada]);
+      present(server, [carol, ada]);
+
+      expect(
+        screen.queryByText(/Bob (left|rejoined|joined) the room/),
+      ).toBeNull();
+
+      await user.click(
+        screen.getAllByRole("button", { name: "Unblock Bob" })[0],
+      );
+      await screen.findByRole("button", { name: "Block Bob" });
+      present(server, [bob, carol, ada]);
+
+      expect(
+        screen.getAllByText(/Bob (rejoined|joined) the room/).length,
+      ).toBeGreaterThan(0);
+    });
+
+    it("says nothing about somebody blocking the guest back, when the guest has blocked them", async () => {
+      const { user, server } = await enter();
+      receive(server, dm());
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
+      await user.click(screen.getByRole("button", { name: "Block Bob" }));
+      await screen.findAllByRole("button", { name: "Unblock Bob" });
+
+      act(() =>
+        server.latest.serverEmit("dm:blocked", {
+          guestId: bob.guestId,
+          nickname: "Bob",
+          role: "guest",
+          avatar: "male",
+        }),
+      );
+
+      expect(screen.queryByText(/has blocked you/)).toBeNull();
+      expect(screen.queryByText(/Blocked you/)).toBeNull();
+    });
+
+    describe("when somebody has blocked the guest", () => {
+      const youWereBlocked = (server: Server) =>
+        act(() =>
+          server.latest.serverEmit("dm:blocked", {
+            guestId: bob.guestId,
+            nickname: "Bob",
+            role: "guest",
+            avatar: "male",
+          }),
+        );
+
+      it("says so in the room and in the conversation, and marks and greys out the person", async () => {
+        const { user, server } = await enter();
+
+        youWereBlocked(server);
+
+        expect(screen.getByRole("log").textContent).toContain(
+          "Bob has blocked you. Your messages no longer reach them.",
+        );
+        expect(people().getByRole("button", { name: /^Bob/ })).toBeDisabled();
+        expect(
+          people().getByRole("button", { name: /^Bob/ }),
+        ).toHaveAccessibleName(/Blocked you/);
+        expect(
+          threads().getByRole("button", { name: /^Bob/ }),
+        ).toHaveAccessibleName(/Blocked you/);
+
+        await user.click(threads().getByRole("button", { name: /^Bob/ }));
+
+        expect(
+          log("Bob").getByText(
+            "Bob has blocked you. Your messages no longer reach them.",
+          ),
+        ).toBeInTheDocument();
+        expect(
+          screen.getByRole("textbox", { name: "Message to Bob" }),
+        ).toBeDisabled();
+        expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+        expect(
+          screen.getByText("Bob has blocked you, so you can't write to them."),
+        ).toBeInTheDocument();
+      });
+
+      it("cannot be chosen to write to, in the slide-out or the message menu", async () => {
+        const { user, server } = await enter();
+        act(() =>
+          server.latest.serverEmit("message:new", message({ text: "hello" })),
+        );
+        youWereBlocked(server);
+
+        await user.click(screen.getByRole("button", { name: /^Send to:/ }));
+        const drawer = within(await screen.findByRole("dialog"));
+        const row = drawer
+          .getAllByRole("button", { name: /^Bob/ })
+          .find((button) => button.textContent?.includes("Blocked you"));
+        expect(row).toBeDisabled();
+        await user.keyboard("{Escape}");
+        await waitFor(() =>
+          expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+        );
+
+        await user.click(
+          within(screen.getByRole("log"))
+            .getAllByRole("button", { name: "Actions for Bob" })
+            .at(-1)!,
+        );
+        expect(
+          screen.getByRole("menuitem", { name: "Message Bob" }),
+        ).toHaveAttribute("aria-disabled", "true");
+      });
+
+      it("is undone, and says so, when they unblock the guest", async () => {
+        const { user, server } = await enter();
+        youWereBlocked(server);
+
+        act(() =>
+          server.latest.serverEmit("dm:unblocked", {
+            guestId: bob.guestId,
+            nickname: "Bob",
+            role: "guest",
+            avatar: "male",
+          }),
+        );
+
+        expect(screen.getByRole("log").textContent).toContain(
+          "Bob has unblocked you.",
+        );
+        expect(people().getByRole("button", { name: /^Bob/ })).toBeEnabled();
+
+        await user.click(threads().getByRole("button", { name: /^Bob/ }));
+
+        expect(
+          screen.getByRole("textbox", { name: "Message to Bob" }),
+        ).toBeEnabled();
+      });
+
+      it("learns it from the server's refusal as well, and shows the person as having blocked the guest", async () => {
+        const { user, server } = await enter();
+        server.latest.acks["dm:send"] = () => ({
+          ok: false,
+          error: "blocked_by_recipient",
+        });
+        await user.click(people().getByRole("button", { name: "Bob" }));
+
+        await user.type(
+          screen.getByRole("textbox", { name: "Message to Bob" }),
+          "hello",
+        );
+        await user.click(screen.getByRole("button", { name: "Send" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "This person has blocked you, so your message could not be sent.",
+        );
+        await waitFor(() =>
+          expect(
+            screen.getByRole("textbox", { name: "Message to Bob" }),
+          ).toBeDisabled(),
+        );
+        expect(
+          log("Bob").getByText(
+            "Bob has blocked you. Your messages no longer reach them.",
+          ),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("has the unblock button next to the text box only while the person is blocked", async () => {
+      const { user, server } = await enter();
+      receive(server, dm());
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
+
+      expect(document.getElementById("unblock-direct")).toBeNull();
+      expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Block Bob" }));
+
+      const button = await waitFor(() => {
+        const found = document.getElementById("unblock-direct");
+        expect(found).not.toBeNull();
+        return found as HTMLElement;
+      });
+      expect(button).toHaveAccessibleName("Unblock Bob");
+      expect(
+        screen.getByRole("textbox", { name: "Message to Bob" }),
+      ).toBeDisabled();
+
+      await user.click(button);
+
+      await waitFor(() =>
+        expect(document.getElementById("unblock-direct")).toBeNull(),
+      );
+    });
+
+    it("puts the cursor on the unblock button when a blocked chat is opened with the keyboard, and back in the box once unblocked", async () => {
+      const { user, server } = await enter();
+      receive(server, dm());
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
+      await user.click(screen.getByRole("button", { name: "Block Bob" }));
+      await waitFor(() =>
+        expect(document.getElementById("unblock-direct")).not.toBeNull(),
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Back to the room" }),
+      );
+
+      threads().getByRole("button", { name: /^Bob/ }).focus();
+      await user.keyboard("{Enter}");
+
+      await waitFor(() =>
+        expect(document.getElementById("unblock-direct")).toHaveFocus(),
+      );
+
+      await user.keyboard("{Enter}");
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole("textbox", { name: "Message to Bob" }),
+        ).toHaveFocus(),
+      );
     });
 
     it("marks who is blocked in the lists and in the chat, and does not let them be written to", async () => {

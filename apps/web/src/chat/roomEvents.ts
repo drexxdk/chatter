@@ -1,6 +1,7 @@
 import {
   isStatus,
   type DirectMessage,
+  type DirectStatus,
   type DirectThread,
   type Partner,
 } from "./direct";
@@ -21,7 +22,9 @@ export interface RoomEvent {
 export type TimelineItem =
   | { kind: "message"; message: ChatMessage }
   | { kind: "event"; event: RoomEvent }
-  | { kind: "direct"; message: DirectMessage; partner: Partner };
+  | { kind: "direct"; message: DirectMessage; partner: Partner }
+  // Somebody blocked the guest or took it back, which the room's timeline says as well as the conversation.
+  | { kind: "notice"; status: DirectStatus; partner: Partner };
 
 // Who left and who came, comparing two lists of the room's people. The guest themselves is not announced to themselves.
 export function movements(
@@ -88,7 +91,13 @@ export function timeline(
 }
 
 const timeOf = (item: TimelineItem) =>
-  Date.parse(item.kind === "event" ? item.event.sentAt : item.message.sentAt);
+  Date.parse(
+    item.kind === "event"
+      ? item.event.sentAt
+      : item.kind === "notice"
+        ? item.status.sentAt
+        : item.message.sentAt,
+  );
 
 // The guest's private messages, sent and received, set into the room's timeline by the time they were sent.
 export function withDirect(
@@ -96,24 +105,22 @@ export function withDirect(
   threads: DirectThread[],
 ): TimelineItem[] {
   const direct: TimelineItem[] = threads
-    .flatMap((thread) =>
-      thread.entries.flatMap((entry) =>
-        isStatus(entry)
-          ? []
-          : [
-              {
-                kind: "direct" as const,
-                message: entry,
-                partner: {
-                  guestId: thread.guestId,
-                  nickname: thread.nickname,
-                  role: thread.role,
-                  avatar: thread.avatar,
-                },
-              },
-            ],
-      ),
-    )
+    .flatMap((thread) => {
+      const partner = {
+        guestId: thread.guestId,
+        nickname: thread.nickname,
+        role: thread.role,
+        avatar: thread.avatar,
+      };
+
+      return thread.entries.flatMap((entry): TimelineItem[] =>
+        !isStatus(entry)
+          ? [{ kind: "direct", message: entry, partner }]
+          : entry.event === "blockedYou" || entry.event === "unblockedYou"
+            ? [{ kind: "notice", status: entry, partner }]
+            : [],
+      );
+    })
     .sort((a, b) => timeOf(a) - timeOf(b));
 
   if (direct.length === 0) return items;

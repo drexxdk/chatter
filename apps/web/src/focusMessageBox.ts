@@ -1,6 +1,7 @@
 // After choosing somebody to write to with the keyboard, the cursor goes to the message box so the guest can start
-// typing. It waits for slide-outs and menus to be gone first: they hand focus back to what opened them as they close,
-// which would take it away again. Not after a click or tap, where it would only open the keyboard on a phone.
+// typing; for somebody who is blocked there is no box to type in, so it goes to the button that unblocks them. It
+// waits for slide-outs and menus to be gone first: they hand focus back to what opened them as they close, which would
+// take it away again. Not after a click or tap, where it would only open the keyboard on a phone.
 export function focusMessageBox() {
   if (document.documentElement.hasAttribute("data-pointer")) return;
 
@@ -9,7 +10,7 @@ export function focusMessageBox() {
   const attempt = () => {
     const overlay = document.querySelector('[role="dialog"], [role="menu"]');
     const box = document.querySelector<HTMLElement>(
-      "#message:not(:disabled), #direct-message:not(:disabled)",
+      "#message:not(:disabled), #direct-message:not(:disabled), #unblock-direct",
     );
 
     if (!overlay && box) {

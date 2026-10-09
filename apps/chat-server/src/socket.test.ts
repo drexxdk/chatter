@@ -2012,18 +2012,58 @@ describe("direct messages", () => {
   });
 
   describe("blocking", () => {
-    it("stops a guest's messages reaching the person who blocked them, without telling the sender", async () => {
+    it("tells the blocked guest, and stops what they send reaching the person who blocked them", async () => {
       const alice = await inRoom({ nickname: "Alice" });
       const bob = await inRoom({ nickname: "Bob" });
       await emit(bob.socket, "dm:block", { guestId: alice.guestId });
-      const echoed = waitFor<DirectMessage>(alice.socket, "dm:new");
 
       const ack = await send(alice, bob, "are you there?");
 
-      expect(ack).toEqual({ ok: true });
-      expect((await echoed).text).toBe("are you there?");
+      expect(ack).toEqual({ ok: false, error: "blocked_by_recipient" });
       await settle();
       expect(bob.received).toEqual([]);
+      expect(alice.received).toEqual([]);
+    });
+
+    it("tells the guest who was blocked, and who unblocked them again", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      const blocked = waitFor<Record<string, unknown>>(
+        alice.socket,
+        "dm:blocked",
+      );
+
+      await emit(bob.socket, "dm:block", { guestId: alice.guestId });
+
+      expect(await blocked).toMatchObject({
+        guestId: bob.guestId,
+        nickname: "Bob",
+        role: "guest",
+      });
+
+      const unblocked = waitFor<Record<string, unknown>>(
+        alice.socket,
+        "dm:unblocked",
+      );
+
+      await emit(bob.socket, "dm:unblock", { guestId: alice.guestId });
+
+      expect(await unblocked).toMatchObject({ guestId: bob.guestId });
+    });
+
+    it("does not tell anybody about blocking somebody twice, or about unblocking somebody who was not blocked", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      const heard: string[] = [];
+      alice.socket.on("dm:blocked", () => heard.push("blocked"));
+      alice.socket.on("dm:unblocked", () => heard.push("unblocked"));
+
+      await emit(bob.socket, "dm:unblock", { guestId: alice.guestId });
+      await emit(bob.socket, "dm:block", { guestId: alice.guestId });
+      await emit(bob.socket, "dm:block", { guestId: alice.guestId });
+      await settle();
+
+      expect(heard).toEqual(["blocked"]);
     });
 
     it("refuses a message to somebody the guest has blocked, until they are unblocked", async () => {
@@ -2093,6 +2133,23 @@ describe("direct messages", () => {
       await send(ada, bob, "this is a warning");
 
       expect((await heard).text).toBe("this is a warning");
+    });
+
+    it("does not tell a moderator that they were blocked, since it changes nothing for them", async () => {
+      const { port } = await startServer({ authTokenSecret: SECRET });
+      const token = signToken(
+        { sub: 7, name: "Ada Mod", role: "moderator" },
+        { secret: SECRET, ttlMs: 3_600_000 },
+      );
+      const ada = await inRoom({ token }, "general", port);
+      const bob = await inRoom({ nickname: "Bob" }, "general", port);
+      const heard: string[] = [];
+      ada.socket.on("dm:blocked", () => heard.push("blocked"));
+
+      await emit(bob.socket, "dm:block", { guestId: ada.guestId });
+      await settle();
+
+      expect(heard).toEqual([]);
     });
 
     it.each([

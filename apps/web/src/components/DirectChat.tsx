@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from "react";
-import { Ban, SendHorizontal } from "lucide-react";
+import { Ban, SendHorizontal, UserCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { DirectEntry, Partner } from "../chat/direct";
 import { isStatus } from "../chat/direct";
 import type { ActionResult } from "../chat/useChat";
+import { focusMessageBox } from "../focusMessageBox";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageRow, StatusRow } from "./MessageRow";
 import { MessageInput } from "./MessageInput";
@@ -16,6 +17,8 @@ interface DirectChatProps {
   // Whether the other person is in the same room right now; messages only reach people who are.
   present: boolean;
   blocked: boolean;
+  // They have blocked the guest: nothing written to them gets through.
+  blockedBy: boolean;
   onSend: (text: string) => Promise<ActionResult>;
   onSetBlocked: (blocked: boolean) => Promise<ActionResult>;
 }
@@ -26,6 +29,7 @@ export function DirectChat({
   ownNickname,
   present,
   blocked,
+  blockedBy,
   onSend,
   onSetBlocked,
 }: DirectChatProps) {
@@ -49,9 +53,12 @@ export function DirectChat({
     }
   }
 
-  async function toggleBlock() {
-    const result = await onSetBlocked(!blocked);
+  // Only for undoing a block: blocking itself is in the conversation's header.
+  async function unblock() {
+    const result = await onSetBlocked(false);
     setFailure(result.ok ? undefined : result);
+    // The button that was used is gone; for the keyboard the cursor belongs in the box that opened up.
+    if (result.ok) focusMessageBox();
   }
 
   const waiting =
@@ -59,18 +66,14 @@ export function DirectChat({
 
   return (
     <div className="flex flex-1 flex-col gap-3">
-      {partner.role !== "moderator" && (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => void toggleBlock()}
-            className="rounded-md bg-slate-800 px-3 py-1.5 text-sm hover:bg-slate-700"
-          >
-            {blocked
-              ? t("dm.unblock", { name: partner.nickname })
-              : t("dm.block", { name: partner.nickname })}
-          </button>
-        </div>
+      {blockedBy && (
+        <p
+          role="status"
+          className="flex flex-wrap items-center gap-x-2 rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200"
+        >
+          <Ban aria-hidden="true" className="h-4 w-4 shrink-0" />
+          <span>{t("dm.blockedByWrite", { name: partner.nickname })}</span>
+        </p>
       )}
 
       {blocked && (
@@ -80,13 +83,6 @@ export function DirectChat({
         >
           <Ban aria-hidden="true" className="h-4 w-4 shrink-0" />
           <span>{t("dm.blocked", { name: partner.nickname })}</span>
-          <button
-            type="button"
-            onClick={() => void toggleBlock()}
-            className="font-semibold underline hover:text-red-100"
-          >
-            {t("dm.unblockAction")}
-          </button>
         </p>
       )}
 
@@ -154,22 +150,39 @@ export function DirectChat({
             value={text}
             onChange={(event) => setText(event.target.value)}
             autoComplete="off"
-            disabled={!present || blocked}
+            disabled={!present || blocked || blockedBy}
             placeholder={
-              blocked
-                ? t("dm.blockedPlaceholder", { name: partner.nickname })
-                : t("room.messagePlaceholder")
+              blockedBy
+                ? t("dm.blockedByPlaceholder", { name: partner.nickname })
+                : blocked
+                  ? t("dm.blockedPlaceholder", { name: partner.nickname })
+                  : t("room.messagePlaceholder")
             }
             className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
           />
-          <button
-            type="submit"
-            disabled={!present || blocked}
-            aria-label={t("room.send")}
-            className="rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
-          >
-            <SendHorizontal aria-hidden="true" className="h-5 w-5" />
-          </button>
+          {blocked ? (
+            <button
+              key="unblock"
+              type="button"
+              id="unblock-direct"
+              onClick={() => void unblock()}
+              aria-label={t("dm.unblock", { name: partner.nickname })}
+              className="flex items-center gap-2 rounded-md bg-slate-700 px-3 py-2 font-medium hover:bg-slate-600"
+            >
+              <UserCheck aria-hidden="true" className="h-5 w-5" />
+              {t("dm.unblockAction")}
+            </button>
+          ) : (
+            <button
+              key="send"
+              type="submit"
+              disabled={!present || blockedBy}
+              aria-label={t("room.send")}
+              className="rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
+            >
+              <SendHorizontal aria-hidden="true" className="h-5 w-5" />
+            </button>
+          )}
         </form>
       </div>
     </div>

@@ -13,6 +13,7 @@ export function PersonMenu({
   partner,
   present,
   blocked,
+  blockedBy,
   side = "right",
   navId,
   tabStop,
@@ -24,6 +25,8 @@ export function PersonMenu({
   // Messages only reach people who are in the room right now.
   present: boolean;
   blocked: boolean;
+  // They have blocked the guest, so nothing written to them gets through.
+  blockedBy: boolean;
   // Which edge of the row the marker and the menu sit on: away from the message.
   side?: "left" | "right";
   // Takes part in the chat's arrow-key navigation (see rowNavigation.ts); only the row that is the tab stop is tabbable.
@@ -54,7 +57,7 @@ export function PersonMenu({
         anchor={side === "left" ? "bottom start" : "bottom end"}
         className="z-50 min-w-52 rounded-md border border-slate-700 bg-slate-900 p-1 shadow-lg [--anchor-gap:0.25rem] focus:outline-none"
       >
-        <MenuItem disabled={!present || blocked}>
+        <MenuItem disabled={!present || blocked || blockedBy}>
           <button type="button" onClick={onMessage} className={item}>
             <MessageSquare aria-hidden="true" className="h-4 w-4" />
             {t("person.message", { name: partner.nickname })}

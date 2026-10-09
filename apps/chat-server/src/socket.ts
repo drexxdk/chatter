@@ -460,6 +460,16 @@ export function createSocketServer(
       if (data.roomSlug !== slug)
         return reply({ ok: false, error: "not_in_room" });
 
+      const recipientData = recipient.data as SocketData;
+
+      // Somebody who has been blocked is told so, and nothing is sent or counted.
+      if (
+        ROLE_RULES[data.role].blockable &&
+        recipientData.blockedGuestIds.includes(data.guestId)
+      ) {
+        return reply({ ok: false, error: "blocked_by_recipient" });
+      }
+
       // The lookup took time, so the limits are checked again; everything after this is synchronous, so two messages
       // sent back to back cannot both pass.
       const now = Date.now();
@@ -476,7 +486,6 @@ export function createSocketServer(
         );
       }
 
-      const recipientData = recipient.data as SocketData;
       const message = {
         id: crypto.randomUUID(),
         fromGuestId: data.guestId,
@@ -490,17 +499,39 @@ export function createSocketServer(
         sentAt: new Date(now).toISOString(),
       };
 
-      // A blocked guest is not told: knowing would only invite them to try another way.
-      const blocked =
-        ROLE_RULES[data.role].blockable &&
-        recipientData.blockedGuestIds.includes(data.guestId);
-
-      if (!blocked) recipient.emit("dm:new", message);
+      recipient.emit("dm:new", message);
       socket.emit("dm:new", message);
       reply({ ok: true });
     });
 
-    socket.on("dm:block", (payload: unknown, ack?: Ack) => {
+    // Tells the guest who was blocked or unblocked, if they are here and could be blocked at all.
+    async function tellBlocked(
+      guestId: string,
+      event: "dm:blocked" | "dm:unblocked",
+    ) {
+      const slug = data.roomSlug;
+
+      if (!slug) return;
+
+      try {
+        const target = (await io.in(roomKey(slug)).fetchSockets()).find(
+          (member) => (member.data as SocketData).guestId === guestId,
+        );
+
+        if (target && ROLE_RULES[(target.data as SocketData).role].blockable) {
+          target.emit(event, {
+            guestId: data.guestId,
+            nickname: data.nickname,
+            role: data.role,
+            avatar: data.avatar,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to tell a guest about a block:", error);
+      }
+    }
+
+    socket.on("dm:block", async (payload: unknown, ack?: Ack) => {
       const reply: Ack = typeof ack === "function" ? ack : () => {};
       const guestId = stringField(payload, "guestId");
 
@@ -508,7 +539,9 @@ export function createSocketServer(
         return reply({ ok: false, error: "invalid_request" });
       }
 
-      if (!data.blockedGuestIds.includes(guestId)) {
+      const added = !data.blockedGuestIds.includes(guestId);
+
+      if (added) {
         if (data.blockedGuestIds.length >= MAX_BLOCKED) {
           return reply({ ok: false, error: "too_many_blocked" });
         }
@@ -517,16 +550,21 @@ export function createSocketServer(
       }
 
       reply({ ok: true });
+
+      if (added) await tellBlocked(guestId, "dm:blocked");
     });
 
-    socket.on("dm:unblock", (payload: unknown, ack?: Ack) => {
+    socket.on("dm:unblock", async (payload: unknown, ack?: Ack) => {
       const reply: Ack = typeof ack === "function" ? ack : () => {};
       const guestId = stringField(payload, "guestId");
+      const was = data.blockedGuestIds.includes(guestId);
 
       data.blockedGuestIds = data.blockedGuestIds.filter(
         (id) => id !== guestId,
       );
       reply({ ok: true });
+
+      if (was) await tellBlocked(guestId, "dm:unblocked");
     });
 
     socket.on("room:join", async (payload: unknown, ack?: Ack) => {

@@ -22,7 +22,7 @@ export interface DirectMessage {
 export interface DirectStatus {
   kind: "status";
   id: string;
-  event: "left" | "rejoined";
+  event: "left" | "rejoined" | "blockedYou" | "unblockedYou";
   sentAt: string;
   self?: true;
 }
@@ -46,6 +46,8 @@ export interface DirectThread extends Partner {
   present: boolean;
   // The guest asked not to be told about what this person writes: it still arrives, but is not counted as new.
   muted?: boolean;
+  // This person has blocked the guest, so nothing the guest writes to them gets through.
+  blockedBy?: boolean;
 }
 
 const MAX_ENTRIES_PER_THREAD = 200;
@@ -109,12 +111,102 @@ export function addDirectMessage(
     // They just wrote, or were just written to, so they are here.
     present: true,
     ...(existing?.muted ? { muted: true } : {}),
+    ...(existing?.blockedBy ? { blockedBy: true } : {}),
   };
 
   return [
     updated,
     ...threads.filter((thread) => thread.guestId !== partner.guestId),
   ].slice(0, MAX_THREADS);
+}
+
+// Who a notice from the server is about (somebody who blocked or unblocked the guest).
+export function parsePartner(value: unknown): Partner | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const { guestId, nickname } = value;
+
+  if (typeof guestId !== "string" || !guestId || typeof nickname !== "string") {
+    return undefined;
+  }
+
+  return {
+    guestId,
+    nickname,
+    role: value.role === "moderator" ? "moderator" : "guest",
+    avatar: parseAvatar(value.avatar),
+  };
+}
+
+// Somebody blocked the guest, or took it back. The conversation says so where it is read; one that does not exist yet
+// is made, so that the guest can see who it was. Nothing changes if it was already so. With `quiet` (the guest has
+// blocked them too) it is only noted, without a message and without making a conversation.
+export function setBlockedBy(
+  threads: DirectThread[],
+  partner: Partner,
+  blockedBy: boolean,
+  now: string,
+  newId: () => string,
+  quiet = false,
+): DirectThread[] {
+  const existing = threads.find((thread) => thread.guestId === partner.guestId);
+
+  if (existing) {
+    if ((existing.blockedBy ?? false) === blockedBy) return threads;
+  } else if (!blockedBy || quiet) {
+    return threads;
+  }
+
+  if (quiet && existing) {
+    return threads.map((thread) =>
+      thread === existing
+        ? { ...existing, blockedBy: blockedBy || undefined }
+        : thread,
+    );
+  }
+
+  const status: DirectStatus = {
+    kind: "status",
+    id: newId(),
+    event: blockedBy ? "blockedYou" : "unblockedYou",
+    sentAt: now,
+  };
+  const updated: DirectThread = {
+    ...(existing ?? { ...partner, unread: 0 }),
+    entries: [...(existing?.entries ?? []), status].slice(
+      -MAX_ENTRIES_PER_THREAD,
+    ),
+    present: existing?.present ?? true,
+    ...(blockedBy ? { blockedBy: true } : { blockedBy: undefined }),
+  };
+
+  return existing
+    ? threads.map((thread) => (thread === existing ? updated : thread))
+    : [updated, ...threads].slice(0, MAX_THREADS);
+}
+
+// The guest blocked this person: what they did to the guest in return is no longer of interest.
+export function dropBlockedByNotices(
+  threads: DirectThread[],
+  guestId: string,
+): DirectThread[] {
+  return threads.map((thread) =>
+    thread.guestId === guestId &&
+    thread.entries.some(
+      (entry) =>
+        isStatus(entry) &&
+        (entry.event === "blockedYou" || entry.event === "unblockedYou"),
+    )
+      ? {
+          ...thread,
+          entries: thread.entries.filter(
+            (entry) =>
+              !isStatus(entry) ||
+              (entry.event !== "blockedYou" && entry.event !== "unblockedYou"),
+          ),
+        }
+      : thread,
+  );
 }
 
 export function markRead(
@@ -129,13 +221,14 @@ export function markRead(
 }
 
 // The room's people changed. A conversation whose other person left, or came back, says so where it is read. With
-// `silent` the list is only noted: it is a different room's, so nobody left.
+// `silent` the list is only noted: it is a different room's, so nobody left. Blocked people are noted the same way.
 export function applyPresence(
   threads: DirectThread[],
   presentIds: Set<string>,
   now: string,
   silent: boolean,
   newId: () => string,
+  blockedIds: readonly string[] = [],
 ): DirectThread[] {
   let changed = false;
 
@@ -146,7 +239,9 @@ export function applyPresence(
 
     changed = true;
 
-    if (silent) return { ...thread, present };
+    if (silent || blockedIds.includes(thread.guestId)) {
+      return { ...thread, present };
+    }
 
     const status: DirectStatus = {
       kind: "status",
@@ -230,7 +325,10 @@ function parseEntry(value: unknown): DirectEntry | undefined {
 
     return typeof id === "string" &&
       typeof sentAt === "string" &&
-      (event === "left" || event === "rejoined")
+      (event === "left" ||
+        event === "rejoined" ||
+        event === "blockedYou" ||
+        event === "unblockedYou")
       ? {
           kind: "status",
           id,
@@ -281,6 +379,7 @@ export function parseThreads(value: unknown): DirectThread[] {
           return parsed ? [parsed] : [];
         })
         .slice(-MAX_ENTRIES_PER_THREAD),
+      ...(raw.blockedBy === true ? { blockedBy: true } : {}),
       unread: typeof unread === "number" && unread > 0 ? Math.floor(unread) : 0,
       present: typeof present === "boolean" ? present : true,
       ...(raw.muted === true ? { muted: true } : {}),

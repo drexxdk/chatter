@@ -22,17 +22,32 @@ export function BlockedTag() {
   );
 }
 
+// Marks somebody who has blocked the guest: nothing written to them gets through.
+export function BlockedByTag() {
+  const { t } = useTranslation();
+
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded bg-slate-700 px-1.5 py-0.5 text-xs font-semibold text-slate-300">
+      <Ban aria-hidden="true" className="h-3 w-3" />
+      {t("dm.blockedByTag")}
+    </span>
+  );
+}
+
 // Everybody in the room, the guest included (not clickable: there is nobody to write to). A name opens a conversation,
 // which is only listed below once something has been said.
 export function PeopleList({
   members,
   selfGuestId,
   blockedIds,
+  blockedByIds,
   onOpen,
 }: {
   members: Member[];
   selfGuestId: string;
   blockedIds: string[];
+  // Whoever has blocked the guest is greyed out: there is nothing to write to them.
+  blockedByIds: string[];
   onOpen: (partner: Partner) => void;
 }) {
   const { t } = useTranslation();
@@ -56,6 +71,7 @@ export function PeopleList({
             ) : (
               <button
                 type="button"
+                disabled={blockedByIds.includes(member.guestId)}
                 onClick={() =>
                   onOpen({
                     guestId: member.guestId,
@@ -64,11 +80,12 @@ export function PeopleList({
                     avatar,
                   })
                 }
-                className="flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-slate-800"
+                className="flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-slate-800 disabled:opacity-50 disabled:hover:bg-transparent"
               >
                 <AvatarIcon avatar={avatar} small />
                 <span className={nameClass(role)}>{member.nickname}</span>
                 {blockedIds.includes(member.guestId) && <BlockedTag />}
+                {blockedByIds.includes(member.guestId) && <BlockedByTag />}
               </button>
             )}
           </li>
@@ -129,6 +146,9 @@ export function ThreadList({
                 {thread.nickname}
               </span>
               {blockedIds.includes(thread.guestId) && <BlockedTag />}
+              {thread.blockedBy && !blockedIds.includes(thread.guestId) && (
+                <BlockedByTag />
+              )}
             </span>
             {thread.unread > 0 && (
               <>

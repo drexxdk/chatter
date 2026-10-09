@@ -17,6 +17,7 @@ export function RoomPanel({
   onNotifyChange,
   onSetMuted,
   blockedIds,
+  blockedByIds,
   onSetBlocked,
 }: {
   members: Member[];
@@ -29,6 +30,7 @@ export function RoomPanel({
   onNotifyChange: (notify: boolean) => void;
   onSetMuted: (guestId: string, muted: boolean) => void;
   blockedIds: string[];
+  blockedByIds: string[];
   onSetBlocked: (guestId: string, blocked: boolean) => void;
 }) {
   const { t } = useTranslation();
@@ -43,6 +45,7 @@ export function RoomPanel({
           members={members}
           selfGuestId={selfGuestId}
           blockedIds={blockedIds}
+          blockedByIds={blockedByIds}
           onOpen={onOpen}
         />
       </div>

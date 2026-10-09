@@ -6,13 +6,16 @@ import {
   markReturned,
   markRead,
   parseDirectMessage,
+  parsePartner,
   redactDirect,
+  setBlockedBy,
+  dropBlockedByNotices,
   type DirectThread,
   type Partner,
 } from "./direct";
 import { movements, type RoomEvent } from "./roomEvents";
 import { loadNotifyDirect, saveNotifyDirect } from "../preferences";
-import { parseAvatar, type Avatar } from "./avatar";
+import { parseAvatar, PLAIN_AVATAR, type Avatar } from "./avatar";
 import {
   createSocket as defaultCreateSocket,
   type ChatSocket,
@@ -476,7 +479,9 @@ export function useChat(
                   () => ++arrivalRef.current,
                   () => crypto.randomUUID(),
                 ).filter(
-                  (event) => !bannedGuestIdsRef.current.has(event.guestId),
+                  (event) =>
+                    !bannedGuestIdsRef.current.has(event.guestId) &&
+                    !blockedRef.current.includes(event.guestId),
                 );
 
                 if (added.length > 0) {
@@ -507,6 +512,7 @@ export function useChat(
                   new Date().toISOString(),
                   silent,
                   () => crypto.randomUUID(),
+                  blockedRef.current,
                 ),
               );
             }
@@ -571,6 +577,38 @@ export function useChat(
 
             return mine ? markRead(next, other.guestId) : next;
           });
+        });
+
+        socket.on("dm:blocked", (value: unknown) => {
+          const blocker = parsePartner(value);
+          if (!isCurrent() || !blocker) return;
+
+          setThreads((previous) =>
+            setBlockedBy(
+              previous,
+              blocker,
+              true,
+              new Date().toISOString(),
+              () => crypto.randomUUID(),
+              blockedRef.current.includes(blocker.guestId),
+            ),
+          );
+        });
+
+        socket.on("dm:unblocked", (value: unknown) => {
+          const blocker = parsePartner(value);
+          if (!isCurrent() || !blocker) return;
+
+          setThreads((previous) =>
+            setBlockedBy(
+              previous,
+              blocker,
+              false,
+              new Date().toISOString(),
+              () => crypto.randomUUID(),
+              blockedRef.current.includes(blocker.guestId),
+            ),
+          );
         });
 
         socket.on("message:redacted", (notice: unknown) => {
@@ -854,8 +892,51 @@ export function useChat(
   }, []);
 
   const sendDirect = useCallback(
-    async (toGuestId: string, text: string): Promise<ActionResult> =>
-      toResult(await emitWithAck("dm:send", { toGuestId, text })),
+    async (toGuestId: string, text: string): Promise<ActionResult> => {
+      const result = toResult(
+        await emitWithAck("dm:send", { toGuestId, text }),
+      );
+
+      // The server says so when the other person has blocked the guest, whether or not it was told earlier.
+      if (!result.ok && result.error === "blocked_by_recipient") {
+        const member = membersRef.current.find(
+          (candidate) => candidate.guestId === toGuestId,
+        );
+
+        setThreads((previous) => {
+          const thread = previous.find(
+            (candidate) => candidate.guestId === toGuestId,
+          );
+          const partner: Partner | undefined = thread
+            ? {
+                guestId: toGuestId,
+                nickname: thread.nickname,
+                role: thread.role,
+                avatar: thread.avatar,
+              }
+            : member
+              ? {
+                  guestId: toGuestId,
+                  nickname: member.nickname,
+                  role: member.role ?? "guest",
+                  avatar: member.avatar ?? PLAIN_AVATAR,
+                }
+              : undefined;
+
+          return partner
+            ? setBlockedBy(
+                previous,
+                partner,
+                true,
+                new Date().toISOString(),
+                () => crypto.randomUUID(),
+              )
+            : previous;
+        });
+      }
+
+      return result;
+    },
     [emitWithAck],
   );
 
@@ -871,7 +952,11 @@ export function useChat(
           : blockedRef.current.filter((id) => id !== guestId);
         setBlockedIds(blockedRef.current);
         // What they wrote before is not going to be answered from here.
-        if (blocked) setThreads((previous) => markRead(previous, guestId));
+        if (blocked) {
+          setThreads((previous) =>
+            dropBlockedByNotices(markRead(previous, guestId), guestId),
+          );
+        }
       }
 
       return result;
@@ -898,6 +983,12 @@ export function useChat(
       ? { ...partner, entries: activeThread?.entries ?? [] }
       : null,
     blockedIds,
+    // Who has blocked the guest: nothing written to them gets through. Not told about those the guest blocked too.
+    blockedByIds: threads
+      .filter(
+        (thread) => thread.blockedBy && !blockedIds.includes(thread.guestId),
+      )
+      .map((thread) => thread.guestId),
     open: openDirect,
     close: closeDirect,
     setMuted,

@@ -5,7 +5,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { ArrowLeft, SendHorizontal } from "lucide-react";
+import { ArrowLeft, Ban, SendHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type {
@@ -77,12 +77,19 @@ export function ChatRoom({
     !replyTo || members.some((member) => member.guestId === replyTo.guestId);
   // Somebody who has been blocked is not written to until they are unblocked.
   const replyBlocked = !!replyTo && direct.blockedIds.includes(replyTo.guestId);
-  const canWrite = connected && replyPresent && !replyBlocked;
+  // Nothing gets through to somebody who has blocked the guest either.
+  const replyBlockedBy =
+    !!replyTo && direct.blockedByIds.includes(replyTo.guestId);
+  const canWrite =
+    connected && replyPresent && !replyBlocked && !replyBlockedBy;
+  const [blockFailure, setBlockFailure] = useState<
+    ActionResult & { ok: false }
+  >();
 
   // Every message is a stop for the arrow keys, the only way to move through a long chat without a mouse; the notices
   // between them have nothing to read or do.
   const navIds = items.flatMap((item) =>
-    item.kind === "event" ? [] : [item.message.id],
+    item.kind === "event" || item.kind === "notice" ? [] : [item.message.id],
   );
   const rows = useRowNavigation(navIds);
 
@@ -114,12 +121,23 @@ export function ChatRoom({
   useLayoutEffect(() => {
     atBottom.current = true;
     scrollToEnd();
+    setBlockFailure(undefined);
   }, [openGuestId]);
+
+  // Blocking lives in the header of a conversation, out of the way of the scrolling messages.
+  async function blockActive() {
+    if (!direct.active) return;
+
+    const result = await direct.setBlocked(direct.active.guestId, true);
+    setBlockFailure(result.ok ? undefined : result);
+    // The button that was used is gone; for the keyboard the cursor goes to the one that undoes it.
+    if (result.ok) focusMessageBox();
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const trimmed = text.trim();
-    if (!trimmed || replyBlocked) return;
+    if (!trimmed || replyBlocked || replyBlockedBy) return;
 
     // What the guest has just written is what they want to see.
     atBottom.current = true;
@@ -179,6 +197,7 @@ export function ChatRoom({
         side={mine ? "left" : "right"}
         present={members.some((member) => member.guestId === partner.guestId)}
         blocked={blocked}
+        blockedBy={direct.blockedByIds.includes(partner.guestId)}
         onMessage={() => {
           startReply(partner);
           focusMessageBox();
@@ -222,13 +241,31 @@ export function ChatRoom({
               >
                 <ArrowLeft aria-hidden="true" className="h-4 w-4" />
               </button>
-              <h3 className="truncate text-lg font-semibold">
+              <h3 className="min-w-0 truncate text-lg font-semibold">
                 {t("dm.title", { name: direct.active.nickname })}
               </h3>
               {direct.blockedIds.includes(direct.active.guestId) && (
                 <BlockedTag />
               )}
+              {direct.active.role !== "moderator" &&
+                !direct.blockedIds.includes(direct.active.guestId) && (
+                  <button
+                    type="button"
+                    onClick={() => void blockActive()}
+                    aria-label={t("dm.block", { name: direct.active.nickname })}
+                    className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md bg-slate-800 px-2.5 py-1.5 text-sm hover:bg-slate-700"
+                  >
+                    <Ban aria-hidden="true" className="h-4 w-4" />
+                    <span className="hidden sm:inline">
+                      {t("dm.block", { name: direct.active.nickname })}
+                    </span>
+                  </button>
+                )}
             </div>
+          )}
+
+          {direct.active && blockFailure && (
+            <ErrorAlert code={blockFailure.error} />
           )}
 
           {!connected && (
@@ -251,6 +288,7 @@ export function ChatRoom({
               (member) => member.guestId === direct.active?.guestId,
             )}
             blocked={direct.blockedIds.includes(direct.active.guestId)}
+            blockedBy={direct.blockedByIds.includes(direct.active.guestId)}
             onSend={(text) => direct.send(direct.active!.guestId, text)}
             onSetBlocked={(blocked) =>
               direct.setBlocked(direct.active!.guestId, blocked)
@@ -278,6 +316,14 @@ export function ChatRoom({
                       name: item.event.nickname,
                     })}
                     sentAt={item.event.sentAt}
+                  />
+                ) : item.kind === "notice" ? (
+                  <StatusRow
+                    key={item.status.id}
+                    text={t(`dm.${item.status.event}`, {
+                      name: item.partner.nickname,
+                    })}
+                    sentAt={item.status.sentAt}
                   />
                 ) : item.kind === "direct" ? (
                   <DirectRow
@@ -375,6 +421,7 @@ export function ChatRoom({
                   onNotifyChange={direct.setNotify}
                   onSetMuted={direct.setMuted}
                   blockedIds={direct.blockedIds}
+                  blockedByIds={direct.blockedByIds}
                   onSetBlocked={direct.setBlocked}
                   onShowMovementsChange={changeShowMovements}
                 />
@@ -390,11 +437,13 @@ export function ChatRoom({
                   autoComplete="off"
                   disabled={!canWrite}
                   placeholder={
-                    replyBlocked && replyTo
-                      ? t("dm.blockedPlaceholder", { name: replyTo.nickname })
-                      : replyTo
-                        ? t("dm.replyPlaceholder", { name: replyTo.nickname })
-                        : t("room.messagePlaceholder")
+                    replyBlockedBy && replyTo
+                      ? t("dm.blockedByPlaceholder", { name: replyTo.nickname })
+                      : replyBlocked && replyTo
+                        ? t("dm.blockedPlaceholder", { name: replyTo.nickname })
+                        : replyTo
+                          ? t("dm.replyPlaceholder", { name: replyTo.nickname })
+                          : t("room.messagePlaceholder")
                   }
                   className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
                 />
@@ -411,6 +460,12 @@ export function ChatRoom({
               {replyTo && !replyPresent && (
                 <p role="status" className="text-sm text-amber-300">
                   {t("dm.away", { name: replyTo.nickname })}
+                </p>
+              )}
+
+              {replyTo && replyBlockedBy && (
+                <p role="status" className="text-sm text-amber-300">
+                  {t("dm.blockedByWrite", { name: replyTo.nickname })}
                 </p>
               )}
 
@@ -450,6 +505,7 @@ export function ChatRoom({
           onShowMovementsChange={changeShowMovements}
           notify={direct.notify}
           blockedIds={direct.blockedIds}
+          blockedByIds={direct.blockedByIds}
           onSetBlocked={direct.setBlocked}
           onNotifyChange={direct.setNotify}
           onSetMuted={direct.setMuted}
