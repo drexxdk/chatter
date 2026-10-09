@@ -11,6 +11,7 @@ import {
   type Partner,
 } from "./direct";
 import { movements, type RoomEvent } from "./roomEvents";
+import { loadNotifyDirect, saveNotifyDirect } from "../preferences";
 import { parseAvatar, type Avatar } from "./avatar";
 import {
   createSocket as defaultCreateSocket,
@@ -338,6 +339,9 @@ export function useChat(
   // Who the guest has open, whether or not anything has been said yet.
   const [partner, setPartner] = useState<Partner | null>(null);
   const [blockedIds, setBlockedIds] = useState<string[]>([]);
+  // Whether a new direct message counts as unread; switched off, nothing is counted and nothing lights up.
+  const [notify, setNotifyState] = useState(loadNotifyDirect);
+  const notifyRef = useRef(notify);
   const partnerRef = useRef<Partner | null>(null);
   const blockedRef = useRef<string[]>([]);
   const membersRef = useRef<Member[]>([]);
@@ -556,9 +560,17 @@ export function useChat(
               };
           const viewing = partnerRef.current?.guestId === other.guestId;
 
-          setThreads((previous) =>
-            addDirectMessage(previous, other, message, !mine && !viewing),
-          );
+          // Writing back to somebody means their messages have been read.
+          setThreads((previous) => {
+            const next = addDirectMessage(
+              previous,
+              other,
+              message,
+              !mine && !viewing && notifyRef.current,
+            );
+
+            return mine ? markRead(next, other.guestId) : next;
+          });
         });
 
         socket.on("message:redacted", (notice: unknown) => {
@@ -806,6 +818,36 @@ export function useChat(
     setThreads((previous) => markRead(previous, next.guestId));
   }, []);
 
+  const setMuted = useCallback((guestId: string, muted: boolean) => {
+    setThreads((previous) =>
+      previous.map((thread) =>
+        thread.guestId === guestId
+          ? {
+              ...thread,
+              muted: muted || undefined,
+              unread: muted ? 0 : thread.unread,
+            }
+          : thread,
+      ),
+    );
+  }, []);
+
+  const setNotify = useCallback((on: boolean) => {
+    notifyRef.current = on;
+    setNotifyState(on);
+    saveNotifyDirect(on);
+
+    if (!on) {
+      setThreads((previous) =>
+        previous.some((thread) => thread.unread)
+          ? previous.map((thread) =>
+              thread.unread ? { ...thread, unread: 0 } : thread,
+            )
+          : previous,
+      );
+    }
+  }, []);
+
   const closeDirect = useCallback(() => {
     partnerRef.current = null;
     setPartner(null);
@@ -856,6 +898,9 @@ export function useChat(
     blockedIds,
     open: openDirect,
     close: closeDirect,
+    setMuted,
+    notify,
+    setNotify,
     send: sendDirect,
     setBlocked,
   };

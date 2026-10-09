@@ -1,3 +1,5 @@
+import { Field, Label, Switch } from "@headlessui/react";
+import { Bell, BellOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { DirectThread, Partner } from "../chat/direct";
@@ -62,13 +64,19 @@ export function PeopleList({
 }
 
 // Conversations with something in them, the one with the latest activity first. One with new words pulses (unless the
-// person has asked for less motion) and shows a count, which is also what a screen reader is told.
+// person has asked for less motion) and shows a count, which is also what a screen reader is told. The bell beside each
+// one switches off being told about that person.
 export function ThreadList({
   threads,
+  notify,
   onOpen,
+  onSetMuted,
 }: {
   threads: DirectThread[];
+  // Whether notifications are on at all; the bells have nothing to do while they are not.
+  notify: boolean;
   onOpen: (partner: Partner) => void;
+  onSetMuted: (guestId: string, muted: boolean) => void;
 }) {
   const { t } = useTranslation();
 
@@ -79,7 +87,7 @@ export function ThreadList({
   return (
     <ul aria-label={t("dm.list")} className="space-y-1 text-sm">
       {threads.map((thread) => (
-        <li key={thread.guestId}>
+        <li key={thread.guestId} className="flex items-center gap-1">
           <button
             type="button"
             onClick={() =>
@@ -92,13 +100,15 @@ export function ThreadList({
             }
             className={
               thread.unread > 0
-                ? "flex w-full items-center justify-between gap-2 rounded border border-amber-400 bg-amber-400/15 px-2 py-1 text-left motion-safe:animate-pulse"
-                : "flex w-full items-center justify-between gap-2 rounded px-2 py-1 text-left hover:bg-slate-800"
+                ? "flex min-w-0 flex-1 items-center justify-between gap-2 rounded border border-amber-400 bg-amber-400/15 px-2 py-1 text-left motion-safe:animate-pulse"
+                : "flex min-w-0 flex-1 items-center justify-between gap-2 rounded px-2 py-1 text-left hover:bg-slate-800"
             }
           >
-            <span className="flex items-center gap-2">
+            <span className="flex min-w-0 items-center gap-2">
               <AvatarIcon avatar={thread.avatar} small />
-              <span className={nameClass(thread.role)}>{thread.nickname}</span>
+              <span className={`truncate ${nameClass(thread.role) ?? ""}`}>
+                {thread.nickname}
+              </span>
             </span>
             {thread.unread > 0 && (
               <>
@@ -115,8 +125,68 @@ export function ThreadList({
               </>
             )}
           </button>
+          <button
+            type="button"
+            aria-pressed={thread.muted === true}
+            disabled={!notify}
+            onClick={() => onSetMuted(thread.guestId, !thread.muted)}
+            aria-label={t(thread.muted ? "dm.unmuteFrom" : "dm.muteFrom", {
+              name: thread.nickname,
+            })}
+            title={t(thread.muted ? "dm.unmuteFrom" : "dm.muteFrom", {
+              name: thread.nickname,
+            })}
+            className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 disabled:opacity-40 disabled:hover:bg-transparent"
+          >
+            {thread.muted ? (
+              <BellOff aria-hidden="true" className="h-4 w-4" />
+            ) : (
+              <Bell aria-hidden="true" className="h-4 w-4" />
+            )}
+          </button>
         </li>
       ))}
     </ul>
+  );
+}
+
+// The conversations with the switch for being told about new messages in any of them, above the list.
+export function ThreadSection({
+  threads,
+  notify,
+  onNotifyChange,
+  onOpen,
+  onSetMuted,
+}: {
+  threads: DirectThread[];
+  notify: boolean;
+  onNotifyChange: (notify: boolean) => void;
+  onOpen: (partner: Partner) => void;
+  onSetMuted: (guestId: string, muted: boolean) => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold text-slate-300">
+        {t("dm.heading")}
+      </h3>
+      <Field className="flex items-center justify-between gap-2 text-sm text-slate-300">
+        <Label>{t("dm.notify")}</Label>
+        <Switch
+          checked={notify}
+          onChange={onNotifyChange}
+          className="group relative inline-flex h-5 w-9 shrink-0 items-center rounded-full bg-slate-700 outline-none transition-colors data-checked:bg-indigo-500 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
+        >
+          <span className="size-4 translate-x-0.5 rounded-full bg-white transition-transform group-data-checked:translate-x-4.5" />
+        </Switch>
+      </Field>
+      <ThreadList
+        threads={threads}
+        notify={notify}
+        onOpen={onOpen}
+        onSetMuted={onSetMuted}
+      />
+    </div>
   );
 }

@@ -352,6 +352,9 @@ export function ChatRoom({
                   threads={direct.threads}
                   onOpenThread={direct.open}
                   showMovements={showMovements}
+                  notify={direct.notify}
+                  onNotifyChange={direct.setNotify}
+                  onSetMuted={direct.setMuted}
                   onShowMovementsChange={changeShowMovements}
                 />
                 <label htmlFor="message" className="sr-only">
@@ -407,6 +410,9 @@ export function ChatRoom({
           onOpen={direct.open}
           showMovements={showMovements}
           onShowMovementsChange={changeShowMovements}
+          notify={direct.notify}
+          onNotifyChange={direct.setNotify}
+          onSetMuted={direct.setMuted}
         />
       </aside>
     </section>

@@ -14,7 +14,7 @@
     "privateHeading": "Private Nachrichten",
     "private": "Wähle neben dem Nachrichtenfeld eine Person oder klicke auf eine private Nachricht, um nur an sie zu schreiben. Private Nachrichten erreichen nur Personen, die gerade im selben Raum sind, und werden nur in diesem Tab gespeichert.",
     "conversationsHeading": "Deine Unterhaltungen",
-    "conversations": "Private Unterhaltungen stehen unter Direktnachrichten neben dem Nachrichtenfeld. Eine Zahl zeigt, wie viele Nachrichten du noch nicht gelesen hast.",
+    "conversations": "Private Unterhaltungen stehen unter Direktnachrichten neben dem Nachrichtenfeld. Eine Zahl zeigt, wie viele Nachrichten du noch nicht gelesen hast; sie verschwindet, wenn du die Unterhaltung öffnest. Die Glocke neben einer Person schaltet Benachrichtigungen von ihr aus, der Schalter über der Liste die von allen.",
     "blockingHeading": "Blockieren",
     "blocking": "Öffne eine private Unterhaltung, um jemanden zu blockieren, der dich stört. Deren Nachrichten erreichen dich dann nicht mehr.",
     "keyboardHeading": "Tastatur",
@@ -104,6 +104,9 @@
     "search": "Personen suchen",
     "filter": "Personen filtern",
     "noMatches": "Niemand passt.",
+    "notify": "Bei Direktnachrichten benachrichtigen",
+    "muteFrom": "Benachrichtigungen von {{name}} ausschalten",
+    "unmuteFrom": "Benachrichtigungen von {{name}} einschalten",
     "all": "Alle",
     "replyPlaceholder": "Private Nachricht an {{name}} schreiben"
   },

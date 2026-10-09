@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { AVATARS, type Avatar } from "../chat/avatar";
 import type { DirectThread, Partner } from "../chat/direct";
 import { AvatarIcon } from "./Avatar";
-import { ThreadList } from "./DirectLists";
+import { ThreadSection } from "./DirectLists";
 import { SideDrawer } from "./SideDrawer";
 
 const chip = (active: boolean) =>
@@ -26,6 +26,9 @@ export function RecipientPicker({
   onOpenThread,
   showMovements,
   onShowMovementsChange,
+  notify,
+  onNotifyChange,
+  onSetMuted,
 }: {
   recipients: Partner[];
   value: Partner | null;
@@ -34,6 +37,9 @@ export function RecipientPicker({
   onOpenThread: (partner: Partner) => void;
   showMovements: boolean;
   onShowMovementsChange: (show: boolean) => void;
+  notify: boolean;
+  onSetMuted: (guestId: string, muted: boolean) => void;
+  onNotifyChange: (notify: boolean) => void;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -74,7 +80,9 @@ export function RecipientPicker({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label={`${t("dm.recipient")}: ${value?.nickname ?? t("dm.all")}`}
+        aria-label={`${t("dm.recipient")}: ${value?.nickname ?? t("dm.all")}${
+          unread > 0 ? `, ${t("dm.unread", { count: unread })}` : ""
+        }`}
         className="relative flex w-28 shrink-0 items-center gap-1.5 rounded-md border border-slate-700 bg-slate-950 px-2 py-2 text-left sm:w-40"
       >
         {value ? (
@@ -90,15 +98,12 @@ export function RecipientPicker({
           className="h-4 w-4 shrink-0 text-slate-400"
         />
         {unread > 0 && (
-          <>
-            <span
-              aria-hidden="true"
-              className="absolute -right-1 -top-1 rounded-full bg-amber-400 px-1.5 text-xs font-bold text-slate-950"
-            >
-              {unread}
-            </span>
-            <span className="sr-only">{t("dm.unread", { count: unread })}</span>
-          </>
+          <span
+            aria-hidden="true"
+            className="absolute -right-1 -top-1 rounded-full bg-amber-400 px-1.5 text-xs font-bold text-slate-950"
+          >
+            {unread}
+          </span>
         )}
       </button>
 
@@ -191,18 +196,16 @@ export function RecipientPicker({
           )}
         </ul>
 
-        <div>
-          <h3 className="mb-2 text-sm font-semibold text-slate-300">
-            {t("dm.heading")}
-          </h3>
-          <ThreadList
-            threads={threads}
-            onOpen={(partner) => {
-              onOpenThread(partner);
-              setOpen(false);
-            }}
-          />
-        </div>
+        <ThreadSection
+          threads={threads}
+          notify={notify}
+          onNotifyChange={onNotifyChange}
+          onOpen={(partner) => {
+            onOpenThread(partner);
+            setOpen(false);
+          }}
+          onSetMuted={onSetMuted}
+        />
 
         <label className="flex items-center gap-2 text-sm text-slate-300 md:hidden">
           <input

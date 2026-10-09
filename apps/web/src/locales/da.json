@@ -14,7 +14,7 @@
     "privateHeading": "Private beskeder",
     "private": "Vælg en person ved siden af beskedfeltet, eller klik på en privat besked, for kun at skrive til vedkommende. Private beskeder når kun personer, der er i samme rum lige nu, og gemmes kun i denne fane.",
     "conversationsHeading": "Dine samtaler",
-    "conversations": "Private samtaler står under Direkte beskeder ved siden af beskedfeltet. Et tal viser, hvor mange beskeder du ikke har læst.",
+    "conversations": "Private samtaler står under Direkte beskeder ved siden af beskedfeltet. Et tal viser, hvor mange beskeder du ikke har læst; det forsvinder, når du åbner samtalen. Klokken ved siden af en person slår beskeder fra vedkommende fra, og kontakten over listen slår dem fra for alle.",
     "blockingHeading": "Bloker",
     "blocking": "Åbn en privat samtale for at blokere en, der generer dig. Vedkommendes beskeder når så ikke længere frem til dig.",
     "keyboardHeading": "Tastatur",
@@ -104,6 +104,9 @@
     "search": "Søg efter personer",
     "filter": "Filtrer personer",
     "noMatches": "Ingen matcher.",
+    "notify": "Giv mig besked om direkte beskeder",
+    "muteFrom": "Stop besked om nye beskeder fra {{name}}",
+    "unmuteFrom": "Giv besked om nye beskeder fra {{name}}",
     "all": "Alle",
     "replyPlaceholder": "Skriv en privat besked til {{name}}"
   },

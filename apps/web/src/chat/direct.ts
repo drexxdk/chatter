@@ -44,6 +44,8 @@ export interface DirectThread extends Partner {
   unread: number;
   // Whether they are in the guest's room right now, to notice when that changes.
   present: boolean;
+  // The guest asked not to be told about what this person writes: it still arrives, but is not counted as new.
+  muted?: boolean;
 }
 
 const MAX_ENTRIES_PER_THREAD = 200;
@@ -103,9 +105,10 @@ export function addDirectMessage(
     entries: [...(existing?.entries ?? []), message].slice(
       -MAX_ENTRIES_PER_THREAD,
     ),
-    unread: (existing?.unread ?? 0) + (unread ? 1 : 0),
+    unread: (existing?.unread ?? 0) + (unread && !existing?.muted ? 1 : 0),
     // They just wrote, or were just written to, so they are here.
     present: true,
+    ...(existing?.muted ? { muted: true } : {}),
   };
 
   return [
@@ -280,6 +283,7 @@ export function parseThreads(value: unknown): DirectThread[] {
         .slice(-MAX_ENTRIES_PER_THREAD),
       unread: typeof unread === "number" && unread > 0 ? Math.floor(unread) : 0,
       present: typeof present === "boolean" ? present : true,
+      ...(raw.muted === true ? { muted: true } : {}),
     });
   }
 

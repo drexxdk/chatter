@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import type { Partner } from "../chat/direct";
 import type { DirectApi, Member } from "../chat/useChat";
-import { PeopleList, ThreadList } from "./DirectLists";
+import { PeopleList, ThreadSection } from "./DirectLists";
 
 // The people in the room, the private conversations and the room's display option: a sidebar on wide screens, the
 // content of the slide-out drawer on narrow ones.
@@ -13,6 +13,9 @@ export function RoomPanel({
   onOpen,
   showMovements,
   onShowMovementsChange,
+  notify,
+  onNotifyChange,
+  onSetMuted,
 }: {
   members: Member[];
   selfGuestId: string;
@@ -20,6 +23,9 @@ export function RoomPanel({
   onOpen: (partner: Partner) => void;
   showMovements: boolean;
   onShowMovementsChange: (show: boolean) => void;
+  notify: boolean;
+  onNotifyChange: (notify: boolean) => void;
+  onSetMuted: (guestId: string, muted: boolean) => void;
 }) {
   const { t } = useTranslation();
 
@@ -36,12 +42,13 @@ export function RoomPanel({
         />
       </div>
 
-      <div>
-        <h3 className="mb-2 text-sm font-semibold text-slate-300">
-          {t("dm.heading")}
-        </h3>
-        <ThreadList threads={threads} onOpen={onOpen} />
-      </div>
+      <ThreadSection
+        threads={threads}
+        notify={notify}
+        onNotifyChange={onNotifyChange}
+        onOpen={onOpen}
+        onSetMuted={onSetMuted}
+      />
 
       <label className="flex items-center gap-2 text-sm text-slate-300">
         <input

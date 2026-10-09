@@ -1823,7 +1823,7 @@ describe("direct messages", () => {
       await user.click(screen.getByRole("menuitem", { name: "Message Bob" }));
 
       expect(pane("Bob")).toBeNull();
-      expect(recipient()).toHaveAccessibleName("Send to: Bob");
+      expect(recipient()).toHaveAccessibleName(/^Send to: Bob/);
 
       await user.type(
         screen.getByRole("textbox", { name: "Message to Bob" }),
@@ -1901,7 +1901,7 @@ describe("direct messages", () => {
       await openMenu(user, "Bob");
       await user.click(screen.getByRole("menuitem", { name: "Message Bob" }));
 
-      expect(recipient()).toHaveAccessibleName("Send to: Bob");
+      expect(recipient()).toHaveAccessibleName(/^Send to: Bob/);
       expect(pane("Bob")).toBeNull();
     });
 
@@ -2096,7 +2096,7 @@ describe("direct messages", () => {
       receive(server, dm());
 
       expect(
-        threads().getByRole("button", { name: /Bob/ }),
+        threads().getByRole("button", { name: /^Bob/ }),
       ).toBeInTheDocument();
       expect(
         screen.queryByText("No direct messages yet."),
@@ -2109,7 +2109,7 @@ describe("direct messages", () => {
       receive(server, fromMe(carol));
 
       expect(
-        threads().getByRole("button", { name: /Carol/ }),
+        threads().getByRole("button", { name: /^Carol/ }),
       ).toBeInTheDocument();
     });
 
@@ -2141,19 +2141,18 @@ describe("direct messages", () => {
         }),
       );
 
-      const names = threads()
-        .getAllByRole("button")
-        .map((button) => button.textContent);
+      const conversations = () =>
+        threads()
+          .getAllByRole("button")
+          .filter((button) => !button.hasAttribute("aria-pressed"))
+          .map((button) => button.textContent);
+      const names = conversations();
       expect(names[0]).toMatch(/Carol/);
       expect(names[1]).toMatch(/Bob/);
 
       receive(server, dm({ text: "again" }));
 
-      expect(
-        threads()
-          .getAllByRole("button")
-          .map((button) => button.textContent)[0],
-      ).toMatch(/Bob/);
+      expect(conversations()[0]).toMatch(/Bob/);
     });
 
     it("shows a moderator in green in both lists", async () => {
@@ -2188,7 +2187,7 @@ describe("direct messages", () => {
       receive(server, dm());
       receive(server, dm({ text: "are you there?" }));
 
-      const button = threads().getByRole("button", { name: /Bob/ });
+      const button = threads().getByRole("button", { name: /^Bob/ });
       expect(button).toHaveAccessibleName(/Bob.*2 unread messages/);
       expect(button).toHaveClass("motion-safe:animate-pulse");
 
@@ -2197,7 +2196,7 @@ describe("direct messages", () => {
         screen.getByRole("button", { name: "Back to the room" }),
       );
 
-      const read = threads().getByRole("button", { name: /Bob/ });
+      const read = threads().getByRole("button", { name: /^Bob/ });
       expect(read).not.toHaveAccessibleName(/unread/);
       expect(read).not.toHaveClass("motion-safe:animate-pulse");
     });
@@ -2208,8 +2207,33 @@ describe("direct messages", () => {
       receive(server, dm());
 
       expect(
-        threads().getByRole("button", { name: /Bob/ }),
+        threads().getByRole("button", { name: /^Bob/ }),
       ).toHaveAccessibleName(/1 unread message$/);
+    });
+
+    it("is cleared for somebody once the guest has written back to them", async () => {
+      const { server } = await enter();
+      receive(server, dm());
+      receive(
+        server,
+        dm({
+          fromGuestId: carol.guestId,
+          fromNickname: "Carol",
+          text: "hi",
+        }),
+      );
+
+      receive(server, fromMe(bob, "on my way"));
+
+      expect(
+        threads().getByRole("button", { name: /^Bob/ }),
+      ).not.toHaveAccessibleName(/unread/);
+      expect(
+        threads().getByRole("button", { name: /^Carol/ }),
+      ).toHaveAccessibleName(/1 unread message/);
+      expect(
+        screen.getByRole("button", { name: /^Send to:.*1 unread message/ }),
+      ).toBeInTheDocument();
     });
 
     it("is not triggered by what the guest wrote themselves", async () => {
@@ -2218,7 +2242,7 @@ describe("direct messages", () => {
       receive(server, fromMe(bob));
 
       expect(
-        threads().getByRole("button", { name: /Bob/ }),
+        threads().getByRole("button", { name: /^Bob/ }),
       ).not.toHaveAccessibleName(/unread/);
     });
 
@@ -2233,7 +2257,7 @@ describe("direct messages", () => {
         screen.getByRole("button", { name: "Back to the room" }),
       );
       expect(
-        threads().getByRole("button", { name: /Bob/ }),
+        threads().getByRole("button", { name: /^Bob/ }),
       ).not.toHaveAccessibleName(/unread/);
     });
 
@@ -2252,7 +2276,101 @@ describe("direct messages", () => {
 
       expect(pane("Bob")).toBeInTheDocument();
       expect(
-        threads().getByRole("button", { name: /Carol/ }),
+        threads().getByRole("button", { name: /^Carol/ }),
+      ).toHaveAccessibleName(/1 unread message/);
+    });
+
+    it("stays until the conversation is opened, whatever is clicked in the chat", async () => {
+      const { user, server } = await enter();
+      receive(server, dm({ text: "psst" }));
+
+      await user.click(
+        screen.getByRole("log").querySelector("[data-nav-id]") as HTMLElement,
+      );
+      await user.keyboard("{Escape}");
+
+      expect(
+        screen.getByRole("button", { name: /^Send to:.*1 unread message/ }),
+      ).toBeInTheDocument();
+      expect(
+        threads().getByRole("button", { name: /^Bob/ }),
+      ).toHaveAccessibleName(/1 unread message/);
+    });
+
+    it("can be switched off for everybody, which clears what is unread and remembers the choice", async () => {
+      const { user, server } = await enter();
+      receive(server, dm());
+      const notify = () =>
+        screen.getByRole("switch", { name: "Notify me about direct messages" });
+
+      expect(notify()).toBeChecked();
+
+      await user.click(notify());
+
+      expect(notify()).not.toBeChecked();
+      expect(
+        threads().getByRole("button", { name: /^Bob/ }),
+      ).not.toHaveAccessibleName(/unread/);
+      expect(localStorage.getItem("chatter.notifyDirect")).toBe("false");
+
+      receive(server, dm({ text: "again" }));
+
+      expect(
+        threads().getByRole("button", { name: /^Bob/ }),
+      ).not.toHaveAccessibleName(/unread/);
+      expect(
+        screen.getByRole("button", { name: /^Send to:/ }),
+      ).not.toHaveAccessibleName(/unread/);
+      expect(
+        screen.getByRole("log").querySelectorAll("[data-nav-id]"),
+      ).toHaveLength(2);
+      expect(
+        screen.getByRole("button", { name: "Stop notifications from Bob" }),
+      ).toBeDisabled();
+    });
+
+    it("can be switched off for one person, and back on", async () => {
+      const { user, server } = await enter();
+      receive(server, dm());
+      receive(
+        server,
+        dm({
+          fromGuestId: carol.guestId,
+          fromNickname: "Carol",
+          text: "hi",
+        }),
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Stop notifications from Bob" }),
+      );
+
+      expect(
+        threads().getByRole("button", { name: /^Bob/ }),
+      ).not.toHaveAccessibleName(/unread/);
+      expect(
+        threads().getByRole("button", { name: /^Carol/ }),
+      ).toHaveAccessibleName(/1 unread message/);
+      expect(
+        screen.getByRole("button", { name: "Turn on notifications from Bob" }),
+      ).toHaveAttribute("aria-pressed", "true");
+
+      receive(server, dm({ text: "still muted" }));
+
+      expect(
+        threads().getByRole("button", { name: /^Bob/ }),
+      ).not.toHaveAccessibleName(/unread/);
+      expect(
+        screen.getByRole("log").querySelectorAll("[data-nav-id]"),
+      ).toHaveLength(3);
+
+      await user.click(
+        screen.getByRole("button", { name: "Turn on notifications from Bob" }),
+      );
+      receive(server, dm({ text: "audible again" }));
+
+      expect(
+        threads().getByRole("button", { name: /^Bob/ }),
       ).toHaveAccessibleName(/1 unread message/);
     });
 
@@ -2266,7 +2384,7 @@ describe("direct messages", () => {
       receive(server, dm());
 
       expect(
-        threads().getByRole("button", { name: /Bob/ }),
+        threads().getByRole("button", { name: /^Bob/ }),
       ).toHaveAccessibleName(/1 unread message/);
     });
   });
@@ -2288,7 +2406,7 @@ describe("direct messages", () => {
       const { user, server } = await enter();
       receive(server, dm());
 
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(pane("Bob")).toBeInTheDocument();
     });
@@ -2506,7 +2624,7 @@ describe("direct messages", () => {
     it("says so and does not let the guest write, until they are back", async () => {
       const { user, server } = await enter();
       receive(server, dm());
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),
       ).toBeEnabled();
@@ -2544,7 +2662,7 @@ describe("direct messages", () => {
         }),
       );
       present(server, [carol, ada]);
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(log("Bob").queryByText("something nasty")).not.toBeInTheDocument();
       expect(log("Bob").getByText("This user was banned")).toBeInTheDocument();
@@ -2557,7 +2675,7 @@ describe("direct messages", () => {
     it("blocks the person, says so, and can undo it", async () => {
       const { user, server } = await enter();
       receive(server, dm());
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       await user.click(screen.getByRole("button", { name: "Block Bob" }));
 
@@ -2660,7 +2778,7 @@ describe("direct messages", () => {
     it("says in the conversation, with the time, when the other person leaves the room", async () => {
       const { user, server } = await enter();
       receive(server, dm());
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       present(server, [carol, ada]);
 
@@ -2674,7 +2792,7 @@ describe("direct messages", () => {
     it("says so again, as a new message, when they come back", async () => {
       const { user, server } = await enter();
       receive(server, dm());
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
       present(server, [carol, ada]);
 
       present(server, [bob, carol, ada]);
@@ -2688,7 +2806,7 @@ describe("direct messages", () => {
     it("keeps the order of what was said and what happened", async () => {
       const { user, server } = await enter();
       receive(server, dm({ text: "before" }));
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
       present(server, [carol, ada]);
       present(server, [bob, carol, ada]);
       receive(server, dm({ text: "after" }));
@@ -2706,7 +2824,7 @@ describe("direct messages", () => {
     it("does not repeat itself when the list of people changes for somebody else", async () => {
       const { user, server } = await enter();
       receive(server, dm());
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       present(server, [carol, ada]);
       present(server, [carol]);
@@ -2723,7 +2841,7 @@ describe("direct messages", () => {
       present(server, []);
 
       expect(
-        threads().queryByRole("button", { name: /Carol/ }),
+        threads().queryByRole("button", { name: /^Carol/ }),
       ).not.toBeInTheDocument();
     });
 
@@ -2734,7 +2852,7 @@ describe("direct messages", () => {
       present(server, [carol, ada]);
 
       expect(
-        threads().getByRole("button", { name: /Bob/ }),
+        threads().getByRole("button", { name: /^Bob/ }),
       ).not.toHaveAccessibleName(/unread/);
     });
 
@@ -2746,7 +2864,7 @@ describe("direct messages", () => {
       await screen.findByRole("heading", { name: "Public rooms" });
       await user.click(screen.getByRole("button", { name: "Join General" }));
       await screen.findByText("Chatting as Alice");
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(statuses()).toHaveLength(0);
     });
@@ -2759,7 +2877,7 @@ describe("direct messages", () => {
       await screen.findByRole("heading", { name: "Public rooms" });
       await user.click(screen.getByRole("button", { name: "Join Music" }));
       await screen.findByText("Chatting as Alice");
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(statuses()).toHaveLength(0);
     });
@@ -2808,7 +2926,7 @@ describe("direct messages", () => {
       receive(first.server, fromMe(bob, "my answer"));
 
       const { user } = await reload(first);
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(log("Bob").getByText("before the reload")).toBeInTheDocument();
       expect(log("Bob").getByText("my answer")).toBeInTheDocument();
@@ -2819,7 +2937,7 @@ describe("direct messages", () => {
       receive(first.server, fromMe(bob, "my answer"));
 
       const { user } = await reload(first);
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(log("Bob").getByText("my answer").closest("li")).toHaveAttribute(
         "data-side",
@@ -2834,7 +2952,7 @@ describe("direct messages", () => {
       await reload(first);
 
       expect(
-        threads().getByRole("button", { name: /Bob/ }),
+        threads().getByRole("button", { name: /^Bob/ }),
       ).toHaveAccessibleName(/1 unread message/);
     });
 
@@ -2858,7 +2976,7 @@ describe("direct messages", () => {
       receive(first.server, dm());
 
       const { user } = await reload(first);
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(
         log("Bob").queryByText("Bob left the room."),
@@ -2879,7 +2997,7 @@ describe("direct messages", () => {
       async function openBob() {
         const first = await enter();
         receive(first.server, dm({ text: "before the reload" }));
-        await first.user.click(threads().getByRole("button", { name: /Bob/ }));
+        await first.user.click(threads().getByRole("button", { name: /^Bob/ }));
         return first;
       }
 
@@ -2909,7 +3027,7 @@ describe("direct messages", () => {
         await reloadWith(first, [carol]);
 
         expect(
-          threads().getByRole("button", { name: /Bob/ }),
+          threads().getByRole("button", { name: /^Bob/ }),
         ).toBeInTheDocument();
       });
 
@@ -2983,7 +3101,7 @@ describe("direct messages", () => {
       receive(first.server, dm({ text: "before" }));
 
       const { user } = await reload(first);
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       const lines = log("Bob")
         .getAllByRole("listitem")
@@ -3012,7 +3130,7 @@ describe("direct messages", () => {
 
       for (const name of ["Bob", "Carol"]) {
         await user.click(
-          threads().getByRole("button", { name: new RegExp(name) }),
+          threads().getByRole("button", { name: new RegExp(`^${name}`) }),
         );
         expect(
           log(name).getByText("Alice rejoined the room."),
@@ -3032,7 +3150,7 @@ describe("direct messages", () => {
         expect(sessionStorage.getItem(DIRECT)).toContain("rejoined"),
       );
       const { user } = await reload(second);
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(log("Bob").getAllByText("Alice rejoined the room.")).toHaveLength(
         2,
@@ -3050,7 +3168,7 @@ describe("direct messages", () => {
 
       const { user } = setup(makeFakeServer({ refuseResume: true }));
       await screen.findByText("Chatting as Alice");
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(
         log("Bob").queryByText("Alice rejoined the room."),
@@ -3115,11 +3233,11 @@ describe("direct messages", () => {
 
       const { user } = setup();
       await screen.findByText("Chatting as Alice");
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(log("Bob").getByText("still here")).toBeInTheDocument();
       expect(log("Bob").queryByText("broken")).not.toBeInTheDocument();
-      expect(threads().getAllByRole("button")).toHaveLength(1);
+      expect(threads().getAllByRole("listitem")).toHaveLength(1);
     });
   });
 
@@ -3134,14 +3252,14 @@ describe("direct messages", () => {
       await screen.findByText("Chatting as Alice");
 
       expect(
-        threads().getByRole("button", { name: /Bob/ }),
+        threads().getByRole("button", { name: /^Bob/ }),
       ).toBeInTheDocument();
     });
 
     it("closes an open conversation when the guest leaves the room", async () => {
       const { user, server } = await enter();
       receive(server, dm());
-      await user.click(threads().getByRole("button", { name: /Bob/ }));
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       await user.click(screen.getByRole("button", { name: "Leave room" }));
       await screen.findByRole("heading", { name: "Public rooms" });

@@ -14,7 +14,7 @@
     "privateHeading": "Private messages",
     "private": "Choose a person next to the message box, or click a private message, to write only to them. Private messages only reach people who are in the same room right now, and are kept only in this tab.",
     "conversationsHeading": "Your conversations",
-    "conversations": "Private conversations are listed under Direct messages, next to the message box. A number shows how many messages you have not read.",
+    "conversations": "Private conversations are listed under Direct messages, next to the message box. A number shows how many messages you have not read; opening the conversation clears it. The bell next to a person stops notifications from them, and the switch above the list stops them from everybody.",
     "blockingHeading": "Blocking",
     "blocking": "Open a private conversation to block somebody who bothers you. Their messages then no longer reach you.",
     "keyboardHeading": "Keyboard",
@@ -104,6 +104,9 @@
     "search": "Search people",
     "filter": "Filter people",
     "noMatches": "Nobody matches.",
+    "notify": "Notify me about direct messages",
+    "muteFrom": "Stop notifications from {{name}}",
+    "unmuteFrom": "Turn on notifications from {{name}}",
     "all": "All",
     "replyPlaceholder": "Write a private message to {{name}}"
   },
