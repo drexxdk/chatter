@@ -2003,6 +2003,61 @@ describe("direct messages", () => {
       expect(rows()[1]).toHaveFocus();
     });
 
+    it("puts the cursor in the message box after choosing somebody with the keyboard", async () => {
+      const { user, server } = await enter();
+      receive(server, dm({ text: "psst" }));
+
+      screen
+        .getByRole("log")
+        .querySelector<HTMLElement>("[data-nav-id]")!
+        .focus();
+      await user.keyboard("{Enter}{Enter}");
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole("textbox", { name: "Message to Bob" }),
+        ).toHaveFocus(),
+      );
+    });
+
+    it("puts the cursor in the conversation's box after opening it with the keyboard", async () => {
+      const { user, server } = await enter();
+      receive(server, dm({ text: "psst" }));
+
+      screen
+        .getByRole("log")
+        .querySelector<HTMLElement>("[data-nav-id]")!
+        .focus();
+      await user.keyboard("{Enter}");
+      await user.click(
+        await screen.findByRole("menuitem", { name: "Open private chat" }),
+      );
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole("textbox", { name: "Message to Bob" }),
+        ).toHaveFocus(),
+      );
+    });
+
+    it("leaves the cursor alone when somebody was chosen with the mouse", async () => {
+      const { user, server } = await enter();
+      receive(server, dm({ text: "psst" }));
+      document.documentElement.setAttribute("data-pointer", "");
+
+      try {
+        await openMenu(user, "Bob");
+        await user.click(screen.getByRole("menuitem", { name: "Message Bob" }));
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        expect(
+          screen.getByRole("textbox", { name: "Message to Bob" }),
+        ).not.toHaveFocus();
+      } finally {
+        document.documentElement.removeAttribute("data-pointer");
+      }
+    });
+
     it("opens the private conversation from the menu", async () => {
       const { user, server } = await enter();
       receive(server, dm({ text: "psst" }));

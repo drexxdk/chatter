@@ -21,6 +21,7 @@ import { PLAIN_AVATAR } from "../chat/avatar";
 import type { Partner } from "../chat/direct";
 import { timeline, withDirect, type RoomEvent } from "../chat/roomEvents";
 import { loadShowMovements, saveShowMovements } from "../preferences";
+import { focusMessageBox } from "../focusMessageBox";
 import { NAV_STOP_CLASS, navStop, useRowNavigation } from "../rowNavigation";
 import { DirectChat } from "./DirectChat";
 import { ErrorAlert } from "./ErrorAlert";
@@ -155,6 +156,12 @@ export function ChatRoom({
 
   function chooseRecipient(guestId: string | null) {
     startReply(recipients.find((person) => person.guestId === guestId) ?? null);
+    focusMessageBox();
+  }
+
+  function openConversation(partner: Partner) {
+    direct.open(partner);
+    focusMessageBox();
   }
 
   const personMenu = (partner: Partner, id: string, mine = false) => {
@@ -168,8 +175,11 @@ export function ChatRoom({
         side={mine ? "left" : "right"}
         present={members.some((member) => member.guestId === partner.guestId)}
         blocked={blocked}
-        onMessage={() => startReply(partner)}
-        onOpenChat={() => direct.open(partner)}
+        onMessage={() => {
+          startReply(partner);
+          focusMessageBox();
+        }}
+        onOpenChat={() => openConversation(partner)}
         onToggleBlock={() =>
           void direct.setBlocked(partner.guestId, !blocked).then((result) => {
             if (!result.ok) setReplyFailure(result);
@@ -350,7 +360,7 @@ export function ChatRoom({
                   value={replyTo}
                   onChange={chooseRecipient}
                   threads={direct.threads}
-                  onOpenThread={direct.open}
+                  onOpenThread={openConversation}
                   showMovements={showMovements}
                   notify={direct.notify}
                   onNotifyChange={direct.setNotify}
@@ -407,7 +417,7 @@ export function ChatRoom({
           members={members}
           selfGuestId={session.guestId}
           threads={direct.threads}
-          onOpen={direct.open}
+          onOpen={openConversation}
           showMovements={showMovements}
           onShowMovementsChange={changeShowMovements}
           notify={direct.notify}

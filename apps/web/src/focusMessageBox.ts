@@ -1,0 +1,25 @@
+// After choosing somebody to write to with the keyboard, the cursor goes to the message box so the guest can start
+// typing. It waits for slide-outs and menus to be gone first: they hand focus back to what opened them as they close,
+// which would take it away again. Not after a click or tap, where it would only open the keyboard on a phone.
+export function focusMessageBox() {
+  if (document.documentElement.hasAttribute("data-pointer")) return;
+
+  const started = performance.now();
+
+  const attempt = () => {
+    const overlay = document.querySelector('[role="dialog"], [role="menu"]');
+    const box = document.querySelector<HTMLElement>(
+      "#message:not(:disabled), #direct-message:not(:disabled)",
+    );
+
+    if (!overlay && box) {
+      box.focus();
+      // Once more, in case something was still handing focus back as this ran.
+      requestAnimationFrame(() => box.focus());
+    } else if (performance.now() - started < 1000) {
+      requestAnimationFrame(attempt);
+    }
+  };
+
+  requestAnimationFrame(attempt);
+}
