@@ -434,6 +434,11 @@ export function createSocketServer(
         return reply({ ok: false, error: "invalid_message" });
       }
 
+      // Somebody the guest has blocked is not written to until they are unblocked.
+      if (data.blockedGuestIds.includes(toGuestId)) {
+        return reply({ ok: false, error: "recipient_blocked" });
+      }
+
       const refuse = (waitMs: number) =>
         reply({ ok: false, error: "rate_limited", retryAfterMs: waitMs });
       const firstWait = directMessageWaitMs(data, toGuestId, Date.now());

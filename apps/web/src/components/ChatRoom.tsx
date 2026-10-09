@@ -24,6 +24,7 @@ import { loadShowMovements, saveShowMovements } from "../preferences";
 import { focusMessageBox } from "../focusMessageBox";
 import { NAV_STOP_CLASS, navStop, useRowNavigation } from "../rowNavigation";
 import { DirectChat } from "./DirectChat";
+import { BlockedTag } from "./DirectLists";
 import { ErrorAlert } from "./ErrorAlert";
 import { DirectRow, MessageRow, StatusRow } from "./MessageRow";
 import { MessageInput } from "./MessageInput";
@@ -74,6 +75,9 @@ export function ChatRoom({
   >();
   const replyPresent =
     !replyTo || members.some((member) => member.guestId === replyTo.guestId);
+  // Somebody who has been blocked is not written to until they are unblocked.
+  const replyBlocked = !!replyTo && direct.blockedIds.includes(replyTo.guestId);
+  const canWrite = connected && replyPresent && !replyBlocked;
 
   // Every message is a stop for the arrow keys, the only way to move through a long chat without a mouse; the notices
   // between them have nothing to read or do.
@@ -115,7 +119,7 @@ export function ChatRoom({
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed || replyBlocked) return;
 
     // What the guest has just written is what they want to see.
     atBottom.current = true;
@@ -221,6 +225,9 @@ export function ChatRoom({
               <h3 className="truncate text-lg font-semibold">
                 {t("dm.title", { name: direct.active.nickname })}
               </h3>
+              {direct.blockedIds.includes(direct.active.guestId) && (
+                <BlockedTag />
+              )}
             </div>
           )}
 
@@ -280,6 +287,7 @@ export function ChatRoom({
                     sentAt={item.message.sentAt}
                     text={item.message.text}
                     banned={item.message.banned}
+                    blocked={direct.blockedIds.includes(item.partner.guestId)}
                     menu={personMenu(
                       item.partner,
                       item.message.id,
@@ -313,6 +321,7 @@ export function ChatRoom({
                     role={item.message.role ?? "guest"}
                     avatar={item.message.avatar ?? PLAIN_AVATAR}
                     sentAt={item.message.sentAt}
+                    blocked={direct.blockedIds.includes(item.message.guestId)}
                     text={item.message.text}
                     stop={{
                       id: item.message.id,
@@ -365,6 +374,8 @@ export function ChatRoom({
                   notify={direct.notify}
                   onNotifyChange={direct.setNotify}
                   onSetMuted={direct.setMuted}
+                  blockedIds={direct.blockedIds}
+                  onSetBlocked={direct.setBlocked}
                   onShowMovementsChange={changeShowMovements}
                 />
                 <label htmlFor="message" className="sr-only">
@@ -377,17 +388,19 @@ export function ChatRoom({
                   value={text}
                   onChange={(event) => setText(event.target.value)}
                   autoComplete="off"
-                  disabled={!connected || !replyPresent}
+                  disabled={!canWrite}
                   placeholder={
-                    replyTo
-                      ? t("dm.replyPlaceholder", { name: replyTo.nickname })
-                      : t("room.messagePlaceholder")
+                    replyBlocked && replyTo
+                      ? t("dm.blockedPlaceholder", { name: replyTo.nickname })
+                      : replyTo
+                        ? t("dm.replyPlaceholder", { name: replyTo.nickname })
+                        : t("room.messagePlaceholder")
                   }
                   className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
                 />
                 <button
                   type="submit"
-                  disabled={!connected || !replyPresent}
+                  disabled={!canWrite}
                   aria-label={t("room.send")}
                   className="rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
                 >
@@ -398,6 +411,21 @@ export function ChatRoom({
               {replyTo && !replyPresent && (
                 <p role="status" className="text-sm text-amber-300">
                   {t("dm.away", { name: replyTo.nickname })}
+                </p>
+              )}
+
+              {replyTo && replyBlocked && (
+                <p role="status" className="text-sm text-amber-300">
+                  {t("dm.blockedWrite", { name: replyTo.nickname })}{" "}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void direct.setBlocked(replyTo.guestId, false)
+                    }
+                    className="font-semibold underline hover:text-amber-200"
+                  >
+                    {t("dm.unblockAction")}
+                  </button>
                 </p>
               )}
 
@@ -421,6 +449,8 @@ export function ChatRoom({
           showMovements={showMovements}
           onShowMovementsChange={changeShowMovements}
           notify={direct.notify}
+          blockedIds={direct.blockedIds}
+          onSetBlocked={direct.setBlocked}
           onNotifyChange={direct.setNotify}
           onSetMuted={direct.setMuted}
         />

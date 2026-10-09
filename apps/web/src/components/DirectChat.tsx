@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { SendHorizontal } from "lucide-react";
+import { Ban, SendHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { DirectEntry, Partner } from "../chat/direct";
@@ -74,8 +74,19 @@ export function DirectChat({
       )}
 
       {blocked && (
-        <p className="text-sm text-amber-300">
-          {t("dm.blocked", { name: partner.nickname })}
+        <p
+          role="status"
+          className="flex flex-wrap items-center gap-x-2 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200"
+        >
+          <Ban aria-hidden="true" className="h-4 w-4 shrink-0" />
+          <span>{t("dm.blocked", { name: partner.nickname })}</span>
+          <button
+            type="button"
+            onClick={() => void toggleBlock()}
+            className="font-semibold underline hover:text-red-100"
+          >
+            {t("dm.unblockAction")}
+          </button>
         </p>
       )}
 
@@ -143,13 +154,17 @@ export function DirectChat({
             value={text}
             onChange={(event) => setText(event.target.value)}
             autoComplete="off"
-            disabled={!present}
-            placeholder={t("room.messagePlaceholder")}
+            disabled={!present || blocked}
+            placeholder={
+              blocked
+                ? t("dm.blockedPlaceholder", { name: partner.nickname })
+                : t("room.messagePlaceholder")
+            }
             className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
           />
           <button
             type="submit"
-            disabled={!present}
+            disabled={!present || blocked}
             aria-label={t("room.send")}
             className="rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
           >

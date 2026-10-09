@@ -1,5 +1,5 @@
 import { Field, Label, Switch } from "@headlessui/react";
-import { Bell, BellOff } from "lucide-react";
+import { Ban, Bell, BellOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { DirectThread, Partner } from "../chat/direct";
@@ -10,15 +10,29 @@ import { AvatarIcon } from "./Avatar";
 const nameClass = (role: Partner["role"]) =>
   role === "moderator" ? "font-bold text-green-400" : undefined;
 
+// Marks somebody the guest has blocked, in words as well as the icon.
+export function BlockedTag() {
+  const { t } = useTranslation();
+
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded bg-red-500/15 px-1.5 py-0.5 text-xs font-semibold text-red-300">
+      <Ban aria-hidden="true" className="h-3 w-3" />
+      {t("dm.blockedTag")}
+    </span>
+  );
+}
+
 // Everybody in the room, the guest included (not clickable: there is nobody to write to). A name opens a conversation,
 // which is only listed below once something has been said.
 export function PeopleList({
   members,
   selfGuestId,
+  blockedIds,
   onOpen,
 }: {
   members: Member[];
   selfGuestId: string;
+  blockedIds: string[];
   onOpen: (partner: Partner) => void;
 }) {
   const { t } = useTranslation();
@@ -54,6 +68,7 @@ export function PeopleList({
               >
                 <AvatarIcon avatar={avatar} small />
                 <span className={nameClass(role)}>{member.nickname}</span>
+                {blockedIds.includes(member.guestId) && <BlockedTag />}
               </button>
             )}
           </li>
@@ -69,14 +84,18 @@ export function PeopleList({
 export function ThreadList({
   threads,
   notify,
+  blockedIds,
   onOpen,
   onSetMuted,
+  onSetBlocked,
 }: {
   threads: DirectThread[];
   // Whether notifications are on at all; the bells have nothing to do while they are not.
   notify: boolean;
+  blockedIds: string[];
   onOpen: (partner: Partner) => void;
   onSetMuted: (guestId: string, muted: boolean) => void;
+  onSetBlocked: (guestId: string, blocked: boolean) => void;
 }) {
   const { t } = useTranslation();
 
@@ -109,6 +128,7 @@ export function ThreadList({
               <span className={`truncate ${nameClass(thread.role) ?? ""}`}>
                 {thread.nickname}
               </span>
+              {blockedIds.includes(thread.guestId) && <BlockedTag />}
             </span>
             {thread.unread > 0 && (
               <>
@@ -125,25 +145,36 @@ export function ThreadList({
               </>
             )}
           </button>
-          <button
-            type="button"
-            aria-pressed={thread.muted === true}
-            disabled={!notify}
-            onClick={() => onSetMuted(thread.guestId, !thread.muted)}
-            aria-label={t(thread.muted ? "dm.unmuteFrom" : "dm.muteFrom", {
-              name: thread.nickname,
-            })}
-            title={t(thread.muted ? "dm.unmuteFrom" : "dm.muteFrom", {
-              name: thread.nickname,
-            })}
-            className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 disabled:opacity-40 disabled:hover:bg-transparent"
-          >
-            {thread.muted ? (
-              <BellOff aria-hidden="true" className="h-4 w-4" />
-            ) : (
-              <Bell aria-hidden="true" className="h-4 w-4" />
-            )}
-          </button>
+          {blockedIds.includes(thread.guestId) ? (
+            <button
+              type="button"
+              onClick={() => onSetBlocked(thread.guestId, false)}
+              aria-label={t("dm.unblock", { name: thread.nickname })}
+              className="shrink-0 rounded px-2 py-1 text-xs font-semibold text-slate-200 underline hover:bg-slate-800"
+            >
+              {t("dm.unblockAction")}
+            </button>
+          ) : (
+            <button
+              type="button"
+              aria-pressed={thread.muted === true}
+              disabled={!notify}
+              onClick={() => onSetMuted(thread.guestId, !thread.muted)}
+              aria-label={t(thread.muted ? "dm.unmuteFrom" : "dm.muteFrom", {
+                name: thread.nickname,
+              })}
+              title={t(thread.muted ? "dm.unmuteFrom" : "dm.muteFrom", {
+                name: thread.nickname,
+              })}
+              className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              {thread.muted ? (
+                <BellOff aria-hidden="true" className="h-4 w-4" />
+              ) : (
+                <Bell aria-hidden="true" className="h-4 w-4" />
+              )}
+            </button>
+          )}
         </li>
       ))}
     </ul>
@@ -154,15 +185,19 @@ export function ThreadList({
 export function ThreadSection({
   threads,
   notify,
+  blockedIds,
   onNotifyChange,
   onOpen,
   onSetMuted,
+  onSetBlocked,
 }: {
   threads: DirectThread[];
   notify: boolean;
+  blockedIds: string[];
   onNotifyChange: (notify: boolean) => void;
   onOpen: (partner: Partner) => void;
   onSetMuted: (guestId: string, muted: boolean) => void;
+  onSetBlocked: (guestId: string, blocked: boolean) => void;
 }) {
   const { t } = useTranslation();
 
@@ -184,8 +219,10 @@ export function ThreadSection({
       <ThreadList
         threads={threads}
         notify={notify}
+        blockedIds={blockedIds}
         onOpen={onOpen}
         onSetMuted={onSetMuted}
+        onSetBlocked={onSetBlocked}
       />
     </div>
   );

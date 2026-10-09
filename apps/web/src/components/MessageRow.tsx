@@ -6,6 +6,7 @@ import type { Partner } from "../chat/direct";
 import type { Role } from "../chat/useChat";
 import { NAV_STOP_CLASS, navStop } from "../rowNavigation";
 import { AvatarIcon } from "./Avatar";
+import { BlockedTag } from "./DirectLists";
 
 // One line of a conversation, in a room or between two people: what others say sits on the left with their avatar,
 // what the guest says on the right. A moderator's words keep their green, bold look either way. A `menu` covers the
@@ -19,6 +20,7 @@ export function MessageRow({
   text,
   menu,
   stop,
+  blocked = false,
 }: {
   mine: boolean;
   nickname: string;
@@ -26,6 +28,7 @@ export function MessageRow({
   avatar: Avatar;
   sentAt: string;
   text: string;
+  blocked?: boolean;
   menu?: ReactNode;
   stop?: { id: string; tabStop: boolean };
 }) {
@@ -54,6 +57,7 @@ export function MessageRow({
           >
             {nickname}
           </span>
+          {blocked && <BlockedTag />}
           {moderator && (
             <span className="rounded bg-green-500/20 px-1.5 py-0.5 font-semibold uppercase text-green-300">
               {t("room.moderatorBadge")}
@@ -89,6 +93,7 @@ export function DirectRow({
   text,
   banned,
   menu,
+  blocked = false,
 }: {
   mine: boolean;
   partner: Partner;
@@ -96,6 +101,7 @@ export function DirectRow({
   text: string;
   banned?: boolean;
   menu?: ReactNode;
+  blocked?: boolean;
 }) {
   const { t } = useTranslation();
   const label = t(mine ? "dm.to" : "dm.from", { name: partner.nickname });
@@ -112,6 +118,7 @@ export function DirectRow({
       >
         <div className="flex items-center gap-2 text-xs">
           <span className="font-semibold text-amber-300">{label}</span>
+          {blocked && <BlockedTag />}
           <time dateTime={sentAt} className="text-slate-500">
             {new Date(sentAt).toLocaleTimeString()}
           </time>

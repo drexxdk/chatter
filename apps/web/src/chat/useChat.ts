@@ -870,6 +870,8 @@ export function useChat(
           ? [...blockedRef.current.filter((id) => id !== guestId), guestId]
           : blockedRef.current.filter((id) => id !== guestId);
         setBlockedIds(blockedRef.current);
+        // What they wrote before is not going to be answered from here.
+        if (blocked) setThreads((previous) => markRead(previous, guestId));
       }
 
       return result;

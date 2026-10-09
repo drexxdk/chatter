@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { AVATARS, type Avatar } from "../chat/avatar";
 import type { DirectThread, Partner } from "../chat/direct";
 import { AvatarIcon } from "./Avatar";
-import { ThreadSection } from "./DirectLists";
+import { BlockedTag, ThreadSection } from "./DirectLists";
 import { SideDrawer } from "./SideDrawer";
 
 const chip = (active: boolean) =>
@@ -29,6 +29,8 @@ export function RecipientPicker({
   notify,
   onNotifyChange,
   onSetMuted,
+  blockedIds,
+  onSetBlocked,
 }: {
   recipients: Partner[];
   value: Partner | null;
@@ -40,6 +42,8 @@ export function RecipientPicker({
   notify: boolean;
   onSetMuted: (guestId: string, muted: boolean) => void;
   onNotifyChange: (notify: boolean) => void;
+  blockedIds: string[];
+  onSetBlocked: (guestId: string, blocked: boolean) => void;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -168,27 +172,43 @@ export function RecipientPicker({
               {t("dm.all")}
             </button>
           </li>
-          {shown.map((person) => (
-            <li key={person.guestId}>
-              <button
-                type="button"
-                aria-current={value?.guestId === person.guestId}
-                onClick={() => choose(person.guestId)}
-                className={row(value?.guestId === person.guestId)}
-              >
-                <AvatarIcon avatar={person.avatar} small />
-                <span
-                  className={
-                    person.role === "moderator"
-                      ? "font-bold text-green-400"
-                      : undefined
-                  }
+          {shown.map((person) => {
+            const blocked = blockedIds.includes(person.guestId);
+
+            return (
+              <li key={person.guestId} className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={blocked}
+                  aria-current={value?.guestId === person.guestId}
+                  onClick={() => choose(person.guestId)}
+                  className={`${row(value?.guestId === person.guestId)} min-w-0 flex-1 disabled:opacity-60 disabled:hover:bg-transparent`}
                 >
-                  {person.nickname}
-                </span>
-              </button>
-            </li>
-          ))}
+                  <AvatarIcon avatar={person.avatar} small />
+                  <span
+                    className={
+                      person.role === "moderator"
+                        ? "truncate font-bold text-green-400"
+                        : "truncate"
+                    }
+                  >
+                    {person.nickname}
+                  </span>
+                  {blocked && <BlockedTag />}
+                </button>
+                {blocked && (
+                  <button
+                    type="button"
+                    onClick={() => onSetBlocked(person.guestId, false)}
+                    aria-label={t("dm.unblock", { name: person.nickname })}
+                    className="shrink-0 rounded px-2 py-1 text-xs font-semibold text-slate-200 underline hover:bg-slate-800"
+                  >
+                    {t("dm.unblockAction")}
+                  </button>
+                )}
+              </li>
+            );
+          })}
           {filtering && shown.length === 0 && (
             <li className="px-2 py-1.5 text-sm text-slate-500">
               {t("dm.noMatches")}
@@ -199,12 +219,14 @@ export function RecipientPicker({
         <ThreadSection
           threads={threads}
           notify={notify}
+          blockedIds={blockedIds}
           onNotifyChange={onNotifyChange}
           onOpen={(partner) => {
             onOpenThread(partner);
             setOpen(false);
           }}
           onSetMuted={onSetMuted}
+          onSetBlocked={onSetBlocked}
         />
 
         <label className="flex items-center gap-2 text-sm text-slate-300 md:hidden">

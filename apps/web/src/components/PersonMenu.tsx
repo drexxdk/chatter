@@ -54,7 +54,7 @@ export function PersonMenu({
         anchor={side === "left" ? "bottom start" : "bottom end"}
         className="z-50 min-w-52 rounded-md border border-slate-700 bg-slate-900 p-1 shadow-lg [--anchor-gap:0.25rem] focus:outline-none"
       >
-        <MenuItem disabled={!present}>
+        <MenuItem disabled={!present || blocked}>
           <button type="button" onClick={onMessage} className={item}>
             <MessageSquare aria-hidden="true" className="h-4 w-4" />
             {t("person.message", { name: partner.nickname })}

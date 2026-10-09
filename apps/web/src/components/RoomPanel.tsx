@@ -16,6 +16,8 @@ export function RoomPanel({
   notify,
   onNotifyChange,
   onSetMuted,
+  blockedIds,
+  onSetBlocked,
 }: {
   members: Member[];
   selfGuestId: string;
@@ -26,6 +28,8 @@ export function RoomPanel({
   notify: boolean;
   onNotifyChange: (notify: boolean) => void;
   onSetMuted: (guestId: string, muted: boolean) => void;
+  blockedIds: string[];
+  onSetBlocked: (guestId: string, blocked: boolean) => void;
 }) {
   const { t } = useTranslation();
 
@@ -38,6 +42,7 @@ export function RoomPanel({
         <PeopleList
           members={members}
           selfGuestId={selfGuestId}
+          blockedIds={blockedIds}
           onOpen={onOpen}
         />
       </div>
@@ -45,9 +50,11 @@ export function RoomPanel({
       <ThreadSection
         threads={threads}
         notify={notify}
+        blockedIds={blockedIds}
         onNotifyChange={onNotifyChange}
         onOpen={onOpen}
         onSetMuted={onSetMuted}
+        onSetBlocked={onSetBlocked}
       />
 
       <label className="flex items-center gap-2 text-sm text-slate-300">

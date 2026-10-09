@@ -2026,6 +2026,22 @@ describe("direct messages", () => {
       expect(bob.received).toEqual([]);
     });
 
+    it("refuses a message to somebody the guest has blocked, until they are unblocked", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      await emit(alice.socket, "dm:block", { guestId: bob.guestId });
+
+      expect(await send(alice, bob, "sorry")).toEqual({
+        ok: false,
+        error: "recipient_blocked",
+      });
+      expect(bob.received).toEqual([]);
+
+      await emit(alice.socket, "dm:unblock", { guestId: bob.guestId });
+
+      expect(await send(alice, bob, "sorry")).toEqual({ ok: true });
+    });
+
     it("lets the blocked guest through again once unblocked", async () => {
       const alice = await inRoom({ nickname: "Alice" });
       const bob = await inRoom({ nickname: "Bob" });
@@ -2050,15 +2066,16 @@ describe("direct messages", () => {
       expect((await heard).fromNickname).toBe("Carol");
     });
 
-    it("does not stop what bob sends to alice", async () => {
+    it("does not let the guest who blocked somebody write to them either", async () => {
       const alice = await inRoom({ nickname: "Alice" });
       const bob = await inRoom({ nickname: "Bob" });
       await emit(bob.socket, "dm:block", { guestId: alice.guestId });
-      const heard = waitFor<DirectMessage>(alice.socket, "dm:new");
 
-      await send(bob, alice);
-
-      expect((await heard).fromNickname).toBe("Bob");
+      expect(await send(bob, alice)).toEqual({
+        ok: false,
+        error: "recipient_blocked",
+      });
+      expect(alice.received).toEqual([]);
     });
 
     // A moderator has to be able to warn somebody who would rather not hear it.
