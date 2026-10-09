@@ -1,4 +1,10 @@
-import { useLayoutEffect, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { ArrowLeft, SendHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -15,9 +21,11 @@ import { PLAIN_AVATAR } from "../chat/avatar";
 import type { Partner } from "../chat/direct";
 import { timeline, withDirect, type RoomEvent } from "../chat/roomEvents";
 import { loadShowMovements, saveShowMovements } from "../preferences";
+import { NAV_STOP_CLASS, navStop, useRowNavigation } from "../rowNavigation";
 import { DirectChat } from "./DirectChat";
 import { ErrorAlert } from "./ErrorAlert";
 import { DirectRow, MessageRow, StatusRow } from "./MessageRow";
+import { MessageInput } from "./MessageInput";
 import { PersonMenu } from "./PersonMenu";
 import { RecipientPicker } from "./RecipientPicker";
 import { RoomPanel } from "./RoomPanel";
@@ -66,17 +74,50 @@ export function ChatRoom({
   const replyPresent =
     !replyTo || members.some((member) => member.guestId === replyTo.guestId);
 
+  // Every message is a stop for the arrow keys, the only way to move through a long chat without a mouse; the notices
+  // between them have nothing to read or do.
+  const navIds = items.flatMap((item) =>
+    item.kind === "event" ? [] : [item.message.id],
+  );
+  const rows = useRowNavigation(navIds);
+
+  // Whether the page is at its end, so that something new only scrolls it when the guest is not reading further up.
+  const atBottom = useRef(true);
+  useEffect(() => {
+    const page = document.documentElement;
+    const update = () => {
+      atBottom.current =
+        page.scrollHeight - page.scrollTop - page.clientHeight < 120;
+    };
+
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
+
+  const scrollToEnd = () => {
+    const page = document.documentElement;
+    page.scrollTop = page.scrollHeight;
+  };
+
   // The sticky message bar covers the page's end, so scrolling the last item into view would stop short of it.
   const openGuestId = direct.active?.guestId ?? null;
   useLayoutEffect(() => {
-    const page = document.documentElement;
-    page.scrollTop = page.scrollHeight;
-  }, [messages, events, showMovements, direct.threads, openGuestId]);
+    if (atBottom.current) scrollToEnd();
+  }, [messages, events, showMovements, direct.threads]);
+
+  // Opening or closing a conversation shows a different page, which starts at its end.
+  useLayoutEffect(() => {
+    atBottom.current = true;
+    scrollToEnd();
+  }, [openGuestId]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const trimmed = text.trim();
     if (!trimmed) return;
+
+    // What the guest has just written is what they want to see.
+    atBottom.current = true;
 
     if (replyTo) {
       const result = await direct.send(replyTo.guestId, trimmed);
@@ -116,12 +157,14 @@ export function ChatRoom({
     startReply(recipients.find((person) => person.guestId === guestId) ?? null);
   }
 
-  const personMenu = (partner: Partner, mine = false) => {
+  const personMenu = (partner: Partner, id: string, mine = false) => {
     const blocked = direct.blockedIds.includes(partner.guestId);
 
     return (
       <PersonMenu
         partner={partner}
+        navId={id}
+        tabStop={id === rows.stopId}
         side={mine ? "left" : "right"}
         present={members.some((member) => member.guestId === partner.guestId)}
         blocked={blocked}
@@ -202,6 +245,9 @@ export function ChatRoom({
               role="log"
               aria-live="polite"
               aria-label={roomName}
+              onFocus={rows.onFocus}
+              onBlur={rows.onBlur}
+              onKeyDownCapture={rows.onKeyDownCapture}
               className="flex min-h-40 flex-1 flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900 p-3 [&>*]:shrink-0 [&>:first-child]:mt-auto"
             >
               {items.length === 0 && (
@@ -226,11 +272,19 @@ export function ChatRoom({
                     banned={item.message.banned}
                     menu={personMenu(
                       item.partner,
+                      item.message.id,
                       ownGuestIds.includes(item.message.fromGuestId),
                     )}
                   />
                 ) : item.message.banned ? (
-                  <li key={item.message.id}>
+                  <li
+                    key={item.message.id}
+                    {...navStop(
+                      item.message.id,
+                      item.message.id === rows.stopId,
+                    )}
+                    className={`-mx-2 rounded-lg px-2 py-1 ${NAV_STOP_CLASS}`}
+                  >
                     <span className="font-semibold italic text-red-400">
                       {t("room.bannedMessage")}
                     </span>
@@ -250,15 +304,22 @@ export function ChatRoom({
                     avatar={item.message.avatar ?? PLAIN_AVATAR}
                     sentAt={item.message.sentAt}
                     text={item.message.text}
+                    stop={{
+                      id: item.message.id,
+                      tabStop: item.message.id === rows.stopId,
+                    }}
                     menu={
                       ownGuestIds.includes(item.message.guestId)
                         ? undefined
-                        : personMenu({
-                            guestId: item.message.guestId,
-                            nickname: item.message.nickname,
-                            role: item.message.role ?? "guest",
-                            avatar: item.message.avatar ?? PLAIN_AVATAR,
-                          })
+                        : personMenu(
+                            {
+                              guestId: item.message.guestId,
+                              nickname: item.message.nickname,
+                              role: item.message.role ?? "guest",
+                              avatar: item.message.avatar ?? PLAIN_AVATAR,
+                            },
+                            item.message.id,
+                          )
                     }
                   />
                 ),
@@ -283,7 +344,7 @@ export function ChatRoom({
                 }}
               />
 
-              <form onSubmit={handleSubmit} className="flex gap-2">
+              <form onSubmit={handleSubmit} className="flex items-end gap-2">
                 <RecipientPicker
                   recipients={recipients}
                   value={replyTo}
@@ -298,11 +359,10 @@ export function ChatRoom({
                     ? t("dm.label", { name: replyTo.nickname })
                     : t("room.messageLabel")}
                 </label>
-                <input
+                <MessageInput
                   id="message"
                   value={text}
                   onChange={(event) => setText(event.target.value)}
-                  maxLength={1000}
                   autoComplete="off"
                   disabled={!connected || !replyPresent}
                   placeholder={

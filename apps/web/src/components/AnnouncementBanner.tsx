@@ -21,7 +21,7 @@ export function AnnouncementBanner({
           {t("announcement.from", { name: announcement.name })}
         </p>
         {/* Rendered as text, never as HTML. */}
-        <p className="whitespace-pre-wrap break-words font-bold text-green-300">
+        <p className="whitespace-pre-wrap wrap-anywhere font-bold text-green-300">
           {announcement.text}
         </p>
       </div>

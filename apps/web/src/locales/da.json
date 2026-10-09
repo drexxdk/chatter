@@ -17,6 +17,8 @@
     "conversations": "Private samtaler står under Direkte beskeder ved siden af beskedfeltet. Et tal viser, hvor mange beskeder du ikke har læst.",
     "blockingHeading": "Bloker",
     "blocking": "Åbn en privat samtale for at blokere en, der generer dig. Vedkommendes beskeder når så ikke længere frem til dig.",
+    "keyboardHeading": "Tastatur",
+    "keyboard": "Tab går til de beskeder, du kan gøre noget ved. Brug så pil op og pil ned til at flytte mellem dem, Home og End til at hoppe til den ældste og nyeste, og Enter til at åbne menuen for en besked. Tab igen forlader beskederne.",
     "moderatorsHeading": "Moderatorer",
     "moderators": "Personer med et grønt Moderator-mærke passer på chatten. De kan sende meddelelser til hele rummet."
   },

@@ -7,6 +7,7 @@ import { isStatus } from "../chat/direct";
 import type { ActionResult } from "../chat/useChat";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageRow, StatusRow } from "./MessageRow";
+import { MessageInput } from "./MessageInput";
 
 interface DirectChatProps {
   partner: Partner & { entries: DirectEntry[] };
@@ -133,15 +134,14 @@ export function DirectChat({
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="flex gap-2">
+        <form onSubmit={handleSubmit} className="flex items-end gap-2">
           <label htmlFor="direct-message" className="sr-only">
             {t("dm.label", { name: partner.nickname })}
           </label>
-          <input
+          <MessageInput
             id="direct-message"
             value={text}
             onChange={(event) => setText(event.target.value)}
-            maxLength={1000}
             autoComplete="off"
             disabled={!present}
             placeholder={t("room.messagePlaceholder")}

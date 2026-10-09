@@ -17,6 +17,8 @@
     "conversations": "Private conversations are listed under Direct messages, next to the message box. A number shows how many messages you have not read.",
     "blockingHeading": "Blocking",
     "blocking": "Open a private conversation to block somebody who bothers you. Their messages then no longer reach you.",
+    "keyboardHeading": "Keyboard",
+    "keyboard": "Tab goes to the messages you can act on. Then use the up and down arrows to move between them, Home and End to jump to the oldest and newest, and Enter to open the menu for a message. Tab again leaves the messages.",
     "moderatorsHeading": "Moderators",
     "moderators": "People with a green Moderator badge look after the chat. They can post announcements to the whole room."
   },

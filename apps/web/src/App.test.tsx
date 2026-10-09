@@ -344,6 +344,48 @@ describe("inside a room", () => {
     expect(server.latest.emittedEvents("message:send")).toEqual([]);
   });
 
+  describe("the message box", () => {
+    it("sends on Enter, and starts a new line on Shift+Enter", async () => {
+      const { user, server } = await enterRoom();
+      const box = screen.getByLabelText("Message");
+
+      await user.type(box, "first{Shift>}{Enter}{/Shift}second");
+      expect(box).toHaveValue("first\nsecond");
+      expect(server.latest.emittedEvents("message:send")).toEqual([]);
+
+      await user.keyboard("{Enter}");
+
+      await waitFor(() =>
+        expect(server.latest.emittedEvents("message:send")).toEqual([
+          { text: "first\nsecond" },
+        ]),
+      );
+    });
+
+    it("starts as one line and holds at most 500 characters", async () => {
+      await enterRoom();
+      const box = screen.getByLabelText("Message");
+
+      expect(box).toHaveAttribute("rows", "1");
+      expect(box).toHaveAttribute("maxlength", "500");
+    });
+
+    it("shows the lines of a message", async () => {
+      const { server } = await enterRoom();
+
+      act(() =>
+        server.latest.serverEmit("message:new", message({ text: "one\ntwo" })),
+      );
+
+      expect(
+        screen.getByText(
+          (_, element) =>
+            element?.textContent === "one\ntwo" && element.tagName === "P",
+        ),
+      ).toHaveClass("whitespace-pre-wrap");
+    });
+  });
+
   it("keeps the draft and explains why when a message is rejected", async () => {
     const { user, server } = await enterRoom();
     server.latest.acks["message:send"] = () => ({
@@ -1882,6 +1924,83 @@ describe("direct messages", () => {
           { guestId: "guest-bob" },
         ]),
       );
+    });
+
+    it("makes the chat one tab stop, with the arrow keys moving between every message", async () => {
+      const { user, server } = await enter();
+      act(() => {
+        server.latest.serverEmit(
+          "message:new",
+          message({
+            guestId: ME,
+            nickname: "Alice",
+            text: "mine",
+            sentAt: at(1),
+          }),
+        );
+        server.latest.serverEmit(
+          "message:new",
+          message({ text: "from Bob", sentAt: at(2) }),
+        );
+        server.latest.serverEmit(
+          "message:new",
+          message({
+            guestId: carol.guestId,
+            nickname: "Carol",
+            text: "from Carol",
+            sentAt: at(3),
+          }),
+        );
+      });
+      const rows = () =>
+        Array.from(document.querySelectorAll<HTMLElement>("[data-nav-id]"));
+
+      expect(rows()).toHaveLength(3);
+      expect(rows().filter((row) => row.tabIndex === 0)).toEqual([rows()[2]]);
+
+      rows()[2].focus();
+      await user.keyboard("{ArrowUp}");
+      expect(rows()[1]).toHaveFocus();
+
+      await user.keyboard("{ArrowUp}");
+      expect(rows()[0]).toHaveFocus();
+
+      await user.keyboard("{ArrowUp}");
+      expect(rows()[0]).toHaveFocus();
+
+      await user.keyboard("{End}");
+      expect(rows()[2]).toHaveFocus();
+
+      await user.keyboard("{Home}");
+      expect(rows()[0]).toHaveFocus();
+
+      await user.keyboard("{ArrowDown}{Enter}");
+      expect(await screen.findByRole("menu")).toBeInTheDocument();
+    });
+
+    it("returns to the newest message when the chat is tabbed back into", async () => {
+      const { user, server } = await enter();
+      act(() => {
+        server.latest.serverEmit(
+          "message:new",
+          message({ text: "older", sentAt: at(1) }),
+        );
+        server.latest.serverEmit(
+          "message:new",
+          message({ text: "newest", sentAt: at(2) }),
+        );
+      });
+      const rows = () =>
+        Array.from(document.querySelectorAll<HTMLElement>("[data-nav-id]"));
+
+      rows()[1].focus();
+      await user.keyboard("{ArrowUp}");
+      expect(rows()[0]).toHaveFocus();
+
+      await user.tab();
+      await user.tab({ shift: true });
+
+      expect(rows()[1]).toHaveFocus();
     });
 
     it("opens the private conversation from the menu", async () => {

@@ -25,7 +25,7 @@ import { getCachedPublicRooms } from "./rooms.js";
 import { newResumeSecret, rememberResume, verifyResume } from "./resume.js";
 import { verifyToken } from "./tokens.js";
 
-const MAX_MESSAGE_LENGTH = 1000;
+const MAX_MESSAGE_LENGTH = 500;
 const MAX_ANNOUNCEMENT_LENGTH = 500;
 const RATE_LIMIT_MAX_MESSAGES = 5;
 const RATE_LIMIT_WINDOW_MS = 5_000;
@@ -90,6 +90,15 @@ function stringField(payload: unknown, field: string): string {
     field
   ];
   return typeof value === "string" ? value : "";
+}
+
+// A message may run over several lines, but a run of blank ones would only make it tall: more than one in a row is
+// cut to one.
+function messageText(payload: unknown): string {
+  return stringField(payload, "text")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 // Milliseconds until this connection may send another message of any kind; 0 when it may now. Messages in rooms and
@@ -419,7 +428,7 @@ export function createSocketServer(
         return reply({ ok: false, error: "invalid_recipient" });
       }
 
-      const text = stringField(payload, "text").trim();
+      const text = messageText(payload);
 
       if (!text || text.length > MAX_MESSAGE_LENGTH) {
         return reply({ ok: false, error: "invalid_message" });
@@ -570,7 +579,7 @@ export function createSocketServer(
 
     socket.on("message:send", async (payload: unknown, ack?: Ack) => {
       const reply: Ack = typeof ack === "function" ? ack : () => {};
-      const text = stringField(payload, "text").trim();
+      const text = messageText(payload);
 
       const slug = data.roomSlug;
 

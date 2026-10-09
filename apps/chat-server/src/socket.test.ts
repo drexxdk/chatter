@@ -447,7 +447,7 @@ describe("messaging", () => {
   it.each([
     ["empty", ""],
     ["whitespace only", "   "],
-    ["too long", "x".repeat(1001)],
+    ["too long", "x".repeat(501)],
     ["not a string", 42],
   ])("rejects a %s message", async (_label, text) => {
     const alice = await connectGuest("Alice");
@@ -464,8 +464,18 @@ describe("messaging", () => {
     await emit(alice, "room:join", { slug: "general" });
 
     expect(
-      (await emit(alice, "message:send", { text: "x".repeat(1000) })).ok,
+      (await emit(alice, "message:send", { text: "x".repeat(500) })).ok,
     ).toBe(true);
+  });
+
+  it("keeps the lines of a message, but not a run of blank ones", async () => {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    const received = waitFor<Record<string, unknown>>(alice, "message:new");
+    await emit(alice, "message:send", { text: "one\r\ntwo\n\n\n\n\nthree" });
+
+    expect((await received).text).toBe("one\ntwo\n\nthree");
   });
 
   it("rate limits after 5 messages in the window", async () => {
@@ -1968,7 +1978,7 @@ describe("direct messages", () => {
       ["only spaces", "   "],
       ["missing", undefined],
       ["a number", 42],
-      ["too long", "x".repeat(1001)],
+      ["too long", "x".repeat(501)],
     ])("refuses a message that is %s", async (_label, text) => {
       const alice = await inRoom({ nickname: "Alice" });
       const bob = await inRoom({ nickname: "Bob" });
@@ -1983,7 +1993,7 @@ describe("direct messages", () => {
       const alice = await inRoom({ nickname: "Alice" });
       const bob = await inRoom({ nickname: "Bob" });
 
-      expect(await send(alice, bob, "x".repeat(1000))).toEqual({ ok: true });
+      expect(await send(alice, bob, "x".repeat(500))).toEqual({ ok: true });
     });
 
     it("answers unavailable when the room cannot be looked up", async () => {

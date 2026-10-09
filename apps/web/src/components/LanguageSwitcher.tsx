@@ -34,7 +34,7 @@ export function LanguageSwitcher() {
     <Listbox value={current.code} onChange={setLanguage}>
       <ListboxButton
         aria-label={t("language.label")}
-        className="flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+        className="flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
       >
         <Flag code={current.code} />
         <span className="hidden sm:inline">{current.label}</span>

@@ -12,6 +12,7 @@ export function InfoPanel({
     "private",
     "conversations",
     "blocking",
+    "keyboard",
   ] as const;
 
   return (

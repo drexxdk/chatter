@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+/* The sticky header and message bar cover the top and bottom of the page; whatever is scrolled to (by focus, say)
+   must land clear of them. */
+html {
+  scroll-padding-block: 8rem;
+}
+
+/* No focus ring after a click or tap; see inputMode.ts. */
+html[data-pointer] :focus-visible {
+  outline: none;
+}

@@ -14,6 +14,8 @@ export function PersonMenu({
   present,
   blocked,
   side = "right",
+  navId,
+  tabStop,
   onMessage,
   onOpenChat,
   onToggleBlock,
@@ -24,6 +26,9 @@ export function PersonMenu({
   blocked: boolean;
   // Which edge of the row the marker and the menu sit on: away from the message.
   side?: "left" | "right";
+  // Takes part in the chat's arrow-key navigation (see rowNavigation.ts); only the row that is the tab stop is tabbable.
+  navId: string;
+  tabStop: boolean;
   onMessage: () => void;
   onOpenChat: () => void;
   onToggleBlock: () => void;
@@ -33,8 +38,10 @@ export function PersonMenu({
   return (
     <Menu>
       <MenuButton
+        data-nav-id={navId}
+        tabIndex={tabStop ? 0 : -1}
         aria-label={t("person.actions", { name: partner.nickname })}
-        className="group/menu absolute inset-0 rounded-lg hover:bg-slate-100/5 data-open:bg-slate-100/10"
+        className="group/menu absolute inset-0 rounded-lg hover:bg-slate-100/5 outline-none data-focus:bg-slate-100/10 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400 data-open:bg-slate-100/10"
       >
         <EllipsisVertical
           aria-hidden="true"

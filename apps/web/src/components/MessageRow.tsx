@@ -4,11 +4,12 @@ import { useTranslation } from "react-i18next";
 import type { Avatar } from "../chat/avatar";
 import type { Partner } from "../chat/direct";
 import type { Role } from "../chat/useChat";
+import { NAV_STOP_CLASS, navStop } from "../rowNavigation";
 import { AvatarIcon } from "./Avatar";
 
 // One line of a conversation, in a room or between two people: what others say sits on the left with their avatar,
 // what the guest says on the right. A moderator's words keep their green, bold look either way. A `menu` covers the
-// row so the whole of it can be clicked.
+// row so the whole of it can be clicked; without one, `stop` makes the row itself reachable by keyboard.
 export function MessageRow({
   mine,
   nickname,
@@ -17,6 +18,7 @@ export function MessageRow({
   sentAt,
   text,
   menu,
+  stop,
 }: {
   mine: boolean;
   nickname: string;
@@ -25,6 +27,7 @@ export function MessageRow({
   sentAt: string;
   text: string;
   menu?: ReactNode;
+  stop?: { id: string; tabStop: boolean };
 }) {
   const { t } = useTranslation();
   const moderator = role === "moderator";
@@ -32,7 +35,8 @@ export function MessageRow({
   return (
     <li
       data-side={mine ? "right" : "left"}
-      className={`relative -mx-2 flex items-end gap-2 rounded-lg px-2 py-1 ${mine ? "flex-row-reverse" : ""}`}
+      {...(stop && !menu ? navStop(stop.id, stop.tabStop) : {})}
+      className={`relative -mx-2 flex min-w-0 items-end gap-2 rounded-lg px-2 py-1 ${mine ? "flex-row-reverse" : ""} ${stop && !menu ? NAV_STOP_CLASS : ""}`}
     >
       {!mine && <AvatarIcon avatar={avatar} />}
       <div
@@ -61,7 +65,7 @@ export function MessageRow({
         </div>
         {/* Rendered as text, never as HTML. */}
         <p
-          className={`whitespace-pre-wrap break-words rounded-2xl px-3 py-2 ${
+          className={`whitespace-pre-wrap wrap-anywhere rounded-2xl px-3 py-2 ${
             moderator
               ? "border border-green-500/40 bg-green-900/30 font-bold text-green-300"
               : mine
@@ -100,7 +104,7 @@ export function DirectRow({
     <li
       data-kind="direct"
       data-side={mine ? "right" : "left"}
-      className={`relative -mx-2 flex items-end gap-2 rounded-lg px-2 py-1 ${mine ? "flex-row-reverse" : ""}`}
+      className={`relative -mx-2 flex min-w-0 items-end gap-2 rounded-lg px-2 py-1 ${mine ? "flex-row-reverse" : ""}`}
     >
       {!mine && <AvatarIcon avatar={partner.avatar} />}
       <div
@@ -114,7 +118,7 @@ export function DirectRow({
         </div>
         {/* Rendered as text, never as HTML. */}
         <p
-          className={`whitespace-pre-wrap break-words rounded-2xl border border-dashed border-amber-400/60 bg-amber-400/10 px-3 py-1 ${
+          className={`whitespace-pre-wrap wrap-anywhere rounded-2xl border border-dashed border-amber-400/60 bg-amber-400/10 px-3 py-1 ${
             banned ? "font-semibold italic text-red-400" : ""
           }`}
         >
