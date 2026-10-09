@@ -1,6 +1,20 @@
 {
   "app": { "title": "Chatter" },
   "language": { "label": "Sprache" },
+  "info": {
+    "button": "So funktioniert der Chat",
+    "title": "So funktioniert der Chat",
+    "everyoneHeading": "An den Raum schreiben",
+    "everyone": "Was du schreibst, geht an alle im Raum, es sei denn, du hast neben dem Nachrichtenfeld eine Person gewählt.",
+    "privateHeading": "Private Nachrichten",
+    "private": "Wähle neben dem Nachrichtenfeld eine Person oder klicke auf eine private Nachricht, um nur an sie zu schreiben. Private Nachrichten erreichen nur Personen, die gerade im selben Raum sind, und werden nur in diesem Tab gespeichert.",
+    "conversationsHeading": "Deine Unterhaltungen",
+    "conversations": "Private Unterhaltungen stehen unter Direktnachrichten neben dem Nachrichtenfeld. Eine Zahl zeigt, wie viele Nachrichten du noch nicht gelesen hast.",
+    "blockingHeading": "Blockieren",
+    "blocking": "Öffne eine private Unterhaltung, um jemanden zu blockieren, der dich stört. Deren Nachrichten erreichen dich dann nicht mehr.",
+    "moderatorsHeading": "Moderatoren",
+    "moderators": "Personen mit einem grünen Moderator-Abzeichen kümmern sich um den Chat. Sie können Ankündigungen an den ganzen Raum senden."
+  },
   "lobby": {
     "heading": "Öffentliche Räume",
     "intro": "Wähle einen Raum und leg los. Ein Konto ist nicht nötig.",
@@ -81,6 +95,9 @@
     "to": "Direktnachricht an {{name}}",
     "reply": "Privat an {{name}} antworten",
     "recipient": "Senden an",
+    "search": "Personen suchen",
+    "filter": "Personen filtern",
+    "noMatches": "Niemand passt.",
     "all": "Alle",
     "replyPlaceholder": "Private Nachricht an {{name}} schreiben"
   },

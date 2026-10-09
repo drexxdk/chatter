@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Info } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { SignInError, signInModerator, type Room } from "./api";
@@ -8,9 +9,12 @@ import { useChat } from "./chat/useChat";
 import { AnnouncementBanner } from "./components/AnnouncementBanner";
 import { ChatRoom } from "./components/ChatRoom";
 import { ErrorAlert } from "./components/ErrorAlert";
+import { InfoPanel } from "./components/InfoPanel";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { Lobby, useRooms } from "./components/Lobby";
 import { NicknameDialog } from "./components/NicknameDialog";
+import { RoomSwitcher } from "./components/RoomSwitcher";
+import { SideDrawer } from "./components/SideDrawer";
 import { LOBBY_PATH, roomPath, slugFromPath } from "./place";
 import {
   clearSession,
@@ -34,6 +38,7 @@ export function App({
   const [pendingRoom, setPendingRoom] = useState<Room | null>(null);
   const [signInError, setSignInError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const rooms = roomsState.status === "ready" ? roomsState.rooms : [];
   const currentRoom = rooms.find((room) => room.slug === chat.roomSlug);
@@ -250,9 +255,40 @@ export function App({
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-4xl flex-col px-4 sm:px-6">
-      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-4 bg-slate-950">
-        <h1 className="text-2xl font-bold">{t("app.title")}</h1>
-        <LanguageSwitcher />
+      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 bg-slate-950">
+        {chat.roomSlug && chat.session ? (
+          <div className="flex min-w-0 items-center gap-1">
+            <h1 className="sr-only">{t("app.title")}</h1>
+            <button
+              type="button"
+              onClick={() => void chat.leaveRoom()}
+              aria-label={t("room.leave")}
+              className="shrink-0 rounded-md p-2 hover:bg-slate-800"
+            >
+              <ArrowLeft aria-hidden="true" className="h-5 w-5" />
+            </button>
+            <RoomSwitcher
+              rooms={rooms}
+              slug={chat.roomSlug}
+              name={currentRoom?.name ?? chat.roomSlug}
+              disabled={chat.status !== "connected"}
+              onSelect={(room) => void handleSelect(room)}
+            />
+          </div>
+        ) : (
+          <h1 className="text-2xl font-bold">{t("app.title")}</h1>
+        )}
+        <div className="flex shrink-0 items-center gap-2">
+          <LanguageSwitcher />
+          <button
+            type="button"
+            onClick={() => setInfoOpen(true)}
+            aria-label={t("info.button")}
+            className="rounded-md p-2 hover:bg-slate-800"
+          >
+            <Info aria-hidden="true" className="h-5 w-5" />
+          </button>
+        </div>
       </header>
 
       <main className="flex flex-1 flex-col gap-4">
@@ -264,6 +300,7 @@ export function App({
         )}
         {chat.roomSlug && chat.session ? (
           <ChatRoom
+            key={chat.roomSlug}
             roomName={currentRoom?.name ?? chat.roomSlug}
             session={chat.session}
             ownGuestIds={chat.ownGuestIds}
@@ -273,11 +310,9 @@ export function App({
             events={chat.roomEvents}
             error={chat.error}
             retryAfterSeconds={chat.retryAfterSeconds}
-            slowModeSeconds={currentRoom?.slowModeSeconds}
             onSend={chat.sendMessage}
             onAnnounce={chat.sendAnnouncement}
             direct={chat.direct}
-            onLeave={() => void chat.leaveRoom()}
           />
         ) : (
           <div className="space-y-4 pb-6">
@@ -290,6 +325,14 @@ export function App({
           </div>
         )}
       </main>
+
+      <SideDrawer
+        open={infoOpen}
+        title={t("info.title")}
+        onClose={() => setInfoOpen(false)}
+      >
+        <InfoPanel slowModeSeconds={currentRoom?.slowModeSeconds} />
+      </SideDrawer>
 
       {pendingRoom && (
         <NicknameDialog

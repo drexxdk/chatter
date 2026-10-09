@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.10",
+    "country-flag-icons": "^1.6.20",
     "i18next": "^26.4.2",
     "lucide-react": "^1.54.0",
     "react": "19.2.6",

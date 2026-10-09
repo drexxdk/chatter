@@ -1,6 +1,20 @@
 {
   "app": { "title": "Chatter" },
   "language": { "label": "Language" },
+  "info": {
+    "button": "How the chat works",
+    "title": "How the chat works",
+    "everyoneHeading": "Writing to the room",
+    "everyone": "What you write goes to everybody in the room, unless you have chosen a person next to the message box.",
+    "privateHeading": "Private messages",
+    "private": "Choose a person next to the message box, or click a private message, to write only to them. Private messages only reach people who are in the same room right now, and are kept only in this tab.",
+    "conversationsHeading": "Your conversations",
+    "conversations": "Private conversations are listed under Direct messages, next to the message box. A number shows how many messages you have not read.",
+    "blockingHeading": "Blocking",
+    "blocking": "Open a private conversation to block somebody who bothers you. Their messages then no longer reach you.",
+    "moderatorsHeading": "Moderators",
+    "moderators": "People with a green Moderator badge look after the chat. They can post announcements to the whole room."
+  },
   "lobby": {
     "heading": "Public rooms",
     "intro": "Pick a room to start chatting. No account needed.",
@@ -81,6 +95,9 @@
     "to": "Direct message to {{name}}",
     "reply": "Reply privately to {{name}}",
     "recipient": "Send to",
+    "search": "Search people",
+    "filter": "Filter people",
+    "noMatches": "Nobody matches.",
     "all": "All",
     "replyPlaceholder": "Write a private message to {{name}}"
   },

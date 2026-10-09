@@ -1,5 +1,5 @@
 import { useLayoutEffect, useState, type FormEvent } from "react";
-import { ArrowLeft, SendHorizontal, Users } from "lucide-react";
+import { ArrowLeft, SendHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type {
@@ -18,8 +18,8 @@ import { loadShowMovements, saveShowMovements } from "../preferences";
 import { DirectChat } from "./DirectChat";
 import { ErrorAlert } from "./ErrorAlert";
 import { DirectRow, MessageRow, StatusRow } from "./MessageRow";
+import { RecipientPicker } from "./RecipientPicker";
 import { RoomPanel } from "./RoomPanel";
-import { SideDrawer } from "./SideDrawer";
 
 interface ChatRoomProps {
   roomName: string;
@@ -31,11 +31,9 @@ interface ChatRoomProps {
   events: RoomEvent[];
   error: string | null;
   retryAfterSeconds: number | null;
-  slowModeSeconds?: number | null;
   onSend: (text: string) => Promise<boolean>;
   onAnnounce: (text: string) => Promise<AnnounceResult>;
   direct: DirectApi;
-  onLeave: () => void;
 }
 
 export function ChatRoom({
@@ -48,17 +46,13 @@ export function ChatRoom({
   events,
   error,
   retryAfterSeconds,
-  slowModeSeconds,
   onSend,
   onAnnounce,
   direct,
-  onLeave,
 }: ChatRoomProps) {
   const { t } = useTranslation();
   const [text, setText] = useState("");
-  const [panelOpen, setPanelOpen] = useState(false);
   const [showMovements, setShowMovements] = useState(loadShowMovements);
-  const unread = direct.threads.reduce((sum, thread) => sum + thread.unread, 0);
   const items = withDirect(
     timeline(messages, showMovements ? events : []),
     direct.threads,
@@ -117,7 +111,7 @@ export function ChatRoom({
     ...(replyTo && !replyPresent ? [replyTo] : []),
   ];
 
-  function chooseRecipient(guestId: string) {
+  function chooseRecipient(guestId: string | null) {
     startReply(recipients.find((person) => person.guestId === guestId) ?? null);
   }
 
@@ -136,51 +130,9 @@ export function ChatRoom({
     >
       <div className="flex flex-col md:col-start-1">
         <div className="sticky top-14 z-20 space-y-2 bg-slate-950 pb-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <h2 id="room-heading" className="truncate text-xl font-semibold">
-                {roomName}
-              </h2>
-              <p className="text-sm text-slate-400">
-                {t("room.chattingAs", { nickname: session.nickname })}
-              </p>
-              {slowModeSeconds ? (
-                <p className="text-sm text-amber-300">
-                  {t("room.slowMode", { seconds: slowModeSeconds })}
-                </p>
-              ) : null}
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPanelOpen(true)}
-                aria-label={t("room.panel")}
-                className="relative rounded-md bg-slate-800 p-2 hover:bg-slate-700 md:hidden"
-              >
-                <Users aria-hidden="true" className="h-5 w-5" />
-                {unread > 0 && (
-                  <>
-                    <span
-                      aria-hidden="true"
-                      className="absolute -right-1 -top-1 rounded-full bg-amber-400 px-1.5 text-xs font-bold text-slate-950"
-                    >
-                      {unread}
-                    </span>
-                    <span className="sr-only">
-                      {t("dm.unread", { count: unread })}
-                    </span>
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={onLeave}
-                className="rounded-md bg-slate-800 px-3 py-1.5 hover:bg-slate-700"
-              >
-                {t("room.leave")}
-              </button>
-            </div>
-          </div>
+          <p className="text-sm text-slate-400">
+            {t("room.chattingAs", { nickname: session.nickname })}
+          </p>
 
           {direct.active && (
             <div className="flex items-center gap-2">
@@ -298,22 +250,15 @@ export function ChatRoom({
               />
 
               <form onSubmit={handleSubmit} className="flex gap-2">
-                <label htmlFor="recipient" className="sr-only">
-                  {t("dm.recipient")}
-                </label>
-                <select
-                  id="recipient"
-                  value={replyTo?.guestId ?? ""}
-                  onChange={(event) => chooseRecipient(event.target.value)}
-                  className="w-24 shrink-0 rounded-md border border-slate-700 bg-slate-950 px-2 py-2 sm:w-36"
-                >
-                  <option value="">{t("dm.all")}</option>
-                  {recipients.map((person) => (
-                    <option key={person.guestId} value={person.guestId}>
-                      {person.nickname}
-                    </option>
-                  ))}
-                </select>
+                <RecipientPicker
+                  recipients={recipients}
+                  value={replyTo}
+                  onChange={chooseRecipient}
+                  threads={direct.threads}
+                  onOpenThread={direct.open}
+                  showMovements={showMovements}
+                  onShowMovementsChange={changeShowMovements}
+                />
                 <label htmlFor="message" className="sr-only">
                   {replyTo
                     ? t("dm.label", { name: replyTo.nickname })
@@ -370,24 +315,6 @@ export function ChatRoom({
           onShowMovementsChange={changeShowMovements}
         />
       </aside>
-
-      <SideDrawer
-        open={panelOpen}
-        title={t("room.panel")}
-        onClose={() => setPanelOpen(false)}
-      >
-        <RoomPanel
-          members={members}
-          selfGuestId={session.guestId}
-          threads={direct.threads}
-          onOpen={(partner) => {
-            direct.open(partner);
-            setPanelOpen(false);
-          }}
-          showMovements={showMovements}
-          onShowMovementsChange={changeShowMovements}
-        />
-      </SideDrawer>
     </section>
   );
 }

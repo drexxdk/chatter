@@ -299,6 +299,7 @@ test("a room whose slow mode is left empty still has the server's default", asyn
 }) => {
   const alice = await newGuest(browser);
   await enterRoom(alice, LOUNGE.name, "Alice");
+  await alice.getByRole("button", { name: "How the chat works" }).click();
 
   await expect(
     alice.getByText(
@@ -312,9 +313,11 @@ test("a room with slow mode makes a guest wait between messages", async ({
 }) => {
   const alice = await newGuest(browser);
   await enterRoom(alice, SLOW.name, "Alice");
+  await alice.getByRole("button", { name: "How the chat works" }).click();
   await expect(
     alice.getByText("Slow mode: one message every 3 s."),
   ).toBeVisible();
+  await alice.keyboard.press("Escape");
 
   await send(alice, "first");
   await expect(alice.getByRole("log")).toContainText("first");

@@ -28,6 +28,13 @@ for (const name of ["localStorage", "sessionStorage"] as const) {
   }
 }
 
+// jsdom has no layout; Headless UI positions its popovers with this.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 // Loaded after the storage fallback above because i18n reads localStorage at import time.
 const { default: i18n } = await import("../i18n");
 

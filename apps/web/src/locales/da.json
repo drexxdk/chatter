@@ -1,6 +1,20 @@
 {
   "app": { "title": "Chatter" },
   "language": { "label": "Sprog" },
+  "info": {
+    "button": "Sådan virker chatten",
+    "title": "Sådan virker chatten",
+    "everyoneHeading": "Skriv til rummet",
+    "everyone": "Det, du skriver, går til alle i rummet, medmindre du har valgt en person ved siden af beskedfeltet.",
+    "privateHeading": "Private beskeder",
+    "private": "Vælg en person ved siden af beskedfeltet, eller klik på en privat besked, for kun at skrive til vedkommende. Private beskeder når kun personer, der er i samme rum lige nu, og gemmes kun i denne fane.",
+    "conversationsHeading": "Dine samtaler",
+    "conversations": "Private samtaler står under Direkte beskeder ved siden af beskedfeltet. Et tal viser, hvor mange beskeder du ikke har læst.",
+    "blockingHeading": "Bloker",
+    "blocking": "Åbn en privat samtale for at blokere en, der generer dig. Vedkommendes beskeder når så ikke længere frem til dig.",
+    "moderatorsHeading": "Moderatorer",
+    "moderators": "Personer med et grønt Moderator-mærke passer på chatten. De kan sende meddelelser til hele rummet."
+  },
   "lobby": {
     "heading": "Offentlige rum",
     "intro": "Vælg et rum for at komme i gang. Du behøver ikke en konto.",
@@ -81,6 +95,9 @@
     "to": "Direkte besked til {{name}}",
     "reply": "Svar privat til {{name}}",
     "recipient": "Send til",
+    "search": "Søg efter personer",
+    "filter": "Filtrer personer",
+    "noMatches": "Ingen matcher.",
     "all": "Alle",
     "replyPlaceholder": "Skriv en privat besked til {{name}}"
   },

@@ -390,11 +390,17 @@ describe("inside a room", () => {
       return result;
     }
 
-    it("tells the guest how often they may write", async () => {
-      await enterSlowRoom(10);
+    it("tells the guest how often they may write, in the info panel", async () => {
+      const { user } = await enterSlowRoom(10);
+
+      await user.click(
+        screen.getByRole("button", { name: "How the chat works" }),
+      );
 
       expect(
-        screen.getByText("Slow mode: one message every 10 s."),
+        within(await screen.findByRole("dialog")).getByText(
+          "Slow mode: one message every 10 s.",
+        ),
       ).toBeInTheDocument();
     });
 
@@ -402,7 +408,12 @@ describe("inside a room", () => {
       ["without the setting", undefined],
       ["with it empty", null],
     ])("says nothing about it in a room %s", async (_label, value) => {
-      await enterSlowRoom(value);
+      const { user } = await enterSlowRoom(value);
+
+      await user.click(
+        screen.getByRole("button", { name: "How the chat works" }),
+      );
+      await screen.findByRole("dialog");
 
       expect(screen.queryByText(/Slow mode/)).not.toBeInTheDocument();
     });
@@ -428,6 +439,22 @@ describe("inside a room", () => {
       { slug: "general" },
       { slug: "music" },
     ]);
+  });
+
+  it("switches to another room from the room name in the header", async () => {
+    const { user, server } = await enterRoom();
+
+    await user.click(screen.getByRole("button", { name: "General" }));
+    await user.click(await screen.findByRole("option", { name: /Music/ }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Music", level: 2 }),
+    ).toBeInTheDocument();
+    expect(server.latest.emittedEvents("room:join")).toEqual([
+      { slug: "general" },
+      { slug: "music" },
+    ]);
+    expect(server.latest.emittedEvents("room:leave")).toEqual([]);
   });
 
   it("explains an inactivity disconnect and returns to the lobby", async () => {
@@ -1704,6 +1731,18 @@ describe("direct messages", () => {
 
   describe("in the room's own chat", () => {
     const roomLog = () => within(screen.getByRole("log"));
+    const recipient = () => screen.getByRole("button", { name: /^Send to:/ });
+    const chooseRecipient = async (
+      user: ReturnType<typeof setup>["user"],
+      name: string,
+    ) => {
+      await user.click(recipient());
+      const drawer = within(await screen.findByRole("dialog"));
+      await user.click(drawer.getByRole("button", { name }));
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+      );
+    };
 
     it("shows a received message marked as direct, without opening the conversation", async () => {
       const { server } = await enter();
@@ -1735,9 +1774,7 @@ describe("direct messages", () => {
       await user.click(roomLog().getByRole("button", { name: "psst" }));
 
       expect(pane("Bob")).toBeNull();
-      expect(screen.getByRole("combobox", { name: "Send to" })).toHaveValue(
-        "guest-bob",
-      );
+      expect(recipient()).toHaveAccessibleName("Send to: Bob");
 
       await user.type(
         screen.getByRole("textbox", { name: "Message to Bob" }),
@@ -1753,18 +1790,12 @@ describe("direct messages", () => {
       expect(server.latest.emittedEvents("message:send")).toEqual([]);
     });
 
-    it("sends to everybody by default, and to one person when chosen from the dropdown", async () => {
+    it("sends to everybody by default, and to one person when chosen from the slide-out", async () => {
       const { user, server } = await enter();
-      const select = screen.getByRole("combobox", { name: "Send to" });
 
-      expect(select).toHaveValue("");
-      expect(
-        within(select)
-          .getAllByRole("option")
-          .map((option) => option.textContent),
-      ).toEqual(["All", "Bob", "Carol", "Ada Mod"]);
+      expect(recipient()).toHaveAccessibleName("Send to: All");
 
-      await user.selectOptions(select, "Carol");
+      await chooseRecipient(user, "Carol");
       await user.type(
         screen.getByRole("textbox", { name: "Message to Carol" }),
         "psst",
@@ -1776,34 +1807,61 @@ describe("direct messages", () => {
         ]),
       );
 
-      await user.selectOptions(select, "All");
+      await chooseRecipient(user, "All");
 
       expect(
         screen.getByRole("textbox", { name: "Message" }),
       ).toBeInTheDocument();
     });
 
+    it("narrows the people in the slide-out by name, avatar and moderators", async () => {
+      const { user } = await enter();
+      await user.click(recipient());
+      const drawer = within(await screen.findByRole("dialog"));
+      const names = () =>
+        drawer
+          .getAllByRole("button")
+          .map((button) =>
+            button.textContent?.replace(/[\u2640\u2642\u26a7]/g, ""),
+          )
+          .filter((name) => ["Bob", "Carol", "Ada Mod"].includes(name ?? ""));
+
+      expect(names()).toEqual(["Bob", "Carol", "Ada Mod"]);
+
+      await user.click(drawer.getByRole("button", { name: "Female" }));
+      expect(names()).toEqual(["Carol"]);
+
+      await user.click(drawer.getByRole("button", { name: "Female" }));
+      await user.click(drawer.getByRole("button", { name: "Moderator" }));
+      expect(names()).toEqual(["Ada Mod"]);
+
+      await user.click(drawer.getByRole("button", { name: "Moderator" }));
+      await user.type(drawer.getByRole("searchbox"), "bo");
+      expect(names()).toEqual(["Bob"]);
+
+      await user.clear(drawer.getByRole("searchbox"));
+      await user.type(drawer.getByRole("searchbox"), "zzz");
+      expect(drawer.getByText("Nobody matches.")).toBeInTheDocument();
+    });
+
     it("changes who the guest writes to when another person's message is clicked", async () => {
       const { user, server } = await enter();
-      const select = screen.getByRole("combobox", { name: "Send to" });
-      await user.selectOptions(select, "Carol");
+      await chooseRecipient(user, "Carol");
       receive(server, dm({ text: "psst" }));
 
       await user.click(roomLog().getByRole("button", { name: "psst" }));
 
-      expect(select).toHaveValue("guest-bob");
+      expect(recipient()).toHaveAccessibleName("Send to: Bob");
       expect(pane("Bob")).toBeNull();
     });
   });
 
   describe("the lists", () => {
-    it("opens the people and conversations in a drawer, which closes when somebody is chosen", async () => {
+    it("opens the conversations in the slide-out next to the recipient, which closes when one is chosen", async () => {
       const { user, server } = await enter();
       receive(server, dm());
 
-      await user.click(
-        screen.getByRole("button", { name: /People and direct messages/ }),
-      );
+      await user.click(screen.getByRole("button", { name: /^Send to:/ }));
       const drawer = within(await screen.findByRole("dialog"));
       await user.click(
         drawer
@@ -3890,7 +3948,8 @@ describe("language", () => {
     const { user } = setup();
     await screen.findByRole("heading", { name: "Public rooms" });
 
-    await user.selectOptions(screen.getByLabelText("Language"), "da");
+    await user.click(screen.getByRole("button", { name: "Language" }));
+    await user.click(await screen.findByRole("option", { name: /Dansk/ }));
 
     expect(
       await screen.findByRole("heading", { name: "Offentlige rum" }),
