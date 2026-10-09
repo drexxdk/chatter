@@ -30,6 +30,8 @@
     "leave": "Forlad rum",
     "chattingAs": "Du chatter som {{nickname}}",
     "members": "I dette rum ({{count}})",
+    "panel": "Personer og direkte beskeder",
+    "closePanel": "Luk",
     "people": "Personer i dette rum",
     "you": "dig",
     "empty": "Ingen beskeder endnu. Sig hej!",

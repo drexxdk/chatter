@@ -249,13 +249,13 @@ export function App({
   }, []);
 
   return (
-    <div className="mx-auto min-h-screen max-w-4xl space-y-6 p-4 sm:p-6">
-      <header className="flex items-center justify-between gap-4">
+    <div className="mx-auto flex min-h-dvh max-w-4xl flex-col px-4 sm:px-6">
+      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-4 bg-slate-950">
         <h1 className="text-2xl font-bold">{t("app.title")}</h1>
         <LanguageSwitcher />
       </header>
 
-      <main className="space-y-4">
+      <main className="flex flex-1 flex-col gap-4">
         {chat.announcement && (
           <AnnouncementBanner
             announcement={chat.announcement}
@@ -280,14 +280,14 @@ export function App({
             onLeave={() => void chat.leaveRoom()}
           />
         ) : (
-          <>
+          <div className="space-y-4 pb-6">
             {!pendingRoom && <ErrorAlert code={chat.error} />}
             <Lobby
               state={roomsState}
               onRetry={retry}
               onSelect={(room) => void handleSelect(room)}
             />
-          </>
+          </div>
         )}
       </main>
 

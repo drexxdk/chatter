@@ -31,6 +31,8 @@
     "chattingAs": "Chatting as {{nickname}}",
     "members": "In this room ({{count}})",
     "people": "People in this room",
+    "panel": "People and direct messages",
+    "closePanel": "Close",
     "you": "you",
     "empty": "No messages yet. Say hello!",
     "messageLabel": "Message",

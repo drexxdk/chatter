@@ -1797,6 +1797,26 @@ describe("direct messages", () => {
   });
 
   describe("the lists", () => {
+    it("opens the people and conversations in a drawer, which closes when somebody is chosen", async () => {
+      const { user, server } = await enter();
+      receive(server, dm());
+
+      await user.click(
+        screen.getByRole("button", { name: /People and direct messages/ }),
+      );
+      const drawer = within(await screen.findByRole("dialog"));
+      await user.click(
+        drawer
+          .getByRole("list", { name: "Direct messages" })
+          .querySelector("button")!,
+      );
+
+      expect(pane("Bob")).toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+      );
+    });
+
     it("shows the people in the room as buttons, and no direct messages yet", async () => {
       await enter();
 

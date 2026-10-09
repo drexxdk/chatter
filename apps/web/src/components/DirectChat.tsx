@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
+import { SendHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { DirectEntry, Partner } from "../chat/direct";
@@ -16,7 +17,6 @@ interface DirectChatProps {
   blocked: boolean;
   onSend: (text: string) => Promise<ActionResult>;
   onSetBlocked: (blocked: boolean) => Promise<ActionResult>;
-  onBack: () => void;
 }
 
 export function DirectChat({
@@ -27,18 +27,11 @@ export function DirectChat({
   blocked,
   onSend,
   onSetBlocked,
-  onBack,
 }: DirectChatProps) {
   const { t } = useTranslation();
   const [text, setText] = useState("");
   const [failure, setFailure] = useState<ActionResult & { ok: false }>();
-  const logRef = useRef<HTMLOListElement>(null);
   const label = t("dm.title", { name: partner.nickname });
-
-  useEffect(() => {
-    const log = logRef.current;
-    if (log) log.scrollTop = log.scrollHeight;
-  }, [partner.entries]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -64,30 +57,20 @@ export function DirectChat({
     failure?.error === "rate_limited" && failure.retryAfterSeconds;
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-lg font-semibold">{label}</h3>
-        <div className="flex gap-2">
-          {partner.role !== "moderator" && (
-            <button
-              type="button"
-              onClick={() => void toggleBlock()}
-              className="rounded-md bg-slate-800 px-3 py-1.5 text-sm hover:bg-slate-700"
-            >
-              {blocked
-                ? t("dm.unblock", { name: partner.nickname })
-                : t("dm.block", { name: partner.nickname })}
-            </button>
-          )}
+    <div className="flex flex-1 flex-col gap-3">
+      {partner.role !== "moderator" && (
+        <div className="flex justify-end">
           <button
             type="button"
-            onClick={onBack}
+            onClick={() => void toggleBlock()}
             className="rounded-md bg-slate-800 px-3 py-1.5 text-sm hover:bg-slate-700"
           >
-            {t("dm.back")}
+            {blocked
+              ? t("dm.unblock", { name: partner.nickname })
+              : t("dm.block", { name: partner.nickname })}
           </button>
         </div>
-      </div>
+      )}
 
       {blocked && (
         <p className="text-sm text-amber-300">
@@ -96,11 +79,10 @@ export function DirectChat({
       )}
 
       <ol
-        ref={logRef}
         role="log"
         aria-live="polite"
         aria-label={label}
-        className="flex h-80 flex-col gap-2 overflow-y-auto rounded-lg [&>*]:shrink-0 [&>:first-child]:mt-auto border border-slate-800 bg-slate-900 p-3"
+        className="flex min-h-40 flex-1 flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900 p-3 [&>*]:shrink-0 [&>:first-child]:mt-auto"
       >
         {partner.entries.length === 0 && (
           <li className="text-slate-500">{t("dm.empty")}</li>
@@ -134,42 +116,47 @@ export function DirectChat({
         )}
       </ol>
 
-      <ErrorAlert
-        code={failure ? (waiting ? "rate_limited_wait" : failure.error) : null}
-        values={{ seconds: failure?.retryAfterSeconds }}
-      />
-
-      {!present && (
-        <p
-          role="status"
-          className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"
-        >
-          {t("dm.away", { name: partner.nickname })}
-        </p>
-      )}
-
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <label htmlFor="direct-message" className="sr-only">
-          {t("dm.label", { name: partner.nickname })}
-        </label>
-        <input
-          id="direct-message"
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          maxLength={1000}
-          autoComplete="off"
-          disabled={!present}
-          placeholder={t("room.messagePlaceholder")}
-          className="flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
+      <div className="sticky bottom-0 z-20 space-y-2 bg-slate-950 pb-3 pt-2">
+        <ErrorAlert
+          code={
+            failure ? (waiting ? "rate_limited_wait" : failure.error) : null
+          }
+          values={{ seconds: failure?.retryAfterSeconds }}
         />
-        <button
-          type="submit"
-          disabled={!present}
-          className="rounded-md bg-indigo-600 px-4 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
-        >
-          {t("room.send")}
-        </button>
-      </form>
+
+        {!present && (
+          <p
+            role="status"
+            className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"
+          >
+            {t("dm.away", { name: partner.nickname })}
+          </p>
+        )}
+
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <label htmlFor="direct-message" className="sr-only">
+            {t("dm.label", { name: partner.nickname })}
+          </label>
+          <input
+            id="direct-message"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            maxLength={1000}
+            autoComplete="off"
+            disabled={!present}
+            placeholder={t("room.messagePlaceholder")}
+            className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
+          />
+          <button
+            type="submit"
+            disabled={!present}
+            aria-label={t("room.send")}
+            className="rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
+          >
+            <SendHorizontal aria-hidden="true" className="h-5 w-5" />
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

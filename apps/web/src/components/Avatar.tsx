@@ -1,3 +1,4 @@
+import { User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { parseAvatar, type Avatar } from "../chat/avatar";
@@ -42,12 +43,7 @@ export function AvatarIcon({
         small ? "h-6 w-6 text-sm" : "h-9 w-9 text-lg"
       } font-bold`}
     >
-      {look.symbol ?? (
-        <svg viewBox="0 0 24 24" className="h-3/5 w-3/5" fill="currentColor">
-          <circle cx="12" cy="8" r="4" />
-          <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z" />
-        </svg>
-      )}
+      {look.symbol ?? <User className="h-3/5 w-3/5" fill="currentColor" />}
     </span>
   );
 }

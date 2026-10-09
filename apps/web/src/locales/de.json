@@ -30,6 +30,8 @@
     "leave": "Raum verlassen",
     "chattingAs": "Du chattest als {{nickname}}",
     "members": "In diesem Raum ({{count}})",
+    "panel": "Personen und Direktnachrichten",
+    "closePanel": "Schließen",
     "people": "Personen in diesem Raum",
     "you": "du",
     "empty": "Noch keine Nachrichten. Sag Hallo!",
