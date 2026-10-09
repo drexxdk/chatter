@@ -32,33 +32,35 @@ export function LanguageSwitcher() {
 
   return (
     <Listbox value={current.code} onChange={setLanguage}>
-      <ListboxButton
-        aria-label={t("language.label")}
-        className="flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
-      >
-        <Flag code={current.code} />
-        <span className="hidden sm:inline">{current.label}</span>
-        <ChevronDown aria-hidden="true" className="h-4 w-4 text-slate-400" />
-      </ListboxButton>
-      <ListboxOptions
-        anchor="bottom end"
-        className="z-50 min-w-40 rounded-md border border-slate-700 bg-slate-900 p-1 text-sm shadow-lg [--anchor-gap:0.25rem] focus:outline-none"
-      >
-        {LANGUAGES.map((language) => (
-          <ListboxOption
-            key={language.code}
-            value={language.code}
-            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 data-focus:bg-slate-800"
-          >
-            <Flag code={language.code} />
-            <span className="flex-1">{language.label}</span>
-            <Check
-              aria-hidden="true"
-              className={`h-4 w-4 text-indigo-300 ${language.code === current.code ? "" : "invisible"}`}
-            />{" "}
-          </ListboxOption>
-        ))}
-      </ListboxOptions>
+      <div className="relative">
+        <ListboxButton
+          aria-label={t("language.label")}
+          className="flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
+        >
+          <Flag code={current.code} />
+          <span className="hidden sm:inline">{current.label}</span>
+          <ChevronDown aria-hidden="true" className="h-4 w-4 text-slate-400" />
+        </ListboxButton>
+        {/* Fixed at the button's right edge: a portal in the document, or an absolute box, makes the page scroll to the option. */}
+        <div className="absolute top-full right-0 w-0">
+          <ListboxOptions className="fixed z-50 mt-1 min-w-40 -translate-x-full rounded-md border border-slate-700 bg-slate-900 p-1 text-sm shadow-lg focus:outline-none">
+            {LANGUAGES.map((language) => (
+              <ListboxOption
+                key={language.code}
+                value={language.code}
+                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 data-focus:bg-slate-800"
+              >
+                <Flag code={language.code} />
+                <span className="flex-1">{language.label}</span>
+                <Check
+                  aria-hidden="true"
+                  className={`h-4 w-4 text-indigo-300 ${language.code === current.code ? "" : "invisible"}`}
+                />
+              </ListboxOption>
+            ))}
+          </ListboxOptions>
+        </div>
+      </div>
     </Listbox>
   );
 }

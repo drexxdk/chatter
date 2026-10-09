@@ -23,7 +23,7 @@ export function RoomSwitcher({
   onSelect: (room: Room) => void;
 }) {
   return (
-    <h2 id="room-heading" className="min-w-0 text-xl font-semibold">
+    <h2 id="room-heading" className="relative min-w-0 text-xl font-semibold">
       <Listbox
         value={slug}
         disabled={disabled || rooms.length < 2}
@@ -41,10 +41,8 @@ export function RoomSwitcher({
             />
           )}
         </ListboxButton>
-        <ListboxOptions
-          anchor="bottom start"
-          className="z-50 min-w-48 rounded-md border border-slate-700 bg-slate-900 p-1 text-sm font-normal shadow-lg [--anchor-gap:0.25rem] focus:outline-none"
-        >
+        {/* Fixed at its place in the header: a portal in the document, or an absolute box, makes the page scroll to the option. */}
+        <ListboxOptions className="fixed z-50 mt-1 min-w-48 rounded-md border border-slate-700 bg-slate-900 p-1 text-sm font-normal shadow-lg focus:outline-none">
           {rooms.map((room) => (
             <ListboxOption
               key={room.slug}

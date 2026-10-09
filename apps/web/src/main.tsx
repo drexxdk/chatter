@@ -5,8 +5,10 @@ import { App } from "./App";
 import "./i18n";
 import "./index.css";
 import { trackInputMode } from "./inputMode";
+import { keepStickyInView } from "./stickyFocus";
 
 trackInputMode();
+keepStickyInView();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
