@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Avatar } from "../chat/avatar";
@@ -6,7 +7,8 @@ import type { Role } from "../chat/useChat";
 import { AvatarIcon } from "./Avatar";
 
 // One line of a conversation, in a room or between two people: what others say sits on the left with their avatar,
-// what the guest says on the right. A moderator's words keep their green, bold look either way.
+// what the guest says on the right. A moderator's words keep their green, bold look either way. A `menu` covers the
+// row so the whole of it can be clicked.
 export function MessageRow({
   mine,
   nickname,
@@ -14,6 +16,7 @@ export function MessageRow({
   avatar,
   sentAt,
   text,
+  menu,
 }: {
   mine: boolean;
   nickname: string;
@@ -21,6 +24,7 @@ export function MessageRow({
   avatar: Avatar;
   sentAt: string;
   text: string;
+  menu?: ReactNode;
 }) {
   const { t } = useTranslation();
   const moderator = role === "moderator";
@@ -28,7 +32,7 @@ export function MessageRow({
   return (
     <li
       data-side={mine ? "right" : "left"}
-      className={`flex items-end gap-2 ${mine ? "flex-row-reverse" : ""}`}
+      className={`relative -mx-2 flex items-end gap-2 rounded-lg px-2 py-1 ${mine ? "flex-row-reverse" : ""}`}
     >
       {!mine && <AvatarIcon avatar={avatar} />}
       <div
@@ -68,26 +72,26 @@ export function MessageRow({
           {text}
         </p>
       </div>
+      {menu}
     </li>
   );
 }
 
-// A private message shown among the room's: marked as direct, and on the side of whoever wrote it. Clicking the text
-// makes the room's input write to that person.
+// A private message shown among the room's: marked as direct, and on the side of whoever wrote it.
 export function DirectRow({
   mine,
   partner,
   sentAt,
   text,
   banned,
-  onReply,
+  menu,
 }: {
   mine: boolean;
   partner: Partner;
   sentAt: string;
   text: string;
   banned?: boolean;
-  onReply: () => void;
+  menu?: ReactNode;
 }) {
   const { t } = useTranslation();
   const label = t(mine ? "dm.to" : "dm.from", { name: partner.nickname });
@@ -96,7 +100,7 @@ export function DirectRow({
     <li
       data-kind="direct"
       data-side={mine ? "right" : "left"}
-      className={`flex items-end gap-2 ${mine ? "flex-row-reverse" : ""}`}
+      className={`relative -mx-2 flex items-end gap-2 rounded-lg px-2 py-1 ${mine ? "flex-row-reverse" : ""}`}
     >
       {!mine && <AvatarIcon avatar={partner.avatar} />}
       <div
@@ -109,19 +113,15 @@ export function DirectRow({
           </time>
         </div>
         {/* Rendered as text, never as HTML. */}
-        <button
-          type="button"
-          onClick={onReply}
-          title={t("dm.reply", { name: partner.nickname })}
-          className={`whitespace-pre-wrap break-words rounded-2xl border border-dashed border-amber-400/60 px-3 py-1 text-left hover:bg-amber-400/20 ${
-            banned
-              ? "bg-amber-400/10 font-semibold italic text-red-400"
-              : "bg-amber-400/10"
+        <p
+          className={`whitespace-pre-wrap break-words rounded-2xl border border-dashed border-amber-400/60 bg-amber-400/10 px-3 py-1 ${
+            banned ? "font-semibold italic text-red-400" : ""
           }`}
         >
           {banned ? t("room.bannedMessage") : text}
-        </button>
+        </p>
       </div>
+      {menu}
     </li>
   );
 }

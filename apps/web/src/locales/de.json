@@ -1,6 +1,11 @@
 {
   "app": { "title": "Chatter" },
   "language": { "label": "Sprache" },
+  "person": {
+    "actions": "Aktionen für {{name}}",
+    "message": "{{name}} schreiben",
+    "openChat": "Privaten Chat öffnen"
+  },
   "info": {
     "button": "So funktioniert der Chat",
     "title": "So funktioniert der Chat",
@@ -93,7 +98,6 @@
     "blocked": "Du hast {{name}} blockiert. Deren Nachrichten erreichen dich nicht mehr.",
     "from": "Direktnachricht von {{name}}",
     "to": "Direktnachricht an {{name}}",
-    "reply": "Privat an {{name}} antworten",
     "recipient": "Senden an",
     "search": "Personen suchen",
     "filter": "Personen filtern",

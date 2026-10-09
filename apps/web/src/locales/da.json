@@ -1,6 +1,11 @@
 {
   "app": { "title": "Chatter" },
   "language": { "label": "Sprog" },
+  "person": {
+    "actions": "Handlinger for {{name}}",
+    "message": "Skriv til {{name}}",
+    "openChat": "Åbn privat chat"
+  },
   "info": {
     "button": "Sådan virker chatten",
     "title": "Sådan virker chatten",
@@ -93,7 +98,6 @@
     "blocked": "Du har blokeret {{name}}. Vedkommendes beskeder når ikke længere frem til dig.",
     "from": "Direkte besked fra {{name}}",
     "to": "Direkte besked til {{name}}",
-    "reply": "Svar privat til {{name}}",
     "recipient": "Send til",
     "search": "Søg efter personer",
     "filter": "Filtrer personer",

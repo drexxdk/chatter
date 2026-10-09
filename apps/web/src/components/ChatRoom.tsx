@@ -18,6 +18,7 @@ import { loadShowMovements, saveShowMovements } from "../preferences";
 import { DirectChat } from "./DirectChat";
 import { ErrorAlert } from "./ErrorAlert";
 import { DirectRow, MessageRow, StatusRow } from "./MessageRow";
+import { PersonMenu } from "./PersonMenu";
 import { RecipientPicker } from "./RecipientPicker";
 import { RoomPanel } from "./RoomPanel";
 
@@ -115,6 +116,26 @@ export function ChatRoom({
     startReply(recipients.find((person) => person.guestId === guestId) ?? null);
   }
 
+  const personMenu = (partner: Partner, mine = false) => {
+    const blocked = direct.blockedIds.includes(partner.guestId);
+
+    return (
+      <PersonMenu
+        partner={partner}
+        side={mine ? "left" : "right"}
+        present={members.some((member) => member.guestId === partner.guestId)}
+        blocked={blocked}
+        onMessage={() => startReply(partner)}
+        onOpenChat={() => direct.open(partner)}
+        onToggleBlock={() =>
+          void direct.setBlocked(partner.guestId, !blocked).then((result) => {
+            if (!result.ok) setReplyFailure(result);
+          })
+        }
+      />
+    );
+  };
+
   function changeShowMovements(show: boolean) {
     setShowMovements(show);
     saveShowMovements(show);
@@ -203,7 +224,10 @@ export function ChatRoom({
                     sentAt={item.message.sentAt}
                     text={item.message.text}
                     banned={item.message.banned}
-                    onReply={() => startReply(item.partner)}
+                    menu={personMenu(
+                      item.partner,
+                      ownGuestIds.includes(item.message.fromGuestId),
+                    )}
                   />
                 ) : item.message.banned ? (
                   <li key={item.message.id}>
@@ -226,6 +250,16 @@ export function ChatRoom({
                     avatar={item.message.avatar ?? PLAIN_AVATAR}
                     sentAt={item.message.sentAt}
                     text={item.message.text}
+                    menu={
+                      ownGuestIds.includes(item.message.guestId)
+                        ? undefined
+                        : personMenu({
+                            guestId: item.message.guestId,
+                            nickname: item.message.nickname,
+                            role: item.message.role ?? "guest",
+                            avatar: item.message.avatar ?? PLAIN_AVATAR,
+                          })
+                    }
                   />
                 ),
               )}

@@ -1731,6 +1731,12 @@ describe("direct messages", () => {
 
   describe("in the room's own chat", () => {
     const roomLog = () => within(screen.getByRole("log"));
+    const openMenu = (user: ReturnType<typeof setup>["user"], name: string) =>
+      user.click(
+        roomLog()
+          .getAllByRole("button", { name: `Actions for ${name}` })
+          .at(-1)!,
+      );
     const recipient = () => screen.getByRole("button", { name: /^Send to:/ });
     const chooseRecipient = async (
       user: ReturnType<typeof setup>["user"],
@@ -1771,7 +1777,8 @@ describe("direct messages", () => {
       const { user, server } = await enter();
       receive(server, dm({ text: "psst" }));
 
-      await user.click(roomLog().getByRole("button", { name: "psst" }));
+      await openMenu(user, "Bob");
+      await user.click(screen.getByRole("menuitem", { name: "Message Bob" }));
 
       expect(pane("Bob")).toBeNull();
       expect(recipient()).toHaveAccessibleName("Send to: Bob");
@@ -1844,15 +1851,78 @@ describe("direct messages", () => {
       expect(drawer.getByText("Nobody matches.")).toBeInTheDocument();
     });
 
-    it("changes who the guest writes to when another person's message is clicked", async () => {
+    it("changes who the guest writes to from the menu on another person's message", async () => {
       const { user, server } = await enter();
       await chooseRecipient(user, "Carol");
       receive(server, dm({ text: "psst" }));
 
-      await user.click(roomLog().getByRole("button", { name: "psst" }));
+      await openMenu(user, "Bob");
+      await user.click(screen.getByRole("menuitem", { name: "Message Bob" }));
 
       expect(recipient()).toHaveAccessibleName("Send to: Bob");
       expect(pane("Bob")).toBeNull();
+    });
+
+    it("lists what can be done with somebody on their message in the room", async () => {
+      const { user, server } = await enter();
+      act(() =>
+        server.latest.serverEmit("message:new", message({ text: "hello" })),
+      );
+
+      await openMenu(user, "Bob");
+
+      expect(
+        screen.getAllByRole("menuitem").map((item) => item.textContent),
+      ).toEqual(["Message Bob", "Open private chat", "Block Bob"]);
+
+      await user.click(screen.getByRole("menuitem", { name: "Block Bob" }));
+
+      await waitFor(() =>
+        expect(server.latest.emittedEvents("dm:block")).toEqual([
+          { guestId: "guest-bob" },
+        ]),
+      );
+    });
+
+    it("opens the private conversation from the menu", async () => {
+      const { user, server } = await enter();
+      receive(server, dm({ text: "psst" }));
+
+      await openMenu(user, "Bob");
+      await user.click(
+        screen.getByRole("menuitem", { name: "Open private chat" }),
+      );
+
+      expect(pane("Bob")).toBeInTheDocument();
+    });
+
+    it("offers no menu on the guest's own messages, and no blocking of a moderator", async () => {
+      const { user, server } = await enter();
+      act(() => {
+        server.latest.serverEmit(
+          "message:new",
+          message({ guestId: ME, nickname: "Alice", text: "mine" }),
+        );
+        server.latest.serverEmit(
+          "message:new",
+          message({
+            guestId: ada.guestId,
+            nickname: "Ada Mod",
+            role: "moderator",
+            text: "official",
+          }),
+        );
+      });
+
+      expect(
+        screen.queryByRole("button", { name: "Actions for Alice" }),
+      ).not.toBeInTheDocument();
+
+      await openMenu(user, "Ada Mod");
+
+      expect(
+        screen.getAllByRole("menuitem").map((item) => item.textContent),
+      ).toEqual(["Message Ada Mod", "Open private chat"]);
     });
   });
 
