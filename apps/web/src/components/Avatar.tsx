@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 
 import { parseAvatar, type Avatar } from "../chat/avatar";
 
-// Male and female have their usual symbol and colour; trans has its symbol in the colours of its flag; anybody else
+// Male and female have their usual symbol and colour; trans has its symbol in the colours of its flag, as a tint that
+// runs from blue through pink and back like the others' tints; anybody else
 // (or nobody who said) gets a plain silhouette. All of it is defined here so a look can change in one place.
 const LOOKS: Record<Avatar, { symbol?: string; className: string }> = {
   male: {
@@ -17,7 +18,7 @@ const LOOKS: Record<Avatar, { symbol?: string; className: string }> = {
   trans: {
     symbol: "\u26a7",
     className:
-      "bg-linear-to-b from-sky-300 via-pink-200 to-sky-300 text-slate-900 ring-pink-200/70",
+      "bg-linear-to-b from-sky-500/20 via-pink-500/20 to-sky-500/20 text-pink-200 ring-pink-300/60",
   },
   other: { className: "bg-violet-500/20 text-violet-300 ring-violet-400/60" },
 };
