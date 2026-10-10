@@ -7,6 +7,7 @@ import type { Role } from "../chat/useChat";
 import { NAV_STOP_CLASS, navStop } from "../rowNavigation";
 import { AvatarIcon } from "./Avatar";
 import { BlockedTag } from "./DirectLists";
+import { Timestamp } from "./Timestamp";
 
 // One line of a conversation, in a room or between two people: what others say sits on the left with their avatar,
 // what the guest says on the right. A moderator's words keep their green, bold look either way. A `menu` covers the
@@ -63,9 +64,7 @@ export function MessageRow({
               {t("room.moderatorBadge")}
             </span>
           )}
-          <time dateTime={sentAt} className="text-slate-500">
-            {new Date(sentAt).toLocaleTimeString()}
-          </time>
+          <Timestamp sentAt={sentAt} className="text-slate-500" />
         </div>
         {/* Rendered as text, never as HTML. */}
         <p
@@ -119,9 +118,7 @@ export function DirectRow({
         <div className="flex items-center gap-2 text-xs">
           <span className="font-semibold text-amber-300">{label}</span>
           {blocked && <BlockedTag />}
-          <time dateTime={sentAt} className="text-slate-500">
-            {new Date(sentAt).toLocaleTimeString()}
-          </time>
+          <Timestamp sentAt={sentAt} className="text-slate-500" />
         </div>
         {/* Rendered as text, never as HTML. */}
         <p
@@ -147,9 +144,7 @@ export function StatusRow({ text, sentAt }: { text: string; sentAt: string }) {
       <span className="rounded-full bg-sky-500/15 px-3 py-1 text-sky-300">
         {text}
       </span>
-      <time dateTime={sentAt} className="text-slate-500">
-        {new Date(sentAt).toLocaleTimeString()}
-      </time>
+      <Timestamp sentAt={sentAt} className="text-slate-500" />
     </li>
   );
 }

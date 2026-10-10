@@ -1,6 +1,11 @@
 {
   "app": { "title": "Chatter" },
   "language": { "label": "Sprog" },
+  "time": {
+    "fewSecondsAgo": "for få sekunder siden",
+    "minutesAgo_one": "for {{count}} minut siden",
+    "minutesAgo_other": "for {{count}} minutter siden"
+  },
   "person": {
     "actions": "Handlinger for {{name}}",
     "message": "Skriv til {{name}}",

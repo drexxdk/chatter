@@ -300,7 +300,7 @@ describe("inside a room", () => {
     const log = screen.getByRole("log");
     expect(
       within(log)
-        .getAllByText(/first|second/)
+        .getAllByText(/^(first|second)$/)
         .map((node) => node.textContent),
     ).toEqual(["first", "second"]);
   });

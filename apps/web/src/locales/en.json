@@ -1,6 +1,11 @@
 {
   "app": { "title": "Chatter" },
   "language": { "label": "Language" },
+  "time": {
+    "fewSecondsAgo": "a few seconds ago",
+    "minutesAgo_one": "{{count}} minute ago",
+    "minutesAgo_other": "{{count}} minutes ago"
+  },
   "person": {
     "actions": "Actions for {{name}}",
     "message": "Message {{name}}",

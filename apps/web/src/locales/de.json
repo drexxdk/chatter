@@ -1,6 +1,11 @@
 {
   "app": { "title": "Chatter" },
   "language": { "label": "Sprache" },
+  "time": {
+    "fewSecondsAgo": "vor wenigen Sekunden",
+    "minutesAgo_one": "vor {{count}} Minute",
+    "minutesAgo_other": "vor {{count}} Minuten"
+  },
   "person": {
     "actions": "Aktionen für {{name}}",
     "message": "{{name}} schreiben",

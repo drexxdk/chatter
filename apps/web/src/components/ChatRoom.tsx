@@ -25,6 +25,7 @@ import { focusMessageBox } from "../focusMessageBox";
 import { NAV_STOP_CLASS, navStop, useRowNavigation } from "../rowNavigation";
 import { DirectChat } from "./DirectChat";
 import { BlockedTag } from "./DirectLists";
+import { Timestamp } from "./Timestamp";
 import { ErrorAlert } from "./ErrorAlert";
 import { DirectRow, MessageRow, StatusRow } from "./MessageRow";
 import { MessageInput } from "./MessageInput";
@@ -352,12 +353,10 @@ export function ChatRoom({
                     <span className="font-semibold italic text-red-400">
                       {t("room.bannedMessage")}
                     </span>
-                    <time
-                      dateTime={item.message.sentAt}
+                    <Timestamp
+                      sentAt={item.message.sentAt}
                       className="ml-2 text-xs text-slate-500"
-                    >
-                      {new Date(item.message.sentAt).toLocaleTimeString()}
-                    </time>
+                    />
                   </li>
                 ) : (
                   <MessageRow
