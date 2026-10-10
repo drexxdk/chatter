@@ -155,7 +155,6 @@ export function MessageEntry({
   reactions,
   reacted,
   menu,
-  onClickArea,
   children,
 }: {
   id: string;
@@ -165,8 +164,6 @@ export function MessageEntry({
   reacted: Reaction[];
   // Absent where there is nobody to do anything with.
   menu?: PersonMenuOptions;
-  // What a click does on the room around the message, which is also what a click on the message does.
-  onClickArea?: () => void;
   // The bubble and whatever makes it clickable or focusable.
   children: ReactNode;
 }) {
@@ -355,8 +352,7 @@ export function MessageEntry({
         {/* Reaches from edge to edge of the row, so the bar can be reached from anywhere beside the message too. */}
         <div
           aria-hidden
-          onClick={onClickArea}
-          className={`absolute -inset-y-0.5 w-[calc(100cqw+1rem)] ${mine ? "-right-2" : "-left-13"} ${onClickArea ? "cursor-pointer rounded-lg group-hover/message:bg-neutral-100/5" : ""}`}
+          className={`absolute -inset-y-0.5 w-[calc(100cqw+1rem)] ${mine ? "-right-2" : "-left-13"}`}
         />
         {children}
         {/* The padding below the bar keeps the pointer inside the message while it moves up to the bar. */}

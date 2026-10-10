@@ -363,7 +363,7 @@ describe("a GIF in a message", () => {
     return { log, video };
   }
 
-  it("is not a click on the person who sent it, which is what a click on their words is", async () => {
+  it("is not a click on the person who sent it; their name is", async () => {
     const user = userEvent.setup();
     const server = makeFakeServer({
       others: [{ guestId: "guest-bob", nickname: "Bob" }],
@@ -387,6 +387,12 @@ describe("a GIF in a message", () => {
     ).toBeNull();
 
     await user.click(log.getByText("words"));
+
+    expect(
+      screen.queryByRole("textbox", { name: "Message to Bob" }),
+    ).toBeNull();
+
+    await user.click(log.getByText("Bob"));
 
     expect(
       await screen.findByRole("textbox", { name: "Message to Bob" }),

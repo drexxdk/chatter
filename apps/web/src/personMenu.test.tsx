@@ -58,11 +58,13 @@ describe("the options button of a message", () => {
     expect(log.queryByRole("button", { name: "Actions for Alice" })).toBeNull();
   });
 
-  it("is the only thing that opens the menu: clicking the message chooses the person instead", async () => {
+  it("is the only thing that opens the menu: clicking the name chooses the person instead", async () => {
     const { user, server } = await enter();
     say(server, BOB, "from bob");
 
-    await user.click(screen.getByText("from bob"));
+    await user.click(
+      within(screen.getByRole("log")).getByText("Bob", { selector: "span" }),
+    );
 
     expect(screen.queryByRole("menu")).toBeNull();
     expect(

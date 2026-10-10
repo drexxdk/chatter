@@ -22,15 +22,11 @@ export interface GroupMessage {
   reactions?: Reaction[];
 }
 
-// A drag across a message selects its text to copy; only a plain click chooses the person.
-function chooseUnlessSelecting(choose: () => void) {
-  if (!window.getSelection()?.toString()) choose();
-}
-
 // What somebody wrote in a row, in a room or between two people: their name once, the time of the last message, and
 // each message in a bubble of its own. What others say sits on the left with their avatar, what the guest says on the
-// right; a moderator's words keep their green, bold look either way. With `onSelect` a click on a message chooses the
-// person to write to; `nav` makes every message a stop for the arrow keys (see rowNavigation.ts).
+// right; a moderator's words keep their green, bold look either way. With `onSelect` a click on the name or the avatar
+// chooses the person to write to (from the keyboard, Enter on a message does); `nav` makes every message a stop for the
+// arrow keys (see rowNavigation.ts).
 export function MessageGroup({
   mine,
   nickname,
@@ -69,6 +65,8 @@ export function MessageGroup({
   const { t } = useTranslation();
   const moderator = role === "moderator";
   const last = messages[messages.length - 1];
+  // What the name and the avatar do when clicked; nothing for somebody who cannot be written to now.
+  const pick = onSelect && selectable ? onSelect : undefined;
 
   const picture = (url: string) =>
     direct ? (
@@ -120,13 +118,21 @@ export function MessageGroup({
       {...(direct ? { "data-kind": "direct" } : {})}
       className={`@container -mx-2 flex min-w-0 items-start gap-2 rounded-lg px-2 py-1 ${mine ? "flex-row-reverse" : ""}`}
     >
-      {!mine && <AvatarIcon avatar={avatar} dimmed={gone} />}
+      {!mine && (
+        <span
+          onClick={pick}
+          className={`flex shrink-0 ${pick ? "cursor-pointer" : ""}`}
+        >
+          <AvatarIcon avatar={avatar} dimmed={gone} />
+        </span>
+      )}
       <div
         className={`flex min-w-0 max-w-[80%] flex-col gap-1 ${mine ? "items-end" : "items-start"}`}
       >
         <div className="flex items-center gap-2 text-xs">
           <span
-            className={
+            onClick={mine ? undefined : pick}
+            className={`${
               direct
                 ? "font-semibold text-amber-300"
                 : moderator
@@ -134,7 +140,7 @@ export function MessageGroup({
                   : mine
                     ? "font-semibold text-indigo-300"
                     : "font-semibold"
-            }
+            } ${pick && !mine ? "cursor-pointer hover:underline" : ""}`}
           >
             {direct ? direct.label : nickname}
           </span>
@@ -171,39 +177,19 @@ export function MessageGroup({
               reactions={reactable ? reactions : undefined}
               reacted={message.reactions ?? []}
               menu={message.banned ? undefined : menu}
-              onClickArea={
-                onSelect && selectable && !message.banned
-                  ? () => chooseUnlessSelecting(onSelect)
-                  : undefined
-              }
             >
               {onSelect ? (
-                // The click is taken here, not by the button, so the text stays selectable. A picture has its own buttons
-                // and is not a click on the person.
-                <div
-                  className="group/bubble relative max-w-full"
-                  onClick={
-                    selectable
-                      ? (event) => {
-                          if (
-                            (event.target as HTMLElement).closest("[data-gif]")
-                          ) {
-                            return;
-                          }
-
-                          chooseUnlessSelecting(onSelect);
-                        }
-                      : undefined
-                  }
-                >
+                // Only the keyboard reaches the button; the mouse chooses the person by the name and the avatar.
+                <div className="relative max-w-full">
                   {bubble(message)}
                   <button
                     type="button"
                     aria-disabled={selectable ? undefined : true}
                     aria-label={t("person.message", { name: nickname })}
+                    onClick={selectable ? onSelect : undefined}
                     {...stop}
                     {...keyShortcut}
-                    className={`pointer-events-none absolute inset-0 rounded-2xl ${selectable && !hasGif ? "group-hover/bubble:bg-neutral-100/5" : ""} ${NAV_STOP_CLASS}`}
+                    className={`pointer-events-none absolute inset-0 rounded-2xl ${NAV_STOP_CLASS}`}
                   />
                 </div>
               ) : (

@@ -176,24 +176,28 @@ describe("clicking a message", () => {
     expect(screen.queryByRole("button", { name: "Message Alice" })).toBeNull();
   });
 
-  it("does the same from the room around it, which is all there is to click beside a small picture", async () => {
+  it("does the same from their name and from their avatar, but not from what they said", async () => {
     const { user, server } = await enter();
     emit(server, said(BOB, "one", 1));
-    const around = rows()[0].querySelector<HTMLElement>(
-      '[aria-hidden="true"].cursor-pointer',
-    );
+    const row = within(rows()[0]);
+    const writingTo = () =>
+      screen.queryByRole("textbox", { name: "Message to Bob" });
 
-    await user.click(around!);
+    await user.click(row.getByText("one"));
+    expect(writingTo()).toBeNull();
 
-    await waitFor(() =>
-      expect(
-        screen.getByRole("textbox", { name: "Message to Bob" }),
-      ).toBeInTheDocument(),
-    );
+    await user.click(row.getByText("Bob"));
+    await waitFor(() => expect(writingTo()).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: /^Stop writing/ }));
+    await waitFor(() => expect(writingTo()).toBeNull());
+
+    await user.click(rows()[0].querySelector<HTMLElement>("[data-avatar]")!);
+    await waitFor(() => expect(writingTo()).toBeInTheDocument());
   });
 
-  it("offers no such room round the message of somebody who has left", async () => {
-    const { server } = await enter();
+  it("has no name or avatar to click for somebody who has left", async () => {
+    const { user, server } = await enter();
     emit(server, said(BOB, "bye", 1));
     act(() =>
       server.latest.serverEmit("room:presence", {
@@ -202,7 +206,15 @@ describe("clicking a message", () => {
       }),
     );
 
-    expect(rows()[0].querySelector(".cursor-pointer")).toBeNull();
+    expect(within(rows()[0]).getByText("Bob")).not.toHaveClass(
+      "cursor-pointer",
+    );
+
+    await user.click(within(rows()[0]).getByText("Bob"));
+
+    expect(
+      screen.getByRole("button", { name: "Send to: All" }),
+    ).toBeInTheDocument();
   });
 
   it("does nothing for somebody who has left the room", async () => {

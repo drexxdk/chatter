@@ -64,7 +64,6 @@ export function GifImage({ url }: { url: string }) {
         alt={t("gif.alt")}
         loading="lazy"
         referrerPolicy="no-referrer"
-        data-gif
         className="h-40 min-w-24 max-w-full rounded-2xl bg-neutral-800 object-contain"
       />
     );
@@ -93,7 +92,7 @@ export function GifImage({ url }: { url: string }) {
   };
 
   return (
-    <div ref={root} data-gif className="relative w-fit max-w-full">
+    <div ref={root} className="relative w-fit max-w-full">
       <video
         ref={video}
         src={gifVideoUrl(url)}
