@@ -36,4 +36,24 @@ describe("keepStickyInView", () => {
     expect(calls).toHaveBeenNthCalledWith(1, undefined);
     expect(calls).toHaveBeenNthCalledWith(2, { preventScroll: false });
   });
+
+  it("does not scroll to an item in a menu or a popover panel, which is not yet where it will be placed", () => {
+    document.body.innerHTML = `<main><div role="menu"><button id="m"></button></div><div id="headlessui-popover-panel-1"><button id="p"></button></div></main>`;
+
+    document.getElementById("m")!.focus();
+    document.getElementById("p")!.focus();
+
+    expect(calls).toHaveBeenNthCalledWith(1, { preventScroll: true });
+    expect(calls).toHaveBeenNthCalledWith(2, { preventScroll: true });
+  });
+
+  it("does not scroll to the button that opens a popup, nor when focus comes back to it", () => {
+    document.body.innerHTML = `<main><button id="headlessui-popover-button-1"></button><button id="headlessui-menu-button-2"></button></main>`;
+
+    document.getElementById("headlessui-popover-button-1")!.focus();
+    document.getElementById("headlessui-menu-button-2")!.focus();
+
+    expect(calls).toHaveBeenNthCalledWith(1, { preventScroll: true });
+    expect(calls).toHaveBeenNthCalledWith(2, { preventScroll: true });
+  });
 });

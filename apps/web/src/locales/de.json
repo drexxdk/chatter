@@ -110,6 +110,7 @@
     "reconnecting": "Verbindung unterbrochen. Verbinde erneut…",
     "bannedMessage": "Dieser Nutzer wurde gesperrt",
     "moderatorBadge": "Moderator",
+    "leftTag": "Hat den Raum verlassen",
     "slowMode": "Langsamer Modus: eine Nachricht alle {{seconds}} s.",
     "joined": "{{name}} hat den Raum betreten.",
     "left": "{{name}} hat den Raum verlassen.",

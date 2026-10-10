@@ -171,3 +171,75 @@ describe("the options button of a message", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("somebody who has left the room", () => {
+  const leave = (server: ReturnType<typeof makeFakeServer>) =>
+    act(() =>
+      server.latest.serverEmit("room:presence", {
+        roomSlug: "general",
+        members: [{ guestId: ME.guestId, nickname: "Alice" }],
+      }),
+    );
+
+  const openMenu = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(
+      screen.getAllByRole("button", { name: "Actions for Bob" })[0],
+    );
+
+    return within(await screen.findByRole("menu"));
+  };
+
+  it("is marked on their messages, which stay", async () => {
+    const { server } = await enter();
+    say(server, BOB, "from bob");
+    expect(screen.queryByText("Left the room")).toBeNull();
+
+    leave(server);
+
+    const row = within(screen.getByText("from bob").closest("li")!);
+    expect(row.getByText("Left the room")).toBeInTheDocument();
+    expect(row.getByText("from bob")).toBeInTheDocument();
+  });
+
+  it("cannot be opened a private chat with when nothing was ever written to each other", async () => {
+    const { user, server } = await enter();
+    say(server, BOB, "from bob");
+    leave(server);
+
+    const menu = await openMenu(user);
+
+    expect(
+      menu.getByRole("menuitem", { name: "Open private chat" }),
+    ).toHaveAttribute("aria-disabled", "true");
+    expect(menu.getByRole("menuitem", { name: "Message Bob" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("still has the private chat to open when they have written to the guest before", async () => {
+    const { user, server } = await enter();
+    say(server, BOB, "from bob");
+    act(() =>
+      server.latest.serverEmit("dm:new", {
+        id: "d1",
+        fromGuestId: BOB.guestId,
+        fromNickname: "Bob",
+        fromRole: "guest",
+        fromAvatar: "other",
+        toGuestId: ME.guestId,
+        toNickname: "Alice",
+        toAvatar: "other",
+        text: "psst",
+        sentAt: new Date(Date.UTC(2026, 9, 3, 12, 0, 1)).toISOString(),
+      }),
+    );
+    leave(server);
+
+    const menu = await openMenu(user);
+
+    expect(
+      menu.getByRole("menuitem", { name: "Open private chat" }),
+    ).not.toHaveAttribute("aria-disabled", "true");
+  });
+});

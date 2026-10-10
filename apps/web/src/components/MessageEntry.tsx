@@ -261,6 +261,11 @@ export function MessageEntry({
       }}
     >
       <div className="relative max-w-full">
+        {/* Reaches from edge to edge of the row, so the bar can be reached from anywhere beside the message too. */}
+        <div
+          aria-hidden
+          className={`absolute -inset-y-0.5 w-[calc(100cqw+1rem)] ${mine ? "-right-2" : "-left-13"}`}
+        />
         {children}
         {/* The padding below the bar keeps the pointer inside the message while it moves up to the bar. */}
         <div

@@ -110,6 +110,7 @@
     "reconnecting": "Forbindelsen blev afbrudt. Forbinder igen…",
     "bannedMessage": "Denne bruger blev udelukket",
     "moderatorBadge": "Moderator",
+    "leftTag": "Forlod rummet",
     "slowMode": "Langsom tilstand: én besked hvert {{seconds}}. sekund.",
     "joined": "{{name}} kom ind i rummet.",
     "left": "{{name}} forlod rummet.",

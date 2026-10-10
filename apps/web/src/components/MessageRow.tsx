@@ -1,3 +1,4 @@
+import { LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { Avatar } from "../chat/avatar";
@@ -37,6 +38,7 @@ export function MessageGroup({
   avatar,
   messages,
   blocked = false,
+  gone = false,
   direct,
   onSelect,
   selectable = true,
@@ -51,6 +53,8 @@ export function MessageGroup({
   avatar: Avatar;
   messages: GroupMessage[];
   blocked?: boolean;
+  // They have left the room; their messages stay, with a note and a dimmed avatar.
+  gone?: boolean;
   // A private message among the room's: says who it is to or from, in place of the name.
   direct?: { label: string };
   onSelect?: () => void;
@@ -114,9 +118,9 @@ export function MessageGroup({
     <li
       data-side={mine ? "right" : "left"}
       {...(direct ? { "data-kind": "direct" } : {})}
-      className={`-mx-2 flex min-w-0 items-start gap-2 rounded-lg px-2 py-1 ${mine ? "flex-row-reverse" : ""}`}
+      className={`@container -mx-2 flex min-w-0 items-start gap-2 rounded-lg px-2 py-1 ${mine ? "flex-row-reverse" : ""}`}
     >
-      {!mine && <AvatarIcon avatar={avatar} />}
+      {!mine && <AvatarIcon avatar={avatar} dimmed={gone} />}
       <div
         className={`flex min-w-0 max-w-[80%] flex-col gap-1 ${mine ? "items-end" : "items-start"}`}
       >
@@ -191,6 +195,13 @@ export function MessageGroup({
             </MessageEntry>
           );
         })}
+        {/* After the messages, not beside the time: that is when the message was sent, not when they left. */}
+        {gone && (
+          <p className="flex items-center gap-1 text-xs italic text-slate-400">
+            <LogOut aria-hidden="true" className="h-3 w-3" />
+            {t("room.leftTag")}
+          </p>
+        )}
       </div>
     </li>
   );

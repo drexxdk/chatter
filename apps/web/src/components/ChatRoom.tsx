@@ -18,7 +18,7 @@ import type {
 } from "../chat/useChat";
 import { AnnounceForm } from "./AnnounceForm";
 import { PLAIN_AVATAR } from "../chat/avatar";
-import type { Partner } from "../chat/direct";
+import { isStatus, type Partner } from "../chat/direct";
 import { runs } from "../chat/runs";
 import { useComposer } from "../chat/useComposer";
 import {
@@ -223,6 +223,10 @@ export function ChatRoom({
     focusMessageBox();
   }
 
+  // Whether somebody is in the room; while the connection is down nobody can be told to have left.
+  const hasLeft = (guestId: string) =>
+    connected && !members.some((member) => member.guestId === guestId);
+
   // What the "…" button of somebody's message offers.
   function personMenu(partner: Partner): PersonMenuOptions {
     const blocked = direct.blockedIds.includes(partner.guestId);
@@ -230,6 +234,11 @@ export function ChatRoom({
     return {
       partner,
       present: members.some((member) => member.guestId === partner.guestId),
+      hasConversation: direct.threads.some(
+        (thread) =>
+          thread.guestId === partner.guestId &&
+          thread.entries.some((entry) => !isStatus(entry)),
+      ),
       blocked,
       blockedBy: direct.blockedByIds.includes(partner.guestId),
       onMessage: () => selectPerson(partner),
@@ -368,6 +377,7 @@ export function ChatRoom({
                       blocked={direct.blockedIds.includes(
                         first.partner.guestId,
                       )}
+                      gone={hasLeft(first.partner.guestId)}
                       direct={{
                         label: t(mine ? "dm.to" : "dm.from", {
                           name: first.partner.nickname,
@@ -425,6 +435,7 @@ export function ChatRoom({
                     role={author.role}
                     avatar={author.avatar}
                     blocked={direct.blockedIds.includes(author.guestId)}
+                    gone={!mine && hasLeft(author.guestId)}
                     messages={entries.map(({ message }) => ({
                       id: message.id,
                       text: message.text,

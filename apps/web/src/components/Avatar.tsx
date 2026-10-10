@@ -26,11 +26,14 @@ export function AvatarIcon({
   avatar,
   small = false,
   titled = true,
+  dimmed = false,
 }: {
   avatar: Avatar;
   small?: boolean;
   // Whether hovering names the avatar ("Other"); off where it would only be in the way.
   titled?: boolean;
+  // For somebody who is no longer here.
+  dimmed?: boolean;
 }) {
   const { t } = useTranslation();
   // Live messages and the list of people reach here as the server sent them, so an unknown value must not break it.
@@ -44,7 +47,7 @@ export function AvatarIcon({
       aria-hidden="true"
       className={`inline-flex shrink-0 select-none items-center justify-center rounded-full ring-1 ${look.className} ${
         small ? "h-6 w-6 text-sm" : "h-9 w-9 text-lg"
-      } font-bold`}
+      } font-bold ${dimmed ? "opacity-50 grayscale" : ""}`}
     >
       {look.symbol ?? <User className="h-3/5 w-3/5" fill="currentColor" />}
     </span>

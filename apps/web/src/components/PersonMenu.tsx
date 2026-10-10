@@ -13,6 +13,8 @@ export interface PersonMenuOptions {
   partner: Partner;
   // Messages only reach people who are in the room right now.
   present: boolean;
+  // They have written with the guest before, so the private chat is there to open even if they have left.
+  hasConversation: boolean;
   blocked: boolean;
   // They have blocked the guest, so nothing written to them gets through.
   blockedBy: boolean;
@@ -64,7 +66,7 @@ export function PersonMenu({
             {t("person.message", { name: partner.nickname })}
           </button>
         </MenuItem>
-        <MenuItem>
+        <MenuItem disabled={!present && !menu.hasConversation}>
           <button
             type="button"
             onClick={() => {
