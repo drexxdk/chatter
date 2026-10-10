@@ -27,6 +27,35 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   padding-right: var(--scrollbar-width, 0px) !important;
 }
 
+/* The emoji and GIF picker has one scrollbar, never two. While the panel is tall enough for the tabs, the search box and
+   three rows of emoji (about 17.75rem), the lists scroll under them; below that the whole panel scrolls, with the lists
+   shown in full. (`size` containment is what lets the panel's height be asked about; it already has one of its own.) */
+.picker {
+  container: picker / size;
+}
+
+.picker-fill {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.picker-list {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@container picker (height < 17.75rem) {
+  .picker-fill {
+    flex: none;
+  }
+
+  .picker-list {
+    flex: none;
+    overflow: visible;
+  }
+}
+
 /* No focus ring after a click or tap; see inputMode.ts. */
 html[data-pointer] :focus-visible {
   outline: none;

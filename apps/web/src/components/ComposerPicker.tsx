@@ -56,9 +56,8 @@ export function ComposerPicker({
         anchor={{ to: "top end", gap: 8 }}
         focus={!touch}
         // As tall as the room above allows (Headless UI caps the height to it), and as far right as the message box: past
-        // the send button beside this one (w-9) and the box's border. The tabs and search box stay in view while only the
-        // list scrolls; on a screen too short for that (the tabs and list keep a height of their own) the whole panel scrolls.
-        className="z-40 ml-[calc(2.25rem+1px)] flex h-[26rem] w-[min(22rem,calc(100vw-1rem))] flex-col overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 shadow-xl [color-scheme:dark]"
+        // the send button beside this one (w-9) and the box's border. Only one thing scrolls; see `.picker` in index.css.
+        className="picker z-40 ml-[calc(2.25rem+1px)] flex h-[26rem] w-[min(22rem,calc(100vw-1rem))] flex-col overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 shadow-xl [color-scheme:dark]"
       >
         {({ close }) => {
           // Closing hands focus back to the button; the box takes it from there once that has happened.
@@ -70,7 +69,7 @@ export function ComposerPicker({
           };
 
           return (
-            <TabGroup className="flex min-h-80 flex-1 flex-col">
+            <TabGroup className="picker-fill flex flex-col">
               <FocusSearch />
               <TabList
                 className="flex shrink-0 border-b border-slate-800 px-1"
@@ -89,11 +88,8 @@ export function ComposerPicker({
                   <Tab className={TAB_CLASS}>{t("picker.tabGifs")}</Tab>
                 )}
               </TabList>
-              <TabPanels className="flex min-h-0 flex-1 flex-col p-3">
-                <TabPanel
-                  tabIndex={-1}
-                  className="flex min-h-0 flex-1 flex-col"
-                >
+              <TabPanels className="picker-fill flex flex-col p-3">
+                <TabPanel tabIndex={-1} className="picker-fill flex flex-col">
                   <EmojiPane
                     onPick={(emoji) => {
                       onEmoji(emoji);
@@ -102,10 +98,7 @@ export function ComposerPicker({
                   />
                 </TabPanel>
                 {withGifs && (
-                  <TabPanel
-                    tabIndex={-1}
-                    className="flex min-h-0 flex-1 flex-col"
-                  >
+                  <TabPanel tabIndex={-1} className="picker-fill flex flex-col">
                     <GifPane
                       onPick={(url) => {
                         onGif(url);

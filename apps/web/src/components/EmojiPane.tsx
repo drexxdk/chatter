@@ -36,7 +36,7 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
+    <div className="picker-fill flex flex-col gap-2">
       <div className="relative">
         <Search
           aria-hidden="true"
@@ -64,7 +64,7 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
         ref={gridKeys.ref}
         onFocus={gridKeys.onFocus}
         onKeyDown={gridKeys.onKeyDown}
-        className="min-h-0 flex-1 space-y-3 overflow-y-auto"
+        className="picker-list space-y-3"
       >
         {searching ? (
           found.length > 0 ? (
