@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { useComposer } from "../chat/useComposer";
 import { AttachedGif } from "./AttachedGif";
 import { ComposerPicker } from "./ComposerPicker";
+import { composerIconButton, ComposerSeparator } from "./composerControls";
 import { MessageInput } from "./MessageInput";
 import { ScrollToEnd } from "./ScrollToEnd";
 
@@ -83,32 +84,37 @@ export function ComposerBar({
             autoComplete="off"
             disabled={disabled}
             placeholder={placeholder}
-            className="block w-full min-w-0 bg-transparent px-3 pt-2 outline-none disabled:opacity-60"
+            className="block w-full min-w-0 bg-transparent px-3 pb-1 pt-2 outline-none disabled:opacity-60"
           />
           <div
             data-controls
-            className="flex cursor-text items-center justify-end gap-2 px-2 pb-2 pt-1"
+            className="flex cursor-text items-center justify-end"
           >
-            {leading}
-            {actions ?? (
-              <>
-                <ComposerPicker
-                  disabled={disabled}
-                  onEmoji={composer.addEmoji}
-                  onGif={composer.setGif}
-                  onClosed={composer.focusBox}
-                />
-                <button
-                  key="send"
-                  type="submit"
-                  disabled={disabled || !composer.message}
-                  aria-label={t("room.send")}
-                  className="cursor-pointer rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
-                >
-                  <SendHorizontal aria-hidden="true" className="h-5 w-5" />
-                </button>
-              </>
-            )}
+            {/* The group's top and left lines meet the box's own border, which is its bottom and right; clipped to the box's corner. */}
+            <div className="flex cursor-default items-center overflow-hidden rounded-br-[5px] rounded-tl-md border-l border-t border-slate-700">
+              {leading}
+              {leading && <ComposerSeparator />}
+              {actions ?? (
+                <>
+                  <ComposerPicker
+                    disabled={disabled}
+                    onEmoji={composer.addEmoji}
+                    onGif={composer.setGif}
+                    onClosed={composer.focusBox}
+                  />
+                  <ComposerSeparator />
+                  <button
+                    key="send"
+                    type="submit"
+                    disabled={disabled || !composer.message}
+                    aria-label={t("room.send")}
+                    className={`${composerIconButton} enabled:text-indigo-400 enabled:hover:text-indigo-300`}
+                  >
+                    <SendHorizontal aria-hidden="true" className="h-5 w-5" />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </form>

@@ -12,6 +12,7 @@ import { Smile } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { gifApiKey } from "../gifApi";
+import { composerIconButton } from "./composerControls";
 import { EmojiPane } from "./EmojiPane";
 import { GifPane } from "./GifPane";
 
@@ -44,7 +45,7 @@ export function ComposerPicker({
         disabled={disabled}
         aria-label={label}
         title={label}
-        className="grid size-10 place-items-center rounded-md border border-slate-700 hover:bg-slate-800 disabled:opacity-60 disabled:hover:bg-transparent data-open:bg-slate-800"
+        className={composerIconButton}
       >
         <Smile aria-hidden="true" className="h-5 w-5" />
       </PopoverButton>

@@ -9,6 +9,7 @@ import type { ActionResult } from "../chat/useChat";
 import { useComposer } from "../chat/useComposer";
 import { focusMessageBox } from "../focusMessageBox";
 import { ComposerBar } from "./ComposerBar";
+import { composerButton } from "./composerControls";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageGroup, StatusRow } from "./MessageRow";
 
@@ -178,7 +179,7 @@ export function DirectChat({
               id="unblock-direct"
               onClick={() => void unblock()}
               aria-label={t("dm.unblock", { name: partner.nickname })}
-              className="flex items-center gap-2 rounded-md bg-slate-700 px-3 py-2 font-medium hover:bg-slate-600"
+              className={`${composerButton} gap-2 px-3 text-slate-200`}
             >
               <UserCheck aria-hidden="true" className="h-5 w-5" />
               {t("dm.unblockAction")}

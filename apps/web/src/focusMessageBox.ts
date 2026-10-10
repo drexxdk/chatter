@@ -17,7 +17,7 @@ export function focusMessageBox() {
       box.focus();
       // Once more, in case something was still handing focus back as this ran.
       requestAnimationFrame(() => box.focus());
-    } else if (performance.now() - started < 3000) {
+    } else if (performance.now() - started < 8000) {
       requestAnimationFrame(attempt);
     }
   };

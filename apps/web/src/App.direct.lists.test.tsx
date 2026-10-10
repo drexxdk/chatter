@@ -22,12 +22,14 @@ beforeEach(() => {
 
 describe("direct messages", () => {
   describe("the lists", () => {
-    it("opens the conversations in the slide-out next to the recipient, which closes when one is chosen", async () => {
+    it("opens the conversations in the dropdown next to the recipient, which closes when one is chosen", async () => {
       const { user, server } = await enter();
       receive(server, dm());
 
       await user.click(screen.getByRole("button", { name: /^Send to:/ }));
-      const drawer = within(await screen.findByRole("dialog"));
+      const drawer = within(
+        await screen.findByRole("group", { name: "Send to" }),
+      );
       await user.click(
         drawer
           .getByRole("list", { name: "Direct messages" })
@@ -36,7 +38,9 @@ describe("direct messages", () => {
 
       expect(pane("Bob")).toBeInTheDocument();
       await waitFor(() =>
-        expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+        expect(
+          screen.queryByRole("group", { name: "Send to" }),
+        ).not.toBeInTheDocument(),
       );
     });
 

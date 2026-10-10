@@ -156,7 +156,7 @@ describe("direct messages", () => {
         ).toBeInTheDocument();
       });
 
-      it("cannot be chosen to write to, in the slide-out or by clicking their message", async () => {
+      it("cannot be chosen to write to, in the dropdown or by clicking their message", async () => {
         const { user, server } = await enter();
         act(() =>
           server.latest.serverEmit("message:new", message({ text: "hello" })),
@@ -164,14 +164,18 @@ describe("direct messages", () => {
         youWereBlocked(server);
 
         await user.click(screen.getByRole("button", { name: /^Send to:/ }));
-        const drawer = within(await screen.findByRole("dialog"));
+        const drawer = within(
+          await screen.findByRole("group", { name: "Send to" }),
+        );
         const row = drawer
           .getAllByRole("button", { name: /^Bob/ })
           .find((button) => button.textContent?.includes("Blocked you"));
         expect(row).toBeDisabled();
         await user.keyboard("{Escape}");
         await waitFor(() =>
-          expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+          expect(
+            screen.queryByRole("group", { name: "Send to" }),
+          ).not.toBeInTheDocument(),
         );
 
         expect(
@@ -327,7 +331,9 @@ describe("direct messages", () => {
       ).toHaveAttribute("aria-disabled", "true");
 
       await user.click(screen.getByRole("button", { name: /^Send to:/ }));
-      const drawer = within(await screen.findByRole("dialog"));
+      const drawer = within(
+        await screen.findByRole("group", { name: "Send to" }),
+      );
       const blockedRow = drawer
         .getAllByRole("button", { name: /^Bob/ })
         .find((button) => button.textContent?.includes("Blocked"));

@@ -32,6 +32,7 @@ import { NAV_STOP_CLASS, navStop, useRowNavigation } from "../rowNavigation";
 import { DirectChat } from "./DirectChat";
 import { BlockedTag } from "./DirectLists";
 import { ComposerBar } from "./ComposerBar";
+import { composerIconButton, ComposerSeparator } from "./composerControls";
 import { Timestamp } from "./Timestamp";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageGroup, StatusRow } from "./MessageRow";
@@ -525,15 +526,20 @@ export function ChatRoom({
                     onSetBlocked={direct.setBlocked}
                   />
                   {replyTo && (
-                    <button
-                      type="button"
-                      onClick={() => chooseRecipient(null)}
-                      title={t("dm.stopReply", { name: replyTo.nickname })}
-                      aria-label={t("dm.stopReply", { name: replyTo.nickname })}
-                      className="rounded-md bg-slate-800 p-2 hover:bg-slate-700"
-                    >
-                      <X aria-hidden="true" className="h-5 w-5" />
-                    </button>
+                    <>
+                      <ComposerSeparator />
+                      <button
+                        type="button"
+                        onClick={() => chooseRecipient(null)}
+                        title={t("dm.stopReply", { name: replyTo.nickname })}
+                        aria-label={t("dm.stopReply", {
+                          name: replyTo.nickname,
+                        })}
+                        className={composerIconButton}
+                      >
+                        <X aria-hidden="true" className="h-5 w-5" />
+                      </button>
+                    </>
                   )}
                 </>
               }

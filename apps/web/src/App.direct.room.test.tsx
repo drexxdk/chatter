@@ -35,10 +35,14 @@ describe("direct messages", () => {
       name: string,
     ) => {
       await user.click(recipient());
-      const drawer = within(await screen.findByRole("dialog"));
+      const drawer = within(
+        await screen.findByRole("group", { name: "Send to" }),
+      );
       await user.click(drawer.getByRole("button", { name }));
       await waitFor(() =>
-        expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+        expect(
+          screen.queryByRole("group", { name: "Send to" }),
+        ).not.toBeInTheDocument(),
       );
     };
 
@@ -112,10 +116,12 @@ describe("direct messages", () => {
       ).toBeInTheDocument();
     });
 
-    it("narrows the people in the slide-out by name, avatar and moderators", async () => {
+    it("narrows the people in the dropdown by name, avatar and moderators", async () => {
       const { user } = await enter();
       await user.click(recipient());
-      const drawer = within(await screen.findByRole("dialog"));
+      const drawer = within(
+        await screen.findByRole("group", { name: "Send to" }),
+      );
       const names = () =>
         drawer
           .getAllByRole("button")
