@@ -150,12 +150,12 @@ describe("messages by the same person", () => {
   });
 });
 
-describe("clicking a message", () => {
-  it("chooses its author to write to, whichever of their messages it was, and opens no menu", async () => {
+describe("choosing the person to write to", () => {
+  it("is done with their name, whichever of their messages is shown, and opens no menu", async () => {
     const { user, server } = await enter();
     emit(server, said(BOB, "one", 1), said(BOB, "two", 2));
 
-    await user.click(screen.getAllByRole("button", { name: "Message Bob" })[0]);
+    await user.click(within(rows()[0]).getByText("Bob"));
 
     expect(screen.queryByRole("menu")).toBeNull();
     expect(
@@ -168,15 +168,32 @@ describe("clicking a message", () => {
     );
   });
 
-  it("does nothing for the guest's own messages", async () => {
+  it("has nothing to click on the guest's own messages", async () => {
     const { server } = await enter();
 
     emit(server, said({ guestId: "guest-me", nickname: "Alice" }, "mine", 1));
 
-    expect(screen.queryByRole("button", { name: "Message Alice" })).toBeNull();
+    expect(within(rows()[0]).queryByText("Alice")).not.toHaveClass(
+      "cursor-pointer",
+    );
   });
 
-  it("does the same from their name and from their avatar, but not from what they said", async () => {
+  it("is not done by the keyboard from the message itself", async () => {
+    const { user, server } = await enter();
+    emit(server, said(BOB, "one", 1));
+
+    within(rows()[0])
+      .getByText("one")
+      .closest<HTMLElement>("[data-nav-id]")!
+      .focus();
+    await user.keyboard("{Enter} ");
+
+    expect(
+      screen.queryByRole("textbox", { name: "Message to Bob" }),
+    ).toBeNull();
+  });
+
+  it("is done from their name and from their avatar, but not from what they said", async () => {
     const { user, server } = await enter();
     emit(server, said(BOB, "one", 1));
     const row = within(rows()[0]);
@@ -211,26 +228,6 @@ describe("clicking a message", () => {
     );
 
     await user.click(within(rows()[0]).getByText("Bob"));
-
-    expect(
-      screen.getByRole("button", { name: "Send to: All" }),
-    ).toBeInTheDocument();
-  });
-
-  it("does nothing for somebody who has left the room", async () => {
-    const { user, server } = await enter();
-    emit(server, said(BOB, "bye", 1));
-    act(() =>
-      server.latest.serverEmit("room:presence", {
-        roomSlug: "general",
-        members: [{ guestId: "guest-me", nickname: "Alice" }, CAROL],
-      }),
-    );
-
-    const message = screen.getByRole("button", { name: "Message Bob" });
-    expect(message).toHaveAttribute("aria-disabled", "true");
-
-    await user.click(message);
 
     expect(
       screen.getByRole("button", { name: "Send to: All" }),
@@ -278,6 +275,5 @@ describe("in a private conversation", () => {
 
     expect(log.getAllByRole("listitem")).toHaveLength(1);
     expect(log.getAllByText("Bob")).toHaveLength(1);
-    expect(log.queryByRole("button", { name: "Message Bob" })).toBeNull();
   });
 });

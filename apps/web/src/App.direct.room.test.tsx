@@ -23,12 +23,16 @@ describe("direct messages", () => {
     const clickMessage = (
       user: ReturnType<typeof setup>["user"],
       name: string,
-    ) =>
-      user.click(
-        roomLog()
-          .getAllByRole("button", { name: `Message ${name}` })
-          .at(-1)!,
-      );
+    ) => {
+      // The name above the message, which on a private message says who it is to or from.
+      const names = Array.from(
+        screen
+          .getByRole("log")
+          .querySelectorAll<HTMLElement>('span[class*="hover:underline"]'),
+      ).filter((element) => element.textContent?.endsWith(name));
+
+      return user.click(names.at(-1)!);
+    };
     const recipient = () => screen.getByRole("button", { name: /^Send to:/ });
     const chooseRecipient = async (
       user: ReturnType<typeof setup>["user"],
@@ -157,7 +161,7 @@ describe("direct messages", () => {
       expect(pane("Bob")).toBeNull();
     });
 
-    it("chooses the person when their message is clicked, without opening a menu", async () => {
+    it("chooses the person when their name is clicked, without opening a menu", async () => {
       const { user, server } = await enter();
       act(() =>
         server.latest.serverEmit("message:new", message({ text: "hello" })),
@@ -216,8 +220,8 @@ describe("direct messages", () => {
       await user.keyboard("{Home}");
       expect(rows()[0]).toHaveFocus();
 
-      await user.keyboard("{ArrowDown}{Enter}");
-      expect(recipient()).toHaveAccessibleName(/^Send to: Bob/);
+      await user.keyboard("{ArrowDown}{Enter} ");
+      expect(recipient()).toHaveAccessibleName(/^Send to: All/);
     });
 
     it("returns to the newest message when the chat is tabbed back into", async () => {
@@ -253,7 +257,8 @@ describe("direct messages", () => {
         .getByRole("log")
         .querySelector<HTMLElement>("[data-nav-id]")!
         .focus();
-      await user.keyboard("{Enter}");
+      await user.keyboard("{ContextMenu}");
+      await user.keyboard("{ArrowDown}{Enter}");
 
       await waitFor(() =>
         expect(
@@ -341,9 +346,9 @@ describe("direct messages", () => {
         );
       });
 
-      expect(
-        roomLog().queryByRole("button", { name: "Message Alice" }),
-      ).not.toBeInTheDocument();
+      for (const name of roomLog().getAllByText("Alice")) {
+        expect(name).not.toHaveClass("cursor-pointer");
+      }
 
       await clickMessage(user, "Ada Mod");
 

@@ -179,10 +179,8 @@ describe("direct messages", () => {
         );
 
         expect(
-          within(screen.getByRole("log"))
-            .getAllByRole("button", { name: "Message Bob" })
-            .at(-1),
-        ).toHaveAttribute("aria-disabled", "true");
+          within(screen.getByRole("log")).getAllByText("Bob").at(-1),
+        ).not.toHaveClass("cursor-pointer");
       });
 
       it("is undone, and says so, when they unblock the guest", async () => {
@@ -325,10 +323,8 @@ describe("direct messages", () => {
       ).toBeGreaterThanOrEqual(1);
 
       expect(
-        within(screen.getByRole("log"))
-          .getAllByRole("button", { name: "Message Bob" })
-          .at(-1),
-      ).toHaveAttribute("aria-disabled", "true");
+        within(screen.getByRole("log")).getAllByText("Bob").at(-1),
+      ).not.toHaveClass("cursor-pointer");
 
       await user.click(screen.getByRole("button", { name: /^Send to:/ }));
       const drawer = within(

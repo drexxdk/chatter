@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { stubRooms } from "./test/app";
@@ -181,6 +181,63 @@ describe("direct messages", () => {
       expect(read).not.toHaveClass("motion-safe:animate-pulse");
     });
 
+    it("is cleared, for all of what somebody wrote, by clicking one of their private messages", async () => {
+      const { user, server } = await enter();
+      receive(server, dm({ text: "first" }));
+      receive(server, dm({ text: "second" }));
+      receive(
+        server,
+        dm({ fromGuestId: carol.guestId, fromNickname: "Carol", text: "hi" }),
+      );
+
+      await user.click(screen.getByText("first"));
+
+      expect(
+        threads().getByRole("button", { name: /^Bob/ }),
+      ).not.toHaveAccessibleName(/unread/);
+      expect(
+        threads().getByRole("button", { name: /^Carol/ }),
+      ).toHaveAccessibleName(/1 unread message/);
+    });
+
+    it("is cleared by clicking the name of who wrote them, which also chooses them to write to", async () => {
+      const { user, server } = await enter();
+      receive(server, dm({ text: "first" }));
+      receive(server, dm({ text: "second" }));
+
+      await user.click(screen.getByText("Direct message from Bob"));
+
+      expect(
+        threads().getByRole("button", { name: /^Bob/ }),
+      ).not.toHaveAccessibleName(/unread/);
+      expect(
+        await screen.findByRole("textbox", { name: "Message to Bob" }),
+      ).toBeInTheDocument();
+    });
+
+    it("is cleared by clicking the name on what they said in the room too", async () => {
+      const { user, server } = await enter();
+      receive(server, dm());
+      act(() =>
+        server.latest.serverEmit("message:new", {
+          id: "r1",
+          roomSlug: "general",
+          guestId: bob.guestId,
+          nickname: "Bob",
+          text: "in the room",
+          sentAt: new Date().toISOString(),
+        }),
+      );
+
+      await user.click(
+        within(screen.getByRole("log", { name: "General" })).getByText("Bob"),
+      );
+
+      expect(
+        threads().getByRole("button", { name: /^Bob/ }),
+      ).not.toHaveAccessibleName(/unread/);
+    });
+
     it("says one unread message in the singular", async () => {
       const { server } = await enter();
 
@@ -260,13 +317,13 @@ describe("direct messages", () => {
       ).toHaveAccessibleName(/1 unread message/);
     });
 
-    it("stays until the conversation is opened, whatever is clicked in the chat", async () => {
+    it("stays when the message is only reached with the keyboard, not clicked", async () => {
       const { user, server } = await enter();
       receive(server, dm({ text: "psst" }));
 
-      await user.click(
-        screen.getByRole("log").querySelector("[data-nav-id]") as HTMLElement,
-      );
+      (
+        screen.getByRole("log").querySelector("[data-nav-id]") as HTMLElement
+      ).focus();
       await user.keyboard("{Escape}");
 
       expect(

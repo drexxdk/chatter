@@ -69,6 +69,10 @@ const update = (
 const row = (text: string) =>
   within(screen.getByText(text).closest("li") as HTMLElement);
 
+// What the arrow keys stop at: the message itself.
+const stopOf = (text: string) =>
+  screen.getByText(text).closest<HTMLElement>("[data-nav-id]")!;
+
 const thumbs = (...users: { guestId: string; nickname: string }[]) => ({
   emoji: "👍",
   users,
@@ -145,7 +149,7 @@ describe("reacting to a message", () => {
   it("opens the emoji with R when the message has the keyboard focus", async () => {
     const { user } = await enter([message("m1", BOB, "from bob")]);
 
-    const stop = row("from bob").getByRole("button", { name: "Message Bob" });
+    const stop = stopOf("from bob");
     expect(stop).toHaveAttribute("aria-keyshortcuts", "R");
     stop.focus();
     await user.keyboard("r");
@@ -328,8 +332,6 @@ describe("on a touch screen", () => {
   const barOf = (text: string) =>
     row(text).getByRole("button", { name: "React with 👍" }).parentElement!
       .parentElement!;
-  const stopOf = (text: string) =>
-    row(text).getByRole("button", { name: "Message Bob" });
   const touch = { pointerType: "touch", clientX: 50, clientY: 50 };
 
   it("shows the quick reactions when a message is held, without choosing the person", async () => {
@@ -346,7 +348,7 @@ describe("on a touch screen", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("still chooses the person on a short tap, and shows nothing", async () => {
+  it("shows nothing on a short tap, and does not choose the person either", async () => {
     await enter([message("m1", BOB, "from bob")]);
 
     fireEvent.pointerDown(stopOf("from bob"), touch);
@@ -356,8 +358,8 @@ describe("on a touch screen", () => {
 
     expect(barOf("from bob")).not.toHaveAttribute("data-held");
     expect(
-      await screen.findByRole("button", { name: /^Send to: Bob/ }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /^Send to: Bob/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("does nothing when the finger moves away, as when scrolling", async () => {

@@ -153,15 +153,15 @@ describe("the keyboard in the messages", () => {
     expect(stopOf("from bob")).toHaveFocus();
   });
 
-  it("chooses the person with Space on the message, as with Enter", async () => {
+  it("does not choose the person with Space or Enter on the message: that is what their name is for", async () => {
     const { user, server } = await enter();
     say(server, BOB, "from bob");
     stopOf("from bob").focus();
 
-    await user.keyboard(" ");
+    await user.keyboard(" {Enter}");
 
     expect(
-      await screen.findByRole("button", { name: /^Send to: Bob/ }),
+      screen.getByRole("button", { name: /^Send to: All/ }),
     ).toBeInTheDocument();
   });
 

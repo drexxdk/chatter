@@ -141,7 +141,9 @@ describe("the options button of a message", () => {
   it("is reached with the arrow keys from the message, and Escape from the menu returns to its button", async () => {
     const { user, server } = await enter();
     say(server, BOB, "from bob");
-    const stop = screen.getByRole("button", { name: "Message Bob" });
+    const stop = screen
+      .getByText("from bob")
+      .closest<HTMLElement>("[data-nav-id]")!;
     const bar = () =>
       within(screen.getByRole("log")).getAllByRole("button", {
         name: /^(React with|Add reaction|Actions for Bob)/,
@@ -176,7 +178,7 @@ describe("the options button of a message", () => {
     const { user, server } = await enter();
     say(server, BOB, "from bob");
 
-    screen.getByRole("button", { name: "Message Bob" }).focus();
+    screen.getByText("from bob").closest<HTMLElement>("[data-nav-id]")!.focus();
     await user.keyboard("{ContextMenu}");
 
     expect(await screen.findByRole("menu")).toBeInTheDocument();

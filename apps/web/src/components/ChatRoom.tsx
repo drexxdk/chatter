@@ -244,6 +244,8 @@ export function ChatRoom({
     !direct.blockedByIds.includes(guestId);
 
   function selectPerson(partner: Partner) {
+    // Choosing them to write to means that what they wrote has been seen.
+    direct.markRead(partner.guestId);
     startReply(partner);
     focusMessageBox();
   }
@@ -428,6 +430,7 @@ export function ChatRoom({
                         reactions: message.reactions,
                       }))}
                       onSelect={() => selectPerson(first.partner)}
+                      onSeen={() => direct.markRead(first.partner.guestId)}
                       selectable={canWriteTo(first.partner.guestId)}
                       nav={{ stopId: rows.stopId }}
                       reactions={{
@@ -491,6 +494,16 @@ export function ChatRoom({
                     }))}
                     selectable={canWriteTo(author.guestId)}
                     onSelect={mine ? undefined : () => selectPerson(author)}
+                    onSeen={
+                      !mine &&
+                      direct.threads.some(
+                        (thread) =>
+                          thread.guestId === author.guestId &&
+                          thread.unread > 0,
+                      )
+                        ? () => direct.markRead(author.guestId)
+                        : undefined
+                    }
                     nav={{ stopId: rows.stopId }}
                     reactions={{ ownIds: ownGuestIds, onReact }}
                     menu={mine ? undefined : personMenu(author)}

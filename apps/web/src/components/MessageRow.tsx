@@ -37,6 +37,7 @@ export function MessageGroup({
   gone = false,
   direct,
   onSelect,
+  onSeen,
   selectable = true,
   nav,
   reactions,
@@ -54,6 +55,9 @@ export function MessageGroup({
   // A private message among the room's: says who it is to or from, in place of the name.
   direct?: { label: string };
   onSelect?: () => void;
+  // The guest has looked at this person's messages (by clicking them or the name or avatar): whatever was new in what
+  // they wrote is not any more.
+  onSeen?: () => void;
   // Whether they can be written to now (they are here and nobody has blocked anybody); if not, a click does nothing.
   selectable?: boolean;
   nav?: { stopId: string | null };
@@ -65,8 +69,16 @@ export function MessageGroup({
   const { t } = useTranslation();
   const moderator = role === "moderator";
   const last = messages[messages.length - 1];
-  // What the name and the avatar do when clicked; nothing for somebody who cannot be written to now.
+  // What the name and the avatar do when clicked: choosing the person (not for somebody who cannot be written to now)
+  // and, always, having seen what they wrote.
   const pick = onSelect && selectable ? onSelect : undefined;
+  const clickPerson =
+    onSeen || pick
+      ? () => {
+          onSeen?.();
+          pick?.();
+        }
+      : undefined;
 
   const picture = (url: string) =>
     direct ? (
@@ -120,8 +132,8 @@ export function MessageGroup({
     >
       {!mine && (
         <span
-          onClick={pick}
-          className={`flex shrink-0 ${pick ? "cursor-pointer" : ""}`}
+          onClick={clickPerson}
+          className={`flex shrink-0 ${clickPerson ? "cursor-pointer" : ""}`}
         >
           <AvatarIcon avatar={avatar} dimmed={gone} />
         </span>
@@ -131,7 +143,7 @@ export function MessageGroup({
       >
         <div className="flex items-center gap-2 text-xs">
           <span
-            onClick={mine ? undefined : pick}
+            onClick={mine ? undefined : clickPerson}
             className={`${
               direct
                 ? "font-semibold text-amber-300"
@@ -140,7 +152,7 @@ export function MessageGroup({
                   : mine
                     ? "font-semibold text-indigo-300"
                     : "font-semibold"
-            } ${pick && !mine ? "cursor-pointer hover:underline" : ""}`}
+            } ${clickPerson && !mine ? "cursor-pointer hover:underline" : ""}`}
           >
             {direct ? direct.label : nickname}
           </span>
@@ -178,29 +190,14 @@ export function MessageGroup({
               reacted={message.reactions ?? []}
               menu={message.banned ? undefined : menu}
             >
-              {onSelect ? (
-                // Only the keyboard reaches the button; the mouse chooses the person by the name and the avatar.
-                <div className="relative max-w-full">
-                  {bubble(message)}
-                  <button
-                    type="button"
-                    aria-disabled={selectable ? undefined : true}
-                    aria-label={t("person.message", { name: nickname })}
-                    onClick={selectable ? onSelect : undefined}
-                    {...stop}
-                    {...keyShortcut}
-                    className={`pointer-events-none absolute inset-0 rounded-2xl ${NAV_STOP_CLASS}`}
-                  />
-                </div>
-              ) : (
-                <div
-                  {...stop}
-                  {...keyShortcut}
-                  className={`max-w-full rounded-2xl ${stop ? NAV_STOP_CLASS : ""}`}
-                >
-                  {bubble(message)}
-                </div>
-              )}
+              <div
+                {...stop}
+                {...keyShortcut}
+                onClick={onSeen}
+                className={`max-w-full rounded-2xl ${stop ? NAV_STOP_CLASS : ""}`}
+              >
+                {bubble(message)}
+              </div>
             </MessageEntry>
           );
         })}

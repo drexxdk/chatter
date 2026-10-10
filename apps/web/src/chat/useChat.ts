@@ -833,6 +833,11 @@ export function useChat(
     setThreads((previous) => markRead(previous, next.guestId));
   }, []);
 
+  // Everything from this person has been seen, however many messages there are.
+  const markDirectRead = useCallback((guestId: string) => {
+    setThreads((previous) => markRead(previous, guestId));
+  }, []);
+
   const setMuted = useCallback((guestId: string, muted: boolean) => {
     setThreads((previous) =>
       previous.map((thread) =>
@@ -995,6 +1000,7 @@ export function useChat(
       .map((thread) => thread.guestId),
     open: openDirect,
     close: closeDirect,
+    markRead: markDirectRead,
     setMuted,
     notify,
     setNotify,

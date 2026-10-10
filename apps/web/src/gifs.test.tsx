@@ -441,7 +441,10 @@ describe("a GIF in a message", () => {
     fireEvent.ended(video);
     await log.findByRole("button", { name: "Play again" });
 
-    log.getByRole("button", { name: /^Message / }).focus();
+    const stop = log
+      .getByRole("img", { name: "GIF" })
+      .closest<HTMLElement>("[data-nav-id]")!;
+    stop.focus();
     // The four quick emoji, the full set and the options menu come first.
     await user.keyboard("{ArrowRight>7/}");
     expect(log.getByRole("button", { name: "Play again" })).toHaveFocus();
@@ -461,7 +464,9 @@ describe("a GIF in a message", () => {
     const user = userEvent.setup();
     const { log, video } = await show();
     fireEvent.ended(video);
-    const stop = log.getByRole("button", { name: /^Message / });
+    const stop = log
+      .getByRole("img", { name: "GIF" })
+      .closest<HTMLElement>("[data-nav-id]")!;
 
     expect(
       await log.findByRole("button", { name: "Play again" }),

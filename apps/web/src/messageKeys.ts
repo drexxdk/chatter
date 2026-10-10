@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from "react";
+import { flushSync } from "react-dom";
 
 // What can be done with one message from the keyboard, in the order it appears on the screen: the buttons of the bar
 // above it, the play or stop button of its GIF, and the reactions under it. Left and right walk along this line;
@@ -59,7 +60,9 @@ export function onMessageKey(
   if (!to) return false;
 
   event.preventDefault();
-  onEngaged?.(to !== stopOf(message));
+  // The bar is shown while the message or something in it has keyboard focus. Focus passes through nothing on its way
+  // from one to the other, and if the bar is not held open by then it is hidden and cannot take the focus.
+  flushSync(() => onEngaged?.(to !== stopOf(message)));
   to.focus();
 
   return true;
