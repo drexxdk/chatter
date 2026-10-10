@@ -12,6 +12,23 @@
   --color-neutral-400: #adadad;
 }
 
+/* Tailwind leaves buttons with the arrow; whatever can be clicked shows a hand (in the base layer, so a class can still
+   choose another cursor). */
+@layer base {
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  select:not(:disabled),
+  input:is(
+      [type="checkbox"],
+      [type="radio"],
+      [type="submit"],
+      [type="button"]
+    ):not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 /* The sticky header and message bar cover the top and bottom of the page; whatever is scrolled to (by focus, say)
    must land clear of them. */
 html {
