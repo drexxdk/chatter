@@ -5,18 +5,74 @@ import { keepStickyInView } from "./stickyFocus";
 describe("keepStickyInView", () => {
   const original = HTMLElement.prototype.focus;
   const calls = vi.fn();
+  let stop: () => void;
 
   beforeEach(() => {
     calls.mockReset();
     HTMLElement.prototype.focus = function (options) {
       calls(options);
     };
-    keepStickyInView();
+    stop = keepStickyInView();
   });
 
   afterEach(() => {
+    stop();
     HTMLElement.prototype.focus = original;
     document.body.innerHTML = "";
+  });
+
+  describe("when Tab moves focus", () => {
+    const scrollTo = vi.fn();
+    const scrolledTo = (y: number) =>
+      Object.defineProperty(window, "scrollY", {
+        value: y,
+        configurable: true,
+      });
+
+    beforeEach(() => {
+      scrollTo.mockReset();
+      vi.stubGlobal("scrollTo", scrollTo);
+      scrolledTo(500);
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      scrolledTo(0);
+    });
+
+    const tabTo = (target: Element) => {
+      document.body.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Tab", bubbles: true }),
+      );
+      // What the browser does as it focuses: scrolls to where the element is in the layout.
+      scrolledTo(0);
+      target.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    };
+
+    it("puts the page back when it lands in a sticky box", () => {
+      document.body.innerHTML = `<header style="position: sticky"><button></button></header>`;
+
+      tabTo(document.querySelector("button")!);
+
+      expect(scrollTo).toHaveBeenCalledWith({
+        left: 0,
+        top: 500,
+        behavior: "instant",
+      });
+    });
+
+    it("leaves the page to the browser anywhere else, and when it was not Tab", () => {
+      document.body.innerHTML = `<main><button></button></main><header style="position: sticky"><a href="#"></a></header>`;
+
+      tabTo(document.querySelector("button")!);
+      scrolledTo(500);
+      scrolledTo(0);
+      document
+        .querySelector("a")!
+        .dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
   });
 
   it("does not scroll to an element inside a sticky box", () => {
