@@ -169,7 +169,8 @@
     "muteFrom": "Benachrichtigungen von {{name}} ausschalten",
     "unmuteFrom": "Benachrichtigungen von {{name}} einschalten",
     "all": "Alle",
-    "replyPlaceholder": "Private Nachricht an {{name}} schreiben"
+    "replyPlaceholder": "Private Nachricht an {{name}} schreiben",
+    "stopReply": "Nicht mehr privat an {{name}} schreiben, sondern an alle senden"
   },
   "errors": {
     "replaced": "Du hast den Chat in einem anderen Fenster geöffnet, daher wurde dieses geschlossen.",

@@ -5,7 +5,7 @@ import {
   useState,
   type SubmitEvent,
 } from "react";
-import { ArrowLeft, Ban } from "lucide-react";
+import { ArrowLeft, Ban, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type {
@@ -510,19 +510,32 @@ export function ChatRoom({
                 />
               }
               leading={
-                <RecipientPicker
-                  recipients={recipients}
-                  value={replyTo}
-                  onChange={chooseRecipient}
-                  threads={direct.threads}
-                  onOpenThread={openConversation}
-                  notify={direct.notify}
-                  onNotifyChange={direct.setNotify}
-                  onSetMuted={direct.setMuted}
-                  blockedIds={direct.blockedIds}
-                  blockedByIds={direct.blockedByIds}
-                  onSetBlocked={direct.setBlocked}
-                />
+                <>
+                  <RecipientPicker
+                    recipients={recipients}
+                    value={replyTo}
+                    onChange={chooseRecipient}
+                    threads={direct.threads}
+                    onOpenThread={openConversation}
+                    notify={direct.notify}
+                    onNotifyChange={direct.setNotify}
+                    onSetMuted={direct.setMuted}
+                    blockedIds={direct.blockedIds}
+                    blockedByIds={direct.blockedByIds}
+                    onSetBlocked={direct.setBlocked}
+                  />
+                  {replyTo && (
+                    <button
+                      type="button"
+                      onClick={() => chooseRecipient(null)}
+                      title={t("dm.stopReply", { name: replyTo.nickname })}
+                      aria-label={t("dm.stopReply", { name: replyTo.nickname })}
+                      className="rounded-md bg-slate-800 p-2 hover:bg-slate-700"
+                    >
+                      <X aria-hidden="true" className="h-5 w-5" />
+                    </button>
+                  )}
+                </>
               }
               below={
                 <>

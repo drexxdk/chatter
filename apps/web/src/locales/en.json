@@ -169,7 +169,8 @@
     "muteFrom": "Stop notifications from {{name}}",
     "unmuteFrom": "Turn on notifications from {{name}}",
     "all": "All",
-    "replyPlaceholder": "Write a private message to {{name}}"
+    "replyPlaceholder": "Write a private message to {{name}}",
+    "stopReply": "Stop writing privately to {{name}} and send to all"
   },
   "errors": {
     "replaced": "You opened the chat in another window, so this one was closed.",

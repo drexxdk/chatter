@@ -58,8 +58,7 @@ export function ComposerBar({
         />
       )}
 
-      <form onSubmit={onSubmit} className="flex items-end gap-2">
-        {leading}
+      <form onSubmit={onSubmit} className="flex flex-col gap-2">
         <label htmlFor={id} className="sr-only">
           {label}
         </label>
@@ -71,27 +70,32 @@ export function ComposerBar({
           autoComplete="off"
           disabled={disabled}
           placeholder={placeholder}
-          className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
+          className="w-full min-w-0 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
         />
-        {actions ?? (
-          <>
-            <ComposerPicker
-              disabled={disabled}
-              onEmoji={composer.addEmoji}
-              onGif={composer.setGif}
-              onClosed={composer.focusBox}
-            />
-            <button
-              key="send"
-              type="submit"
-              disabled={disabled || !composer.message}
-              aria-label={t("room.send")}
-              className="rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
-            >
-              <SendHorizontal aria-hidden="true" className="h-5 w-5" />
-            </button>
-          </>
-        )}
+        <div className="flex items-center gap-2">
+          {leading}
+          <div className="ml-auto flex items-center gap-2">
+            {actions ?? (
+              <>
+                <ComposerPicker
+                  disabled={disabled}
+                  onEmoji={composer.addEmoji}
+                  onGif={composer.setGif}
+                  onClosed={composer.focusBox}
+                />
+                <button
+                  key="send"
+                  type="submit"
+                  disabled={disabled || !composer.message}
+                  aria-label={t("room.send")}
+                  className="rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
+                >
+                  <SendHorizontal aria-hidden="true" className="h-5 w-5" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       </form>
 
       {below}

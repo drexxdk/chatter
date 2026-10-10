@@ -169,7 +169,8 @@
     "muteFrom": "Stop besked om nye beskeder fra {{name}}",
     "unmuteFrom": "Giv besked om nye beskeder fra {{name}}",
     "all": "Alle",
-    "replyPlaceholder": "Skriv en privat besked til {{name}}"
+    "replyPlaceholder": "Skriv en privat besked til {{name}}",
+    "stopReply": "Stop med at skrive privat til {{name}} og send til alle"
   },
   "errors": {
     "replaced": "Du har åbnet chatten i et andet vindue, så dette blev lukket.",

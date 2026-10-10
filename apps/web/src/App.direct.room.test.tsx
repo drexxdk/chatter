@@ -91,7 +91,7 @@ describe("direct messages", () => {
     it("sends to everybody by default, and to one person when chosen from the slide-out", async () => {
       const { user, server } = await enter();
 
-      expect(recipient()).toHaveAccessibleName("Send to: All");
+      expect(recipient()).toHaveAccessibleName(/^Send to: All/);
 
       await chooseRecipient(user, "Carol");
       await user.type(
@@ -273,6 +273,32 @@ describe("direct messages", () => {
       } finally {
         document.documentElement.removeAttribute("data-pointer");
       }
+    });
+
+    it("has a button next to the recipient that goes back to writing to everybody", async () => {
+      const { user, server } = await enter();
+      receive(server, dm({ text: "psst" }));
+
+      expect(
+        screen.queryByRole("button", { name: /Stop writing privately/ }),
+      ).toBeNull();
+
+      await clickMessage(user, "Bob");
+      expect(recipient()).toHaveAccessibleName(/^Send to: Bob/);
+
+      await user.click(
+        screen.getByRole("button", {
+          name: "Stop writing privately to Bob and send to all",
+        }),
+      );
+
+      expect(recipient()).toHaveAccessibleName(/^Send to: All/);
+      expect(
+        screen.getByRole("textbox", { name: "Message" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Stop writing privately/ }),
+      ).toBeNull();
     });
 
     it("puts the cursor in the message box when somebody was chosen with the mouse", async () => {
