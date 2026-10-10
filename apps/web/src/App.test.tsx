@@ -4541,7 +4541,7 @@ describe("keeping your place", () => {
 
     it("forgets it when the guest gives up reconnecting", async () => {
       const server = makeFakeServer();
-      const { user } = setup(server, [150, 150]);
+      const { user } = setup(server, [5_000, 5_000]);
       await joinRoom(user);
       await screen.findByRole("button", { name: "Your profile: Alice" });
 

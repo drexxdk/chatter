@@ -37,39 +37,46 @@ export function ProfileDialog({
         transition
         className="fixed inset-0 bg-black/60 transition-opacity duration-200 data-closed:opacity-0"
       />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <DialogPanel
-          transition
-          className="w-full max-w-sm space-y-4 rounded-lg border border-slate-700 bg-slate-900 p-5 shadow-xl transition duration-200 data-closed:scale-95 data-closed:opacity-0"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <DialogTitle className="text-lg font-semibold">
-              {t("profile.title")}
-            </DialogTitle>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t("room.closePanel")}
-              className="rounded-md p-1.5 hover:bg-slate-800"
-            >
-              <X aria-hidden="true" className="h-5 w-5" />
-            </button>
-          </div>
-
-          {session.role === "moderator" ? (
-            <div className="space-y-3">
-              <p className="flex items-center gap-2 font-bold text-green-400">
-                <AvatarIcon avatar={session.avatar ?? PLAIN_AVATAR} />
-                {session.nickname}
-              </p>
-              <p className="text-sm text-slate-300">
-                {t("profile.moderatorNote")}
-              </p>
+      {/* Scrolls on its own when the form is taller than the screen, while the page behind stays put. */}
+      <div className="fixed inset-0 overflow-y-auto p-4">
+        <div className="flex min-h-full items-center justify-center">
+          <DialogPanel
+            transition
+            className="w-full max-w-sm space-y-4 rounded-lg border border-slate-700 bg-slate-900 p-5 shadow-xl transition duration-200 data-closed:scale-95 data-closed:opacity-0"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <DialogTitle className="text-lg font-semibold">
+                {t("profile.title")}
+              </DialogTitle>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={t("room.closePanel")}
+                className="rounded-md p-1.5 hover:bg-slate-800"
+              >
+                <X aria-hidden="true" className="h-5 w-5" />
+              </button>
             </div>
-          ) : (
-            <ProfileForm session={session} onSave={onSave} onClose={onClose} />
-          )}
-        </DialogPanel>
+
+            {session.role === "moderator" ? (
+              <div className="space-y-3">
+                <p className="flex items-center gap-2 font-bold text-green-400">
+                  <AvatarIcon avatar={session.avatar ?? PLAIN_AVATAR} />
+                  {session.nickname}
+                </p>
+                <p className="text-sm text-slate-300">
+                  {t("profile.moderatorNote")}
+                </p>
+              </div>
+            ) : (
+              <ProfileForm
+                session={session}
+                onSave={onSave}
+                onClose={onClose}
+              />
+            )}
+          </DialogPanel>
+        </div>
       </div>
     </Dialog>
   );

@@ -159,6 +159,7 @@
     "invalid_nickname": "Dieser Spitzname ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",
     "banned": "Du wurdest aus diesem Chat gesperrt.",
     "reserved_nickname": "Dieser Spitzname ist reserviert. Wähle einen anderen.",
+    "nickname_taken": "Jemand in diesem Raum hat diesen Spitznamen schon. Wähle einen anderen.",
     "invalid_profile": "Dieses Profil ist nicht erlaubt. Das Alter muss zwischen {{min}} und {{max}} liegen.",
     "profile_rate_limited": "Du hast dein Profil zu oft geändert. Du kannst es in {{seconds}} s wieder ändern.",
     "invalid_token": "Deine Moderatoren-Sitzung ist abgelaufen. Melde dich erneut an.",

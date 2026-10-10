@@ -159,6 +159,7 @@
     "invalid_nickname": "Det kaldenavn er ikke tilladt. Brug 2–24 bogstaver, tal, mellemrum eller _ . -",
     "banned": "Du er udelukket fra denne chat.",
     "reserved_nickname": "Det kaldenavn er reserveret. Vælg et andet.",
+    "nickname_taken": "Der er allerede en i dette rum med det kaldenavn. Vælg et andet.",
     "invalid_profile": "Den profil er ikke tilladt. Alderen skal være mellem {{min}} og {{max}}.",
     "profile_rate_limited": "Du har ændret din profil for ofte. Du kan ændre den igen om {{seconds}} s.",
     "invalid_token": "Din moderatorsession er udløbet. Log ind igen.",

@@ -29,6 +29,9 @@ import {
   saveSession,
 } from "./session";
 
+// The server's answer when somebody else in the room already has the guest's nickname.
+const NAME_TAKEN = "nickname_taken";
+
 export function App({
   createSocket,
   reconnectDelaysMs,
@@ -63,7 +66,10 @@ export function App({
     chat.clearError();
 
     if (chat.status === "connected") {
-      await chat.joinRoom(room.slug);
+      const joined = await chat.joinRoom(room.slug);
+
+      // Somebody in that room has the guest's name: they are asked for another.
+      if (!joined.ok && joined.error === NAME_TAKEN) setPendingRoom(room);
     } else {
       setPendingRoom(room);
     }
@@ -88,9 +94,11 @@ export function App({
       guestIds: chat.guestIds(),
       ...resumeDetails(),
     });
-    const { slug } = pendingRoom;
-    setPendingRoom(null);
-    await chat.joinRoom(slug);
+    const room = pendingRoom;
+
+    // The name may be somebody else's in that room: then the dialog stays, with the reason, for another one.
+    const joined = await chat.joinRoom(room.slug);
+    if (joined.ok || joined.error !== NAME_TAKEN) setPendingRoom(null);
   }
 
   async function handleSignIn(email: string, password: string) {
@@ -130,7 +138,8 @@ export function App({
   function handleCancel() {
     setPendingRoom(null);
     clearDialogErrors();
-    if (slugFromPath(window.location.pathname)) {
+    // Still in a room (the guest was only trying another one): its address stays.
+    if (!chat.roomSlug && slugFromPath(window.location.pathname)) {
       window.history.replaceState(null, "", LOBBY_PATH);
     }
   }
@@ -253,8 +262,12 @@ export function App({
         ...resumeDetails(),
       });
 
-      if (!(await chat.joinRoom(room.slug))) {
-        window.history.replaceState(null, "", LOBBY_PATH);
+      const joined = await chat.joinRoom(room.slug);
+
+      if (!joined.ok) {
+        // Somebody in the room has the guest's name: they are asked for another instead of being sent away.
+        if (joined.error === NAME_TAKEN) setPendingRoom(room);
+        else window.history.replaceState(null, "", LOBBY_PATH);
       }
     })();
   });

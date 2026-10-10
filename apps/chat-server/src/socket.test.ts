@@ -2586,6 +2586,153 @@ describe("profiles", () => {
   });
 });
 
+describe("nicknames in a room", () => {
+  const SECRET = "a-secret-that-is-long-enough-for-tests";
+
+  async function guestIn(nickname: string, slug = "general") {
+    const { socket, session } = await connect({ nickname });
+    const ack = await emit(socket!, "room:join", { slug });
+
+    return { socket: socket!, session: await session!, ack };
+  }
+
+  it("refuses a name somebody else in the room already has", async () => {
+    await guestIn("Alice");
+    const second = await connect({ nickname: "Alice" });
+
+    expect(
+      await emit(second.socket!, "room:join", { slug: "general" }),
+    ).toEqual({ ok: false, error: "nickname_taken" });
+  });
+
+  it.each(["alice", "ALICE", "a l i c e", "Al.ice", "A_l-i_c-e"])(
+    "does not tell %s from Alice",
+    async (name) => {
+      await guestIn("Alice");
+      const second = await connect({ nickname: name });
+
+      expect(
+        (await emit(second.socket!, "room:join", { slug: "general" })).error,
+      ).toBe("nickname_taken");
+    },
+  );
+
+  it("does not put the refused guest in the room", async () => {
+    const first = await guestIn("Alice");
+    const second = await connect({ nickname: "Alice" });
+    await emit(second.socket!, "room:join", { slug: "general" });
+    const heard = vi.fn();
+    first.socket.on("message:new", heard);
+
+    await emit(second.socket!, "message:send", { text: "hi" });
+
+    expect(
+      await emit(second.socket!, "message:send", { text: "hi" }),
+    ).toMatchObject({ ok: false, error: "not_in_room" });
+    expect(heard).not.toHaveBeenCalled();
+  });
+
+  it("lets the same name be used in another room", async () => {
+    await guestIn("Alice", "general");
+
+    expect((await guestIn("Alice", "random")).ack.ok).toBe(true);
+  });
+
+  it("frees the name when its owner leaves", async () => {
+    const first = await guestIn("Alice");
+    await emit(first.socket, "room:leave");
+
+    expect((await guestIn("Alice")).ack.ok).toBe(true);
+  });
+
+  it("does not count a guest who joins their own room again", async () => {
+    const first = await guestIn("Alice");
+
+    expect(
+      await emit(first.socket, "room:join", { slug: "general" }),
+    ).toMatchObject({ ok: true });
+  });
+
+  it("lets a guest who resumes their identity back in while the old connection lingers", async () => {
+    verifyResume.mockResolvedValue(true);
+    const first = await guestIn("Alice");
+    const again = await connect({
+      nickname: "Alice",
+      guestId: first.session.guestId,
+      resumeSecret: "the-secret",
+    });
+
+    expect(
+      (await emit(again.socket!, "room:join", { slug: "general" })).ok,
+    ).toBe(true);
+  });
+
+  it("refuses a rename to a name in the room, and changes nothing", async () => {
+    const alice = await guestIn("Alice");
+    await guestIn("Bob");
+
+    expect(
+      await emit(alice.socket, "profile:update", { nickname: "bob" }),
+    ).toEqual({ ok: false, error: "nickname_taken" });
+    expect(await emit(alice.socket, "profile:update", {})).toMatchObject({
+      ok: true,
+      profile: { nickname: "Alice" },
+    });
+  });
+
+  it("lets a guest change the look of their own name, and take a name that is free", async () => {
+    const alice = await guestIn("Alice");
+    await guestIn("Bob");
+
+    expect(
+      (await emit(alice.socket, "profile:update", { nickname: "ALICE" })).ok,
+    ).toBe(true);
+    expect(
+      await emit(alice.socket, "profile:update", { nickname: "Alicia" }),
+    ).toMatchObject({ ok: true, profile: { nickname: "Alicia" } });
+  });
+
+  it("lets a guest take the name another guest has just left", async () => {
+    const alice = await guestIn("Alice");
+    const bob = await guestIn("Bob");
+    await emit(bob.socket, "room:leave");
+
+    expect(
+      (await emit(alice.socket, "profile:update", { nickname: "Bob" })).ok,
+    ).toBe(true);
+  });
+
+  it("lets only one of two guests who choose the same name at once have it", async () => {
+    const alice = await guestIn("Alice");
+    const bob = await guestIn("Bob");
+
+    const results = await Promise.all([
+      emit(alice.socket, "profile:update", { nickname: "Carol" }),
+      emit(bob.socket, "profile:update", { nickname: "carol" }),
+    ]);
+
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(
+      results.filter((result) => result.error === "nickname_taken"),
+    ).toHaveLength(1);
+  });
+
+  it("does not count the same moderator account on two connections as two people", async () => {
+    const { port } = await startServer({ authTokenSecret: SECRET });
+    const token = signToken(
+      { sub: 7, name: "Ada Mod", role: "moderator" },
+      { secret: SECRET, ttlMs: 3_600_000 },
+    );
+    const first = await connect({ token }, port);
+    const second = await connect({ token }, port);
+    await emit(first.socket!, "room:join", { slug: "general" });
+
+    expect(
+      (await emit(second.socket!, "room:join", { slug: "general" })).ok,
+    ).toBe(true);
+  });
+});
+
 describe("resuming an identity", () => {
   const SECRET = "a-secret-that-is-long-enough-for-tests";
 

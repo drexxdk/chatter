@@ -805,7 +805,7 @@ export function useChat(
   );
 
   const joinRoom = useCallback(
-    async (slug: string): Promise<boolean> => {
+    async (slug: string): Promise<ActionResult> => {
       setError(null);
 
       // The server sends presence (and possibly messages) before it acknowledges the join, so the room must be
@@ -824,7 +824,7 @@ export function useChat(
           partnerRef.current = null;
           setPartner(null);
         }
-        return false;
+        return { ok: false, error: ack.error };
       }
 
       setRoomEvents((existing) =>
@@ -838,7 +838,7 @@ export function useChat(
         ),
       );
       setRoomSlug(slug);
-      return true;
+      return { ok: true };
     },
     [emitWithAck],
   );

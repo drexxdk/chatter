@@ -38,6 +38,7 @@ const ERROR_CODES = [
   "announce_wait",
   "forbidden",
   "invalid_profile",
+  "nickname_taken",
   "user_not_found",
   "invalid_recipient",
   "too_many_blocked",

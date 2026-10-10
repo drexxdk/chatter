@@ -814,3 +814,25 @@ test("the room says who comes and goes, unless a guest switches that off", async
   ).toBeVisible();
   await expect(await openSetting()).toHaveAttribute("aria-checked", "false");
 });
+
+test("a nickname somebody in the room has is refused, and free again once they leave", async ({
+  browser,
+}) => {
+  const alice = await newGuest(browser);
+  const other = await newGuest(browser);
+  await enterRoom(alice, LOUNGE.name, "Alice");
+
+  await startJoin(other, LOUNGE.name, "alice");
+  await expect(other.getByRole("alert")).toContainText(
+    "Somebody in this room already has that nickname.",
+  );
+  await expect(
+    other.getByRole("button", { name: /^Your profile:/ }),
+  ).toHaveCount(0);
+
+  await alice.getByRole("button", { name: "Leave room" }).click();
+  await other.getByRole("button", { name: "Continue" }).click();
+  await expect(
+    other.getByRole("button", { name: "Your profile: alice" }),
+  ).toBeVisible();
+});

@@ -19,6 +19,7 @@ import {
   getModerators,
   getModeratorNames,
   isReservedNickname,
+  normalizeName,
 } from "./names.js";
 import { pubClient, subClient } from "./redis.js";
 import { ROLE_RULES, type ChatRole } from "./roles.js";
@@ -186,6 +187,26 @@ export function createSocketServer(
           ? {}
           : { age: (member.data as SocketData).age }),
       })),
+    });
+  }
+
+  // Whether somebody else in the room already has this name, so two people are never mistaken for each other. Case,
+  // spaces and punctuation do not make a name different. A moderator signed in on two connections is one person.
+  async function nameInUse(
+    slug: string,
+    data: SocketData,
+    nickname: string,
+  ): Promise<boolean> {
+    const name = normalizeName(nickname);
+
+    return (await io.in(roomKey(slug)).fetchSockets()).some((member) => {
+      const other = member.data as SocketData;
+
+      return (
+        other.guestId !== data.guestId &&
+        normalizeName(other.nickname) === name &&
+        !(other.accountId !== undefined && other.accountId === data.accountId)
+      );
     });
   }
 
@@ -651,10 +672,28 @@ export function createSocketServer(
         }
       }
 
-      data.nickname = nickname;
-      data.avatar = avatar;
-      data.age = age;
-      data.profileChangeTimes.push(now);
+      const slug = data.roomSlug;
+      const apply = () => {
+        data.nickname = nickname;
+        data.avatar = avatar;
+        data.age = age;
+        data.profileChangeTimes.push(now);
+      };
+
+      // A new name must not be one somebody else in the room has; checked and taken under the room's lock, so two
+      // people choosing the same name at once cannot both get it.
+      if (slug && normalizeName(nickname) !== normalizeName(data.nickname)) {
+        const taken = await withRoomLock(slug, async () => {
+          if (await nameInUse(slug, data, nickname)) return true;
+
+          apply();
+          return false;
+        });
+
+        if (taken) return reply({ ok: false, error: "nickname_taken" });
+      } else {
+        apply();
+      }
 
       reply({
         ok: true,
@@ -688,6 +727,10 @@ export function createSocketServer(
           if (members.length >= limit) return "room_full" as const;
         }
 
+        if (await nameInUse(slug, data, data.nickname)) {
+          return "nickname_taken" as const;
+        }
+
         await leaveRoom();
         data.roomSlug = slug;
         await socket.join(roomKey(slug));
@@ -696,6 +739,10 @@ export function createSocketServer(
 
       if (outcome === "room_full") {
         return reply({ ok: false, error: "room_full" });
+      }
+
+      if (outcome === "nickname_taken") {
+        return reply({ ok: false, error: "nickname_taken" });
       }
 
       if (outcome === "joined") {

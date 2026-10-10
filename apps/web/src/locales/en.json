@@ -159,6 +159,7 @@
     "invalid_nickname": "That nickname isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",
     "banned": "You are banned from this chat.",
     "reserved_nickname": "That nickname is reserved. Pick another one.",
+    "nickname_taken": "Somebody in this room already has that nickname. Pick another one.",
     "invalid_profile": "That profile isn't allowed. The age must be between {{min}} and {{max}}.",
     "profile_rate_limited": "You have changed your profile too often. You can change it again in {{seconds}} s.",
     "invalid_token": "Your moderator session has expired. Sign in again.",

@@ -319,3 +319,67 @@ describe("a moderator's profile", () => {
     expect(dialog.queryByLabelText("Nickname")).toBeNull();
   });
 });
+
+describe("a nickname somebody in the room already has", () => {
+  const TAKEN =
+    "Somebody in this room already has that nickname. Pick another one.";
+
+  it("asks the guest for another one instead of letting them in, and lets them in with it", async () => {
+    const server = makeFakeServer();
+    server.acks["room:join"] = () => ({ ok: false, error: "nickname_taken" });
+    const user = userEvent.setup();
+    render(<App createSocket={server.createSocket} />);
+    await user.click(
+      await screen.findByRole("button", { name: "Join General" }),
+    );
+    await user.type(await screen.findByLabelText("Nickname"), "Alice");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(TAKEN);
+    expect(screen.getByLabelText("Nickname")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Your profile:/ })).toBeNull();
+
+    server.acks["room:join"] = () => ({ ok: true });
+    await user.clear(screen.getByLabelText("Nickname"));
+    await user.type(screen.getByLabelText("Nickname"), "Alicia");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(
+      await screen.findByRole("button", { name: "Your profile: Alicia" }),
+    ).toBeInTheDocument();
+  });
+
+  it("asks again when a reload finds the name taken", async () => {
+    sessionStorage.setItem(
+      "chatter.session",
+      JSON.stringify({ nickname: "Alice", guestIds: ["guest-me"] }),
+    );
+    window.history.replaceState(null, "", "/rooms/general");
+    const server = makeFakeServer();
+    server.acks["room:join"] = () => ({ ok: false, error: "nickname_taken" });
+
+    render(<App createSocket={server.createSocket} />);
+
+    expect(await screen.findByLabelText("Nickname")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(TAKEN);
+    expect(window.location.pathname).toBe("/rooms/general");
+  });
+
+  it("is refused when the guest renames themselves to it, and says so in the profile", async () => {
+    const { user, server } = await enter();
+    server.latest.acks["profile:update"] = () => ({
+      ok: false,
+      error: "nickname_taken",
+    });
+    const dialog = await openProfile(user);
+
+    await user.clear(dialog.getByLabelText("Nickname"));
+    await user.type(dialog.getByLabelText("Nickname"), "Bob");
+    await user.click(dialog.getByRole("button", { name: "Save" }));
+
+    expect(await dialog.findByRole("alert")).toHaveTextContent(TAKEN);
+    expect(
+      screen.getByRole("button", { name: "Your profile: Alice", hidden: true }),
+    ).toBeInTheDocument();
+  });
+});
