@@ -35,12 +35,18 @@ export function stubRooms(
   return fetchMock;
 }
 
-export function setup(server = makeFakeServer(), reconnectDelaysMs?: number[]) {
+// Departures are announced at once unless a test asks for the grace period.
+export function setup(
+  server = makeFakeServer(),
+  reconnectDelaysMs?: number[],
+  leaveGraceMs = 0,
+) {
   const user = userEvent.setup();
   const { unmount } = render(
     <App
       createSocket={server.createSocket}
       reconnectDelaysMs={reconnectDelaysMs}
+      leaveGraceMs={leaveGraceMs}
     />,
   );
   return { user, server, unmount };

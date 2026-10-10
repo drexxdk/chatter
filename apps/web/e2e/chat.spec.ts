@@ -877,7 +877,8 @@ test("the room says who comes and goes, unless a guest switches that off", async
   await expect(room).toContainText("Bob joined the room.");
 
   await bob.getByRole("button", { name: "Leave room" }).click();
-  await expect(room).toContainText("Bob left the room.");
+  // Departures are announced only after the grace period, in case the guest comes straight back.
+  await expect(room).toContainText("Bob left the room.", { timeout: 25_000 });
 
   await (await openSetting()).click();
   await expect(room).not.toContainText("Bob left the room.");

@@ -80,9 +80,12 @@ type DropHandler = (reason: string) => void;
 
 const MAX_ROOM_EVENTS = 200;
 
+// Somebody who is back within this long (a reload, a dropped connection) is not announced as leaving or joining.
+export const DEFAULT_LEAVE_GRACE_MS = 15_000;
+
 export function useChat(
   createSocket: CreateSocket = defaultCreateSocket,
-  options: { reconnectDelaysMs?: number[] } = {},
+  options: { reconnectDelaysMs?: number[]; leaveGraceMs?: number } = {},
 ) {
   const socketRef = useRef<ChatSocket | null>(null);
   const roomRef = useRef<string | null>(null);
@@ -115,6 +118,11 @@ export function useChat(
   // Counts what arrives live, so messages and events can be put in the order they came.
   const arrivalRef = useRef(0);
   const lastMembersRef = useRef<Member[]>([]);
+  // Departures not yet announced, by guest id, each waiting out the grace period in case the guest comes back.
+  const pendingLeavesRef = useRef(
+    new Map<string, ReturnType<typeof setTimeout>>(),
+  );
+  const leaveGraceRef = useRef(options.leaveGraceMs ?? DEFAULT_LEAVE_GRACE_MS);
   // Guests banned while here: nothing about them is announced.
   const bannedGuestIdsRef = useRef(new Set<string>());
   // A conversation restored after a reload stays open only if the other person turns out to be in the room.
@@ -147,10 +155,29 @@ export function useChat(
   }, [options.reconnectDelaysMs]);
 
   useEffect(() => {
+    leaveGraceRef.current = options.leaveGraceMs ?? DEFAULT_LEAVE_GRACE_MS;
+  }, [options.leaveGraceMs]);
+
+  useEffect(() => {
     membersRef.current = members;
   }, [members]);
 
+  const clearPendingLeaves = useCallback(() => {
+    for (const timer of pendingLeavesRef.current.values()) clearTimeout(timer);
+    pendingLeavesRef.current.clear();
+  }, []);
+
+  // Events are kept in the order they happened, which a departure announced late is not.
+  const addRoomEvents = useCallback((added: RoomEvent[]) => {
+    setRoomEvents((previous) =>
+      [...previous, ...added]
+        .sort((a, b) => a.seq - b.seq)
+        .slice(-MAX_ROOM_EVENTS),
+    );
+  }, []);
+
   const resetRoom = useCallback(() => {
+    clearPendingLeaves();
     roomRef.current = null;
     partnerRef.current = null;
     presenceRoomRef.current = null;
@@ -162,7 +189,7 @@ export function useChat(
     setMembers([]);
     setMessages([]);
     setRoomEvents([]);
-  }, []);
+  }, [clearPendingLeaves]);
 
   const cancelReconnect = useCallback(() => {
     reconnectRunRef.current += 1;
@@ -255,6 +282,7 @@ export function useChat(
               const before = lastMembersRef.current;
               presenceRoomRef.current = presence.roomSlug;
               lastMembersRef.current = presence.members;
+              if (silent) clearPendingLeaves();
 
               if (!silent) {
                 const added = movements(
@@ -271,11 +299,33 @@ export function useChat(
                     !blockedRef.current.includes(event.guestId),
                 );
 
-                if (added.length > 0) {
-                  setRoomEvents((previous) =>
-                    [...previous, ...added].slice(-MAX_ROOM_EVENTS),
-                  );
+                const announce: RoomEvent[] = [];
+
+                for (const event of added) {
+                  const pending = pendingLeavesRef.current.get(event.guestId);
+
+                  if (event.event === "joined" && pending !== undefined) {
+                    clearTimeout(pending);
+                    pendingLeavesRef.current.delete(event.guestId);
+                  } else if (
+                    event.event === "left" &&
+                    leaveGraceRef.current > 0
+                  ) {
+                    pendingLeavesRef.current.set(
+                      event.guestId,
+                      setTimeout(() => {
+                        pendingLeavesRef.current.delete(event.guestId);
+                        if (!bannedGuestIdsRef.current.has(event.guestId)) {
+                          addRoomEvents([event]);
+                        }
+                      }, leaveGraceRef.current),
+                    );
+                  } else {
+                    announce.push(event);
+                  }
                 }
+
+                if (announce.length > 0) addRoomEvents(announce);
               }
 
               // The conversation from before the reload is only carried on with somebody who is here.
@@ -473,7 +523,7 @@ export function useChat(
         });
       });
     },
-    [closeSocket, createSocket],
+    [addRoomEvents, clearPendingLeaves, closeSocket, createSocket],
   );
 
   const emitWithAck = useCallback(
@@ -881,8 +931,9 @@ export function useChat(
     () => () => {
       cancelReconnect();
       closeSocket();
+      clearPendingLeaves();
     },
-    [cancelReconnect, closeSocket],
+    [cancelReconnect, closeSocket, clearPendingLeaves],
   );
 
   // The same array until something changes, so that what depends on it is not run by every render.

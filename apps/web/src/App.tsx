@@ -35,12 +35,14 @@ const NAME_TAKEN = "nickname_taken";
 export function App({
   createSocket,
   reconnectDelaysMs,
+  leaveGraceMs,
 }: {
   createSocket?: CreateSocket;
   reconnectDelaysMs?: number[];
+  leaveGraceMs?: number;
 }) {
   const { t } = useTranslation();
-  const chat = useChat(createSocket, { reconnectDelaysMs });
+  const chat = useChat(createSocket, { reconnectDelaysMs, leaveGraceMs });
   const { state: roomsState, retry } = useRooms();
   const [pendingRoom, setPendingRoom] = useState<Room | null>(null);
   const [signInError, setSignInError] = useState<string | null>(null);

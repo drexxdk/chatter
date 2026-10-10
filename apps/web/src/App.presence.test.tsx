@@ -1,6 +1,6 @@
 import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { stubRooms, setup, joinRoom, message } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
@@ -33,11 +33,13 @@ describe("who comes and goes", () => {
   const said = (server: ReturnType<typeof makeFakeServer>, text: string) =>
     act(() => server.latest.serverEmit("message:new", message({ text })));
 
-  async function enter(members = [ME, BOB]) {
+  async function enter(members = [ME, BOB], leaveGraceMs = 0) {
     const result = setup(
       makeFakeServer({
         others: members.filter((member) => member.guestId !== ME.guestId),
       }),
+      undefined,
+      leaveGraceMs,
     );
     await joinRoom(result.user);
     await screen.findByRole("button", { name: "Your profile: Alice" });
@@ -120,6 +122,71 @@ describe("who comes and goes", () => {
     present(server, [ME, BOB, CAROL]);
 
     expect(screen.queryByText("No messages yet. Say hello!")).toBeNull();
+  });
+
+  describe("somebody who is back soon", () => {
+    const GRACE = 15_000;
+    const wait = (ms: number) => act(() => vi.advanceTimersByTime(ms));
+    const enterWithGrace = async () => {
+      const result = await enter([ME, BOB], GRACE);
+      vi.useFakeTimers();
+      return result;
+    };
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("is not announced as leaving or joining", async () => {
+      const { server } = await enterWithGrace();
+
+      present(server, [ME]);
+      wait(5_000);
+      present(server, [ME, BOB]);
+      wait(GRACE * 2);
+
+      expect(roomLog().queryByText(/joined the room|left the room/)).toBeNull();
+    });
+
+    it("is announced as leaving once the time is up, where they left", async () => {
+      const { server } = await enterWithGrace();
+
+      said(server, "before");
+      present(server, [ME]);
+      said(server, "after");
+      expect(roomLog().queryByText("Bob left the room.")).toBeNull();
+
+      wait(GRACE);
+
+      expect(lines()).toEqual([
+        expect.stringContaining("before"),
+        expect.stringContaining("Bob left the room."),
+        expect.stringContaining("after"),
+      ]);
+    });
+
+    it("is announced as joining when they come back after that", async () => {
+      const { server } = await enterWithGrace();
+
+      present(server, [ME]);
+      wait(GRACE);
+      present(server, [ME, BOB]);
+
+      expect(lines()).toEqual([
+        expect.stringContaining("Bob left the room."),
+        expect.stringContaining("Bob joined the room."),
+      ]);
+    });
+
+    it("does not hold back others", async () => {
+      const { server } = await enterWithGrace();
+
+      present(server, [ME, CAROL]);
+
+      expect(lines()).toEqual([
+        expect.stringContaining("Carol joined the room."),
+      ]);
+    });
   });
 
   describe("the checkbox", () => {
