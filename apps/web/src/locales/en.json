@@ -117,6 +117,8 @@
     "slowMode": "Slow mode: one message every {{seconds}} s.",
     "joined": "{{name}} joined the room.",
     "left": "{{name}} left the room.",
+    "idleWarning_one": "You will be disconnected in {{count}} minute if you do nothing.",
+    "idleWarning_other": "You will be disconnected in {{count}} minutes if you do nothing.",
     "showMovements": "Show when people join and leave"
   },
   "announcement": {

@@ -168,6 +168,7 @@ async function connectGuest(
 
 async function startServer(options?: {
   inactivityTimeoutMs?: number;
+  idleWarningsBeforeMs?: number[];
   maxConnectionsPerIp?: number;
   trustedProxyHops?: number;
   authTokenSecret?: string;
@@ -1657,6 +1658,57 @@ describe("inactivity", () => {
 
     expect(active.connected).toBe(true);
     expect(onKicked).not.toHaveBeenCalled();
+  });
+});
+
+describe("warnings before an inactivity disconnect", () => {
+  it("tell an idle guest how long they have left, in order, before they are disconnected", async () => {
+    const { io, port } = await startServer({
+      inactivityTimeoutMs: 400,
+      idleWarningsBeforeMs: [250, 100],
+    });
+    const idle = await connectGuest("Idle", port);
+    const heard: unknown[] = [];
+    idle.on("idle:warning", (warning) => heard.push(warning));
+    const kicked = waitFor(idle, "kicked");
+
+    await kicked;
+
+    expect(heard).toEqual([{ remainingMs: 250 }, { remainingMs: 100 }]);
+    await io.close();
+  });
+
+  it("start over whenever the guest does something", async () => {
+    const { io, port } = await startServer({
+      inactivityTimeoutMs: 400,
+      idleWarningsBeforeMs: [250],
+    });
+    const active = await connectGuest("Active", port);
+    const onWarning = vi.fn();
+    active.on("idle:warning", onWarning);
+
+    for (let i = 0; i < 6; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      await emit(active, "room:join", { slug: "general" });
+    }
+
+    expect(onWarning).not.toHaveBeenCalled();
+    await io.close();
+  });
+
+  it("are left out when the timeout is no longer than they are", async () => {
+    const { io, port } = await startServer({
+      inactivityTimeoutMs: 200,
+      idleWarningsBeforeMs: [300],
+    });
+    const idle = await connectGuest("Idle", port);
+    const onWarning = vi.fn();
+    idle.on("idle:warning", onWarning);
+
+    await waitFor(idle, "kicked");
+
+    expect(onWarning).not.toHaveBeenCalled();
+    await io.close();
   });
 });
 

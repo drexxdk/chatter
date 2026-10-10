@@ -7,16 +7,19 @@ import {
 } from "./direct";
 import type { ChatMessage, Member } from "./types";
 
-// Somebody came into the room or went out of it, as far as this client noticed. `seq` says where it fell among the
-// messages that arrived live, which the clocks of different computers could not.
+// Something that happened in the room, as far as this client noticed: somebody came in or went out, or the guest is
+// about to be disconnected for doing nothing. `seq` says where it fell among the messages that arrived live, which the
+// clocks of different computers could not.
 export interface RoomEvent {
   id: string;
   roomSlug: string;
-  event: "joined" | "left";
+  event: "joined" | "left" | "idle";
   guestId: string;
   nickname: string;
   sentAt: string;
   seq: number;
+  // For "idle": how many minutes the guest has left.
+  minutes?: number;
 }
 
 export type TimelineItem =

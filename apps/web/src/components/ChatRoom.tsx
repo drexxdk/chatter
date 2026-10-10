@@ -93,7 +93,11 @@ export function ChatRoom({
   const { t } = useTranslation();
   const composer = useComposer("message");
   const items = withDirect(
-    timeline(messages, showMovements ? events : []),
+    // What the guest has to be told stays, whether or not they want to see who comes and goes.
+    timeline(
+      messages,
+      events.filter((event) => showMovements || event.event === "idle"),
+    ),
     direct.threads,
   );
   // Who the room's input writes to privately, when a private message was clicked.
@@ -364,13 +368,22 @@ export function ChatRoom({
                 const first = run[0];
 
                 if (first.kind === "event") {
+                  const idle = first.event.event === "idle";
+
                   return (
                     <StatusRow
                       key={first.event.id}
-                      text={t(`room.${first.event.event}`, {
-                        name: first.event.nickname,
-                      })}
+                      text={
+                        idle
+                          ? t("room.idleWarning", {
+                              count: first.event.minutes ?? 1,
+                            })
+                          : t(`room.${first.event.event}`, {
+                              name: first.event.nickname,
+                            })
+                      }
                       sentAt={first.event.sentAt}
+                      warning={idle}
                     />
                   );
                 }

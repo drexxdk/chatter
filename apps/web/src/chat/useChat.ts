@@ -449,6 +449,25 @@ export function useChat(
           });
         });
 
+        socket.on("idle:warning", (value: unknown) => {
+          const remaining = isRecord(value) ? Number(value.remainingMs) : NaN;
+          const slug = roomRef.current;
+          if (!isCurrent() || !slug || !(remaining > 0)) return;
+
+          addRoomEvents([
+            {
+              id: crypto.randomUUID(),
+              roomSlug: slug,
+              event: "idle",
+              guestId: "",
+              nickname: "",
+              sentAt: new Date().toISOString(),
+              seq: ++arrivalRef.current,
+              minutes: Math.max(1, Math.round(remaining / 60_000)),
+            },
+          ]);
+        });
+
         socket.on("dm:reaction", (value: unknown) => {
           const update = parseDirectReaction(value);
           if (!isCurrent() || !update) return;

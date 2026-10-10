@@ -189,6 +189,51 @@ describe("who comes and goes", () => {
     });
   });
 
+  describe("the warning before being disconnected for doing nothing", () => {
+    const warn = (
+      server: ReturnType<typeof makeFakeServer>,
+      remainingMs: number,
+    ) => act(() => server.latest.serverEmit("idle:warning", { remainingMs }));
+
+    it("is a note in the log, with how long is left", async () => {
+      const { server } = await enter();
+
+      said(server, "before");
+      warn(server, 5 * 60_000);
+      warn(server, 60_000);
+
+      expect(lines()).toEqual([
+        expect.stringContaining("before"),
+        expect.stringContaining(
+          "You will be disconnected in 5 minutes if you do nothing.",
+        ),
+        expect.stringContaining(
+          "You will be disconnected in 1 minute if you do nothing.",
+        ),
+      ]);
+    });
+
+    it("is shown even when the log is set not to say who comes and goes", async () => {
+      const { user, server } = await enter();
+      await user.click(await toggleItem(user));
+
+      warn(server, 60_000);
+
+      expect(
+        roomLog().getByText(/You will be disconnected in 1 minute/),
+      ).toBeInTheDocument();
+    });
+
+    it("is ignored when it has nothing to say", async () => {
+      const { server } = await enter();
+
+      warn(server, 0);
+      act(() => server.latest.serverEmit("idle:warning", undefined));
+
+      expect(roomLog().queryByText(/disconnected/)).toBeNull();
+    });
+  });
+
   describe("the checkbox", () => {
     it("is ticked to begin with", async () => {
       const { user } = await enter();

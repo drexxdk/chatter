@@ -230,13 +230,27 @@ export function MessageGroup({
   );
 }
 // Something that happened rather than something said, so it looks different from a message.
-export function StatusRow({ text, sentAt }: { text: string; sentAt: string }) {
+export function StatusRow({
+  text,
+  sentAt,
+  warning = false,
+}: {
+  text: string;
+  sentAt: string;
+  warning?: boolean;
+}) {
   return (
     <li
       data-kind="status"
       className="flex items-center justify-center gap-2 text-xs"
     >
-      <span className="rounded-full bg-sky-500/15 px-3 py-1 text-sky-300">
+      <span
+        className={`rounded-full px-3 py-1 ${
+          warning
+            ? "bg-amber-500/15 text-amber-300"
+            : "bg-sky-500/15 text-sky-300"
+        }`}
+      >
         {text}
       </span>
       <Timestamp sentAt={sentAt} className="text-neutral-500" />

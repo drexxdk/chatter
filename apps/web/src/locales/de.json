@@ -117,6 +117,8 @@
     "slowMode": "Langsamer Modus: eine Nachricht alle {{seconds}} s.",
     "joined": "{{name}} hat den Raum betreten.",
     "left": "{{name}} hat den Raum verlassen.",
+    "idleWarning_one": "Du wirst in {{count}} Minute getrennt, wenn du nichts tust.",
+    "idleWarning_other": "Du wirst in {{count}} Minuten getrennt, wenn du nichts tust.",
     "showMovements": "Anzeigen, wann Leute kommen und gehen"
   },
   "announcement": {
