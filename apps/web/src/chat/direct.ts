@@ -1,5 +1,6 @@
 import type { Avatar } from "./avatar";
 import { parseAvatar, PLAIN_AVATAR } from "./avatar";
+import { parseReactions, type Reaction } from "./reactions";
 import type { Role } from "./types";
 
 // A message as the server sends it; once its author was banned the text is gone and only a placeholder is shown.
@@ -15,6 +16,8 @@ export interface DirectMessage {
   text: string;
   sentAt: string;
   banned?: boolean;
+  // Kept here, in the two clients, because the server keeps nothing of a private message.
+  reactions?: Reaction[];
 }
 
 // Something that happened to one of the two, shown in the conversation where it happened. `self` is the guest
@@ -317,6 +320,99 @@ export function markReturned(
   });
 }
 
+// Somebody reacted to a private message, or took the reaction back, as the server passes it on to both people.
+export interface DirectReaction {
+  messageId: string;
+  emoji: string;
+  on: boolean;
+  byGuestId: string;
+  byNickname: string;
+  toGuestId: string;
+}
+
+export function parseDirectReaction(
+  value: unknown,
+): DirectReaction | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const { messageId, emoji, on, byGuestId, byNickname, toGuestId } = value;
+
+  return typeof messageId === "string" &&
+    typeof emoji === "string" &&
+    typeof on === "boolean" &&
+    typeof byGuestId === "string" &&
+    typeof byNickname === "string" &&
+    typeof toGuestId === "string"
+    ? { messageId, emoji, on, byGuestId, byNickname, toGuestId }
+    : undefined;
+}
+
+// Puts the reaction on the message it is for, or takes it off. It only counts if the two it is between are the two
+// of that message, and not from the message's own author, who cannot react to it.
+export function applyDirectReaction(
+  threads: DirectThread[],
+  update: DirectReaction,
+  selfGuestId: string | null,
+): DirectThread[] {
+  const partnerId =
+    update.byGuestId === selfGuestId ? update.toGuestId : update.byGuestId;
+  const thread = threads.find((candidate) => candidate.guestId === partnerId);
+  const message = thread?.entries.find(
+    (entry): entry is DirectMessage =>
+      !isStatus(entry) && entry.id === update.messageId,
+  );
+
+  if (
+    !thread ||
+    !message ||
+    message.fromGuestId === update.byGuestId ||
+    ![message.fromGuestId, message.toGuestId].includes(update.byGuestId) ||
+    ![message.fromGuestId, message.toGuestId].includes(update.toGuestId)
+  ) {
+    return threads;
+  }
+
+  const current = message.reactions?.find(
+    (reaction) => reaction.emoji === update.emoji,
+  );
+  const users = (current?.users ?? []).filter(
+    (user) => user.guestId !== update.byGuestId,
+  );
+
+  if (update.on) {
+    users.push({ guestId: update.byGuestId, nickname: update.byNickname });
+  }
+
+  // An emoji keeps the place it was first given.
+  const reactions = (message.reactions ?? []).flatMap((reaction) =>
+    reaction.emoji !== update.emoji
+      ? [reaction]
+      : users.length
+        ? [{ ...reaction, users }]
+        : [],
+  );
+
+  if (!current && users.length) {
+    reactions.push({ emoji: update.emoji, users });
+  }
+
+  return threads.map((candidate) =>
+    candidate === thread
+      ? {
+          ...thread,
+          entries: thread.entries.map((entry) =>
+            entry === message
+              ? {
+                  ...message,
+                  reactions: reactions.length ? reactions : undefined,
+                }
+              : entry,
+          ),
+        }
+      : candidate,
+  );
+}
+
 // Somebody was banned: what they wrote to the guest turns into a placeholder. What the guest wrote stays.
 export function redactDirect(
   threads: DirectThread[],
@@ -372,11 +468,14 @@ function parseEntry(value: unknown): DirectEntry | undefined {
   }
 
   const message = parseDirectMessage(value);
+  const reactions = parseReactions(value.reactions);
+  const kept =
+    message && reactions.length ? { ...message, reactions } : message;
 
   // A message that was replaced after a ban stays replaced.
-  return message && value.banned === true
-    ? { ...message, text: "", banned: true }
-    : message;
+  return kept && value.banned === true
+    ? { ...kept, text: "", banned: true }
+    : kept;
 }
 
 // Conversations kept in the tab to survive a reload. Whatever is not in the shape this expects is left out: stored

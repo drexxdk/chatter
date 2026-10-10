@@ -560,6 +560,93 @@ export function createSocketServer(
       reply({ ok: true });
     });
 
+    // Direct messages are not stored, so there is nothing to keep a reaction in: it is passed on to both people, whose
+    // clients each apply it to their own copy of the message.
+    socket.on("dm:react", async (payload: unknown, ack?: Ack) => {
+      const reply: Ack = typeof ack === "function" ? ack : () => {};
+      const slug = data.roomSlug;
+
+      if (!slug) return reply({ ok: false, error: "not_in_room" });
+
+      const toGuestId = stringField(payload, "toGuestId");
+
+      if (
+        !toGuestId ||
+        toGuestId.length > MAX_GUEST_ID_LENGTH ||
+        toGuestId === data.guestId
+      ) {
+        return reply({ ok: false, error: "invalid_recipient" });
+      }
+
+      const messageId = stringField(payload, "messageId");
+      const emoji = stringField(payload, "emoji");
+      const on = (payload as Record<string, unknown> | null | undefined)?.on;
+
+      if (
+        !isReactionEmoji(emoji) ||
+        !messageId ||
+        messageId.length > 64 ||
+        typeof on !== "boolean"
+      ) {
+        return reply({ ok: false, error: "invalid_reaction" });
+      }
+
+      if (data.blockedGuestIds.includes(toGuestId)) {
+        return reply({ ok: false, error: "recipient_blocked" });
+      }
+
+      const now = Date.now();
+      data.reactionTimes = data.reactionTimes.filter(
+        (time) => now - time < REACTION_WINDOW_MS,
+      );
+
+      if (data.reactionTimes.length >= REACTIONS_PER_WINDOW) {
+        return reply({
+          ok: false,
+          error: "rate_limited",
+          retryAfterMs:
+            (data.reactionTimes[0] ?? now) + REACTION_WINDOW_MS - now,
+        });
+      }
+
+      let recipient;
+
+      try {
+        recipient = (await io.in(roomKey(slug)).fetchSockets()).find(
+          (member) => (member.data as SocketData).guestId === toGuestId,
+        );
+      } catch (error) {
+        log.error("Failed to look up the recipient", error);
+        return reply({ ok: false, error: "unavailable" });
+      }
+
+      if (!recipient) return reply({ ok: false, error: "user_not_found" });
+      if (data.roomSlug !== slug)
+        return reply({ ok: false, error: "not_in_room" });
+
+      if (
+        ROLE_RULES[data.role].blockable &&
+        (recipient.data as SocketData).blockedGuestIds.includes(data.guestId)
+      ) {
+        return reply({ ok: false, error: "blocked_by_recipient" });
+      }
+
+      data.reactionTimes.push(now);
+
+      const update = {
+        messageId,
+        emoji,
+        on,
+        byGuestId: data.guestId,
+        byNickname: data.nickname,
+        toGuestId,
+      };
+
+      recipient.emit("dm:reaction", update);
+      socket.emit("dm:reaction", update);
+      reply({ ok: true });
+    });
+
     // Tells the guest who was blocked or unblocked, if they are here and could be blocked at all.
     async function tellBlocked(
       guestId: string,

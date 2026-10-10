@@ -766,6 +766,35 @@ test("a guest's chosen avatar is shown to others, and a conversation says when t
   await expect(conversation.getByText("Bea rejoined the room.")).toBeVisible();
 });
 
+test("a private message can be reacted to, and the sender sees it", async ({
+  browser,
+}) => {
+  const alice = await newGuest(browser);
+  const bob = await newGuest(browser);
+  await enterRoom(alice, LOUNGE.name, "Alice");
+  await enterRoom(bob, LOUNGE.name, "Bob");
+  await alice
+    .getByRole("list", { name: "People in this room" })
+    .getByRole("button", { name: "Bob" })
+    .click();
+  await alice.getByRole("textbox", { name: "Message to Bob" }).fill("a secret");
+  await alice.getByRole("button", { name: "Send", exact: true }).click();
+
+  const line = bob
+    .getByRole("log", { name: LOUNGE.name })
+    .getByRole("listitem")
+    .filter({ hasText: "a secret" });
+  await line.getByText("a secret").hover();
+  await line.getByRole("button", { name: "React with ❤️" }).click();
+
+  await expect(line.getByRole("button", { name: /^❤️ 1/ })).toBeVisible();
+  await expect(
+    alice
+      .getByRole("log", { name: "Direct message with Bob" })
+      .getByRole("img", { name: "❤️ 1: Bob" }),
+  ).toBeVisible();
+});
+
 test("a private conversation carries on when one of the two reloads the page", async ({
   browser,
 }) => {

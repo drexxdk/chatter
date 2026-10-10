@@ -61,7 +61,7 @@ export function MessageGroup({
   // Whether they can be written to now (they are here and nobody has blocked anybody); if not, a click does nothing.
   selectable?: boolean;
   nav?: { stopId: string | null };
-  // Lets the guest react to the messages; absent in private messages.
+  // Lets the guest react to the messages.
   reactions?: ReactionOptions;
   // What can be done with the person, from the "…" button of a message's hover bar.
   menu?: PersonMenuOptions;

@@ -339,6 +339,9 @@ export function ChatRoom({
             blocked={direct.blockedIds.includes(direct.active.guestId)}
             blockedBy={direct.blockedByIds.includes(direct.active.guestId)}
             onSend={(text) => direct.send(direct.active!.guestId, text)}
+            onReact={(messageId, emoji) =>
+              void direct.react(direct.active!.guestId, messageId, emoji)
+            }
             onSetBlocked={(blocked) =>
               direct.setBlocked(direct.active!.guestId, blocked)
             }
@@ -409,10 +412,20 @@ export function ChatRoom({
                         text: message.text,
                         sentAt: message.sentAt,
                         banned: message.banned,
+                        reactions: message.reactions,
                       }))}
                       onSelect={() => selectPerson(first.partner)}
                       selectable={canWriteTo(first.partner.guestId)}
                       nav={{ stopId: rows.stopId }}
+                      reactions={{
+                        ownIds: ownGuestIds,
+                        onReact: (messageId, emoji) =>
+                          void direct.react(
+                            first.partner.guestId,
+                            messageId,
+                            emoji,
+                          ),
+                      }}
                       menu={personMenu(first.partner)}
                     />
                   );

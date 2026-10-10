@@ -207,6 +207,22 @@ export function MessageEntry({
       <span aria-hidden>{reaction.users.length}</span>
     </>
   );
+  // What others gave to the guest's own message, which the guest cannot add to.
+  const readOnlyChips = reactions && !canReact && reacted.length > 0 && (
+    <div className="mt-1 flex flex-wrap items-center justify-end gap-1">
+      {reacted.map((reaction) => (
+        <span
+          key={reaction.emoji}
+          role="img"
+          title={names(reaction)}
+          aria-label={chipLabel(reaction)}
+          className="flex h-6 items-center gap-1 rounded-full border border-slate-700 bg-slate-800 px-2 text-xs text-slate-300"
+        >
+          {chipContent(reaction)}
+        </span>
+      ))}
+    </div>
+  );
 
   if (!canReact && !menu) {
     if (!reactions) {
@@ -232,21 +248,7 @@ export function MessageEntry({
         }}
       >
         {children}
-        {reacted.length > 0 && (
-          <div className="mt-1 flex flex-wrap items-center justify-end gap-1">
-            {reacted.map((reaction) => (
-              <span
-                key={reaction.emoji}
-                role="img"
-                title={names(reaction)}
-                aria-label={chipLabel(reaction)}
-                className="flex h-6 items-center gap-1 rounded-full border border-slate-700 bg-slate-800 px-2 text-xs text-slate-300"
-              >
-                {chipContent(reaction)}
-              </span>
-            ))}
-          </div>
-        )}
+        {readOnlyChips}
       </div>
     );
   }
@@ -411,6 +413,7 @@ export function MessageEntry({
           </div>
         </div>
       </div>
+      {readOnlyChips}
       {canReact && reacted.length > 0 && (
         <div className="mt-1 flex flex-wrap items-center gap-1">
           {reacted.map((reaction) => (

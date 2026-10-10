@@ -2044,6 +2044,179 @@ describe("direct messages", () => {
     text = "hello",
   ) => emit(from.socket, "dm:send", { toGuestId: to.guestId, text });
 
+  describe("reacting", () => {
+    const react = (
+      from: { socket: Socket },
+      to: { guestId: string },
+      extra: Record<string, unknown> = {},
+    ) =>
+      emit(from.socket, "dm:react", {
+        toGuestId: to.guestId,
+        messageId: "m1",
+        emoji: "👍",
+        on: true,
+        ...extra,
+      });
+    const heardReactions = (guest: { socket: Socket }) => {
+      const heard: unknown[] = [];
+      guest.socket.on("dm:reaction", (update) => heard.push(update));
+      return heard;
+    };
+
+    it("tells both of them, and nobody else, who reacted to what", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      const carol = await inRoom({ nickname: "Carol" });
+      const heardByAlice = waitFor(alice.socket, "dm:reaction");
+      const heardByBob = waitFor(bob.socket, "dm:reaction");
+      const heardByCarol = heardReactions(carol);
+
+      expect(await react(bob, alice)).toEqual({ ok: true });
+
+      const expected = {
+        messageId: "m1",
+        emoji: "👍",
+        on: true,
+        byGuestId: bob.guestId,
+        byNickname: "Bob",
+        toGuestId: alice.guestId,
+      };
+      expect(await heardByAlice).toEqual(expected);
+      expect(await heardByBob).toEqual(expected);
+      await settle();
+      expect(heardByCarol).toEqual([]);
+    });
+
+    it("passes on taking a reaction back", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      const heard = waitFor(alice.socket, "dm:reaction");
+
+      await react(bob, alice, { on: false });
+
+      expect(await heard).toMatchObject({ on: false });
+    });
+
+    it("needs the guest to be in a room", async () => {
+      const bob = await inRoom({ nickname: "Bob" });
+      const { socket } = await connect({ nickname: "Alice" });
+
+      expect(await react({ socket: socket! }, bob)).toEqual({
+        ok: false,
+        error: "not_in_room",
+      });
+    });
+
+    it.each([
+      ["an emoji that is not offered", { emoji: "🦖" }],
+      ["no emoji", { emoji: undefined }],
+      ["no message", { messageId: undefined }],
+      ["a message id that is too long", { messageId: "m".repeat(65) }],
+      ["no say in whether to add or remove", { on: undefined }],
+      ["text for whether to add or remove", { on: "yes" }],
+    ])("rejects %s", async (_label, extra) => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      const heard = heardReactions(alice);
+
+      expect(await react(bob, alice, extra)).toEqual({
+        ok: false,
+        error: "invalid_reaction",
+      });
+      await settle();
+      expect(heard).toEqual([]);
+    });
+
+    it.each([
+      ["nobody", { toGuestId: undefined }],
+      ["a number", { toGuestId: 5 }],
+      ["an id that is too long", { toGuestId: "g".repeat(65) }],
+    ])("rejects a reaction to %s", async (_label, extra) => {
+      const bob = await inRoom({ nickname: "Bob" });
+
+      expect(await react(bob, bob, extra)).toEqual({
+        ok: false,
+        error: "invalid_recipient",
+      });
+    });
+
+    it("rejects a reaction to oneself", async () => {
+      const bob = await inRoom({ nickname: "Bob" });
+
+      expect(await react(bob, bob)).toEqual({
+        ok: false,
+        error: "invalid_recipient",
+      });
+    });
+
+    it("refuses somebody who is not in the room", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" }, "random");
+
+      expect(await react(alice, bob)).toEqual({
+        ok: false,
+        error: "user_not_found",
+      });
+    });
+
+    it("refuses somebody the guest has blocked", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      await emit(alice.socket, "dm:block", { guestId: bob.guestId });
+      const heard = heardReactions(bob);
+
+      expect(await react(alice, bob)).toEqual({
+        ok: false,
+        error: "recipient_blocked",
+      });
+      await settle();
+      expect(heard).toEqual([]);
+    });
+
+    it("refuses, without a word to them, somebody who has blocked the guest", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      await emit(bob.socket, "dm:block", { guestId: alice.guestId });
+      const heard = heardReactions(bob);
+
+      expect(await react(alice, bob)).toEqual({
+        ok: false,
+        error: "blocked_by_recipient",
+      });
+      await settle();
+      expect(heard).toEqual([]);
+    });
+
+    it("rate limits after 10 reactions in the window, and says how long to wait", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+
+      for (let i = 0; i < 10; i++) {
+        expect((await react(alice, bob)).ok).toBe(true);
+      }
+
+      const refused = await react(alice, bob);
+
+      expect(refused).toMatchObject({ ok: false, error: "rate_limited" });
+      expect(refused.retryAfterMs).toBeGreaterThan(0);
+      expect(refused.retryAfterMs).toBeLessThanOrEqual(5000);
+    });
+
+    it("answers unavailable when the room cannot be looked up", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      vi.spyOn(ioServer, "in").mockImplementation(() => {
+        throw new Error("redis down");
+      });
+
+      expect(await react(alice, bob)).toEqual({
+        ok: false,
+        error: "unavailable",
+      });
+    });
+  });
+
   describe("sending", () => {
     it("delivers a message to the other guest, and shows it to the sender too", async () => {
       const alice = await inRoom({ nickname: "Alice" });

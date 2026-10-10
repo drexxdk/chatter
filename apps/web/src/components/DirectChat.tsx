@@ -27,6 +27,7 @@ interface DirectChatProps {
   // They have blocked the guest: nothing written to them gets through.
   blockedBy: boolean;
   onSend: (text: string) => Promise<ActionResult>;
+  onReact: (messageId: string, emoji: string) => void;
   onSetBlocked: (blocked: boolean) => Promise<ActionResult>;
 }
 
@@ -38,6 +39,7 @@ export function DirectChat({
   blocked,
   blockedBy,
   onSend,
+  onReact,
   onSetBlocked,
 }: DirectChatProps) {
   const { t } = useTranslation();
@@ -134,7 +136,9 @@ export function DirectChat({
                 text: message.text,
                 sentAt: message.sentAt,
                 banned: message.banned,
+                reactions: message.reactions,
               }))}
+              reactions={{ ownIds: ownGuestIds, onReact }}
             />
           );
         })}{" "}

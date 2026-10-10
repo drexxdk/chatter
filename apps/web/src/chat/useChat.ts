@@ -2,15 +2,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   addDirectMessage,
+  applyDirectReaction,
   applyPresence,
   markReturned,
   markRead,
   parseDirectMessage,
+  parseDirectReaction,
   parsePartner,
   redactDirect,
   refreshPartners,
   setBlockedBy,
   dropBlockedByNotices,
+  isStatus,
+  type DirectEntry,
   type DirectThread,
   type Partner,
 } from "./direct";
@@ -129,6 +133,7 @@ export function useChat(
   const restoredPartnerRef = useRef<string | null>(null);
   // Direct messages live only as long as the connection: guests are new people every time they connect.
   const [threads, setThreads] = useState<DirectThread[]>([]);
+  const threadsRef = useRef<DirectThread[]>([]);
   // Who the guest has open, whether or not anything has been said yet.
   const [partner, setPartner] = useState<Partner | null>(null);
   const [blockedIds, setBlockedIds] = useState<string[]>([]);
@@ -161,6 +166,10 @@ export function useChat(
   useEffect(() => {
     membersRef.current = members;
   }, [members]);
+
+  useEffect(() => {
+    threadsRef.current = threads;
+  }, [threads]);
 
   const clearPendingLeaves = useCallback(() => {
     for (const timer of pendingLeavesRef.current.values()) clearTimeout(timer);
@@ -438,6 +447,15 @@ export function useChat(
 
             return mine ? markRead(next, other.guestId) : next;
           });
+        });
+
+        socket.on("dm:reaction", (value: unknown) => {
+          const update = parseDirectReaction(value);
+          if (!isCurrent() || !update) return;
+
+          setThreads((previous) =>
+            applyDirectReaction(previous, update, selfGuestIdRef.current),
+          );
         });
 
         socket.on("dm:blocked", (value: unknown) => {
@@ -746,6 +764,44 @@ export function useChat(
     [emitWithAck],
   );
 
+  // Adds the guest's reaction to a private message, or takes it back; both people are told, and each client keeps it.
+  const reactDirect = useCallback(
+    async (
+      partnerGuestId: string,
+      messageId: string,
+      emoji: string,
+    ): Promise<void> => {
+      const message = threadsRef.current
+        .find((thread) => thread.guestId === partnerGuestId)
+        ?.entries.find(
+          (entry: DirectEntry) => !isStatus(entry) && entry.id === messageId,
+        );
+      const had =
+        !!message &&
+        !isStatus(message) &&
+        !!message.reactions
+          ?.find((reaction) => reaction.emoji === emoji)
+          ?.users.some((user) => ownGuestIdsRef.current.includes(user.guestId));
+
+      setError(null);
+      setRetryAfterSeconds(null);
+      const ack = await emitWithAck("dm:react", {
+        toGuestId: partnerGuestId,
+        messageId,
+        emoji,
+        on: !had,
+      });
+
+      if (!ack.ok) {
+        setError(ack.error);
+        if (ack.retryAfterMs) {
+          setRetryAfterSeconds(Math.ceil(ack.retryAfterMs / 1000));
+        }
+      }
+    },
+    [emitWithAck],
+  );
+
   const sendAnnouncement = useCallback(
     async (text: string): Promise<AnnounceResult> =>
       toResult(await emitWithAck("announce:send", { text })),
@@ -924,6 +980,7 @@ export function useChat(
     notify,
     setNotify,
     send: sendDirect,
+    react: reactDirect,
     setBlocked,
   };
 

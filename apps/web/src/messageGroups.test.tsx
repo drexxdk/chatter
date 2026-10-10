@@ -237,6 +237,6 @@ describe("in a private conversation", () => {
 
     expect(log.getAllByRole("listitem")).toHaveLength(1);
     expect(log.getAllByText("Bob")).toHaveLength(1);
-    expect(log.queryByRole("button")).toBeNull();
+    expect(log.queryByRole("button", { name: "Message Bob" })).toBeNull();
   });
 });

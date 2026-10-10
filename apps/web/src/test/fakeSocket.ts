@@ -21,6 +21,7 @@ export class FakeSocket implements ChatSocket {
     "reaction:toggle": () => ({ ok: true }),
     "announce:send": () => ({ ok: true }),
     "dm:send": () => ({ ok: true }),
+    "dm:react": () => ({ ok: true }),
     "dm:block": () => ({ ok: true }),
     "dm:unblock": () => ({ ok: true }),
     // Like the real server, answers with who the guest is now.
