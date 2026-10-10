@@ -109,6 +109,27 @@ A reload is a new connection, which would normally be a new guest (new `guestId`
 - A new secret is issued on every connection, so one that was seen or copied stops working as soon as the guest connects again. It is never sent to other clients (not in presence or messages).
 - The secret only proves it is the same guest; bans, nickname rules and caps are checked as for any connection. If Redis cannot be reached the connection is refused with `unavailable`.
 
+## Where state lives
+
+| What                                                                          | Where                                                                                                                       | Lost when                                         |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Rooms, bans, moderator accounts, the settings                                 | Payload (Postgres): the source of truth, edited in the admin                                                                | never (it is the data)                            |
+| Copies of the rooms, bans and moderators                                      | Redis `chatter:public-rooms`, `chatter:bans`, `chatter:moderators`, refreshed every `SYNC_INTERVAL_MS`                      | Redis is emptied; the next sync refills them      |
+| A room's recent messages (with reactions)                                     | Redis list `chatter:history:<room>`, newest `ROOM_HISTORY_SIZE`, expiring `ROOM_HISTORY_TTL_SECONDS` after the last message | the time-to-live runs out                         |
+| The latest announcement and each moderator's wait                             | Redis `chatter:announcement`, `chatter:announce-cooldown:<account>`                                                         | it expires or is replaced                         |
+| Proof for resuming an identity                                                | Redis `chatter:resume:<guest id>` (a hash of the secret)                                                                    | it expires                                        |
+| Who is in a room, a guest's nickname, avatar, age, blocks, rate-limit windows | In memory, on the socket (Socket.IO's room membership goes through the Redis adapter)                                       | the connection ends                               |
+| Connections per IP, the lock that serialises joins to a room                  | In memory, per process                                                                                                      | the process stops (see the multi-node note below) |
+| Private messages                                                              | Not stored on the server at all: relayed to the other person's socket                                                       | on delivery; the client keeps its own copy        |
+| The guest's session, open conversations                                       | The browser's `sessionStorage` (`chatter.session`, `chatter.direct`)                                                        | the tab closes                                    |
+| Language, notification and movement preferences                               | The browser's `localStorage`                                                                                                | the guest clears it                               |
+
+A message's path: the client emits `message:send`; the server checks the guest, the room, the length, the slow mode and the flood limit, appends it to the room's Redis list (trimmed, with its expiry renewed), and emits `message:new` to everyone in the room. A reaction is one Lua script on that list (`REACT_SCRIPT`), so toggling is atomic; a ban rewrites the banned guest's messages into placeholders with another (`REPLACE_SCRIPT`) and tells the room with `message:redacted`. Everything that needs the whole room to agree goes through Redis; everything about one connection stays in its socket.
+
+### More than one server
+
+Several instances can share one Redis and one Payload: the Socket.IO adapter carries room broadcasts between them, history and caches are in Redis, and the Lua scripts are atomic. Three limits are still per process and so apply to each instance separately: the connections allowed per IP, the room-capacity check (joins to one room are serialised only within an instance, so a full room can briefly take one guest too many), and the HTTP rate limits. Moving them into Redis (a counter with a short expiry) is the step to take before running more than one instance behind a load balancer where those limits matter.
+
 ## Message history
 
 Every message is also appended to a Redis list for its room, so a guest who joins, or reconnects after a drop, receives what they missed in the `room:join` acknowledgement. The list keeps the newest `ROOM_HISTORY_SIZE` messages (default 50, at most 200) and is deleted `ROOM_HISTORY_TTL_SECONDS` after the room's last message (default one hour, at most seven days). Redis is shared by all server nodes, so every node serves the same history.
