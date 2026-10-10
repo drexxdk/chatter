@@ -5,7 +5,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { ArrowLeft, Ban, SendHorizontal } from "lucide-react";
+import { ArrowLeft, Ban } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type {
@@ -29,18 +29,15 @@ import {
 } from "../chat/roomEvents";
 import { focusMessageBox } from "../focusMessageBox";
 import { NAV_STOP_CLASS, navStop, useRowNavigation } from "../rowNavigation";
-import { AttachedGif } from "./AttachedGif";
 import { DirectChat } from "./DirectChat";
 import { BlockedTag } from "./DirectLists";
-import { ComposerPicker } from "./ComposerPicker";
+import { ComposerBar } from "./ComposerBar";
 import { Timestamp } from "./Timestamp";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageGroup, StatusRow } from "./MessageRow";
-import { MessageInput } from "./MessageInput";
 import type { PersonMenuOptions } from "./PersonMenu";
 import { RecipientPicker } from "./RecipientPicker";
 import { RoomPanel } from "./RoomPanel";
-import { ScrollToEnd } from "./ScrollToEnd";
 
 type MessageItem = Extract<TimelineItem, { kind: "message" }>;
 type DirectItem = Extract<TimelineItem, { kind: "direct" }>;
@@ -470,33 +467,44 @@ export function ChatRoom({
               })}{" "}
             </ol>
 
-            <div className="sticky bottom-0 z-20 space-y-2 bg-slate-950 pb-3 pt-2">
-              <ScrollToEnd />
-              <ErrorAlert
-                code={
-                  replyFailure
-                    ? replyWaiting
-                      ? "rate_limited_wait"
-                      : replyFailure.error
-                    : error === "rate_limited" && retryAfterSeconds
-                      ? "rate_limited_wait"
-                      : error
-                }
-                values={{
-                  seconds: replyFailure
-                    ? replyFailure.retryAfterSeconds
-                    : retryAfterSeconds,
-                }}
-              />
-
-              {composer.gif && (
-                <AttachedGif
-                  url={composer.gif}
-                  onRemove={() => composer.setGif(null)}
+            <ComposerBar
+              composer={composer}
+              id="message"
+              label={
+                replyTo
+                  ? t("dm.label", { name: replyTo.nickname })
+                  : t("room.messageLabel")
+              }
+              placeholder={
+                replyBlockedBy && replyTo
+                  ? t("dm.blockedByPlaceholder", { name: replyTo.nickname })
+                  : replyBlocked && replyTo
+                    ? t("dm.blockedPlaceholder", { name: replyTo.nickname })
+                    : replyTo
+                      ? t("dm.replyPlaceholder", { name: replyTo.nickname })
+                      : t("room.messagePlaceholder")
+              }
+              disabled={!canWrite}
+              onSubmit={handleSubmit}
+              alert={
+                <ErrorAlert
+                  code={
+                    replyFailure
+                      ? replyWaiting
+                        ? "rate_limited_wait"
+                        : replyFailure.error
+                      : error === "rate_limited" && retryAfterSeconds
+                        ? "rate_limited_wait"
+                        : error
+                  }
+                  values={{
+                    seconds: replyFailure
+                      ? replyFailure.retryAfterSeconds
+                      : retryAfterSeconds,
+                  }}
                 />
-              )}
-
-              <form onSubmit={handleSubmit} className="flex items-end gap-2">
+              }
+              leading={
                 <RecipientPicker
                   recipients={recipients}
                   value={replyTo}
@@ -510,76 +518,45 @@ export function ChatRoom({
                   blockedByIds={direct.blockedByIds}
                   onSetBlocked={direct.setBlocked}
                 />
-                <label htmlFor="message" className="sr-only">
-                  {replyTo
-                    ? t("dm.label", { name: replyTo.nickname })
-                    : t("room.messageLabel")}
-                </label>
-                <MessageInput
-                  id="message"
-                  value={composer.text}
-                  reserve={composer.reserve}
-                  onChange={(event) => composer.setText(event.target.value)}
-                  autoComplete="off"
-                  disabled={!canWrite}
-                  placeholder={
-                    replyBlockedBy && replyTo
-                      ? t("dm.blockedByPlaceholder", { name: replyTo.nickname })
-                      : replyBlocked && replyTo
-                        ? t("dm.blockedPlaceholder", { name: replyTo.nickname })
-                        : replyTo
-                          ? t("dm.replyPlaceholder", { name: replyTo.nickname })
-                          : t("room.messagePlaceholder")
-                  }
-                  className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
-                />
-                <ComposerPicker
-                  disabled={!canWrite}
-                  onEmoji={composer.addEmoji}
-                  onGif={composer.setGif}
-                  onClosed={composer.focusBox}
-                />
-                <button
-                  type="submit"
-                  disabled={!canWrite || !composer.message}
-                  aria-label={t("room.send")}
-                  className="rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
-                >
-                  <SendHorizontal aria-hidden="true" className="h-5 w-5" />
-                </button>
-              </form>
+              }
+              below={
+                <>
+                  {replyTo && !replyPresent && (
+                    <p role="status" className="text-sm text-amber-300">
+                      {t("dm.away", { name: replyTo.nickname })}
+                    </p>
+                  )}
 
-              {replyTo && !replyPresent && (
-                <p role="status" className="text-sm text-amber-300">
-                  {t("dm.away", { name: replyTo.nickname })}
-                </p>
-              )}
+                  {replyTo && replyBlockedBy && (
+                    <p role="status" className="text-sm text-amber-300">
+                      {t("dm.blockedByWrite", { name: replyTo.nickname })}
+                    </p>
+                  )}
 
-              {replyTo && replyBlockedBy && (
-                <p role="status" className="text-sm text-amber-300">
-                  {t("dm.blockedByWrite", { name: replyTo.nickname })}
-                </p>
-              )}
+                  {replyTo && replyBlocked && (
+                    <p role="status" className="text-sm text-amber-300">
+                      {t("dm.blockedWrite", { name: replyTo.nickname })}{" "}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void direct.setBlocked(replyTo.guestId, false)
+                        }
+                        className="font-semibold underline hover:text-amber-200"
+                      >
+                        {t("dm.unblockAction")}
+                      </button>
+                    </p>
+                  )}
 
-              {replyTo && replyBlocked && (
-                <p role="status" className="text-sm text-amber-300">
-                  {t("dm.blockedWrite", { name: replyTo.nickname })}{" "}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void direct.setBlocked(replyTo.guestId, false)
-                    }
-                    className="font-semibold underline hover:text-amber-200"
-                  >
-                    {t("dm.unblockAction")}
-                  </button>
-                </p>
-              )}
-
-              {session.role === "moderator" && (
-                <AnnounceForm disabled={!connected} onAnnounce={onAnnounce} />
-              )}
-            </div>
+                  {session.role === "moderator" && (
+                    <AnnounceForm
+                      disabled={!connected}
+                      onAnnounce={onAnnounce}
+                    />
+                  )}
+                </>
+              }
+            />
           </div>
         )}
       </div>

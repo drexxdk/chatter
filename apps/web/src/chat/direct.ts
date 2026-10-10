@@ -1,6 +1,6 @@
 import type { Avatar } from "./avatar";
 import { parseAvatar, PLAIN_AVATAR } from "./avatar";
-import type { Role } from "./useChat";
+import type { Role } from "./types";
 
 // A message as the server sends it; once its author was banned the text is gone and only a placeholder is shown.
 export interface DirectMessage {

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Ban, SendHorizontal, UserCheck } from "lucide-react";
+import { Ban, UserCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { DirectEntry, DirectMessage, Partner } from "../chat/direct";
@@ -8,12 +8,9 @@ import { runs } from "../chat/runs";
 import type { ActionResult } from "../chat/useChat";
 import { useComposer } from "../chat/useComposer";
 import { focusMessageBox } from "../focusMessageBox";
-import { AttachedGif } from "./AttachedGif";
-import { ComposerPicker } from "./ComposerPicker";
+import { ComposerBar } from "./ComposerBar";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageGroup, StatusRow } from "./MessageRow";
-import { MessageInput } from "./MessageInput";
-import { ScrollToEnd } from "./ScrollToEnd";
 
 // What somebody wrote one after another is shown together; a message whose author was banned is on its own.
 const entryAuthor = (entry: DirectEntry) =>
@@ -142,52 +139,39 @@ export function DirectChat({
         })}{" "}
       </ol>
 
-      <div className="sticky bottom-0 z-20 space-y-2 bg-slate-950 pb-3 pt-2">
-        <ScrollToEnd />
-        <ErrorAlert
-          code={
-            failure ? (waiting ? "rate_limited_wait" : failure.error) : null
-          }
-          values={{ seconds: failure?.retryAfterSeconds }}
-        />
-
-        {!present && (
-          <p
-            role="status"
-            className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"
-          >
-            {t("dm.away", { name: partner.nickname })}
-          </p>
-        )}
-
-        {composer.gif && (
-          <AttachedGif
-            url={composer.gif}
-            onRemove={() => composer.setGif(null)}
-          />
-        )}
-
-        <form onSubmit={handleSubmit} className="flex items-end gap-2">
-          <label htmlFor="direct-message" className="sr-only">
-            {t("dm.label", { name: partner.nickname })}
-          </label>
-          <MessageInput
-            id="direct-message"
-            value={composer.text}
-            reserve={composer.reserve}
-            onChange={(event) => composer.setText(event.target.value)}
-            autoComplete="off"
-            disabled={!present || blocked || blockedBy}
-            placeholder={
-              blockedBy
-                ? t("dm.blockedByPlaceholder", { name: partner.nickname })
-                : blocked
-                  ? t("dm.blockedPlaceholder", { name: partner.nickname })
-                  : t("room.messagePlaceholder")
+      <ComposerBar
+        composer={composer}
+        id="direct-message"
+        label={t("dm.label", { name: partner.nickname })}
+        placeholder={
+          blockedBy
+            ? t("dm.blockedByPlaceholder", { name: partner.nickname })
+            : blocked
+              ? t("dm.blockedPlaceholder", { name: partner.nickname })
+              : t("room.messagePlaceholder")
+        }
+        disabled={!present || blocked || blockedBy}
+        onSubmit={handleSubmit}
+        alert={
+          <ErrorAlert
+            code={
+              failure ? (waiting ? "rate_limited_wait" : failure.error) : null
             }
-            className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
+            values={{ seconds: failure?.retryAfterSeconds }}
           />
-          {blocked ? (
+        }
+        above={
+          !present && (
+            <p
+              role="status"
+              className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"
+            >
+              {t("dm.away", { name: partner.nickname })}
+            </p>
+          )
+        }
+        actions={
+          blocked ? (
             <button
               key="unblock"
               type="button"
@@ -199,27 +183,9 @@ export function DirectChat({
               <UserCheck aria-hidden="true" className="h-5 w-5" />
               {t("dm.unblockAction")}
             </button>
-          ) : (
-            <>
-              <ComposerPicker
-                disabled={!present || blockedBy}
-                onEmoji={composer.addEmoji}
-                onGif={composer.setGif}
-                onClosed={composer.focusBox}
-              />
-              <button
-                key="send"
-                type="submit"
-                disabled={!present || blockedBy || !composer.message}
-                aria-label={t("room.send")}
-                className="rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
-              >
-                <SendHorizontal aria-hidden="true" className="h-5 w-5" />
-              </button>
-            </>
-          )}
-        </form>
-      </div>
+          ) : undefined
+        }
+      />
     </div>
   );
 }

@@ -18,13 +18,40 @@ import { movements, type RoomEvent } from "./roomEvents";
 import { loadNotifyDirect, saveNotifyDirect } from "../preferences";
 import { parseAge, type ProfileChanges } from "../profile";
 import { parseAvatar, PLAIN_AVATAR, type Avatar } from "./avatar";
-import { parseReactions, sameReactions, type Reaction } from "./reactions";
+import {
+  applyRedaction,
+  isRecord,
+  MAX_MESSAGES,
+  mergeHistory,
+  parseAnnouncement,
+  strings,
+} from "./messages";
+import { parseReactions } from "./reactions";
+import {
+  DEFAULT_RECONNECT_DELAYS_MS,
+  DELIBERATE_DISCONNECTS,
+  HANDSHAKE_ERRORS,
+  PERMANENT_ERRORS,
+  waitOrWake,
+} from "./reconnect";
 import {
   createSocket as defaultCreateSocket,
   type ChatSocket,
   type CreateSocket,
   type Resume,
 } from "./socket";
+import {
+  toResult,
+  type Ack,
+  type ActionResult,
+  type Announcement,
+  type AnnounceResult,
+  type ChatMessage,
+  type ChatStatus,
+  type ConnectOptions,
+  type Member,
+  type Session,
+} from "./types";
 
 export type { Avatar } from "./avatar";
 export type {
@@ -35,289 +62,22 @@ export type {
   Partner,
 } from "./direct";
 
-export type Role = "guest" | "moderator";
+export type {
+  ActionResult,
+  AnnounceResult,
+  Announcement,
+  ChatMessage,
+  ChatStatus,
+  ConnectOptions,
+  Member,
+  Role,
+  Session,
+} from "./types";
+export { DEFAULT_RECONNECT_DELAYS_MS } from "./reconnect";
 
-export interface Session {
-  guestId: string;
-  nickname: string;
-  role?: Role;
-  avatar?: Avatar;
-  // Only when the guest said how old they are.
-  age?: number;
-  resumeSecret?: string;
-}
-
-export interface Member {
-  guestId: string;
-  nickname: string;
-  role?: Role;
-  avatar?: Avatar;
-  age?: number;
-}
-
-export interface ChatMessage {
-  id: string;
-  roomSlug: string;
-  guestId: string;
-  nickname: string;
-  text: string;
-  sentAt: string;
-  // Who the server says sent it; absent means an ordinary guest.
-  role?: Role;
-  avatar?: Avatar;
-  // Who reacted with what; absent while nobody has.
-  reactions?: Reaction[];
-  // The guest's place in what arrived live (see roomEvents.ts); not sent by the server.
-  seq?: number;
-  // The author was banned: the text and name are gone and only a placeholder is shown.
-  banned?: boolean;
-}
-
-export type ChatStatus = "idle" | "connecting" | "connected" | "reconnecting";
-
-export interface ConnectOptions {
-  // A moderator's signed token, in place of a nickname.
-  token?: string;
-  avatar?: Avatar;
-  age?: number;
-  // The ids this guest had on earlier connections (before a reload), so what they wrote is still theirs.
-  previousGuestIds?: string[];
-  // The identity to take over, when this is the same guest on a new page load.
-  resume?: Resume;
-  // What the guest had open before a reload.
-  threads?: DirectThread[];
-  blockedIds?: string[];
-  // The conversation that was open, to be open again if that person is still in the room.
-  openGuestId?: string;
-}
-
-// What a moderator told everyone.
-export interface Announcement {
-  id: string;
-  text: string;
-  sentAt: string;
-  name: string;
-}
-
-export type ActionResult =
-  { ok: true } | { ok: false; error: string; retryAfterSeconds?: number };
-export type AnnounceResult = ActionResult;
-
-type Ack =
-  | { ok: true; history?: unknown; profile?: unknown }
-  | { ok: false; error: string; retryAfterMs?: number };
 type DropHandler = (reason: string) => void;
 
-function toResult(ack: Ack): ActionResult {
-  if (ack.ok) return { ok: true };
-
-  return {
-    ok: false,
-    error: ack.error,
-    retryAfterSeconds: ack.retryAfterMs
-      ? Math.ceil(ack.retryAfterMs / 1000)
-      : undefined,
-  };
-}
-
-const MAX_MESSAGES = 200;
 const MAX_ROOM_EVENTS = 200;
-// About four minutes of trying, never more than 30 seconds apart: long enough for a server restart or a patchy
-// network, and a tab in the background has its timers slowed down by the browser anyway.
-export const DEFAULT_RECONNECT_DELAYS_MS = [
-  1_000, 2_000, 4_000, 8_000, 15_000, 15_000, 30_000, 30_000, 30_000, 30_000,
-  30_000, 30_000,
-];
-
-// Waits out a delay, but not when the browser says the network is back or the guest has returned to the tab: that is
-// the moment a retry is most likely to work, and a background tab's timers may have been held up.
-function waitOrWake(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    const done = () => {
-      clearTimeout(timer);
-      window.removeEventListener("online", done);
-      document.removeEventListener("visibilitychange", onVisibility);
-      resolve();
-    };
-    const onVisibility = () => {
-      if (document.visibilityState !== "hidden") done();
-    };
-    const timer = setTimeout(done, ms);
-
-    window.addEventListener("online", done);
-    document.addEventListener("visibilitychange", onVisibility);
-  });
-}
-// Errors the server reports in connect_error; anything else (network failure, CORS) is a connection problem.
-const HANDSHAKE_ERRORS = new Set([
-  "invalid_nickname",
-  "reserved_nickname",
-  "invalid_token",
-  "banned",
-  "unavailable",
-  "too_many_connections",
-]);
-// Rejections that retrying cannot fix. A full per-network limit is not one: the guest's own dropped connection may
-// still be counted for a while.
-const PERMANENT_ERRORS = new Set([
-  "invalid_nickname",
-  "reserved_nickname",
-  "invalid_token",
-  "banned",
-]);
-// Disconnects somebody chose (this client, or the server kicking the guest); everything else is a dropped connection.
-const DELIBERATE_DISCONNECTS = new Set([
-  "io client disconnect",
-  "io server disconnect",
-]);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function placeholderFor(message: {
-  id: string;
-  roomSlug: string;
-  sentAt: string;
-}): ChatMessage {
-  return {
-    id: message.id,
-    roomSlug: message.roomSlug,
-    sentAt: message.sentAt,
-    guestId: "",
-    nickname: "",
-    text: "",
-    banned: true,
-  };
-}
-
-// A message as the server sends it: either a full message or, once its author was banned, a bare placeholder.
-function parseMessage(value: unknown): ChatMessage | undefined {
-  if (!isRecord(value)) return undefined;
-  const { id, roomSlug, sentAt } = value;
-
-  if (
-    typeof id !== "string" ||
-    typeof roomSlug !== "string" ||
-    typeof sentAt !== "string"
-  ) {
-    return undefined;
-  }
-
-  if (value.banned === true) return placeholderFor({ id, roomSlug, sentAt });
-
-  const { guestId, nickname, text } = value;
-
-  if (
-    typeof guestId !== "string" ||
-    typeof nickname !== "string" ||
-    typeof text !== "string"
-  ) {
-    return undefined;
-  }
-
-  const reactions = parseReactions(value.reactions);
-
-  return {
-    id,
-    roomSlug,
-    guestId,
-    nickname,
-    text,
-    sentAt,
-    role: value.role === "moderator" ? "moderator" : "guest",
-    avatar: parseAvatar(value.avatar),
-    ...(reactions.length > 0 ? { reactions } : {}),
-  };
-}
-
-function parseAnnouncement(value: unknown): Announcement | undefined {
-  if (!isRecord(value)) return undefined;
-  const { id, text, sentAt, name } = value;
-
-  if (
-    typeof id !== "string" ||
-    typeof text !== "string" ||
-    typeof sentAt !== "string" ||
-    typeof name !== "string"
-  ) {
-    return undefined;
-  }
-
-  return { id, text, sentAt, name };
-}
-
-const byTime = (a: ChatMessage, b: ChatMessage) =>
-  a.sentAt < b.sentAt ? -1 : a.sentAt > b.sentAt ? 1 : 0;
-
-// The server's remembered messages for the room, merged into what is already on screen. The same message can arrive
-// both live and in the history, so ids decide what is new; timestamps keep the whole list in the order it was sent.
-// A placeholder in the history wins over a copy that was delivered live: it is the newer news.
-function mergeHistory(
-  existing: ChatMessage[],
-  history: unknown,
-  roomSlug: string,
-): ChatMessage[] {
-  if (!Array.isArray(history)) return existing;
-
-  const byId = new Map(existing.map((message) => [message.id, message]));
-  let changed = false;
-
-  for (const entry of history) {
-    const message = parseMessage(entry);
-    if (!message || message.roomSlug !== roomSlug) continue;
-
-    const current = byId.get(message.id);
-
-    if (!current || (message.banned && !current.banned)) {
-      byId.set(message.id, message);
-      changed = true;
-    } else if (
-      !current.banned &&
-      !message.banned &&
-      !sameReactions(current.reactions, message.reactions)
-    ) {
-      // The history is the newer news about who reacted.
-      byId.set(message.id, { ...current, reactions: message.reactions });
-      changed = true;
-    }
-  }
-
-  if (!changed) return existing;
-
-  return [...byId.values()].sort(byTime).slice(-MAX_MESSAGES);
-}
-
-function strings(value: unknown): Set<string> {
-  return new Set(
-    Array.isArray(value)
-      ? value.filter((item): item is string => typeof item === "string")
-      : [],
-  );
-}
-
-// The server banned someone: their messages, named by id or by the guest they were sent as, turn into placeholders.
-function applyRedaction(
-  existing: ChatMessage[],
-  notice: unknown,
-  roomSlug: string | null,
-): ChatMessage[] {
-  if (!isRecord(notice) || notice.roomSlug !== roomSlug) return existing;
-
-  const ids = strings(notice.ids);
-  const guestIds = strings(notice.guestIds);
-  guestIds.delete("");
-
-  if (ids.size === 0 && guestIds.size === 0) return existing;
-
-  return existing.map((message) =>
-    !message.banned &&
-    message.roomSlug === roomSlug &&
-    (ids.has(message.id) || guestIds.has(message.guestId))
-      ? placeholderFor(message)
-      : message,
-  );
-}
 
 export function useChat(
   createSocket: CreateSocket = defaultCreateSocket,

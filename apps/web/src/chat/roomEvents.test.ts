@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { movements, timeline, type RoomEvent } from "./roomEvents";
-import type { ChatMessage, Member } from "./useChat";
+import type { ChatMessage, Member } from "./types";
 
 const me: Member = { guestId: "me", nickname: "Alice" };
 const bob: Member = { guestId: "bob", nickname: "Bob" };

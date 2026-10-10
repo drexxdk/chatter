@@ -5,7 +5,7 @@ import {
   type DirectThread,
   type Partner,
 } from "./direct";
-import type { ChatMessage, Member } from "./useChat";
+import type { ChatMessage, Member } from "./types";
 
 // Somebody came into the room or went out of it, as far as this client noticed. `seq` says where it fell among the
 // messages that arrived live, which the clocks of different computers could not.
