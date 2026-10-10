@@ -17,7 +17,9 @@ import {
   type Reaction,
 } from "../chat/reactions";
 import { useGridNavigation } from "../gridNavigation";
+import { onMessageKey } from "../messageKeys";
 import { PersonMenu, type PersonMenuOptions } from "./PersonMenu";
+import { ReturnFocus, useSharedRef } from "./ReturnFocus";
 
 export interface ReactionOptions {
   // Every id this guest has had, to tell which reactions are theirs.
@@ -54,11 +56,12 @@ function AddReaction({
   className: string;
 }) {
   const { t } = useTranslation();
+  const [button, setButton] = useSharedRef(buttonRef);
 
   return (
     <Popover className="flex">
       <PopoverButton
-        ref={buttonRef}
+        ref={setButton}
         title={t("reactions.add")}
         aria-label={t("reactions.add")}
         tabIndex={-1}
@@ -74,13 +77,16 @@ function AddReaction({
         className="z-30 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-xl"
       >
         {({ close }) => (
-          <ReactionGrid
-            isMine={isMine}
-            onPick={(emoji) => {
-              onPick(emoji);
-              close();
-            }}
-          />
+          <>
+            <ReturnFocus to={button} />
+            <ReactionGrid
+              isMine={isMine}
+              onPick={(emoji) => {
+                onPick(emoji);
+                close();
+              }}
+            />
+          </>
         )}
       </PopoverPanel>
     </Popover>
@@ -205,7 +211,13 @@ export function MessageEntry({
   if (!canReact && !menu) {
     if (!reactions) {
       return (
-        <div className="relative max-w-full" onKeyDown={toggleGifOnP}>
+        <div
+          data-message
+          className="relative max-w-full"
+          onKeyDown={(event) => {
+            if (!onMessageKey(event)) toggleGifOnP(event);
+          }}
+        >
           {children}
         </div>
       );
@@ -213,8 +225,11 @@ export function MessageEntry({
 
     return (
       <div
+        data-message
         className="relative flex max-w-full flex-col"
-        onKeyDown={toggleGifOnP}
+        onKeyDown={(event) => {
+          if (!onMessageKey(event)) toggleGifOnP(event);
+        }}
       >
         {children}
         {reacted.length > 0 && (
@@ -267,69 +282,11 @@ export function MessageEntry({
     }
   };
 
-  const barItems = () =>
-    Array.from(
-      wrapperRef.current?.querySelectorAll<HTMLButtonElement>(
-        "[data-bar] button:not(:disabled)",
-      ) ?? [],
-    );
-
-  // The arrow-key stop of this message: where the bar's buttons hand focus back.
-  const stopOfMessage = () =>
-    wrapperRef.current?.querySelector<HTMLElement>("[data-nav-id]");
-
-  // Right from the message goes to the bar, then left and right move along it; left from the first, Escape, and up or
-  // down return to the message.
-  const onBarKey = (event: KeyboardEvent<HTMLElement>) => {
-    const items = barItems();
-    const at = items.indexOf(event.target as HTMLButtonElement);
-    if (at < 0) return;
-
-    const move = (to: HTMLElement | null | undefined) => {
-      event.preventDefault();
-      // Back at the message, the bar is shown by the message having focus, as before.
-      if (to && to === stopOfMessage()) setBarHeld(false);
-      to?.focus();
-    };
-
-    if (event.key === "ArrowRight")
-      move(items[Math.min(at + 1, items.length - 1)]);
-    else if (event.key === "ArrowLeft")
-      move(at === 0 ? stopOfMessage() : items[at - 1]);
-    else if (event.key === "Home") move(items[0]);
-    else if (event.key === "End") move(items[items.length - 1]);
-    else if (
-      event.key === "Escape" ||
-      event.key === "ArrowUp" ||
-      event.key === "ArrowDown"
-    ) {
-      move(stopOfMessage());
-    }
-  };
-
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    const target = event.target as HTMLElement;
+    if (onMessageKey(event, setBarHeld)) return;
+    if (!(event.target as HTMLElement).dataset.navId) return;
 
-    if (!target.dataset.navId) {
-      const inBar = wrapperRef.current
-        ?.querySelector("[data-bar]")
-        ?.contains(target);
-
-      if (inBar) onBarKey(event);
-
-      return;
-    }
-
-    if (event.key === "ArrowRight" && !event.altKey && !event.shiftKey) {
-      const first = barItems()[0];
-
-      if (first) {
-        event.preventDefault();
-        // Held, so that the bar is still there for focus to return to when a menu or panel opened from it closes.
-        setBarHeld(true);
-        first.focus();
-      }
-    } else if (
+    if (
       canReact &&
       event.key.toLowerCase() === "r" &&
       !event.altKey &&
@@ -357,6 +314,7 @@ export function MessageEntry({
   return (
     <div
       ref={wrapperRef}
+      data-message
       className="group/message relative flex max-w-full flex-col [@media(hover:none)]:[-webkit-touch-callout:none]"
       onKeyDown={onKeyDown}
       onBlur={(event) => {
@@ -442,7 +400,12 @@ export function MessageEntry({
               <PersonMenu
                 menu={menu}
                 buttonRef={menuRef}
-                onChosen={() => setBarHeld(false)}
+                onChosen={() => {
+                  // Only a touch or a click lets go of the bar; from the keyboard it is where focus comes back to.
+                  if (document.documentElement.hasAttribute("data-pointer")) {
+                    setBarHeld(false);
+                  }
+                }}
               />
             )}
           </div>
@@ -454,6 +417,7 @@ export function MessageEntry({
             <button
               key={reaction.emoji}
               type="button"
+              data-chip
               title={names(reaction)}
               aria-label={chipLabel(reaction)}
               aria-pressed={isMine(reaction)}

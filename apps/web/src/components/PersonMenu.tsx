@@ -4,6 +4,7 @@ import type { Ref } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Partner } from "../chat/direct";
+import { ReturnFocus, useSharedRef } from "./ReturnFocus";
 
 const item =
   "flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm data-focus:bg-slate-800 data-disabled:opacity-50";
@@ -35,13 +36,14 @@ export function PersonMenu({
   onChosen: () => void;
 }) {
   const { t } = useTranslation();
+  const [button, setButton] = useSharedRef(buttonRef);
   const { partner, present, blocked, blockedBy } = menu;
   const label = t("person.actions", { name: partner.nickname });
 
   return (
     <Menu>
       <MenuButton
-        ref={buttonRef}
+        ref={setButton}
         tabIndex={-1}
         title={label}
         aria-label={label}
@@ -53,6 +55,7 @@ export function PersonMenu({
         anchor={{ to: "bottom end", gap: 4, padding: 8 }}
         className="z-50 min-w-52 rounded-md border border-slate-700 bg-slate-900 p-1 shadow-lg focus:outline-none"
       >
+        <ReturnFocus to={button} />
         <MenuItem disabled={!present || blocked || blockedBy}>
           <button
             type="button"

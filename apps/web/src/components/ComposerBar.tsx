@@ -71,6 +71,20 @@ export function ComposerBar({
               document.getElementById(id)?.focus();
             }
           }}
+          onKeyDown={(event) => {
+            // Escape in the box goes back to the messages, to the one that was last focused or else the newest.
+            if (
+              event.key === "Escape" &&
+              event.target === document.getElementById(id) &&
+              !event.nativeEvent.isComposing
+            ) {
+              document
+                .querySelector<HTMLElement>(
+                  '[role="log"] [data-nav-id][tabindex="0"]',
+                )
+                ?.focus();
+            }
+          }}
           className="cursor-text rounded-md border border-slate-700 bg-slate-950 focus-within:border-indigo-400"
         >
           <label htmlFor={id} className="sr-only">

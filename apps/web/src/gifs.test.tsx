@@ -399,6 +399,28 @@ describe("a GIF in a message", () => {
     expect(video.loop).toBe(true);
   });
 
+  it("comes after the bar's buttons in the arrow-key walk through a message, and keeps focus as it turns into Stop", async () => {
+    const user = userEvent.setup();
+    const { log, video } = await show();
+    fireEvent.ended(video);
+    await log.findByRole("button", { name: "Play again" });
+
+    log.getByRole("button", { name: /^Message / }).focus();
+    // The four quick emoji, the full set and the options menu come first.
+    await user.keyboard("{ArrowRight>7/}");
+    expect(log.getByRole("button", { name: "Play again" })).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+    await waitFor(() =>
+      expect(log.getByRole("button", { name: "Stop" })).toHaveFocus(),
+    );
+
+    await user.keyboard(" ");
+    await waitFor(() =>
+      expect(log.getByRole("button", { name: "Play again" })).toHaveFocus(),
+    );
+  });
+
   it("is played and stopped with P on the message, as its button is not a tab stop", async () => {
     const user = userEvent.setup();
     const { log, video } = await show();

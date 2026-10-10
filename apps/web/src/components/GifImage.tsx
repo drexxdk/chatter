@@ -14,6 +14,9 @@ const reducedMotion = () =>
 export function GifImage({ url }: { url: string }) {
   const { t } = useTranslation();
   const video = useRef<HTMLVideoElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  // Play and stop are different buttons, so focus on one has to be handed to the other.
+  const refocus = useRef(false);
   const [state, setState] = useState<"waiting" | "once" | "paused" | "looping">(
     reducedMotion() ? "paused" : "waiting",
   );
@@ -45,6 +48,15 @@ export function GifImage({ url }: { url: string }) {
     return () => observer.disconnect();
   }, [state]);
 
+  useEffect(() => {
+    if (!refocus.current) return;
+
+    refocus.current = false;
+    root.current
+      ?.querySelector<HTMLElement>("[data-gif-toggle]")
+      ?.focus({ preventScroll: true });
+  }, [state]);
+
   if (failed) {
     return (
       <img
@@ -57,10 +69,14 @@ export function GifImage({ url }: { url: string }) {
     );
   }
 
+  const isFocused = () =>
+    root.current?.contains(document.activeElement) ?? false;
+
   const replay = () => {
     const element = video.current;
     if (!element) return;
 
+    refocus.current = isFocused();
     element.loop = true;
     element.currentTime = 0;
     setState("looping");
@@ -68,6 +84,7 @@ export function GifImage({ url }: { url: string }) {
   };
 
   const stop = () => {
+    refocus.current = isFocused();
     const element = video.current;
     element?.pause();
     if (element) element.loop = false;
@@ -75,7 +92,7 @@ export function GifImage({ url }: { url: string }) {
   };
 
   return (
-    <div className="relative w-fit max-w-full">
+    <div ref={root} className="relative w-fit max-w-full">
       <video
         ref={video}
         src={gifVideoUrl(url)}

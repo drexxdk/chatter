@@ -34,12 +34,19 @@ export function useRowNavigation(ids: string[]) {
 
   const onKeyDownCapture = (event: KeyboardEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
-    if (!target.dataset.navId) return;
+    // The message itself, or one of its actions (the bar's buttons, its GIF, its reactions): up and down always change
+    // message, wherever in one the focus is.
+    const row = target.dataset.navId
+      ? target
+      : target
+          .closest<HTMLElement>("[data-message]")
+          ?.querySelector<HTMLElement>("[data-nav-id]");
+    if (!row) return;
 
     const rows = Array.from(
       event.currentTarget.querySelectorAll<HTMLElement>("[data-nav-id]"),
     );
-    const at = rows.indexOf(target);
+    const at = rows.indexOf(row);
     const moves: Record<string, number> = {
       ArrowUp: at - 1,
       ArrowDown: at + 1,
