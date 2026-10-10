@@ -16,6 +16,7 @@ import {
 } from "./direct";
 import { movements, type RoomEvent } from "./roomEvents";
 import { loadNotifyDirect, saveNotifyDirect } from "../preferences";
+import { MAX_GUEST_IDS } from "../session";
 import { parseAge, type ProfileChanges } from "../profile";
 import { parseAvatar, PLAIN_AVATAR, type Avatar } from "./avatar";
 import {
@@ -227,7 +228,10 @@ export function useChat(
           }
           setSession(next);
           if (!ownGuestIdsRef.current.includes(next.guestId)) {
-            ownGuestIdsRef.current = [...ownGuestIdsRef.current, next.guestId];
+            ownGuestIdsRef.current = [
+              ...ownGuestIdsRef.current,
+              next.guestId,
+            ].slice(-MAX_GUEST_IDS);
           }
           setOwnGuestIds(ownGuestIdsRef.current);
           resolve(null);

@@ -23,6 +23,10 @@ Connect with `io(url, { auth: { nickname, avatar, guestId, resumeSecret } })` as
 
 A client may send packets of up to 8 KB (`MAX_PACKET_BYTES` in `socket.ts`; Socket.IO's default is 1 MB, and the biggest thing a client sends is a 500-character message). A larger one closes its connection. The server pings every 25 s and drops a client that does not answer within 20 s.
 
+### Logs
+
+The server writes one JSON object per line (`src/log.ts`): `time`, `level`, `message`, and for errors an `error` with the name, message and stack, plus fields such as `room` where they help. Errors go to the standard error, information to the standard output, so a log collector can filter on the fields. Moderator sign-in failures log only the error's message, because the stack of a failed sign-in call can carry what was sent.
+
 ### Shutting down
 
 On `SIGTERM` or `SIGINT` (`src/shutdown.ts`) the server stops the background syncs, disconnects all clients and closes the HTTP server, quits its three Redis connections, and exits with 0 (1 if something failed, or if all that took more than 10 s). Clients reconnect on their own, so a deploy only shows as a short reconnect. A second signal while closing is ignored.

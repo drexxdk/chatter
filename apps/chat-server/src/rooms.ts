@@ -1,6 +1,7 @@
 import { env } from "./env.js";
 import { redis } from "./redis.js";
 import { fetchPublicRooms, type PublicRoom } from "./payloadClient.js";
+import { log } from "./log.js";
 
 const CACHE_KEY = "chatter:public-rooms";
 
@@ -17,12 +18,12 @@ export async function getCachedPublicRooms(): Promise<PublicRoom[]> {
 // Polls Payload on an interval so socket connections never wait on an upstream HTTP call.
 export function startPublicRoomsSync(): NodeJS.Timeout {
   syncPublicRooms().catch((error) =>
-    console.error("Failed to sync public rooms:", error),
+    log.error("Failed to sync public rooms", error),
   );
 
   return setInterval(() => {
     syncPublicRooms().catch((error) =>
-      console.error("Failed to sync public rooms:", error),
+      log.error("Failed to sync public rooms", error),
     );
   }, env.SYNC_INTERVAL_MS);
 }

@@ -9,7 +9,7 @@ const KEY = "chatter.session";
 const DIRECT_KEY = "chatter.direct";
 const MAX_BLOCKED = 100;
 // Only the latest are kept: each reload or reconnect adds one, and old messages fall out of the history anyway.
-const MAX_GUEST_IDS = 20;
+export const MAX_GUEST_IDS = 20;
 
 export interface SavedSession {
   nickname: string;

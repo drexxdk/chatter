@@ -1,6 +1,7 @@
 import { env } from "./env.js";
 import { redis } from "./redis.js";
 import { fetchBans, type Ban } from "./payloadClient.js";
+import { log } from "./log.js";
 
 const CACHE_KEY = "chatter:bans";
 
@@ -27,7 +28,7 @@ async function syncBans(onActiveBans?: ActiveBansListener): Promise<void> {
   try {
     await onActiveBans(active);
   } catch (error) {
-    console.error("Failed to enforce bans:", error);
+    log.error("Failed to enforce bans", error);
   }
 }
 
@@ -51,7 +52,7 @@ export function startBansSync(
 ): NodeJS.Timeout {
   const sync = () =>
     syncBans(onActiveBans).catch((error) =>
-      console.error("Failed to sync bans:", error),
+      log.error("Failed to sync bans", error),
     );
 
   void sync();

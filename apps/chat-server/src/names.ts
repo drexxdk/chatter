@@ -1,6 +1,7 @@
 import { env } from "./env.js";
 import { fetchModerators, type Moderator } from "./payloadClient.js";
 import { redis } from "./redis.js";
+import { log } from "./log.js";
 
 const CACHE_KEY = "chatter:moderators";
 
@@ -83,7 +84,7 @@ async function syncModerators(
   try {
     await onModerators(moderators.map((moderator) => moderator.id));
   } catch (error) {
-    console.error("Failed to enforce moderator access:", error);
+    log.error("Failed to enforce moderator access", error);
   }
 }
 
@@ -93,7 +94,7 @@ export function startModeratorsSync(
 ): NodeJS.Timeout {
   const sync = () =>
     syncModerators(onModerators).catch((error) =>
-      console.error("Failed to sync moderators:", error),
+      log.error("Failed to sync moderators", error),
     );
 
   void sync();

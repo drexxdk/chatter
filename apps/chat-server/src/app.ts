@@ -10,6 +10,7 @@ import { loginAccount } from "./payloadClient.js";
 import { chatRoleFor } from "./roles.js";
 import { getCachedPublicRooms } from "./rooms.js";
 import { signToken } from "./tokens.js";
+import { log } from "./log.js";
 
 // Counted per process, like the per-IP connection cap.
 const ROOMS_RATE_LIMIT_WINDOW_MS = 60_000;
@@ -92,8 +93,9 @@ export function createApp(
       try {
         account = await loginAccount(body.data.email, body.data.password);
       } catch (error) {
-        console.error(
-          "Moderator sign-in failed:",
+        // Only the message: the stack of a failed sign-in call can carry what was sent.
+        log.error(
+          "Moderator sign-in failed",
           error instanceof Error ? error.message : "unknown error",
         );
         return res.status(503).json({ error: "unavailable" });
@@ -118,7 +120,7 @@ export function createApp(
           name: account.displayName,
         });
       } catch (error) {
-        console.error("Failed to record the moderator:", error);
+        log.error("Failed to record the moderator", error);
         return res.status(503).json({ error: "unavailable" });
       }
 

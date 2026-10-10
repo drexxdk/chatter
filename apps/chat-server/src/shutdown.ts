@@ -1,6 +1,8 @@
 // Closes the server the way a deploy expects: stop the background syncs, disconnect every client (the web client
 // reconnects on its own, to another instance or to the new one), let in-flight work finish, then close Redis.
 
+import { log as logger } from "./log.js";
+
 export interface ShutdownTargets {
   // Socket.IO's server: closing it disconnects the sockets and closes the HTTP server it is attached to.
   io: { close(): Promise<void> };
@@ -21,7 +23,7 @@ export function createShutdown({
   redisClients,
   exit,
   timeoutMs = SHUTDOWN_TIMEOUT_MS,
-  log = console.log,
+  log = (message: string) => logger.info(message),
 }: ShutdownTargets): (signal: string) => Promise<void> {
   let started = false;
 
@@ -45,7 +47,7 @@ export function createShutdown({
       await io.close();
     } catch (error) {
       failed = true;
-      console.error("closing the socket server failed", error);
+      logger.error("Closing the socket server failed", error);
     }
 
     // Quitting waits for replies still on their way; disconnecting is the fallback for a connection that is gone.

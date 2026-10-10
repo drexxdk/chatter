@@ -2,6 +2,7 @@ import http from "http";
 
 import { createApp } from "./app.js";
 import { env } from "./env.js";
+import { log } from "./log.js";
 import { pubClient, redis, subClient } from "./redis.js";
 import { createShutdown } from "./shutdown.js";
 import {
@@ -33,5 +34,5 @@ process.once("SIGTERM", () => void shutdown("SIGTERM"));
 process.once("SIGINT", () => void shutdown("SIGINT"));
 
 httpServer.listen(env.PORT, () => {
-  console.log(`chat-server listening on port ${env.PORT}`);
+  log.info("chat-server listening", { port: env.PORT });
 });

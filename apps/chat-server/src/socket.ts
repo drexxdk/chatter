@@ -33,6 +33,7 @@ import { ROLE_RULES, type ChatRole } from "./roles.js";
 import { getCachedPublicRooms } from "./rooms.js";
 import { newResumeSecret, rememberResume, verifyResume } from "./resume.js";
 import { verifyToken } from "./tokens.js";
+import { log } from "./log.js";
 
 // The largest packet a client may send; a longer one closes its connection. The default is 1 MB, while the biggest
 // thing a client sends is a 500-character message (3 KB even if every character had to be escaped in JSON).
@@ -252,7 +253,7 @@ export function createSocketServer(
         const moderators = await getModerators();
 
         if (!moderators) {
-          console.error("Moderators have not been read from Payload yet");
+          log.error("Moderators have not been read from Payload yet");
           return next(new Error("unavailable"));
         }
 
@@ -260,7 +261,7 @@ export function createSocketServer(
           return next(new Error("invalid_token"));
         }
       } catch (error) {
-        console.error("Moderator check failed:", error);
+        log.error("Moderator check failed", error);
         return next(new Error("unavailable"));
       }
 
@@ -279,7 +280,7 @@ export function createSocketServer(
           return next(new Error("reserved_nickname"));
         }
       } catch (error) {
-        console.error("Moderator names unavailable:", error);
+        log.error("Moderator names unavailable", error);
         return next(new Error("unavailable"));
       }
     }
@@ -293,7 +294,7 @@ export function createSocketServer(
         return next(new Error("banned"));
       }
     } catch (error) {
-      console.error("Ban check failed:", error);
+      log.error("Ban check failed", error);
       return next(new Error("unavailable"));
     }
 
@@ -327,7 +328,7 @@ export function createSocketServer(
       await rememberResume(guestId, secret);
       resumeSecrets.set(socket, secret);
     } catch (error) {
-      console.error("Resuming an identity failed:", error);
+      log.error("Resuming an identity failed", error);
       return next(new Error("unavailable"));
     }
 
@@ -409,9 +410,7 @@ export function createSocketServer(
       .then((latest) => {
         if (latest) socket.emit("announcement:new", latest);
       })
-      .catch((error) =>
-        console.error("Failed to read the announcement:", error),
-      );
+      .catch((error) => log.error("Failed to read the announcement", error));
 
     // Any client event counts as activity.
     let idleTimer: NodeJS.Timeout | undefined;
@@ -458,13 +457,13 @@ export function createSocketServer(
           });
         }
       } catch (error) {
-        console.error("Failed to check the announcement wait:", error);
+        log.error("Failed to check the announcement wait", error);
         return reply({ ok: false, error: "unavailable" });
       }
 
       // Delivered live even if it cannot be kept; only people who connect later would miss it.
       await saveAnnouncement(announcement).catch((error) =>
-        console.error("Failed to keep the announcement:", error),
+        log.error("Failed to keep the announcement", error),
       );
 
       io.emit("announcement:new", announcement);
@@ -509,7 +508,7 @@ export function createSocketServer(
           (member) => (member.data as SocketData).guestId === toGuestId,
         );
       } catch (error) {
-        console.error("Failed to look up the recipient:", error);
+        log.error("Failed to look up the recipient", error);
         return reply({ ok: false, error: "unavailable" });
       }
 
@@ -584,7 +583,7 @@ export function createSocketServer(
           });
         }
       } catch (error) {
-        console.error("Failed to tell a guest about a block:", error);
+        log.error("Failed to tell a guest about a block", error);
       }
     }
 
@@ -670,7 +669,7 @@ export function createSocketServer(
               return reply({ ok: false, error: "reserved_nickname" });
             }
           } catch (error) {
-            console.error("Moderator names unavailable:", error);
+            log.error("Moderator names unavailable", error);
             return reply({ ok: false, error: "unavailable" });
           }
         }
@@ -776,7 +775,7 @@ export function createSocketServer(
       // Read after joining, so a message sent in between is in the history, delivered live, or both (the client
       // removes the duplicate by id), but never neither.
       const history = await getHistory(slug).catch((error) => {
-        console.error("Failed to read room history:", error);
+        log.error("Failed to read room history", error);
         return [];
       });
 
@@ -810,7 +809,7 @@ export function createSocketServer(
         );
         slowModeMs = (room?.slowModeSeconds ?? 0) * 1000;
       } catch (error) {
-        console.error("Failed to read the room's settings:", error);
+        log.error("Failed to read the room's settings", error);
         return reply({ ok: false, error: "unavailable" });
       }
 
@@ -860,14 +859,14 @@ export function createSocketServer(
       try {
         await recordMessage({ ...message, ipHash: storedIpHash });
       } catch (error) {
-        console.error("Failed to record message:", error);
+        log.error("Failed to record message", error);
       }
 
       // A ban can land while the message is being recorded: it is neither delivered nor left in the history.
       if (data.banned) {
         await redactMessagesFrom(message.roomSlug, [data.ipHash]).catch(
           (error) =>
-            console.error("Failed to replace a banned guest's message:", error),
+            log.error("Failed to replace a banned guest's message", error),
         );
         return reply({ ok: false, error: "banned" });
       }
@@ -917,7 +916,7 @@ export function createSocketServer(
           nickname: data.nickname,
         });
       } catch (error) {
-        console.error("Failed to record a reaction:", error);
+        log.error("Failed to record a reaction", error);
         return reply({ ok: false, error: "unavailable" });
       }
 
@@ -946,7 +945,7 @@ export function createSocketServer(
       // Socket.IO has already removed the socket from its rooms; just refresh presence for the others.
       if (data.roomSlug) {
         emitPresence(data.roomSlug).catch((error) =>
-          console.error("Presence update failed:", error),
+          log.error("Presence update failed", error),
         );
       }
     });
@@ -1017,7 +1016,7 @@ export async function enforceBans(
         });
       }
     } catch (error) {
-      console.error(`Failed to replace messages in ${room.slug}:`, error);
+      log.error("Failed to replace messages", error, { room: room.slug });
     }
   }
 }
