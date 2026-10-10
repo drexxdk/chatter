@@ -58,23 +58,38 @@ export function ComposerBar({
         />
       )}
 
-      <form onSubmit={onSubmit} className="flex flex-col gap-2">
-        <label htmlFor={id} className="sr-only">
-          {label}
-        </label>
-        <MessageInput
-          id={id}
-          value={composer.text}
-          reserve={composer.reserve}
-          onChange={(event) => composer.setText(event.target.value)}
-          autoComplete="off"
-          disabled={disabled}
-          placeholder={placeholder}
-          className="w-full min-w-0 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
-        />
-        <div className="flex items-center gap-2">
-          {leading}
-          <div className="ml-auto flex items-center gap-2">
+      <form onSubmit={onSubmit}>
+        {/* One box that looks like the text box and holds the controls, as in Teams; a click anywhere in it types. */}
+        <div
+          onClick={(event) => {
+            if (
+              event.target === event.currentTarget ||
+              (event.target instanceof HTMLElement &&
+                event.target.dataset.controls)
+            ) {
+              document.getElementById(id)?.focus();
+            }
+          }}
+          className="cursor-text rounded-md border border-slate-700 bg-slate-950 focus-within:border-indigo-400"
+        >
+          <label htmlFor={id} className="sr-only">
+            {label}
+          </label>
+          <MessageInput
+            id={id}
+            value={composer.text}
+            reserve={composer.reserve}
+            onChange={(event) => composer.setText(event.target.value)}
+            autoComplete="off"
+            disabled={disabled}
+            placeholder={placeholder}
+            className="block w-full min-w-0 bg-transparent px-3 pt-2 outline-none disabled:opacity-60"
+          />
+          <div
+            data-controls
+            className="flex cursor-text items-center justify-end gap-2 px-2 pb-2 pt-1"
+          >
+            {leading}
             {actions ?? (
               <>
                 <ComposerPicker
@@ -88,7 +103,7 @@ export function ComposerBar({
                   type="submit"
                   disabled={disabled || !composer.message}
                   aria-label={t("room.send")}
-                  className="rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
+                  className="cursor-pointer rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
                 >
                   <SendHorizontal aria-hidden="true" className="h-5 w-5" />
                 </button>

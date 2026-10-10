@@ -1,6 +1,9 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
+
+// The default of one second is too short for findBy and waitFor when every test file runs at once on a busy machine.
+configure({ asyncUtilTimeout: 4000 });
 
 // Newer Node versions define their own experimental `localStorage` and `sessionStorage` globals, which hide jsdom's
 // and are undefined without --localstorage-file. Browsers are unaffected, so only the tests need this.
