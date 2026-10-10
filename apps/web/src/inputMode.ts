@@ -10,9 +10,14 @@ const NAVIGATION_KEYS = new Set([
 ]);
 
 // Browsers always outline a focused text box, even after a click. Focus rings are for the keyboard, so the page says
-// when the pointer was the last thing used (`data-pointer` on <html>) and the stylesheet hides the ring then.
+// when the pointer was the last thing used (`data-pointer` on <html>, holding its type: "mouse", "touch" or "pen") and
+// the stylesheet hides the ring then.
 export function trackInputMode(root: HTMLElement = document.documentElement) {
-  const pointer = () => root.setAttribute("data-pointer", "");
+  const pointer = (event: Event) =>
+    root.setAttribute(
+      "data-pointer",
+      (event as PointerEvent).pointerType ?? "",
+    );
   const keyboard = () => root.removeAttribute("data-pointer");
 
   const onKeyDown = (event: KeyboardEvent) => {

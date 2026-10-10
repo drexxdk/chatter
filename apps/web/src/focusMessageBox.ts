@@ -1,9 +1,9 @@
 // After choosing somebody to write to with the keyboard, the cursor goes to the message box so the guest can start
 // typing; for somebody who is blocked there is no box to type in, so it goes to the button that unblocks them. It
 // waits for slide-outs and menus to be gone first: they hand focus back to what opened them as they close, which would
-// take it away again. Not after a click or tap, where it would only open the keyboard on a phone.
+// take it away again. Not after a tap, where it would only open the keyboard on a phone; a click with a mouse is fine.
 export function focusMessageBox() {
-  if (document.documentElement.hasAttribute("data-pointer")) return;
+  if (document.documentElement.getAttribute("data-pointer") === "touch") return;
 
   const started = performance.now();
 

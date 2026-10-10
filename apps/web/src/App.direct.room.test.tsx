@@ -258,10 +258,10 @@ describe("direct messages", () => {
       );
     });
 
-    it("leaves the cursor alone when somebody was chosen with the mouse", async () => {
+    it("leaves the cursor alone when somebody was chosen by a tap", async () => {
       const { user, server } = await enter();
       receive(server, dm({ text: "psst" }));
-      document.documentElement.setAttribute("data-pointer", "");
+      document.documentElement.setAttribute("data-pointer", "touch");
 
       try {
         await clickMessage(user, "Bob");
@@ -270,6 +270,24 @@ describe("direct messages", () => {
         expect(
           screen.getByRole("textbox", { name: "Message to Bob" }),
         ).not.toHaveFocus();
+      } finally {
+        document.documentElement.removeAttribute("data-pointer");
+      }
+    });
+
+    it("puts the cursor in the message box when somebody was chosen with the mouse", async () => {
+      const { user, server } = await enter();
+      receive(server, dm({ text: "psst" }));
+      document.documentElement.setAttribute("data-pointer", "mouse");
+
+      try {
+        await clickMessage(user, "Bob");
+
+        await waitFor(() =>
+          expect(
+            screen.getByRole("textbox", { name: "Message to Bob" }),
+          ).toHaveFocus(),
+        );
       } finally {
         document.documentElement.removeAttribute("data-pointer");
       }

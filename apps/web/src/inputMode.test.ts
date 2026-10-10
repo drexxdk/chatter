@@ -21,6 +21,21 @@ describe("trackInputMode", () => {
     expect(html).not.toHaveAttribute("data-pointer");
   });
 
+  it("remembers what kind of pointer was used", () => {
+    stop = trackInputMode();
+    const html = document.documentElement;
+
+    document.body.dispatchEvent(
+      new MouseEvent("pointerdown", { bubbles: true }),
+    );
+    expect(html.getAttribute("data-pointer")).toBe("");
+
+    const touch = new Event("pointerdown", { bubbles: true });
+    Object.defineProperty(touch, "pointerType", { value: "touch" });
+    document.body.dispatchEvent(touch);
+    expect(html.getAttribute("data-pointer")).toBe("touch");
+  });
+
   it("does not take typing in a text box for keyboard navigation", () => {
     stop = trackInputMode();
     const input = document.body.appendChild(document.createElement("input"));
