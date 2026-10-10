@@ -1,6 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { formatClock } from "../chat/clock";
 import { Timestamp } from "./Timestamp";
 
 const SENT = new Date("2026-10-10T12:00:00.000Z");
@@ -33,7 +34,7 @@ describe("Timestamp", () => {
     expect(time).toHaveTextContent("14 minutes ago");
 
     later(5);
-    expect(time).toHaveTextContent(SENT.toLocaleTimeString());
+    expect(time).toHaveTextContent(formatClock(SENT.toISOString(), "en"));
   });
 
   it("stops its timer when nothing is left to update", () => {

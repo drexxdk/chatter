@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ageBucket } from "../chat/age";
+import { formatClock } from "../chat/clock";
 
 const TICK_MS = 5_000;
 
@@ -32,7 +33,7 @@ export function Timestamp({
   sentAt: string;
   className?: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const bucket = useSyncExternalStore(subscribe, () =>
     ageBucket(sentAt, Date.now()),
   );
@@ -40,7 +41,7 @@ export function Timestamp({
   return (
     <time dateTime={sentAt} className={className}>
       {bucket < 0
-        ? new Date(sentAt).toLocaleTimeString()
+        ? formatClock(sentAt, i18n.resolvedLanguage)
         : bucket === 0
           ? t("time.fewSecondsAgo")
           : t("time.minutesAgo", { count: bucket })}
