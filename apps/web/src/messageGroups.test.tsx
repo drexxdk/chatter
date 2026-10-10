@@ -176,6 +176,35 @@ describe("clicking a message", () => {
     expect(screen.queryByRole("button", { name: "Message Alice" })).toBeNull();
   });
 
+  it("does the same from the room around it, which is all there is to click beside a small picture", async () => {
+    const { user, server } = await enter();
+    emit(server, said(BOB, "one", 1));
+    const around = rows()[0].querySelector<HTMLElement>(
+      '[aria-hidden="true"].cursor-pointer',
+    );
+
+    await user.click(around!);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("textbox", { name: "Message to Bob" }),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it("offers no such room round the message of somebody who has left", async () => {
+    const { server } = await enter();
+    emit(server, said(BOB, "bye", 1));
+    act(() =>
+      server.latest.serverEmit("room:presence", {
+        roomSlug: "general",
+        members: [{ guestId: "guest-me", nickname: "Alice" }, CAROL],
+      }),
+    );
+
+    expect(rows()[0].querySelector(".cursor-pointer")).toBeNull();
+  });
+
   it("does nothing for somebody who has left the room", async () => {
     const { user, server } = await enter();
     emit(server, said(BOB, "bye", 1));

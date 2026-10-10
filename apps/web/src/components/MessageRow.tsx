@@ -171,6 +171,11 @@ export function MessageGroup({
               reactions={reactable ? reactions : undefined}
               reacted={message.reactions ?? []}
               menu={message.banned ? undefined : menu}
+              onClickArea={
+                onSelect && selectable && !message.banned
+                  ? () => chooseUnlessSelecting(onSelect)
+                  : undefined
+              }
             >
               {onSelect ? (
                 // The click is taken here, not by the button, so the text stays selectable.
