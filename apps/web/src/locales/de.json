@@ -23,6 +23,8 @@
     "alt": "GIF",
     "pick": "GIF hinzufügen: {{title}}",
     "remove": "GIF entfernen",
+    "replay": "Erneut abspielen",
+    "stop": "Stopp",
     "none": "Keine GIFs gefunden.",
     "loading": "Wird geladen…",
     "error": "Die GIFs konnten nicht geladen werden.",

@@ -29,3 +29,14 @@ export function splitGif(text: string): { text: string; gif: string | null } {
 
   return { text: at === -1 ? "" : trimmed.slice(0, at).trim(), gif };
 }
+
+// The same picture as a video, which can be played once and stopped (a GIF's loops cannot be controlled); GIPHY serves
+// both from the same address.
+export function gifVideoUrl(gif: string): string {
+  return gif.replace(/\.gif$/, ".mp4");
+}
+
+// The picture's first frame, for where it should not move; GIPHY names it after the size, so only those addresses have one.
+export function gifStillUrl(gif: string): string | null {
+  return /\/\d+\.gif$/.test(gif) ? gif.replace(/\.gif$/, "_s.gif") : null;
+}

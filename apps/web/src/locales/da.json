@@ -23,6 +23,8 @@
     "alt": "GIF",
     "pick": "Tilføj GIF: {{title}}",
     "remove": "Fjern GIF",
+    "replay": "Afspil igen",
+    "stop": "Stop",
     "none": "Ingen GIF'er fundet.",
     "loading": "Henter…",
     "error": "GIF'erne kunne ikke hentes.",

@@ -14,6 +14,7 @@ import { makeFakeServer } from "./test/fakeSocket";
 
 const ROOMS = [{ id: 1, name: "General", slug: "general", maxMembers: 100 }];
 const BARE = "https://media1.giphy.com/media/abc123/200.gif";
+const VIDEO = "https://media1.giphy.com/media/abc123/200.mp4";
 
 const giphyItem = (id: string, title: string) => ({
   id,
@@ -313,7 +314,7 @@ describe("GIFs", () => {
     const image = within(screen.getByRole("log")).getByRole("img", {
       name: "GIF",
     });
-    expect(image).toHaveAttribute("src", BARE);
+    expect(image).toHaveAttribute("src", VIDEO);
     expect(screen.queryByText(BARE)).toBeNull();
   });
 
@@ -335,7 +336,95 @@ describe("GIFs", () => {
 
     const log = within(screen.getByRole("log"));
     expect(log.getByText("look at this")).toBeInTheDocument();
-    expect(log.getByRole("img", { name: "GIF" })).toHaveAttribute("src", BARE);
+    expect(log.getByRole("img", { name: "GIF" })).toHaveAttribute("src", VIDEO);
     expect(screen.queryByText(BARE)).toBeNull();
+  });
+});
+
+describe("a GIF in a message", () => {
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play");
+  const pause = vi.spyOn(HTMLMediaElement.prototype, "pause");
+
+  beforeEach(() => {
+    vi.stubEnv("VITE_GIPHY_API_KEY", "test-key");
+    stubFetch();
+    play.mockReset().mockResolvedValue(undefined);
+    pause.mockReset().mockImplementation(() => {});
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  async function show() {
+    const { server } = await enter();
+    act(() => server.latest.serverEmit("message:new", message(BARE)));
+    const log = within(screen.getByRole("log"));
+    const video = log.getByRole("img", { name: "GIF" }) as HTMLVideoElement;
+
+    return { log, video };
+  }
+
+  it("plays once and then waits, without looping", async () => {
+    const { log, video } = await show();
+
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(video.loop).toBe(false);
+    expect(log.queryByRole("button", { name: "Play again" })).toBeNull();
+
+    fireEvent.ended(video);
+
+    expect(
+      await log.findByRole("button", { name: "Play again" }),
+    ).toBeInTheDocument();
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it("loops from the button until it is stopped, and can then be played again", async () => {
+    const { user } = { user: userEvent.setup() };
+    const { log, video } = await show();
+    fireEvent.ended(video);
+
+    await user.click(await log.findByRole("button", { name: "Play again" }));
+
+    expect(video.loop).toBe(true);
+    expect(play).toHaveBeenCalledTimes(2);
+    expect(log.queryByRole("button", { name: "Play again" })).toBeNull();
+
+    await user.click(log.getByRole("button", { name: "Stop" }));
+
+    expect(pause).toHaveBeenCalled();
+    expect(video.loop).toBe(false);
+    expect(log.queryByRole("button", { name: "Stop" })).toBeNull();
+
+    await user.click(log.getByRole("button", { name: "Play again" }));
+    expect(video.loop).toBe(true);
+  });
+
+  it("does not start by itself for somebody who prefers less motion", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      })),
+    );
+
+    const { log } = await show();
+
+    expect(play).not.toHaveBeenCalled();
+    expect(log.getByRole("button", { name: "Play again" })).toBeInTheDocument();
+  });
+
+  it("is shown as the picture if the video cannot be loaded", async () => {
+    const { log, video } = await show();
+
+    fireEvent.error(video);
+
+    expect(await log.findByRole("img", { name: "GIF" })).toHaveAttribute(
+      "src",
+      BARE,
+    );
+    expect(log.queryByRole("button", { name: "Play again" })).toBeNull();
   });
 });

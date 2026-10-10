@@ -1,7 +1,9 @@
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-// The GIF added to the message being written, shown above the box until it is sent or removed.
+import { gifStillUrl } from "../chat/gifs";
+
+// The GIF added to the message being written, shown above the box (not moving) until it is sent or removed.
 export function AttachedGif({
   url,
   onRemove,
@@ -14,7 +16,7 @@ export function AttachedGif({
   return (
     <div className="relative w-fit max-w-full">
       <img
-        src={url}
+        src={gifStillUrl(url) ?? url}
         alt={t("gif.alt")}
         referrerPolicy="no-referrer"
         className="h-24 max-w-full rounded-lg bg-slate-800 object-contain"
