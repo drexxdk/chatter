@@ -16,7 +16,9 @@ const LOOKS: Record<Avatar, { symbol?: string; className: string }> = {
     className: "bg-pink-500/20 text-pink-300 ring-pink-400/60",
   },
   trans: {
-    symbol: "\u26a7",
+    // The trailing U+FE0E asks for the plain symbol: left alone, some systems draw this one as a colour emoji in its own
+    // purple square, which is nothing like the others.
+    symbol: "\u26a7\ufe0e",
     className:
       "bg-linear-to-b from-sky-500/20 via-pink-500/20 to-sky-500/20 text-pink-200 ring-pink-300/60",
   },
@@ -46,7 +48,7 @@ export function AvatarIcon({
       title={titled ? t(`avatar.${kind}`) : undefined}
       data-avatar={kind}
       aria-hidden="true"
-      className={`inline-flex shrink-0 select-none items-center justify-center rounded-full ring-1 ${look.className} ${
+      className={`inline-flex shrink-0 select-none items-center justify-center rounded-full ring-1 [font-variant-emoji:text] ${look.className} ${
         small ? "h-6 w-6 text-sm" : "h-9 w-9 text-lg"
       } font-bold ${dimmed ? "opacity-50 grayscale" : ""}`}
     >

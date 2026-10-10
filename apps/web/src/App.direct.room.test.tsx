@@ -126,7 +126,7 @@ describe("direct messages", () => {
         drawer
           .getAllByRole("button")
           .map((button) =>
-            button.textContent?.replace(/[\u2640\u2642\u26a7]/g, ""),
+            button.textContent?.replace(/[\u2640\u2642]|\u26a7\ufe0e?/g, ""),
           )
           .filter((name) => ["Bob", "Carol", "Ada Mod"].includes(name ?? ""));
 
