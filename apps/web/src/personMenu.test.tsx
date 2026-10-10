@@ -136,6 +136,40 @@ describe("the options button of a message", () => {
     ).toBeInTheDocument();
   });
 
+  it("is reached with the arrow keys from the message, and Escape from the menu returns to its button", async () => {
+    const { user, server } = await enter();
+    say(server, BOB, "from bob");
+    const stop = screen.getByRole("button", { name: "Message Bob" });
+    const bar = () =>
+      within(screen.getByRole("log")).getAllByRole("button", {
+        name: /^(React with|Add reaction|Actions for Bob)/,
+      });
+
+    stop.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(bar()[0]).toHaveFocus();
+
+    await user.keyboard("{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}");
+    expect(screen.getByRole("button", { name: "Add reaction" })).toHaveFocus();
+
+    await user.keyboard("{ArrowRight}");
+    const options = screen.getByRole("button", { name: "Actions for Bob" });
+    expect(options).toHaveFocus();
+
+    await user.keyboard("{ArrowRight}");
+    expect(options).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+    expect(await screen.findByRole("menu")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(options).toHaveFocus());
+
+    await user.keyboard(
+      "{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}",
+    );
+    expect(stop).toHaveFocus();
+  });
+
   it("opens with the menu key when the message has the keyboard focus", async () => {
     const { user, server } = await enter();
     say(server, BOB, "from bob");

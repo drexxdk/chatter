@@ -92,6 +92,8 @@ export function GifImage({ url }: { url: string }) {
       {state === "paused" && (
         <button
           type="button"
+          data-gif-toggle
+          tabIndex={-1}
           onClick={replay}
           aria-label={t("gif.replay")}
           title={t("gif.replay")}
@@ -105,6 +107,8 @@ export function GifImage({ url }: { url: string }) {
       {state === "looping" && (
         <button
           type="button"
+          data-gif-toggle
+          tabIndex={-1}
           onClick={stop}
           aria-label={t("gif.stop")}
           title={t("gif.stop")}

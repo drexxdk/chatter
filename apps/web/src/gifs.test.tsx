@@ -399,6 +399,32 @@ describe("a GIF in a message", () => {
     expect(video.loop).toBe(true);
   });
 
+  it("is played and stopped with P on the message, as its button is not a tab stop", async () => {
+    const user = userEvent.setup();
+    const { log, video } = await show();
+    fireEvent.ended(video);
+    const stop = log.getByRole("button", { name: /^Message / });
+
+    expect(
+      await log.findByRole("button", { name: "Play again" }),
+    ).toHaveAttribute("tabindex", "-1");
+    expect(stop).toHaveAttribute(
+      "aria-keyshortcuts",
+      expect.stringContaining("P"),
+    );
+
+    stop.focus();
+    await user.keyboard("p");
+    expect(video.loop).toBe(true);
+    expect(log.getByRole("button", { name: "Stop" })).toHaveAttribute(
+      "tabindex",
+      "-1",
+    );
+
+    await user.keyboard("p");
+    expect(video.loop).toBe(false);
+  });
+
   it("does not start by itself for somebody who prefers less motion", async () => {
     vi.stubGlobal(
       "matchMedia",

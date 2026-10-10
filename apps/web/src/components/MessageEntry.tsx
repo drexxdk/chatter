@@ -122,6 +122,22 @@ function ReactionGrid({
   );
 }
 
+// With the arrow-key stop of a message focused, P plays or stops its GIF: that button is not a tab stop of its own, so
+// that Tab does not walk through every GIF in the room.
+function toggleGifOnP(event: KeyboardEvent<HTMLElement>) {
+  if (!(event.target as HTMLElement).dataset.navId) return;
+  if (event.key.toLowerCase() !== "p") return;
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+  const toggle =
+    event.currentTarget.querySelector<HTMLElement>("[data-gif-toggle]");
+
+  if (toggle) {
+    event.preventDefault();
+    toggle.click();
+  }
+}
+
 // One message in a group, with what lets the guest react to it as in Teams: a bar when it is hovered or focused, with
 // quick reactions and a button to add another, and a menu button for what can be done with the person; under it each
 // emoji it has been given (a click joins or leaves) beside a small button to add another. With the arrow-key stop
@@ -188,11 +204,18 @@ export function MessageEntry({
 
   if (!canReact && !menu) {
     if (!reactions) {
-      return <div className="relative max-w-full">{children}</div>;
+      return (
+        <div className="relative max-w-full" onKeyDown={toggleGifOnP}>
+          {children}
+        </div>
+      );
     }
 
     return (
-      <div className="relative flex max-w-full flex-col">
+      <div
+        className="relative flex max-w-full flex-col"
+        onKeyDown={toggleGifOnP}
+      >
         {children}
         {reacted.length > 0 && (
           <div className="mt-1 flex flex-wrap items-center justify-end gap-1">
@@ -244,11 +267,69 @@ export function MessageEntry({
     }
   };
 
+  const barItems = () =>
+    Array.from(
+      wrapperRef.current?.querySelectorAll<HTMLButtonElement>(
+        "[data-bar] button:not(:disabled)",
+      ) ?? [],
+    );
+
+  // The arrow-key stop of this message: where the bar's buttons hand focus back.
+  const stopOfMessage = () =>
+    wrapperRef.current?.querySelector<HTMLElement>("[data-nav-id]");
+
+  // Right from the message goes to the bar, then left and right move along it; left from the first, Escape, and up or
+  // down return to the message.
+  const onBarKey = (event: KeyboardEvent<HTMLElement>) => {
+    const items = barItems();
+    const at = items.indexOf(event.target as HTMLButtonElement);
+    if (at < 0) return;
+
+    const move = (to: HTMLElement | null | undefined) => {
+      event.preventDefault();
+      // Back at the message, the bar is shown by the message having focus, as before.
+      if (to && to === stopOfMessage()) setBarHeld(false);
+      to?.focus();
+    };
+
+    if (event.key === "ArrowRight")
+      move(items[Math.min(at + 1, items.length - 1)]);
+    else if (event.key === "ArrowLeft")
+      move(at === 0 ? stopOfMessage() : items[at - 1]);
+    else if (event.key === "Home") move(items[0]);
+    else if (event.key === "End") move(items[items.length - 1]);
+    else if (
+      event.key === "Escape" ||
+      event.key === "ArrowUp" ||
+      event.key === "ArrowDown"
+    ) {
+      move(stopOfMessage());
+    }
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
-    if (!target.dataset.navId) return;
 
-    if (
+    if (!target.dataset.navId) {
+      const inBar = wrapperRef.current
+        ?.querySelector("[data-bar]")
+        ?.contains(target);
+
+      if (inBar) onBarKey(event);
+
+      return;
+    }
+
+    if (event.key === "ArrowRight" && !event.altKey && !event.shiftKey) {
+      const first = barItems()[0];
+
+      if (first) {
+        event.preventDefault();
+        // Held, so that the bar is still there for focus to return to when a menu or panel opened from it closes.
+        setBarHeld(true);
+        first.focus();
+      }
+    } else if (
       canReact &&
       event.key.toLowerCase() === "r" &&
       !event.altKey &&
@@ -256,13 +337,17 @@ export function MessageEntry({
       !event.metaKey
     ) {
       event.preventDefault();
+      setBarHeld(true);
       addRef.current?.click();
     } else if (
       menu &&
       (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))
     ) {
       event.preventDefault();
+      setBarHeld(true);
       menuRef.current?.click();
+    } else {
+      toggleGifOnP(event);
     }
   };
 
@@ -274,6 +359,20 @@ export function MessageEntry({
       ref={wrapperRef}
       className="group/message relative flex max-w-full flex-col [@media(hover:none)]:[-webkit-touch-callout:none]"
       onKeyDown={onKeyDown}
+      onBlur={(event) => {
+        // Focus going to another part of the page ends the bar's being held; to a menu or panel opened from it, or nowhere
+        // yet, does not.
+        const next = event.relatedTarget;
+
+        if (
+          barHeld &&
+          next instanceof HTMLElement &&
+          !wrapperRef.current?.contains(next) &&
+          !next.closest('[role="menu"], [role="dialog"]')
+        ) {
+          setBarHeld(false);
+        }
+      }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={cancelPress}
@@ -297,6 +396,7 @@ export function MessageEntry({
         {children}
         {/* The padding below the bar keeps the pointer inside the message while it moves up to the bar. */}
         <div
+          data-bar
           data-held={barHeld || undefined}
           style={{
             width: barWidth,
@@ -319,7 +419,7 @@ export function MessageEntry({
                       pick(emoji);
                       setBarHeld(false);
                     }}
-                    className="size-7 rounded-full text-base hover:bg-slate-700 aria-pressed:bg-indigo-500/30"
+                    className="size-7 rounded-full text-base outline-none hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-indigo-400 aria-pressed:bg-indigo-500/30"
                   >
                     {emoji}
                   </button>
@@ -328,7 +428,7 @@ export function MessageEntry({
                   isMine={mineOf}
                   onPick={pick}
                   buttonRef={addRef}
-                  className="grid size-7 place-items-center rounded-full text-slate-300 hover:bg-slate-700"
+                  className="grid size-7 place-items-center rounded-full text-slate-300 outline-none hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-indigo-400"
                 />
               </>
             )}

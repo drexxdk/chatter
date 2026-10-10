@@ -153,8 +153,15 @@ export function MessageGroup({
             ? navStop(message.id, message.id === nav.stopId)
             : undefined;
           const reactable = reactions && !message.banned;
+          const hasGif = !message.banned && splitGif(message.text).gif !== null;
+          const shortcuts = [
+            ...(reactable && !mine ? ["R"] : []),
+            ...(hasGif ? ["P"] : []),
+          ];
           const keyShortcut =
-            reactable && !mine ? { "aria-keyshortcuts": "R" } : {};
+            shortcuts.length > 0
+              ? { "aria-keyshortcuts": shortcuts.join(" ") }
+              : {};
 
           return (
             <MessageEntry
