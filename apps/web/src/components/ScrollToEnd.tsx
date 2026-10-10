@@ -54,8 +54,9 @@ export function ScrollToEnd() {
       }}
       aria-label={t("room.scrollToEnd")}
       title={t("room.scrollToEnd")}
-      // As far from the left edge as the avatars are (the log's border and padding), and as far from the bottom.
-      className="absolute bottom-full left-[13px] mb-[13px] grid size-9 place-items-center rounded-full border border-slate-600 bg-slate-800 text-slate-100 shadow-lg hover:bg-slate-700"
+      // Over an avatar (36px at the log's border and padding, 13px from its left edge) with its 1px ring: a pixel bigger
+      // on every side, so nothing of the ring shows around it.
+      className="absolute bottom-full left-3 mb-3 grid size-[38px] place-items-center rounded-full border border-slate-600 bg-slate-800 text-slate-100 shadow-lg hover:bg-slate-700"
     >
       <ArrowDown aria-hidden="true" className="h-5 w-5" />
     </button>
