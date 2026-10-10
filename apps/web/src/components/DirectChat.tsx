@@ -13,6 +13,7 @@ import { ComposerPicker } from "./ComposerPicker";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageGroup, StatusRow } from "./MessageRow";
 import { MessageInput } from "./MessageInput";
+import { ScrollToEnd } from "./ScrollToEnd";
 
 // What somebody wrote one after another is shown together; a message whose author was banned is on its own.
 const entryAuthor = (entry: DirectEntry) =>
@@ -142,6 +143,7 @@ export function DirectChat({
       </ol>
 
       <div className="sticky bottom-0 z-20 space-y-2 bg-slate-950 pb-3 pt-2">
+        <ScrollToEnd />
         <ErrorAlert
           code={
             failure ? (waiting ? "rate_limited_wait" : failure.error) : null
@@ -208,7 +210,7 @@ export function DirectChat({
               <button
                 key="send"
                 type="submit"
-                disabled={!present || blockedBy}
+                disabled={!present || blockedBy || !composer.message}
                 aria-label={t("room.send")}
                 className="rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
               >

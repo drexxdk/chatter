@@ -40,6 +40,7 @@ import { MessageInput } from "./MessageInput";
 import type { PersonMenuOptions } from "./PersonMenu";
 import { RecipientPicker } from "./RecipientPicker";
 import { RoomPanel } from "./RoomPanel";
+import { ScrollToEnd } from "./ScrollToEnd";
 
 type MessageItem = Extract<TimelineItem, { kind: "message" }>;
 type DirectItem = Extract<TimelineItem, { kind: "direct" }>;
@@ -453,6 +454,7 @@ export function ChatRoom({
             </ol>
 
             <div className="sticky bottom-0 z-20 space-y-2 bg-slate-950 pb-3 pt-2">
+              <ScrollToEnd />
               <ErrorAlert
                 code={
                   replyFailure
@@ -522,7 +524,7 @@ export function ChatRoom({
                 />
                 <button
                   type="submit"
-                  disabled={!canWrite}
+                  disabled={!canWrite || !composer.message}
                   aria-label={t("room.send")}
                   className="rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
                 >

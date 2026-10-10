@@ -113,6 +113,7 @@
     "bannedMessage": "This user was banned",
     "moderatorBadge": "Moderator",
     "leftTag": "Left the room",
+    "scrollToEnd": "Scroll to the latest messages",
     "slowMode": "Slow mode: one message every {{seconds}} s.",
     "joined": "{{name}} joined the room.",
     "left": "{{name}} left the room.",
