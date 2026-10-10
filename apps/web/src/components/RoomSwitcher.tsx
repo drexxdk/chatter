@@ -7,6 +7,7 @@ import {
 import { Check, ChevronDown } from "lucide-react";
 
 import type { Room } from "../api";
+import { HEADER_DROPDOWN, MENU_SURFACE } from "./dropdown";
 
 // The room's name as the page's title, which is also how to move to another room.
 export function RoomSwitcher({
@@ -41,12 +42,12 @@ export function RoomSwitcher({
             />
           )}
         </ListboxButton>
-        {/* Fixed at the page's left edge, just below the header's button (2.875rem is where its 2.25rem button ends in the
-            3.5rem header), and as tall as the room down to the message box's bottom edge. The header is what the box beside
-            it is placed against, so the heading must not be positioned itself; a portal in the document would make the
-            page scroll to the option. */}
+        {/* At the page's left edge. The header is what the box is placed against, so the heading must not be positioned
+            itself. */}
         <div className="absolute left-0 w-0">
-          <ListboxOptions className="fixed top-[2.875rem] z-50 mt-1 max-h-[calc(100dvh-3.875rem)] min-w-48 overflow-y-auto rounded-md border border-slate-700 bg-slate-900 p-1 text-sm font-normal shadow-lg [color-scheme:dark] focus:outline-none">
+          <ListboxOptions
+            className={`${HEADER_DROPDOWN} min-w-48 text-sm font-normal ${MENU_SURFACE}`}
+          >
             {rooms.map((room) => (
               <ListboxOption
                 key={room.slug}

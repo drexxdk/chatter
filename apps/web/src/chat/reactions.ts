@@ -1,3 +1,5 @@
+import { isRecord } from "../isRecord";
+
 // What a guest can react to a message with: the set the server accepts (apps/chat-server/src/reactions.ts keeps the
 // same list). The first four are the quick ones shown when a message is hovered.
 export const REACTION_EMOJIS = [
@@ -56,10 +58,6 @@ export const QUICK_REACTIONS = REACTION_EMOJIS.slice(0, 4);
 export interface Reaction {
   emoji: string;
   users: { guestId: string; nickname: string }[];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 // The reactions as the server sends them; anything that does not fit is left out.

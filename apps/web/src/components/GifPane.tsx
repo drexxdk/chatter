@@ -1,9 +1,9 @@
-import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { fetchGifs, type Gif } from "../gifApi";
 import { useGridNavigation } from "../gridNavigation";
+import { SearchBox } from "./SearchBox";
 
 // The GIFs tab: what is trending to begin with, search results once something is typed. Choosing a picture hands its
 // address to `onPick`. The arrow keys move between the pictures, and down from the search box goes to them.
@@ -79,28 +79,13 @@ export function GifPane({ onPick }: { onPick: (url: string) => void }) {
 
   return (
     <div className="picker-fill flex flex-col gap-2">
-      <div className="relative">
-        <Search
-          aria-hidden="true"
-          className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-slate-400"
-        />
-        <input
-          ref={searchBox}
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowDown") {
-              event.preventDefault();
-              gridKeys.focus();
-            }
-          }}
-          aria-label={t("gif.search")}
-          placeholder={t("gif.search")}
-          autoComplete="off"
-          className="w-full rounded-md border border-slate-700 bg-slate-950 py-2 pl-8 pr-2 text-sm"
-        />
-      </div>
+      <SearchBox
+        ref={searchBox}
+        value={query}
+        onChange={setQuery}
+        label={t("gif.search")}
+        onArrowDown={gridKeys.focus}
+      />
 
       <div
         ref={gridKeys.ref}

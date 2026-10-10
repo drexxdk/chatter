@@ -1,3 +1,4 @@
+import { isRecord } from "../isRecord";
 import type { Avatar } from "./avatar";
 import { parseAvatar, PLAIN_AVATAR } from "./avatar";
 import { parseReactions, type Reaction } from "./reactions";
@@ -55,10 +56,6 @@ export interface DirectThread extends Partner {
 
 const MAX_ENTRIES_PER_THREAD = 200;
 const MAX_THREADS = 50;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 export function parseDirectMessage(value: unknown): DirectMessage | undefined {
   if (!isRecord(value)) return undefined;

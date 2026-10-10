@@ -12,6 +12,7 @@ import { DE, DK, GB } from "country-flag-icons/react/3x2";
 import { useTranslation } from "react-i18next";
 
 import { LANGUAGES, setLanguage } from "../i18n";
+import { HEADER_DROPDOWN, MENU_ITEM, MENU_SURFACE } from "./dropdown";
 
 const FLAGS: Record<string, typeof GB> = {
   en: GB,
@@ -27,8 +28,7 @@ function Flag({ code }: { code: string }) {
   ) : null;
 }
 
-const item = (focus: boolean) =>
-  `flex w-full items-center gap-3 rounded px-2 py-2 text-left text-sm ${focus ? "bg-slate-800" : ""}`;
+const item = `${MENU_ITEM} gap-3 px-2 py-2`;
 
 // The burger menu: how the chat works, what the room's log shows, and the language.
 export function MainMenu({
@@ -52,37 +52,35 @@ export function MainMenu({
         >
           <MenuIcon aria-hidden="true" className="h-5 w-5" />
         </MenuButton>
-        {/* Fixed at the button's right edge: a portal in the document makes the page scroll to the item. */}
-        <div className="absolute top-full right-0 w-0">
-          <MenuItems className="fixed z-50 mt-1 max-h-[calc(100dvh-3.875rem)] w-64 -translate-x-full space-y-1 overflow-y-auto rounded-md border border-slate-700 bg-slate-900 p-1 shadow-lg [color-scheme:dark] focus:outline-none">
+        {/* At the button's right edge: a portal in the document makes the page scroll to the item. */}
+        <div className="absolute right-0 w-0">
+          <MenuItems
+            className={`${HEADER_DROPDOWN} w-64 -translate-x-full space-y-1 ${MENU_SURFACE}`}
+          >
             <MenuItem>
-              {({ focus }) => (
-                <button type="button" onClick={onInfo} className={item(focus)}>
-                  <Info aria-hidden="true" className="h-5 w-5 shrink-0" />
-                  {t("info.button")}
-                </button>
-              )}
+              <button type="button" onClick={onInfo} className={item}>
+                <Info aria-hidden="true" className="h-5 w-5 shrink-0" />
+                {t("info.button")}
+              </button>
             </MenuItem>
 
             {movements && (
               <MenuItem>
-                {({ focus }) => (
-                  <button
-                    type="button"
-                    aria-checked={movements.checked}
-                    onClick={() => movements.onChange(!movements.checked)}
-                    className={item(focus)}
-                  >
-                    <Door aria-hidden="true" className="h-5 w-5 shrink-0" />
-                    <span className="flex-1">{t("room.showMovements")}</span>
-                    {movements.checked && (
-                      <Check
-                        aria-hidden="true"
-                        className="h-4 w-4 text-indigo-300"
-                      />
-                    )}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  aria-checked={movements.checked}
+                  onClick={() => movements.onChange(!movements.checked)}
+                  className={item}
+                >
+                  <Door aria-hidden="true" className="h-5 w-5 shrink-0" />
+                  <span className="flex-1">{t("room.showMovements")}</span>
+                  {movements.checked && (
+                    <Check
+                      aria-hidden="true"
+                      className="h-4 w-4 text-indigo-300"
+                    />
+                  )}
+                </button>
               </MenuItem>
             )}
 
@@ -92,23 +90,21 @@ export function MainMenu({
               </MenuHeading>
               {LANGUAGES.map((language) => (
                 <MenuItem key={language.code}>
-                  {({ focus }) => (
-                    <button
-                      type="button"
-                      aria-checked={language.code === current}
-                      onClick={() => setLanguage(language.code)}
-                      className={item(focus)}
-                    >
-                      <Flag code={language.code} />
-                      <span className="flex-1">{language.label}</span>
-                      {language.code === current && (
-                        <Check
-                          aria-hidden="true"
-                          className="h-4 w-4 text-indigo-300"
-                        />
-                      )}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    aria-checked={language.code === current}
+                    onClick={() => setLanguage(language.code)}
+                    className={item}
+                  >
+                    <Flag code={language.code} />
+                    <span className="flex-1">{language.label}</span>
+                    {language.code === current && (
+                      <Check
+                        aria-hidden="true"
+                        className="h-4 w-4 text-indigo-300"
+                      />
+                    )}
+                  </button>
                 </MenuItem>
               ))}
             </MenuSection>

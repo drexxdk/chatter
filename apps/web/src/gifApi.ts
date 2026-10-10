@@ -21,14 +21,13 @@ const PAGE_SIZE = 24;
 // What GIPHY serves at most.
 const MAX_OFFSET = { search: 4999, trending: 499 };
 
+import { isRecord } from "./isRecord";
+
 // GIPHY asks for its public key to be used from the browser, and for searches to come from there too. Without a key
 // the chat has no GIF button.
 export const gifApiKey = (): string | undefined =>
   (import.meta.env.VITE_GIPHY_API_KEY as string | undefined)?.trim() ||
   undefined;
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
 
 function rendition(images: unknown, name: string) {
   const entry = isRecord(images) ? images[name] : undefined;

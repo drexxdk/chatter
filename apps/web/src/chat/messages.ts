@@ -1,12 +1,9 @@
+import { isRecord } from "../isRecord";
 import { parseAvatar } from "./avatar";
 import { parseReactions, sameReactions } from "./reactions";
 import type { Announcement, ChatMessage } from "./types";
 
 export const MAX_MESSAGES = 200;
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 function placeholderFor(message: {
   id: string;

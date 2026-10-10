@@ -1,14 +1,17 @@
 import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
-import { ChevronDown, Search, Users } from "lucide-react";
+import { ChevronDown, Users } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AVATARS, type Avatar } from "../chat/avatar";
 import type { DirectThread, Partner } from "../chat/direct";
+import { isTouchScreen } from "../touch";
 import { AvatarIcon } from "./Avatar";
 import { composerButton } from "./composerControls";
 import { BlockedByTag, BlockedTag, ThreadSection } from "./DirectLists";
+import { PANEL_MAX_HEIGHT, PANEL_SURFACE } from "./dropdown";
 import { FocusSearch } from "./FocusSearch";
+import { SearchBox } from "./SearchBox";
 
 const chip = (active: boolean) =>
   `flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
@@ -48,8 +51,7 @@ export function RecipientPicker({
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
-  const touch =
-    typeof matchMedia === "function" && matchMedia("(hover: none)").matches;
+  const touch = isTouchScreen();
   const [avatars, setAvatars] = useState<Avatar[]>([]);
   const [moderatorsOnly, setModeratorsOnly] = useState(false);
   const unread = threads.reduce((sum, thread) => sum + thread.unread, 0);
@@ -108,7 +110,7 @@ export function RecipientPicker({
         aria-label={t("dm.recipient")}
         anchor={{ to: "top start", gap: 8 }}
         focus={!touch}
-        className="z-40 flex max-h-[26rem] w-[min(20rem,calc(100vw-1rem))] flex-col gap-4 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-3 shadow-xl [color-scheme:dark]"
+        className={`z-40 flex ${PANEL_MAX_HEIGHT} w-[min(20rem,calc(100vw-1rem))] flex-col gap-4 p-3 ${PANEL_SURFACE}`}
       >
         {({ close }) => {
           const choose = (guestId: string | null) => {
@@ -119,21 +121,11 @@ export function RecipientPicker({
           return (
             <>
               <FocusSearch />
-              <div className="relative">
-                <Search
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-slate-400"
-                />
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  aria-label={t("dm.search")}
-                  placeholder={t("dm.search")}
-                  autoComplete="off"
-                  className="w-full rounded-md border border-slate-700 bg-slate-950 py-2 pl-8 pr-2 text-sm"
-                />
-              </div>
+              <SearchBox
+                value={query}
+                onChange={setQuery}
+                label={t("dm.search")}
+              />
 
               <div
                 role="group"

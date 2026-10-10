@@ -12,7 +12,9 @@ import { Smile } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { gifApiKey } from "../gifApi";
+import { isTouchScreen } from "../touch";
 import { composerIconButton } from "./composerControls";
+import { PANEL_HEIGHT, PANEL_SURFACE } from "./dropdown";
 import { EmojiPane } from "./EmojiPane";
 import { FocusSearch } from "./FocusSearch";
 import { GifPane } from "./GifPane";
@@ -36,8 +38,7 @@ export function ComposerPicker({
 }) {
   const { t } = useTranslation();
   const withGifs = gifApiKey() !== undefined;
-  const touch =
-    typeof matchMedia === "function" && matchMedia("(hover: none)").matches;
+  const touch = isTouchScreen();
   const label = t(withGifs ? "picker.open" : "picker.openEmoji");
 
   return (
@@ -58,7 +59,7 @@ export function ComposerPicker({
         // As tall as the room above allows (Headless UI caps the height to it) up to 26rem, and as far
         // right as the message box: past the send button beside this one (w-9) and the box's border. Only one thing
         // scrolls; see `.picker` in index.css.
-        className="picker z-40 ml-[calc(2.25rem+1px)] flex h-[26rem] w-[min(22rem,calc(100vw-1rem))] flex-col overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 shadow-xl [color-scheme:dark]"
+        className={`picker z-40 ml-[calc(2.25rem+1px)] flex ${PANEL_HEIGHT} w-[min(22rem,calc(100vw-1rem))] flex-col ${PANEL_SURFACE}`}
       >
         {({ close }) => {
           // Closing hands focus back to the button; the box takes it from there once that has happened.

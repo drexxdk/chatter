@@ -129,16 +129,51 @@ function messageText(payload: unknown): string {
     .trim();
 }
 
+// The ack a client gave, or one that does nothing: a client may emit without waiting for an answer.
+function ackOf(ack: unknown): Ack {
+  return typeof ack === "function" ? (ack as Ack) : () => {};
+}
+
+// What is still inside a sliding window of times, and how long until there is room for one more (0 when there is).
+function slidingWindow(
+  times: number[],
+  now: number,
+  windowMs: number,
+  max: number,
+): { recent: number[]; waitMs: number } {
+  const recent = times.filter((time) => now - time < windowMs);
+
+  return {
+    recent,
+    waitMs: recent.length >= max ? (recent[0] ?? now) + windowMs - now : 0,
+  };
+}
+
 // Milliseconds until this connection may send another message of any kind; 0 when it may now. Messages in rooms and
 // direct messages count together.
 function floodWaitMs(data: SocketData, now: number): number {
-  data.recentMessageTimes = data.recentMessageTimes.filter(
-    (time) => now - time < RATE_LIMIT_WINDOW_MS,
+  const { recent, waitMs } = slidingWindow(
+    data.recentMessageTimes,
+    now,
+    RATE_LIMIT_WINDOW_MS,
+    RATE_LIMIT_MAX_MESSAGES,
   );
+  data.recentMessageTimes = recent;
 
-  return data.recentMessageTimes.length >= RATE_LIMIT_MAX_MESSAGES
-    ? (data.recentMessageTimes[0] ?? now) + RATE_LIMIT_WINDOW_MS - now
-    : 0;
+  return waitMs;
+}
+
+// Milliseconds until this connection may react to another message; 0 when it may now.
+function reactionWaitMs(data: SocketData, now: number): number {
+  const { recent, waitMs } = slidingWindow(
+    data.reactionTimes,
+    now,
+    REACTION_WINDOW_MS,
+    REACTIONS_PER_WINDOW,
+  );
+  data.reactionTimes = recent;
+
+  return waitMs;
 }
 
 // The flood limit, plus the limit on starting conversations when this one is new to the sender.
@@ -151,15 +186,15 @@ export function directMessageWaitMs(
 
   if (data.dmPartners.includes(toGuestId)) return flood;
 
-  data.dmStartTimes = data.dmStartTimes.filter(
-    (time) => now - time < NEW_CONVERSATION_WINDOW_MS,
+  const { recent, waitMs } = slidingWindow(
+    data.dmStartTimes,
+    now,
+    NEW_CONVERSATION_WINDOW_MS,
+    NEW_CONVERSATIONS_PER_WINDOW,
   );
-  const newConversation =
-    data.dmStartTimes.length >= NEW_CONVERSATIONS_PER_WINDOW
-      ? (data.dmStartTimes[0] ?? now) + NEW_CONVERSATION_WINDOW_MS - now
-      : 0;
+  data.dmStartTimes = recent;
 
-  return Math.max(flood, newConversation);
+  return Math.max(flood, waitMs);
 }
 
 export function createSocketServer(
@@ -210,6 +245,14 @@ export function createSocketServer(
           : { age: (member.data as SocketData).age }),
       })),
     });
+  }
+
+  // The connection of this guest, if they are in the room. Looking the room up can fail (Redis is down); that is left
+  // to the caller.
+  async function findInRoom(slug: string, guestId: string) {
+    return (await io.in(roomKey(slug)).fetchSockets()).find(
+      (member) => (member.data as SocketData).guestId === guestId,
+    );
   }
 
   // Whether somebody else in the room already has this name, so two people are never mistaken for each other. Case,
@@ -426,7 +469,7 @@ export function createSocketServer(
     socket.onAny(resetIdleTimer);
 
     socket.on("announce:send", async (payload: unknown, ack?: Ack) => {
-      const reply: Ack = typeof ack === "function" ? ack : () => {};
+      const reply = ackOf(ack);
 
       if (!ROLE_RULES[data.role].canAnnounce || data.accountId === undefined) {
         return reply({ ok: false, error: "forbidden" });
@@ -473,7 +516,7 @@ export function createSocketServer(
     // Direct messages go to one guest in the same room and are never stored. Whoever sent one is shown it too, so
     // a client has one place to read them from.
     socket.on("dm:send", async (payload: unknown, ack?: Ack) => {
-      const reply: Ack = typeof ack === "function" ? ack : () => {};
+      const reply = ackOf(ack);
       const slug = data.roomSlug;
 
       if (!slug) return reply({ ok: false, error: "not_in_room" });
@@ -504,9 +547,7 @@ export function createSocketServer(
       let recipient;
 
       try {
-        recipient = (await io.in(roomKey(slug)).fetchSockets()).find(
-          (member) => (member.data as SocketData).guestId === toGuestId,
-        );
+        recipient = await findInRoom(slug, toGuestId);
       } catch (error) {
         log.error("Failed to look up the recipient", error);
         return reply({ ok: false, error: "unavailable" });
@@ -563,7 +604,7 @@ export function createSocketServer(
     // Direct messages are not stored, so there is nothing to keep a reaction in: it is passed on to both people, whose
     // clients each apply it to their own copy of the message.
     socket.on("dm:react", async (payload: unknown, ack?: Ack) => {
-      const reply: Ack = typeof ack === "function" ? ack : () => {};
+      const reply = ackOf(ack);
       const slug = data.roomSlug;
 
       if (!slug) return reply({ ok: false, error: "not_in_room" });
@@ -596,25 +637,20 @@ export function createSocketServer(
       }
 
       const now = Date.now();
-      data.reactionTimes = data.reactionTimes.filter(
-        (time) => now - time < REACTION_WINDOW_MS,
-      );
+      const reactionWait = reactionWaitMs(data, now);
 
-      if (data.reactionTimes.length >= REACTIONS_PER_WINDOW) {
+      if (reactionWait > 0) {
         return reply({
           ok: false,
           error: "rate_limited",
-          retryAfterMs:
-            (data.reactionTimes[0] ?? now) + REACTION_WINDOW_MS - now,
+          retryAfterMs: reactionWait,
         });
       }
 
       let recipient;
 
       try {
-        recipient = (await io.in(roomKey(slug)).fetchSockets()).find(
-          (member) => (member.data as SocketData).guestId === toGuestId,
-        );
+        recipient = await findInRoom(slug, toGuestId);
       } catch (error) {
         log.error("Failed to look up the recipient", error);
         return reply({ ok: false, error: "unavailable" });
@@ -657,9 +693,7 @@ export function createSocketServer(
       if (!slug) return;
 
       try {
-        const target = (await io.in(roomKey(slug)).fetchSockets()).find(
-          (member) => (member.data as SocketData).guestId === guestId,
-        );
+        const target = await findInRoom(slug, guestId);
 
         if (target && ROLE_RULES[(target.data as SocketData).role].blockable) {
           target.emit(event, {
@@ -675,7 +709,7 @@ export function createSocketServer(
     }
 
     socket.on("dm:block", async (payload: unknown, ack?: Ack) => {
-      const reply: Ack = typeof ack === "function" ? ack : () => {};
+      const reply = ackOf(ack);
       const guestId = stringField(payload, "guestId");
 
       if (!guestId || guestId.length > MAX_GUEST_ID_LENGTH) {
@@ -698,7 +732,7 @@ export function createSocketServer(
     });
 
     socket.on("dm:unblock", async (payload: unknown, ack?: Ack) => {
-      const reply: Ack = typeof ack === "function" ? ack : () => {};
+      const reply = ackOf(ack);
       const guestId = stringField(payload, "guestId");
       const was = data.blockedGuestIds.includes(guestId);
 
@@ -714,7 +748,7 @@ export function createSocketServer(
     // age of null takes it back). Everything is checked before anything changes. A moderator's name belongs to their
     // account, so they cannot.
     socket.on("profile:update", async (payload: unknown, ack?: Ack) => {
-      const reply: Ack = typeof ack === "function" ? ack : () => {};
+      const reply = ackOf(ack);
 
       if (data.role !== "guest") {
         return reply({ ok: false, error: "forbidden" });
@@ -725,19 +759,19 @@ export function createSocketServer(
           ? (payload as Record<string, unknown>)
           : {};
       const now = Date.now();
-
-      data.profileChangeTimes = data.profileChangeTimes.filter(
-        (time) => now - time < PROFILE_CHANGE_WINDOW_MS,
+      const profileWait = slidingWindow(
+        data.profileChangeTimes,
+        now,
+        PROFILE_CHANGE_WINDOW_MS,
+        PROFILE_CHANGES_PER_WINDOW,
       );
+      data.profileChangeTimes = profileWait.recent;
 
-      if (data.profileChangeTimes.length >= PROFILE_CHANGES_PER_WINDOW) {
+      if (profileWait.waitMs > 0) {
         return reply({
           ok: false,
           error: "rate_limited",
-          retryAfterMs:
-            (data.profileChangeTimes[0] ?? now) +
-            PROFILE_CHANGE_WINDOW_MS -
-            now,
+          retryAfterMs: profileWait.waitMs,
         });
       }
 
@@ -814,7 +848,7 @@ export function createSocketServer(
     });
 
     socket.on("room:join", async (payload: unknown, ack?: Ack) => {
-      const reply: Ack = typeof ack === "function" ? ack : () => {};
+      const reply = ackOf(ack);
       const slug = stringField(payload, "slug");
 
       const room = (await getCachedPublicRooms()).find(
@@ -875,7 +909,7 @@ export function createSocketServer(
     });
 
     socket.on("message:send", async (payload: unknown, ack?: Ack) => {
-      const reply: Ack = typeof ack === "function" ? ack : () => {};
+      const reply = ackOf(ack);
       const text = messageText(payload);
 
       const slug = data.roomSlug;
@@ -965,7 +999,7 @@ export function createSocketServer(
 
     // Adds the guest's reaction to a message in their room, or removes it if they had already made it.
     socket.on("reaction:toggle", async (payload: unknown, ack?: Ack) => {
-      const reply: Ack = typeof ack === "function" ? ack : () => {};
+      const reply = ackOf(ack);
       const slug = data.roomSlug;
 
       if (!slug) {
@@ -980,16 +1014,13 @@ export function createSocketServer(
       }
 
       const now = Date.now();
-      data.reactionTimes = data.reactionTimes.filter(
-        (time) => now - time < REACTION_WINDOW_MS,
-      );
+      const reactionWait = reactionWaitMs(data, now);
 
-      if (data.reactionTimes.length >= REACTIONS_PER_WINDOW) {
+      if (reactionWait > 0) {
         return reply({
           ok: false,
           error: "rate_limited",
-          retryAfterMs:
-            (data.reactionTimes[0] ?? now) + REACTION_WINDOW_MS - now,
+          retryAfterMs: reactionWait,
         });
       }
 

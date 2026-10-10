@@ -4,10 +4,10 @@ import type { Ref } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Partner } from "../chat/direct";
+import { MENU_ITEM, MENU_SURFACE } from "./dropdown";
 import { ReturnFocus, useSharedRef } from "./ReturnFocus";
 
-const item =
-  "flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm data-focus:bg-slate-800 data-disabled:opacity-50";
+const item = `${MENU_ITEM} gap-2 px-3 py-2`;
 
 // What can be done with the person behind a message.
 export interface PersonMenuOptions {
@@ -53,7 +53,7 @@ export function PersonMenu({
       </MenuButton>
       <MenuItems
         anchor={{ to: "bottom end", gap: 4 }}
-        className="z-50 min-w-52 rounded-md border border-slate-700 bg-slate-900 p-1 shadow-lg focus:outline-none"
+        className={`z-50 min-w-52 ${MENU_SURFACE}`}
       >
         <ReturnFocus to={button} />
         <MenuItem disabled={!present || blocked || blockedBy}>

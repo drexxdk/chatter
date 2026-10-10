@@ -18,6 +18,7 @@ import {
 } from "../chat/reactions";
 import { useGridNavigation } from "../gridNavigation";
 import { onMessageKey } from "../messageKeys";
+import { PANEL_SURFACE } from "./dropdown";
 import { PersonMenu, type PersonMenuOptions } from "./PersonMenu";
 import { ReturnFocus, useSharedRef } from "./ReturnFocus";
 
@@ -74,7 +75,7 @@ function AddReaction({
         aria-label={t("reactions.add")}
         anchor={{ to: "top start", gap: 6 }}
         focus
-        className="z-30 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-xl"
+        className={`z-30 p-2 ${PANEL_SURFACE}`}
       >
         {({ close }) => (
           <>

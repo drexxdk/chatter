@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { MAX_MESSAGE_LENGTH } from "../chat/limits";
+import { isTouchScreen } from "../touch";
 
 // The message box: one line to start with, growing with what is written up to five lines and scrolling inside itself
 // after that. Enter sends, Shift+Enter starts a new line; on a touch screen Enter starts a new line and the Send button
@@ -60,8 +61,7 @@ export function MessageInput({
   }, [fit]);
 
   function submitOnEnter(event: KeyboardEvent<HTMLTextAreaElement>) {
-    const touch =
-      typeof matchMedia === "function" && matchMedia("(hover: none)").matches;
+    const touch = isTouchScreen();
 
     if (
       event.key === "Enter" &&

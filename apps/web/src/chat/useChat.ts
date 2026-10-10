@@ -19,13 +19,13 @@ import {
   type Partner,
 } from "./direct";
 import { movements, type RoomEvent } from "./roomEvents";
+import { isRecord } from "../isRecord";
 import { loadNotifyDirect, saveNotifyDirect } from "../preferences";
 import { MAX_GUEST_IDS } from "../session";
 import { parseAge, type ProfileChanges } from "../profile";
 import { parseAvatar, PLAIN_AVATAR, type Avatar } from "./avatar";
 import {
   applyRedaction,
-  isRecord,
   MAX_MESSAGES,
   mergeHistory,
   parseAnnouncement,

@@ -1,17 +1,14 @@
 import { useEffect, useRef } from "react";
 
+import { isTouchScreen } from "../touch";
+
 // Placed in a popup that has just opened: puts the cursor in its search box, so the guest can type or use the arrow keys
 // at once. Not on a touch screen, where that would open the keyboard.
 export function FocusSearch() {
   const marker = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    if (
-      typeof matchMedia === "function" &&
-      matchMedia("(hover: none)").matches
-    ) {
-      return;
-    }
+    if (isTouchScreen()) return;
 
     // After the popup has had its own go at moving focus.
     const frame = requestAnimationFrame(() =>
