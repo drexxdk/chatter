@@ -54,7 +54,7 @@ export function MainMenu({
         </MenuButton>
         {/* Fixed at the button's right edge: a portal in the document makes the page scroll to the item. */}
         <div className="absolute top-full right-0 w-0">
-          <MenuItems className="fixed z-50 mt-1 w-64 -translate-x-full space-y-1 rounded-md border border-slate-700 bg-slate-900 p-1 shadow-lg focus:outline-none">
+          <MenuItems className="fixed z-50 mt-1 max-h-[calc(100dvh-3.875rem)] w-64 -translate-x-full space-y-1 overflow-y-auto rounded-md border border-slate-700 bg-slate-900 p-1 shadow-lg [color-scheme:dark] focus:outline-none">
             <MenuItem>
               {({ focus }) => (
                 <button type="button" onClick={onInfo} className={item(focus)}>

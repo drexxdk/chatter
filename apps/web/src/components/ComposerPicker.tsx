@@ -55,7 +55,9 @@ export function ComposerPicker({
         aria-label={label}
         anchor={{ to: "top end", gap: 8 }}
         focus={!touch}
-        className="z-40 flex h-[min(26rem,65dvh)] w-[min(22rem,calc(100vw-1rem))] flex-col rounded-xl border border-slate-700 bg-slate-900 shadow-xl"
+        // As tall as the room above allows (Headless UI caps the height to it), and as far right as the message box: past
+        // the send button beside this one (w-9) and the box's border.
+        className="z-40 ml-[calc(2.25rem+1px)] h-[26rem] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 shadow-xl [color-scheme:dark]"
       >
         {({ close }) => {
           // Closing hands focus back to the button; the box takes it from there once that has happened.
@@ -67,7 +69,7 @@ export function ComposerPicker({
           };
 
           return (
-            <TabGroup className="flex min-h-0 flex-1 flex-col">
+            <TabGroup>
               <FocusSearch />
               <TabList
                 className="flex shrink-0 border-b border-slate-800 px-1"
@@ -86,8 +88,8 @@ export function ComposerPicker({
                   <Tab className={TAB_CLASS}>{t("picker.tabGifs")}</Tab>
                 )}
               </TabList>
-              <TabPanels className="min-h-0 flex-1 p-3">
-                <TabPanel tabIndex={-1} className="h-full">
+              <TabPanels className="p-3">
+                <TabPanel tabIndex={-1}>
                   <EmojiPane
                     onPick={(emoji) => {
                       onEmoji(emoji);
@@ -96,7 +98,7 @@ export function ComposerPicker({
                   />
                 </TabPanel>
                 {withGifs && (
-                  <TabPanel tabIndex={-1} className="h-full">
+                  <TabPanel tabIndex={-1}>
                     <GifPane
                       onPick={(url) => {
                         onGif(url);

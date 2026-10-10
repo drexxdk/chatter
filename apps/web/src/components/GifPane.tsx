@@ -78,7 +78,7 @@ export function GifPane({ onPick }: { onPick: (url: string) => void }) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2">
+    <div className="flex flex-col gap-2">
       <div className="relative">
         <Search
           aria-hidden="true"
@@ -106,7 +106,6 @@ export function GifPane({ onPick }: { onPick: (url: string) => void }) {
         ref={gridKeys.ref}
         onFocus={gridKeys.onFocus}
         onKeyDown={gridKeys.onKeyDown}
-        className="min-h-0 flex-1 overflow-y-auto [color-scheme:dark]"
       >
         {status === "error" && (
           <p role="alert" className="text-sm text-red-300">
