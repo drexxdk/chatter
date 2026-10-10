@@ -279,7 +279,7 @@ export function ChatRoom({
       className="grid flex-1 gap-4 md:grid-cols-[1fr_14rem]"
     >
       <div className="flex min-w-0 flex-col md:col-start-1">
-        <div className="sticky top-14 z-20 space-y-2 bg-neutral-950 pb-2 empty:hidden">
+        <div className="sticky top-(--header-height) z-20 space-y-2 bg-neutral-950 pb-2 empty:hidden">
           {direct.active && (
             <div className="flex items-center gap-2">
               <button
@@ -600,7 +600,7 @@ export function ChatRoom({
 
       <aside
         aria-label={t("room.panel")}
-        className="hidden md:col-start-2 md:row-start-1 md:sticky md:top-14 md:block md:max-h-[calc(100dvh-3.5rem)] md:self-start md:overflow-y-auto md:pt-2"
+        className="hidden md:col-start-2 md:row-start-1 md:sticky md:top-(--header-height) md:block md:max-h-[calc(100dvh-var(--header-height))] md:self-start md:overflow-y-auto"
       >
         <RoomPanel
           members={members}

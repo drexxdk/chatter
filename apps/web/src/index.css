@@ -18,15 +18,17 @@ html {
   scroll-padding-block: 8rem;
 }
 
-/* How close a dropdown (Headless UI's anchored panels) may come to the screen's edge: as close as the messages, which
-   have the page's side padding (px-4, and sm:px-6 from 40rem). */
+/* The page's side margin, which the messages have and the dropdowns keep from the screen's edge (px-4, and sm:px-6 from
+   40rem), and how much the sticky header takes: its 3.5rem, its 1px border and the 0.5rem of room under it. */
 :root {
-  --anchor-padding: 1rem;
+  --page-gutter: 1rem;
+  --anchor-padding: var(--page-gutter);
+  --header-height: 4.0625rem;
 }
 
 @media (min-width: 40rem) {
   :root {
-    --anchor-padding: 1.5rem;
+    --page-gutter: 1.5rem;
   }
 }
 

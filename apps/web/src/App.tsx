@@ -301,116 +301,123 @@ export function App({
   }, []);
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-4xl flex-col px-4 sm:px-6">
-      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-neutral-800 bg-neutral-950">
-        {chat.roomSlug && chat.session ? (
-          <div className="flex min-w-0 items-center gap-1">
-            <h1 className="sr-only">{t("app.title")}</h1>
-            <button
-              type="button"
-              onClick={() => void chat.leaveRoom()}
-              aria-label={t("room.leave")}
-              className="shrink-0 rounded-md p-2 hover:bg-neutral-800"
-            >
-              <ArrowLeft aria-hidden="true" className="h-5 w-5" />
-            </button>
-            <RoomSwitcher
-              rooms={rooms}
-              slug={chat.roomSlug}
-              name={currentRoom?.name ?? chat.roomSlug}
-              disabled={chat.status !== "connected"}
-              onSelect={(room) => void handleSelect(room)}
-            />
-          </div>
-        ) : (
-          <h1 className="text-2xl font-bold">{t("app.title")}</h1>
-        )}
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          {chat.roomSlug && chat.session && (
-            <ProfileButton
-              nickname={chat.session.nickname}
-              avatar={chat.session.avatar}
-              onClick={() => setProfileOpen(true)}
+    <div className="flex min-h-dvh flex-col">
+      {/* Across the whole window, with the room under its border that there is between the messages and the message box. */}
+      <div className="sticky top-0 z-30 bg-neutral-950 pb-2">
+        <div className="border-b border-neutral-800">
+          <header className="relative mx-auto flex h-14 max-w-4xl items-center justify-between gap-3 px-(--page-gutter)">
+            {chat.roomSlug && chat.session ? (
+              <div className="flex min-w-0 items-center gap-1">
+                <h1 className="sr-only">{t("app.title")}</h1>
+                <button
+                  type="button"
+                  onClick={() => void chat.leaveRoom()}
+                  aria-label={t("room.leave")}
+                  className="shrink-0 rounded-md p-2 hover:bg-neutral-800"
+                >
+                  <ArrowLeft aria-hidden="true" className="h-5 w-5" />
+                </button>
+                <RoomSwitcher
+                  rooms={rooms}
+                  slug={chat.roomSlug}
+                  name={currentRoom?.name ?? chat.roomSlug}
+                  disabled={chat.status !== "connected"}
+                  onSelect={(room) => void handleSelect(room)}
+                />
+              </div>
+            ) : (
+              <h1 className="text-2xl font-bold">{t("app.title")}</h1>
+            )}
+            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              {chat.roomSlug && chat.session && (
+                <ProfileButton
+                  nickname={chat.session.nickname}
+                  avatar={chat.session.avatar}
+                  onClick={() => setProfileOpen(true)}
+                />
+              )}
+              <MainMenu
+                onInfo={() => setInfoOpen(true)}
+                movements={
+                  chat.roomSlug && chat.session && !chat.direct.active
+                    ? { checked: showMovements, onChange: changeShowMovements }
+                    : undefined
+                }
+              />
+            </div>
+          </header>
+        </div>
+      </div>
+
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-(--page-gutter)">
+        <main className="flex flex-1 flex-col gap-4">
+          {chat.announcement && (
+            <AnnouncementBanner
+              announcement={chat.announcement}
+              onDismiss={chat.dismissAnnouncement}
             />
           )}
-          <MainMenu
-            onInfo={() => setInfoOpen(true)}
-            movements={
-              chat.roomSlug && chat.session && !chat.direct.active
-                ? { checked: showMovements, onChange: changeShowMovements }
-                : undefined
-            }
-          />
-        </div>
-      </header>
-
-      <main className="flex flex-1 flex-col gap-4">
-        {chat.announcement && (
-          <AnnouncementBanner
-            announcement={chat.announcement}
-            onDismiss={chat.dismissAnnouncement}
-          />
-        )}
-        {chat.roomSlug && chat.session ? (
-          <ChatRoom
-            key={chat.roomSlug}
-            roomName={currentRoom?.name ?? chat.roomSlug}
-            session={chat.session}
-            ownGuestIds={chat.ownGuestIds}
-            connected={chat.status === "connected"}
-            members={chat.members}
-            messages={chat.messages}
-            events={chat.roomEvents}
-            showMovements={showMovements}
-            error={chat.error}
-            retryAfterSeconds={chat.retryAfterSeconds}
-            onSend={chat.sendMessage}
-            onReact={chat.react}
-            onAnnounce={chat.sendAnnouncement}
-            direct={chat.direct}
-          />
-        ) : (
-          <div className="space-y-4 pb-6">
-            {!pendingRoom && <ErrorAlert code={chat.error} />}
-            <Lobby
-              state={roomsState}
-              onRetry={retry}
-              onSelect={(room) => void handleSelect(room)}
+          {chat.roomSlug && chat.session ? (
+            <ChatRoom
+              key={chat.roomSlug}
+              roomName={currentRoom?.name ?? chat.roomSlug}
+              session={chat.session}
+              ownGuestIds={chat.ownGuestIds}
+              connected={chat.status === "connected"}
+              members={chat.members}
+              messages={chat.messages}
+              events={chat.roomEvents}
+              showMovements={showMovements}
+              error={chat.error}
+              retryAfterSeconds={chat.retryAfterSeconds}
+              onSend={chat.sendMessage}
+              onReact={chat.react}
+              onAnnounce={chat.sendAnnouncement}
+              direct={chat.direct}
             />
-          </div>
+          ) : (
+            <div className="space-y-4 pb-6">
+              {!pendingRoom && <ErrorAlert code={chat.error} />}
+              <Lobby
+                state={roomsState}
+                onRetry={retry}
+                onSelect={(room) => void handleSelect(room)}
+              />
+            </div>
+          )}
+        </main>
+
+        <SideDrawer
+          open={infoOpen}
+          title={t("info.title")}
+          onClose={() => setInfoOpen(false)}
+        >
+          <InfoPanel slowModeSeconds={currentRoom?.slowModeSeconds} />
+        </SideDrawer>
+
+        {chat.session && (
+          <ProfileDialog
+            open={profileOpen}
+            onClose={() => setProfileOpen(false)}
+            session={chat.session}
+            onSave={chat.updateProfile}
+          />
         )}
-      </main>
 
-      <SideDrawer
-        open={infoOpen}
-        title={t("info.title")}
-        onClose={() => setInfoOpen(false)}
-      >
-        <InfoPanel slowModeSeconds={currentRoom?.slowModeSeconds} />
-      </SideDrawer>
-
-      {chat.session && (
-        <ProfileDialog
-          open={profileOpen}
-          onClose={() => setProfileOpen(false)}
-          session={chat.session}
-          onSave={chat.updateProfile}
-        />
-      )}
-
-      {pendingRoom && (
-        <NicknameDialog
-          connecting={chat.status === "connecting"}
-          signingIn={signingIn}
-          error={signInError ?? chat.error}
-          onSubmit={(nickname, avatar, age) =>
-            void handleNickname(nickname, avatar, age)
-          }
-          onSignIn={(email, password) => void handleSignIn(email, password)}
-          onModeChange={clearDialogErrors}
-          onCancel={handleCancel}
-        />
-      )}
+        {pendingRoom && (
+          <NicknameDialog
+            connecting={chat.status === "connecting"}
+            signingIn={signingIn}
+            error={signInError ?? chat.error}
+            onSubmit={(nickname, avatar, age) =>
+              void handleNickname(nickname, avatar, age)
+            }
+            onSignIn={(email, password) => void handleSignIn(email, password)}
+            onModeChange={clearDialogErrors}
+            onCancel={handleCancel}
+          />
+        )}
+      </div>
     </div>
   );
 }

@@ -44,7 +44,7 @@ export function RoomSwitcher({
         </ListboxButton>
         {/* At the page's left edge. The header is what the box is placed against, so the heading must not be positioned
             itself. */}
-        <div className="absolute left-0 w-0">
+        <div className="absolute left-(--page-gutter) w-0">
           <ListboxOptions
             className={`${HEADER_DROPDOWN} min-w-48 text-sm font-normal ${MENU_SURFACE}`}
           >

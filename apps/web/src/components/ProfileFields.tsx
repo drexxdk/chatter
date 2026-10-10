@@ -78,7 +78,9 @@ export function AgeField({
       />
       <p
         id={`${id}-hint`}
-        className={invalid ? "text-sm text-red-300" : "text-sm text-neutral-500"}
+        className={
+          invalid ? "text-sm text-red-300" : "text-sm text-neutral-500"
+        }
       >
         {t("profile.ageHint", { min: MIN_AGE, max: MAX_AGE })}
       </p>

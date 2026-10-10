@@ -79,7 +79,9 @@ export function PeopleList({
                 <AvatarIcon avatar={avatar} small />
                 <span>
                   <span className={nameClass(role)}>{member.nickname}</span>
-                  <span className="ml-1 text-neutral-500">({t("room.you")})</span>
+                  <span className="ml-1 text-neutral-500">
+                    ({t("room.you")})
+                  </span>
                 </span>
                 <AgeBadge age={member.age} />
               </span>
