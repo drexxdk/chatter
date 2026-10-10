@@ -2,7 +2,11 @@ import js from "@eslint/js";
 import reactHooks from "eslint-plugin-react-hooks";
 import { defineConfig, globalIgnores } from "eslint/config";
 import globals from "globals";
+import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
+
+// Not import.meta.dirname: older Node versions (such as the one an editor may run ESLint with) do not have it.
+const here = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig([
   js.configs.recommended,
@@ -41,7 +45,7 @@ export default defineConfig([
     languageOptions: {
       parserOptions: {
         projectService: true,
-        tsconfigRootDir: import.meta.dirname,
+        tsconfigRootDir: here,
       },
     },
     rules: { "@typescript-eslint/no-deprecated": "error" },
