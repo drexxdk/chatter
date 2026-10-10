@@ -1,4 +1,6 @@
 import {
+  useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   type KeyboardEvent,
@@ -24,7 +26,7 @@ export function MessageInput({
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
-  useLayoutEffect(() => {
+  const fit = useCallback(() => {
     const box = ref.current;
     if (!box) return;
 
@@ -36,7 +38,26 @@ export function MessageInput({
     box.style.height = `${box.scrollHeight + box.offsetHeight - box.clientHeight}px`;
 
     if (atEnd) page.scrollTop = page.scrollHeight;
-  }, [value]);
+  }, []);
+
+  useLayoutEffect(fit, [value, fit]);
+
+  // The same words take more or fewer lines when the box gets narrower or wider (a resized window, the styles arriving).
+  useEffect(() => {
+    const box = ref.current;
+    if (!box || typeof ResizeObserver === "undefined") return;
+
+    let width = box.offsetWidth;
+    const observer = new ResizeObserver(() => {
+      if (box.offsetWidth === width) return;
+
+      width = box.offsetWidth;
+      fit();
+    });
+    observer.observe(box);
+
+    return () => observer.disconnect();
+  }, [fit]);
 
   function submitOnEnter(event: KeyboardEvent<HTMLTextAreaElement>) {
     const touch =

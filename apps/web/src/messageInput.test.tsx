@@ -52,3 +52,38 @@ describe("the Enter key in the message box", () => {
     expect(submitted).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("the height of the message box", () => {
+  it("is fitted again when the box gets narrower or wider, not only when the words change", () => {
+    let notify: () => void = () => {};
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          notify = callback;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    render(<MessageInput aria-label="Message" defaultValue="some words" />);
+    const box = screen.getByRole("textbox");
+    let lines = 36;
+    let width = 400;
+    Object.defineProperty(box, "scrollHeight", { get: () => lines });
+    Object.defineProperty(box, "offsetWidth", { get: () => width });
+
+    notify();
+    expect(box.style.height).toBe("36px");
+
+    // The same width: nothing to do (and no loop from the box changing its own height).
+    box.style.height = "1px";
+    notify();
+    expect(box.style.height).toBe("1px");
+
+    width = 200;
+    lines = 84;
+    notify();
+    expect(box.style.height).toBe("84px");
+  });
+});
