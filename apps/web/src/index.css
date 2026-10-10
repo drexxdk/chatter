@@ -19,3 +19,14 @@ html:has(#headlessui-portal-root [role="dialog"]) {
 html[data-pointer] :focus-visible {
   outline: none;
 }
+
+/* For whoever asked their system for less motion: the slide-outs, fades and toggles finish at once. Not zero, so that
+   the dialogs, which wait for the end of the transition, still see it end. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
