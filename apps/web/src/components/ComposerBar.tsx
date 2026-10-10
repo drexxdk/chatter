@@ -6,6 +6,7 @@ import type { useComposer } from "../chat/useComposer";
 import { AttachedGif } from "./AttachedGif";
 import { ComposerPicker } from "./ComposerPicker";
 import { composerIconButton, ComposerSeparator } from "./composerControls";
+import { IdleWarning } from "./IdleWarning";
 import { MessageInput } from "./MessageInput";
 import { ScrollToEnd } from "./ScrollToEnd";
 
@@ -18,6 +19,8 @@ interface ComposerBarProps {
   // Turns off the box, the picker and the send button.
   disabled: boolean;
   onSubmit: (event: SubmitEvent) => void;
+  // When the guest is disconnected for doing nothing, once they have been warned; shown right above the box.
+  idleDeadline?: number | null;
   // Above the bar's controls: what went wrong with the last send.
   alert?: ReactNode;
   // Notes above and below the form.
@@ -38,6 +41,7 @@ export function ComposerBar({
   placeholder,
   disabled,
   onSubmit,
+  idleDeadline,
   alert,
   above,
   below,
@@ -58,6 +62,8 @@ export function ComposerBar({
           onRemove={() => composer.setGif(null)}
         />
       )}
+
+      {idleDeadline != null && <IdleWarning deadline={idleDeadline} />}
 
       <form onSubmit={onSubmit}>
         {/* One box that looks like the text box and holds the controls, as in Teams; a click anywhere in it types. */}

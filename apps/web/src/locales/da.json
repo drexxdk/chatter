@@ -115,7 +115,8 @@
     "slowMode": "Langsom tilstand: én besked hvert {seconds}. sekund.",
     "joined": "{name} kom ind i rummet.",
     "left": "{name} forlod rummet.",
-    "idleWarning": "{count, plural, one {Du bliver koblet fra om # minut, hvis du ikke gør noget.} other {Du bliver koblet fra om # minutter, hvis du ikke gør noget.}}",
+    "idleWarning": "Du bliver koblet fra rummet, medmindre du skriver noget.",
+    "idleTimeLeft": "Tid tilbage",
     "showMovements": "Vis, når folk kommer og går"
   },
   "announcement": {

@@ -29,6 +29,7 @@ interface DirectChatProps {
   onSend: (text: string) => Promise<ActionResult>;
   onReact: (messageId: string, emoji: string) => void;
   onSetBlocked: (blocked: boolean) => Promise<ActionResult>;
+  idleDeadline: number | null;
 }
 
 export function DirectChat({
@@ -41,6 +42,7 @@ export function DirectChat({
   onSend,
   onReact,
   onSetBlocked,
+  idleDeadline,
 }: DirectChatProps) {
   const { t } = useTranslation();
   const composer = useComposer("direct-message");
@@ -157,6 +159,7 @@ export function DirectChat({
         }
         disabled={!present || blocked || blockedBy}
         onSubmit={handleSubmit}
+        idleDeadline={idleDeadline}
         alert={
           <ErrorAlert
             code={

@@ -168,7 +168,7 @@ async function connectGuest(
 
 async function startServer(options?: {
   inactivityTimeoutMs?: number;
-  idleWarningsBeforeMs?: number[];
+  idleWarningBeforeMs?: number;
   maxConnectionsPerIp?: number;
   trustedProxyHops?: number;
   authTokenSecret?: string;
@@ -1661,31 +1661,32 @@ describe("inactivity", () => {
   });
 });
 
-describe("warnings before an inactivity disconnect", () => {
-  it("tell an idle guest how long they have left, in order, before they are disconnected", async () => {
+describe("the warning before an inactivity disconnect", () => {
+  it("comes once, with how long is left, and then the guest is disconnected", async () => {
     const { io, port } = await startServer({
       inactivityTimeoutMs: 400,
-      idleWarningsBeforeMs: [250, 100],
+      idleWarningBeforeMs: 250,
     });
     const idle = await connectGuest("Idle", port);
     const heard: unknown[] = [];
     idle.on("idle:warning", (warning) => heard.push(warning));
-    const kicked = waitFor(idle, "kicked");
 
-    await kicked;
+    await waitFor(idle, "kicked");
 
-    expect(heard).toEqual([{ remainingMs: 250 }, { remainingMs: 100 }]);
+    expect(heard).toEqual([{ remainingMs: 250 }]);
     await io.close();
   });
 
-  it("start over whenever the guest does something", async () => {
+  it("is not sent to a guest who keeps doing things", async () => {
     const { io, port } = await startServer({
       inactivityTimeoutMs: 400,
-      idleWarningsBeforeMs: [250],
+      idleWarningBeforeMs: 250,
     });
     const active = await connectGuest("Active", port);
     const onWarning = vi.fn();
+    const onCleared = vi.fn();
     active.on("idle:warning", onWarning);
+    active.on("idle:cleared", onCleared);
 
     for (let i = 0; i < 6; i++) {
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -1693,13 +1694,32 @@ describe("warnings before an inactivity disconnect", () => {
     }
 
     expect(onWarning).not.toHaveBeenCalled();
+    expect(onCleared).not.toHaveBeenCalled();
     await io.close();
   });
 
-  it("are left out when the timeout is no longer than they are", async () => {
+  it("is withdrawn when the guest does something, and the wait starts over", async () => {
+    const { io, port } = await startServer({
+      inactivityTimeoutMs: 600,
+      idleWarningBeforeMs: 450,
+    });
+    const guest = await connectGuest("Guest", port);
+    const heard: string[] = [];
+    guest.on("idle:warning", () => heard.push("warning"));
+    guest.on("idle:cleared", () => heard.push("cleared"));
+    await waitFor(guest, "idle:warning");
+
+    await emit(guest, "room:join", { slug: "general" });
+    await waitFor(guest, "idle:warning");
+
+    expect(heard).toEqual(["warning", "cleared", "warning"]);
+    await io.close();
+  });
+
+  it("is left out when the timeout is no longer than the time it gives", async () => {
     const { io, port } = await startServer({
       inactivityTimeoutMs: 200,
-      idleWarningsBeforeMs: [300],
+      idleWarningBeforeMs: 300,
     });
     const idle = await connectGuest("Idle", port);
     const onWarning = vi.fn();
@@ -1711,7 +1731,6 @@ describe("warnings before an inactivity disconnect", () => {
     await io.close();
   });
 });
-
 describe("announcements", () => {
   const SECRET = "a-secret-that-is-long-enough-for-tests";
   const token = (sub = 7) =>

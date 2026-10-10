@@ -44,7 +44,7 @@ const PING_INTERVAL_MS = 25_000;
 const PING_TIMEOUT_MS = 20_000;
 const MAX_ANNOUNCEMENT_LENGTH = 500;
 // A guest who has done nothing is warned this long before they are disconnected for it (when the timeout is longer).
-const IDLE_WARNINGS_BEFORE_MS = [5 * 60_000, 60_000];
+const IDLE_WARNING_BEFORE_MS = 2 * 60_000;
 const RATE_LIMIT_MAX_MESSAGES = 5;
 const RATE_LIMIT_WINDOW_MS = 5_000;
 // Starting a conversation reaches somebody new, so it is limited more tightly than messages in one already going.
@@ -204,7 +204,7 @@ export function createSocketServer(
   options: {
     inactivityTimeoutMs?: number;
     // How long before an inactivity disconnect the guest is warned, once for each.
-    idleWarningsBeforeMs?: number[];
+    idleWarningBeforeMs?: number;
     maxConnectionsPerIp?: number;
     trustedProxyHops?: number;
     // An empty string means no moderator can sign in, like leaving AUTH_TOKEN_SECRET unset.
@@ -214,8 +214,8 @@ export function createSocketServer(
   const authTokenSecret = options.authTokenSecret ?? env.AUTH_TOKEN_SECRET;
   const inactivityTimeoutMs =
     options.inactivityTimeoutMs ?? env.INACTIVITY_TIMEOUT_MS;
-  const idleWarningsBeforeMs =
-    options.idleWarningsBeforeMs ?? IDLE_WARNINGS_BEFORE_MS;
+  const idleWarningBeforeMs =
+    options.idleWarningBeforeMs ?? IDLE_WARNING_BEFORE_MS;
   // Undefined means no cap.
   const maxConnectionsPerIp =
     options.maxConnectionsPerIp ?? env.MAX_CONNECTIONS_PER_IP;
@@ -461,19 +461,29 @@ export function createSocketServer(
       })
       .catch((error) => log.error("Failed to read the announcement", error));
 
-    // Any client event counts as activity. An idle guest is told how long they have left, twice, before they go.
+    // Any client event counts as activity. A guest who has done nothing for a while is warned once, shortly before they
+    // go, and told when the warning no longer holds because they did something.
     let idleTimers: NodeJS.Timeout[] = [];
+    let warned = false;
     const resetIdleTimer = () => {
       idleTimers.forEach(clearTimeout);
+
+      if (warned) {
+        warned = false;
+        socket.emit("idle:cleared");
+      }
+
       idleTimers = [
-        ...idleWarningsBeforeMs
-          .filter((before) => before < inactivityTimeoutMs)
-          .map((before) =>
-            setTimeout(
-              () => socket.emit("idle:warning", { remainingMs: before }),
-              inactivityTimeoutMs - before,
-            ),
-          ),
+        ...(idleWarningBeforeMs < inactivityTimeoutMs
+          ? [
+              setTimeout(() => {
+                warned = true;
+                socket.emit("idle:warning", {
+                  remainingMs: idleWarningBeforeMs,
+                });
+              }, inactivityTimeoutMs - idleWarningBeforeMs),
+            ]
+          : []),
         setTimeout(() => {
           socket.emit("kicked", { reason: "inactivity" });
           socket.disconnect(true);

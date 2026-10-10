@@ -72,6 +72,8 @@ interface ChatRoomProps {
   onReact: (messageId: string, emoji: string) => void;
   onAnnounce: (text: string) => Promise<AnnounceResult>;
   direct: DirectApi;
+  // When the guest is disconnected for doing nothing, once they have been warned (milliseconds since 1970).
+  idleDeadline: number | null;
 }
 
 export function ChatRoom({
@@ -89,15 +91,12 @@ export function ChatRoom({
   onReact,
   onAnnounce,
   direct,
+  idleDeadline,
 }: ChatRoomProps) {
   const { t } = useTranslation();
   const composer = useComposer("message");
   const items = withDirect(
-    // What the guest has to be told stays, whether or not they want to see who comes and goes.
-    timeline(
-      messages,
-      events.filter((event) => showMovements || event.event === "idle"),
-    ),
+    timeline(messages, showMovements ? events : []),
     direct.threads,
   );
   // Who the room's input writes to privately, when a private message was clicked.
@@ -351,6 +350,7 @@ export function ChatRoom({
             onSetBlocked={(blocked) =>
               direct.setBlocked(direct.active!.guestId, blocked)
             }
+            idleDeadline={idleDeadline}
           />
         ) : (
           <div className="flex flex-1 flex-col">
@@ -370,22 +370,13 @@ export function ChatRoom({
                 const first = run[0];
 
                 if (first.kind === "event") {
-                  const idle = first.event.event === "idle";
-
                   return (
                     <StatusRow
                       key={first.event.id}
-                      text={
-                        idle
-                          ? t("room.idleWarning", {
-                              count: first.event.minutes ?? 1,
-                            })
-                          : t(`room.${first.event.event}`, {
-                              name: first.event.nickname,
-                            })
-                      }
+                      text={t(`room.${first.event.event}`, {
+                        name: first.event.nickname,
+                      })}
                       sentAt={first.event.sentAt}
-                      warning={idle}
                     />
                   );
                 }
@@ -531,6 +522,7 @@ export function ChatRoom({
               }
               disabled={!canWrite}
               onSubmit={handleSubmit}
+              idleDeadline={idleDeadline}
               alert={
                 <ErrorAlert
                   code={

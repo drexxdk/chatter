@@ -145,6 +145,8 @@ export function useChat(
   const membersRef = useRef<Member[]>([]);
   const selfGuestIdRef = useRef<string | null>(null);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
+  // When the server will disconnect the guest for doing nothing, once it has warned them.
+  const [idleDeadline, setIdleDeadline] = useState<number | null>(null);
   // The server repeats the latest announcement on every connection; one that was dismissed must not return.
   const dismissedAnnouncementRef = useRef<string | null>(null);
   // Holds a translation key under `errors.` (a server error code, "connection" or "connection_lost").
@@ -216,6 +218,7 @@ export function useChat(
     setStatus("idle");
     setSession(null);
     setAnnouncement(null);
+    setIdleDeadline(null);
     setThreads([]);
     blockedRef.current = [];
     setBlockedIds([]);
@@ -451,21 +454,14 @@ export function useChat(
 
         socket.on("idle:warning", (value: unknown) => {
           const remaining = isRecord(value) ? Number(value.remainingMs) : NaN;
-          const slug = roomRef.current;
-          if (!isCurrent() || !slug || !(remaining > 0)) return;
+          if (!isCurrent() || !(remaining > 0)) return;
 
-          addRoomEvents([
-            {
-              id: crypto.randomUUID(),
-              roomSlug: slug,
-              event: "idle",
-              guestId: "",
-              nickname: "",
-              sentAt: new Date().toISOString(),
-              seq: ++arrivalRef.current,
-              minutes: Math.max(1, Math.round(remaining / 60_000)),
-            },
-          ]);
+          setIdleDeadline(Date.now() + remaining);
+        });
+
+        // The guest did something, so the disconnect is a full wait away again.
+        socket.on("idle:cleared", () => {
+          if (isCurrent()) setIdleDeadline(null);
         });
 
         socket.on("dm:reaction", (value: unknown) => {
@@ -550,11 +546,14 @@ export function useChat(
         });
 
         socket.on("kicked", (payload: { reason: string }) => {
-          if (isCurrent()) setError(payload.reason);
+          if (!isCurrent()) return;
+          setIdleDeadline(null);
+          setError(payload.reason);
         });
 
         socket.on("disconnect", (reason: string) => {
           if (!isCurrent()) return;
+          setIdleDeadline(null);
           socketRef.current = null;
           onDrop(reason);
         });
@@ -1037,6 +1036,7 @@ export function useChat(
     error,
     retryAfterSeconds,
     announcement,
+    idleDeadline,
     direct,
     connect,
     joinRoom,

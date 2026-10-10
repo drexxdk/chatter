@@ -189,39 +189,77 @@ describe("who comes and goes", () => {
     });
   });
 
-  describe("the warning before being disconnected for doing nothing", () => {
+  describe("the countdown before being disconnected for doing nothing", () => {
     const warn = (
       server: ReturnType<typeof makeFakeServer>,
       remainingMs: number,
     ) => act(() => server.latest.serverEmit("idle:warning", { remainingMs }));
+    const banner = () => screen.queryByTestId("idle-warning");
 
-    it("is a note in the log, with how long is left", async () => {
-      const { server } = await enter();
-
-      said(server, "before");
-      warn(server, 5 * 60_000);
-      warn(server, 60_000);
-
-      expect(lines()).toEqual([
-        expect.stringContaining("before"),
-        expect.stringContaining(
-          "You will be disconnected in 5 minutes if you do nothing.",
-        ),
-        expect.stringContaining(
-          "You will be disconnected in 1 minute if you do nothing.",
-        ),
-      ]);
+    afterEach(() => {
+      vi.useRealTimers();
     });
 
-    it("is shown even when the log is set not to say who comes and goes", async () => {
-      const { user, server } = await enter();
-      await user.click(await toggleItem(user));
+    it("is not there until the server warns", async () => {
+      await enter();
 
-      warn(server, 60_000);
+      expect(banner()).toBeNull();
+    });
 
-      expect(
-        roomLog().getByText(/You will be disconnected in 1 minute/),
-      ).toBeInTheDocument();
+    it("is right above the box, with the time left", async () => {
+      const { server } = await enter();
+
+      warn(server, 2 * 60_000);
+
+      const shown = banner()!;
+      expect(shown).toHaveTextContent(
+        "You will be disconnected from the room unless you write something.",
+      );
+      expect(shown).toHaveTextContent("Time left 2:00");
+      expect(shown.nextElementSibling).toBe(
+        screen.getByRole("textbox", { name: "Message" }).closest("form"),
+      );
+    });
+
+    it("counts down to zero and stays there", async () => {
+      const { server } = await enter();
+      vi.useFakeTimers();
+
+      warn(server, 90_000);
+      expect(banner()).toHaveTextContent("1:30");
+
+      act(() => vi.advanceTimersByTime(61_000));
+      expect(banner()).toHaveTextContent("0:29");
+
+      act(() => vi.advanceTimersByTime(60_000));
+      expect(banner()).toHaveTextContent("0:00");
+    });
+
+    it("is not a message in the log", async () => {
+      const { server } = await enter();
+
+      warn(server, 2 * 60_000);
+
+      expect(roomLog().queryByText(/disconnected/)).toBeNull();
+    });
+
+    it("goes away when the server says the guest did something", async () => {
+      const { server } = await enter();
+      warn(server, 2 * 60_000);
+
+      act(() => server.latest.serverEmit("idle:cleared", undefined));
+
+      expect(banner()).toBeNull();
+    });
+
+    it("starts over from the new time when warned again", async () => {
+      const { server } = await enter();
+      warn(server, 30_000);
+      act(() => server.latest.serverEmit("idle:cleared", undefined));
+
+      warn(server, 2 * 60_000);
+
+      expect(banner()).toHaveTextContent("2:00");
     });
 
     it("is ignored when it has nothing to say", async () => {
@@ -230,10 +268,9 @@ describe("who comes and goes", () => {
       warn(server, 0);
       act(() => server.latest.serverEmit("idle:warning", undefined));
 
-      expect(roomLog().queryByText(/disconnected/)).toBeNull();
+      expect(banner()).toBeNull();
     });
   });
-
   describe("the checkbox", () => {
     it("is ticked to begin with", async () => {
       const { user } = await enter();

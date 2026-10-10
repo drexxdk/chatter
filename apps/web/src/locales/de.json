@@ -115,7 +115,8 @@
     "slowMode": "Langsamer Modus: eine Nachricht alle {seconds} s.",
     "joined": "{name} hat den Raum betreten.",
     "left": "{name} hat den Raum verlassen.",
-    "idleWarning": "{count, plural, one {Du wirst in # Minute getrennt, wenn du nichts tust.} other {Du wirst in # Minuten getrennt, wenn du nichts tust.}}",
+    "idleWarning": "Du wirst aus dem Raum getrennt, wenn du nichts schreibst.",
+    "idleTimeLeft": "Verbleibende Zeit",
     "showMovements": "Anzeigen, wann Leute kommen und gehen"
   },
   "announcement": {

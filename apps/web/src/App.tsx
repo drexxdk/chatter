@@ -374,6 +374,7 @@ export function App({
               onReact={chat.react}
               onAnnounce={chat.sendAnnouncement}
               direct={chat.direct}
+              idleDeadline={chat.idleDeadline}
             />
           ) : (
             <div className="space-y-4 pb-6">
