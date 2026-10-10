@@ -363,7 +363,7 @@ export function MessageEntry({
             width: barWidth,
             left: `max(0px, calc(100% - ${barWidth}))`,
           }}
-          className="absolute bottom-full z-20 hidden pb-1 group-focus-within/message:flex group-hover/message:flex has-[[data-open]]:flex data-[held]:flex"
+          className="absolute bottom-full z-20 hidden pb-1 group-has-[:focus-visible]/message:flex group-hover/message:flex has-[[data-open]]:flex data-[held]:flex"
         >
           <div className="flex w-full items-center justify-center gap-0.5 rounded-full border border-neutral-700 bg-neutral-900 px-1 py-0.5 shadow-lg">
             {canReact && (
