@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { AnnounceResult } from "../chat/useChat";
@@ -17,7 +17,7 @@ export function AnnounceForm({
   const [text, setText] = useState("");
   const [failure, setFailure] = useState<AnnounceResult & { ok: false }>();
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
     const trimmed = text.trim();
     if (!trimmed) return;

@@ -1,5 +1,5 @@
 import { SendHorizontal } from "lucide-react";
-import type { FormEvent, ReactNode } from "react";
+import type { SubmitEvent, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { useComposer } from "../chat/useComposer";
@@ -16,7 +16,7 @@ interface ComposerBarProps {
   placeholder: string;
   // Turns off the box, the picker and the send button.
   disabled: boolean;
-  onSubmit: (event: FormEvent) => void;
+  onSubmit: (event: SubmitEvent) => void;
   // Above the bar's controls: what went wrong with the last send.
   alert?: ReactNode;
   // Notes above and below the form.

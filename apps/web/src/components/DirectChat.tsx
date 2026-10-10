@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { Ban, UserCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -51,7 +51,7 @@ export function DirectChat({
     return result.ok;
   }
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
     const value = composer.message;
     if (!value) return;

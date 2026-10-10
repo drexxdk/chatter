@@ -43,7 +43,7 @@ The Vite dev server sends no such policy; if you add a source the page loads fro
 
 `npm run test:web` (Vitest + Testing Library). The tests run the real components, hook and i18n against a fake Socket.IO server (`src/test/fakeSocket.ts`) that replays the real protocol, including the server's event ordering. No network or running backend is needed. If the chat-server protocol changes, update the fake to match.
 
-`npm run lint --workspace apps/web` runs ESLint (`eslint.config.mjs`): the recommended TypeScript rules plus `react-hooks/rules-of-hooks` and `exhaustive-deps`, both as errors, and CI runs it. Where an effect deliberately leaves out a dependency (two places in `App.tsx`), the line above says why.
+`npm run lint --workspace apps/web` runs ESLint (`eslint.config.mjs`): the recommended TypeScript rules plus `react-hooks/rules-of-hooks` and `exhaustive-deps`, both as errors, and `no-deprecated` (type-aware, so it also flags React and DOM APIs marked deprecated, such as `FormEvent`), and CI runs it. Where an effect deliberately leaves out a dependency (two places in `App.tsx`), the line above says why.
 
 ### End-to-end
 

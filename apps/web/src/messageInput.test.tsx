@@ -7,7 +7,7 @@ import { MessageInput } from "./components/MessageInput";
 afterEach(() => vi.unstubAllGlobals());
 
 function setup() {
-  const submitted = vi.fn((event: React.FormEvent) => event.preventDefault());
+  const submitted = vi.fn((event: React.SubmitEvent) => event.preventDefault());
   render(
     <form onSubmit={submitted}>
       <MessageInput aria-label="Message" defaultValue="" />

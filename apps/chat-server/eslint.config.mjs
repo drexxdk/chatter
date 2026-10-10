@@ -21,5 +21,16 @@ export default defineConfig([
       ],
     },
   },
+  {
+    // Needs type information, so only for the files the TypeScript project covers.
+    files: ["src/**/*.ts"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: { "@typescript-eslint/no-deprecated": "error" },
+  },
   globalIgnores(["dist/"]),
 ]);

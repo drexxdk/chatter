@@ -35,5 +35,16 @@ export default defineConfig([
     files: ["**/*.test.{ts,tsx}", "src/test/**"],
     rules: { "@typescript-eslint/no-explicit-any": "off" },
   },
+  {
+    // Needs type information, so only for the files the TypeScript project covers.
+    files: ["src/**/*.{ts,tsx}", "e2e/**/*.ts"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: { "@typescript-eslint/no-deprecated": "error" },
+  },
   globalIgnores(["dist/", "playwright-report/", "test-results/"]),
 ]);

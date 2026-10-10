@@ -3,7 +3,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type FormEvent,
+  type SubmitEvent,
 } from "react";
 import { ArrowLeft, Ban } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -191,7 +191,7 @@ export function ChatRoom({
     return onSend(value);
   }
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
     const value = composer.message;
     if (!value || replyBlocked || replyBlockedBy) return;
