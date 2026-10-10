@@ -97,7 +97,12 @@ const { hashIdentifier } = await import("./identity.js");
 type Ack = { ok: boolean; error?: string; [key: string]: unknown };
 type Presence = {
   roomSlug: string;
-  members: { guestId: string; nickname: string; avatar?: string }[];
+  members: {
+    guestId: string;
+    nickname: string;
+    avatar?: string;
+    age?: number;
+  }[];
 };
 
 const ROOMS = [
@@ -120,6 +125,7 @@ type Session = {
   nickname: string;
   role?: string;
   avatar?: string;
+  age?: number;
   resumeSecret?: string;
 };
 
@@ -2409,6 +2415,174 @@ describe("avatars", () => {
       toAvatar: "trans",
     });
     expect(aliceSession.avatar).toBe("female");
+  });
+});
+
+describe("profiles", () => {
+  const SECRET = "a-secret-that-is-long-enough-for-tests";
+
+  async function inGeneral(auth: Record<string, unknown>) {
+    const { socket, session } = await connect(auth);
+    await emit(socket!, "room:join", { slug: "general" });
+
+    return { socket: socket!, session: await session! };
+  }
+
+  it("tells the guest the age they gave, and nothing when they gave none", async () => {
+    expect(
+      (await (await connect({ nickname: "Ann", age: 27 })).session!).age,
+    ).toBe(27);
+    expect(
+      (await (await connect({ nickname: "Bea" })).session!).age,
+    ).toBeUndefined();
+  });
+
+  it.each([
+    ["too young", 17],
+    ["too old", 121],
+    ["a fraction", 20.5],
+    ["text", "27"],
+    ["null", null],
+  ])("ignores an age that is %s", async (_label, age) => {
+    const { session } = await connect({ nickname: "Ann", age });
+
+    expect((await session)?.age).toBeUndefined();
+  });
+
+  it("shows each person's age to the others in the room, and only when it was given", async () => {
+    const alice = await inGeneral({ nickname: "Alice", age: 30 });
+    const bob = await connect({ nickname: "Bob" });
+    const seen = waitFor<Presence & { members: { age?: number }[] }>(
+      alice.socket,
+      "room:presence",
+      (presence) => presence.members.length === 2,
+    );
+
+    await emit(bob.socket!, "room:join", { slug: "general" });
+
+    expect(
+      (await seen).members.map((member) => [member.nickname, member.age]),
+    ).toEqual([
+      ["Alice", 30],
+      ["Bob", undefined],
+    ]);
+  });
+
+  it("changes the name, avatar and age, and tells the room", async () => {
+    const alice = await inGeneral({ nickname: "Alice", avatar: "male" });
+    const bob = await inGeneral({ nickname: "Bob" });
+    const seen = waitFor<Presence & { members: { age?: number }[] }>(
+      bob.socket,
+      "room:presence",
+      (presence) => presence.members.some((m) => m.nickname === "Alicia"),
+    );
+
+    const ack = await emit(alice.socket, "profile:update", {
+      nickname: " Alicia ",
+      avatar: "female",
+      age: 31,
+    });
+
+    expect(ack).toEqual({
+      ok: true,
+      profile: { nickname: "Alicia", avatar: "female", age: 31 },
+    });
+    expect(
+      (await seen).members.find((member) => member.nickname === "Alicia"),
+    ).toMatchObject({ avatar: "female", age: 31 });
+  });
+
+  it("uses the new name and avatar for what the guest writes afterwards", async () => {
+    const alice = await inGeneral({ nickname: "Alice" });
+    const bob = await inGeneral({ nickname: "Bob" });
+    await emit(alice.socket, "profile:update", {
+      nickname: "Alicia",
+      avatar: "trans",
+    });
+    const heard = waitFor<{ nickname: string; avatar: string }>(
+      bob.socket,
+      "message:new",
+    );
+
+    await emit(alice.socket, "message:send", { text: "hi" });
+
+    expect(await heard).toMatchObject({ nickname: "Alicia", avatar: "trans" });
+  });
+
+  it("only changes what is in the payload, and takes the age back with null", async () => {
+    const alice = await inGeneral({
+      nickname: "Alice",
+      avatar: "male",
+      age: 40,
+    });
+
+    expect(
+      await emit(alice.socket, "profile:update", { avatar: "other" }),
+    ).toEqual({
+      ok: true,
+      profile: { nickname: "Alice", avatar: "other", age: 40 },
+    });
+    expect(await emit(alice.socket, "profile:update", { age: null })).toEqual({
+      ok: true,
+      profile: { nickname: "Alice", avatar: "other" },
+    });
+  });
+
+  it.each([
+    ["a nickname that is too short", { nickname: "A" }, "invalid_nickname"],
+    ["a nickname that is not text", { nickname: 5 }, "invalid_nickname"],
+    ["an unknown avatar", { avatar: "robot" }, "invalid_profile"],
+    ["an age that is too young", { age: 17 }, "invalid_profile"],
+    ["an age that is text", { age: "30" }, "invalid_profile"],
+  ])("refuses %s and changes nothing", async (_label, payload, error) => {
+    const alice = await inGeneral({ nickname: "Alice", age: 30 });
+
+    expect(
+      await emit(alice.socket, "profile:update", {
+        ...payload,
+        avatar: (payload as { avatar?: string }).avatar ?? "female",
+      }),
+    ).toEqual({ ok: false, error });
+    expect(await emit(alice.socket, "profile:update", {})).toEqual({
+      ok: true,
+      profile: { nickname: "Alice", avatar: "other", age: 30 },
+    });
+  });
+
+  it("refuses a name that looks like a moderator's", async () => {
+    getModeratorNames.mockResolvedValue(["Ada Mod"]);
+    const alice = await inGeneral({ nickname: "Alice" });
+
+    expect(
+      await emit(alice.socket, "profile:update", { nickname: "ada  mod" }),
+    ).toEqual({ ok: false, error: "reserved_nickname" });
+  });
+
+  it("limits how often the profile can be changed", async () => {
+    const alice = await inGeneral({ nickname: "Alice" });
+
+    for (let n = 0; n < 5; n++) {
+      expect(
+        (await emit(alice.socket, "profile:update", { age: 20 + n })).ok,
+      ).toBe(true);
+    }
+
+    expect(
+      await emit(alice.socket, "profile:update", { age: 30 }),
+    ).toMatchObject({ ok: false, error: "rate_limited" });
+  });
+
+  it("does not let a moderator change theirs", async () => {
+    const { port } = await startServer({ authTokenSecret: SECRET });
+    const token = signToken(
+      { sub: 7, name: "Ada Mod", role: "moderator" },
+      { secret: SECRET, ttlMs: 3_600_000 },
+    );
+    const { socket } = await connect({ token }, port);
+
+    expect(
+      await emit(socket!, "profile:update", { nickname: "Somebody" }),
+    ).toEqual({ ok: false, error: "forbidden" });
   });
 });
 

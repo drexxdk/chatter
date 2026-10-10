@@ -8,6 +8,7 @@ import {
   parseDirectMessage,
   parsePartner,
   redactDirect,
+  refreshPartners,
   setBlockedBy,
   dropBlockedByNotices,
   type DirectThread,
@@ -15,6 +16,7 @@ import {
 } from "./direct";
 import { movements, type RoomEvent } from "./roomEvents";
 import { loadNotifyDirect, saveNotifyDirect } from "../preferences";
+import { parseAge, type ProfileChanges } from "../profile";
 import { parseAvatar, PLAIN_AVATAR, type Avatar } from "./avatar";
 import {
   createSocket as defaultCreateSocket,
@@ -39,6 +41,8 @@ export interface Session {
   nickname: string;
   role?: Role;
   avatar?: Avatar;
+  // Only when the guest said how old they are.
+  age?: number;
   resumeSecret?: string;
 }
 
@@ -47,6 +51,7 @@ export interface Member {
   nickname: string;
   role?: Role;
   avatar?: Avatar;
+  age?: number;
 }
 
 export interface ChatMessage {
@@ -71,6 +76,7 @@ export interface ConnectOptions {
   // A moderator's signed token, in place of a nickname.
   token?: string;
   avatar?: Avatar;
+  age?: number;
   // The ids this guest had on earlier connections (before a reload), so what they wrote is still theirs.
   previousGuestIds?: string[];
   // The identity to take over, when this is the same guest on a new page load.
@@ -95,7 +101,7 @@ export type ActionResult =
 export type AnnounceResult = ActionResult;
 
 type Ack =
-  | { ok: true; history?: unknown }
+  | { ok: true; history?: unknown; profile?: unknown }
   | { ok: false; error: string; retryAfterMs?: number };
 type DropHandler = (reason: string) => void;
 
@@ -310,6 +316,7 @@ export function useChat(
   const tokenRef = useRef<string | null>(null);
   // What the guest chose to be shown as; sent again when the connection is restored.
   const avatarRef = useRef<Avatar | null>(null);
+  const ageRef = useRef<number | null>(null);
   // Lets a new connection (a dropped one restored, or a reloaded page) be the same guest as the one before it.
   const resumeRef = useRef<Resume | null>(null);
   // Which room the last list of people was for, so a different room's list is not mistaken for people leaving.
@@ -409,13 +416,15 @@ export function useChat(
     (nickname: string, onDrop: DropHandler): Promise<string | null> => {
       const token = tokenRef.current;
       const avatar = avatarRef.current;
+      const age = ageRef.current;
       const resume = resumeRef.current;
       // Trailing arguments that are not needed are left off, so a plain guest's call is just the nickname.
-      const args: [string, string?, Avatar?, Resume?] = [
+      const args: [string, string?, Avatar?, Resume?, number?] = [
         nickname,
         token ?? undefined,
         avatar ?? undefined,
         resume ?? undefined,
+        age ?? undefined,
       ];
       while (args.length > 1 && args[args.length - 1] === undefined) args.pop();
       const socket = createSocket(...args);
@@ -506,15 +515,39 @@ export function useChat(
                 }
               }
               setThreads((previous) =>
-                applyPresence(
-                  previous,
-                  new Set(presence.members.map((member) => member.guestId)),
-                  new Date().toISOString(),
-                  silent,
-                  () => crypto.randomUUID(),
-                  blockedRef.current,
+                refreshPartners(
+                  applyPresence(
+                    previous,
+                    new Set(presence.members.map((member) => member.guestId)),
+                    new Date().toISOString(),
+                    silent,
+                    () => crypto.randomUUID(),
+                    blockedRef.current,
+                  ),
+                  presence.members,
                 ),
               );
+
+              const open = partnerRef.current;
+              const now = open
+                ? presence.members.find(
+                    (member) => member.guestId === open.guestId,
+                  )
+                : undefined;
+
+              if (
+                open &&
+                now &&
+                (now.nickname !== open.nickname ||
+                  (now.avatar ?? PLAIN_AVATAR) !== open.avatar)
+              ) {
+                partnerRef.current = {
+                  ...open,
+                  nickname: now.nickname,
+                  avatar: now.avatar ?? PLAIN_AVATAR,
+                };
+                setPartner(partnerRef.current);
+              }
             }
           },
         );
@@ -727,7 +760,7 @@ export function useChat(
       nickname: string,
       options: ConnectOptions = {},
     ): Promise<boolean> => {
-      const { token, avatar, previousGuestIds = [], resume } = options;
+      const { token, avatar, age, previousGuestIds = [], resume } = options;
 
       cancelReconnect();
       closeSocket();
@@ -755,6 +788,7 @@ export function useChat(
       nicknameRef.current = nickname;
       tokenRef.current = token ?? null;
       avatarRef.current = avatar ?? null;
+      ageRef.current = age ?? null;
 
       const failure = await openSocket(nickname, handleDrop);
 
@@ -964,6 +998,33 @@ export function useChat(
     [emitWithAck],
   );
 
+  // The server answers with who the guest is now (it trims the name); a dropped connection is restored as that guest.
+  const updateProfile = useCallback(
+    async (changes: ProfileChanges): Promise<ActionResult> => {
+      const ack = await emitWithAck("profile:update", changes);
+
+      if (!ack.ok) return toResult(ack);
+
+      const profile = isRecord(ack.profile) ? ack.profile : {};
+      const nickname =
+        typeof profile.nickname === "string" && profile.nickname
+          ? profile.nickname
+          : (nicknameRef.current ?? "");
+      const avatar = parseAvatar(profile.avatar);
+      const age = parseAge(profile.age);
+
+      nicknameRef.current = nickname;
+      avatarRef.current = avatar === PLAIN_AVATAR ? null : avatar;
+      ageRef.current = age ?? null;
+      setSession((current) =>
+        current ? { ...current, nickname, avatar, age } : current,
+      );
+
+      return { ok: true };
+    },
+    [emitWithAck],
+  );
+
   const dismissAnnouncement = useCallback(() => {
     setAnnouncement((current) => {
       if (current) dismissedAnnouncementRef.current = current.id;
@@ -1025,6 +1086,7 @@ export function useChat(
     leaveRoom,
     sendMessage,
     sendAnnouncement,
+    updateProfile,
     dismissAnnouncement,
     disconnect,
     clearError,

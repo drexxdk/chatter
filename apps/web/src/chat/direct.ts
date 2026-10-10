@@ -1,5 +1,5 @@
 import type { Avatar } from "./avatar";
-import { parseAvatar } from "./avatar";
+import { parseAvatar, PLAIN_AVATAR } from "./avatar";
 import type { Role } from "./useChat";
 
 // A message as the server sends it; once its author was banned the text is gone and only a placeholder is shown.
@@ -255,6 +255,38 @@ export function applyPresence(
       present,
       entries: [...thread.entries, status].slice(-MAX_ENTRIES_PER_THREAD),
     };
+  });
+
+  return changed ? next : threads;
+}
+
+// Somebody changed their name or avatar: the conversations with them carry the new ones from now on.
+export function refreshPartners(
+  threads: DirectThread[],
+  members: {
+    guestId: string;
+    nickname: string;
+    avatar?: Avatar;
+  }[],
+): DirectThread[] {
+  let changed = false;
+
+  const next = threads.map((thread) => {
+    const member = members.find(
+      (candidate) => candidate.guestId === thread.guestId,
+    );
+    const avatar = member?.avatar ?? PLAIN_AVATAR;
+
+    if (
+      !member ||
+      (member.nickname === thread.nickname && avatar === thread.avatar)
+    ) {
+      return thread;
+    }
+
+    changed = true;
+
+    return { ...thread, nickname: member.nickname, avatar };
   });
 
   return changed ? next : threads;

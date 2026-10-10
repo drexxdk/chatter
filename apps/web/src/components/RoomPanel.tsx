@@ -4,15 +4,12 @@ import type { Partner } from "../chat/direct";
 import type { DirectApi, Member } from "../chat/useChat";
 import { PeopleList, ThreadSection } from "./DirectLists";
 
-// The people in the room, the private conversations and the room's display option: a sidebar on wide screens, the
-// content of the slide-out drawer on narrow ones.
+// The people in the room and the private conversations: a sidebar on wide screens.
 export function RoomPanel({
   members,
   selfGuestId,
   threads,
   onOpen,
-  showMovements,
-  onShowMovementsChange,
   notify,
   onNotifyChange,
   onSetMuted,
@@ -24,8 +21,6 @@ export function RoomPanel({
   selfGuestId: string;
   threads: DirectApi["threads"];
   onOpen: (partner: Partner) => void;
-  showMovements: boolean;
-  onShowMovementsChange: (show: boolean) => void;
   notify: boolean;
   onNotifyChange: (notify: boolean) => void;
   onSetMuted: (guestId: string, muted: boolean) => void;
@@ -59,15 +54,6 @@ export function RoomPanel({
         onSetMuted={onSetMuted}
         onSetBlocked={onSetBlocked}
       />
-
-      <label className="flex items-center gap-2 text-sm text-slate-300">
-        <input
-          type="checkbox"
-          checked={showMovements}
-          onChange={(event) => onShowMovementsChange(event.target.checked)}
-        />
-        {t("room.showMovements")}
-      </label>
     </div>
   );
 }

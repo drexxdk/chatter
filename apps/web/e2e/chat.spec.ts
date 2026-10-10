@@ -90,7 +90,7 @@ async function enterRoom(page: Page, roomName: string, nickname: string) {
 
 async function send(page: Page, text: string) {
   await page.getByRole("textbox", { name: "Message" }).fill(text);
-  await page.getByRole("button", { name: "Send" }).click();
+  await page.getByRole("button", { name: "Send", exact: true }).click();
 }
 
 test("two guests chat in real time and see each other come and go", async ({
@@ -299,7 +299,8 @@ test("a room whose slow mode is left empty still has the server's default", asyn
 }) => {
   const alice = await newGuest(browser);
   await enterRoom(alice, LOUNGE.name, "Alice");
-  await alice.getByRole("button", { name: "How the chat works" }).click();
+  await alice.getByRole("button", { name: "Menu" }).click();
+  await alice.getByRole("menuitem", { name: "How the chat works" }).click();
 
   await expect(
     alice.getByText(
@@ -313,7 +314,8 @@ test("a room with slow mode makes a guest wait between messages", async ({
 }) => {
   const alice = await newGuest(browser);
   await enterRoom(alice, SLOW.name, "Alice");
-  await alice.getByRole("button", { name: "How the chat works" }).click();
+  await alice.getByRole("button", { name: "Menu" }).click();
+  await alice.getByRole("menuitem", { name: "How the chat works" }).click();
   await expect(
     alice.getByText("Slow mode: one message every 3 s."),
   ).toBeVisible();
@@ -334,7 +336,7 @@ test("a room with slow mode makes a guest wait between messages", async ({
 
   // Once the wait is over the same draft goes through.
   await expect(async () => {
-    await alice.getByRole("button", { name: "Send" }).click();
+    await alice.getByRole("button", { name: "Send", exact: true }).click();
     await expect(alice.getByRole("log")).toContainText("too soon", {
       timeout: 500,
     });
@@ -402,7 +404,9 @@ test("a moderator signs in, and guests see their messages stand out", async ({
 
     await moderator.getByLabel("Password").fill(password);
     await moderator.getByRole("button", { name: "Sign in" }).click();
-    await expect(moderator.getByText(`Chatting as ${name}`)).toBeVisible();
+    await expect(
+      moderator.getByRole("button", { name: `Your profile: ${name}` }),
+    ).toBeVisible();
 
     await send(moderator, words);
 
@@ -463,7 +467,9 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
     await moderator.getByRole("textbox", { name: "Email" }).fill(email);
     await moderator.getByLabel("Password").fill(password);
     await moderator.getByRole("button", { name: "Sign in" }).click();
-    await expect(moderator.getByText(`Chatting as ${name}`)).toBeVisible();
+    await expect(
+      moderator.getByRole("button", { name: `Your profile: ${name}` }),
+    ).toBeVisible();
 
     await moderator.getByLabel("Announce to everyone").fill(words);
     await moderator.getByRole("button", { name: "Announce" }).click();
@@ -557,7 +563,7 @@ test("two guests write to each other privately, and a blocked guest is not heard
     page.getByRole("log", { name: `Direct message with ${name}` });
   const write = async (page: Page, to: string, text: string) => {
     await page.getByRole("textbox", { name: `Message to ${to}` }).fill(text);
-    await page.getByRole("button", { name: "Send" }).click();
+    await page.getByRole("button", { name: "Send", exact: true }).click();
   };
 
   // Alice finds Bob in the room and writes to him; the room itself hears nothing.
@@ -568,12 +574,12 @@ test("two guests write to each other privately, and a blocked guest is not heard
   await write(alice, "Bob", "psst, Bob");
   await expect(conversation(alice, "Bob")).toContainText("psst, Bob");
 
-  // Bob is told there is something new, and it is only visible in that conversation.
-  const fromAlice = conversations(bob).getByRole("button", { name: /Alice/ });
+  // Bob is told there is something new. The room's log shows it too, marked as private (and nobody else's does).
+  const fromAlice = conversations(bob).getByRole("button", { name: /^Alice/ });
   await expect(fromAlice).toHaveAccessibleName(/1 unread message/);
   await expect(fromAlice).toHaveClass(/animate-pulse/);
-  await expect(bob.getByRole("log", { name: LOUNGE.name })).not.toContainText(
-    "psst, Bob",
+  await expect(bob.getByRole("log", { name: LOUNGE.name })).toContainText(
+    "Direct message from Alice",
   );
 
   await fromAlice.click();
@@ -582,18 +588,17 @@ test("two guests write to each other privately, and a blocked guest is not heard
   await write(bob, "Alice", "hi Alice");
   await expect(conversation(alice, "Bob")).toContainText("hi Alice");
 
-  // Bob has had enough. Alice is not told, but is no longer heard.
+  // Bob has had enough. Alice is told, and can no longer write to him.
   await bob.getByRole("button", { name: "Block Alice" }).click();
   await expect(
-    bob.getByRole("button", { name: "Unblock Alice" }),
+    bob.getByRole("button", { name: "Unblock Alice" }).first(),
   ).toBeVisible();
-  await write(alice, "Bob", "are you still there?");
-  await expect(conversation(alice, "Bob")).toContainText(
-    "are you still there?",
-  );
-  await alice.waitForTimeout(500);
+  await expect(conversation(alice, "Bob")).toContainText("Bob has blocked you");
+  await expect(
+    alice.getByRole("textbox", { name: "Message to Bob" }),
+  ).toBeDisabled();
   await expect(conversation(bob, "Alice")).not.toContainText(
-    "are you still there?",
+    "Bob has blocked you",
   );
 });
 
@@ -611,7 +616,9 @@ test("reloading the page, or opening its address, brings a guest back to their r
   await expect(
     alice.getByRole("heading", { name: LOUNGE.name, level: 2 }),
   ).toBeVisible();
-  await expect(alice.getByText("Chatting as Alice")).toBeVisible();
+  await expect(
+    alice.getByRole("button", { name: "Your profile: Alice" }),
+  ).toBeVisible();
   // It is a new connection, but what she wrote before is still hers: on her side.
   await expect(
     alice.getByText("before the reload").locator("xpath=ancestor::li"),
@@ -623,7 +630,9 @@ test("reloading the page, or opening its address, brings a guest back to their r
     alice.getByRole("heading", { name: "Public rooms" }),
   ).toBeVisible();
   await alice.goForward();
-  await expect(alice.getByText("Chatting as Alice")).toBeVisible();
+  await expect(
+    alice.getByRole("button", { name: "Your profile: Alice" }),
+  ).toBeVisible();
 
   // Somebody who opens the address with nothing saved is asked who they are.
   const bob = await newGuest(browser);
@@ -641,7 +650,9 @@ test("a guest's chosen avatar is shown to others, and a conversation says when t
   await bob.getByRole("radio", { name: "Female" }).check({ force: true });
   await bob.getByRole("textbox", { name: "Nickname" }).fill("Bea");
   await bob.getByRole("button", { name: "Continue" }).click();
-  await expect(bob.getByText("Chatting as Bea")).toBeVisible();
+  await expect(
+    bob.getByRole("button", { name: "Your profile: Bea" }),
+  ).toBeVisible();
   await enterRoom(alice, LOUNGE.name, "Alice");
 
   // Her avatar is next to what she says, and in the list of people.
@@ -665,7 +676,7 @@ test("a guest's chosen avatar is shown to others, and a conversation says when t
     .getByRole("button", { name: "Bea" })
     .click();
   await alice.getByRole("textbox", { name: "Message to Bea" }).fill("hi Bea");
-  await alice.getByRole("button", { name: "Send" }).click();
+  await alice.getByRole("button", { name: "Send", exact: true }).click();
   const conversation = alice.getByRole("log", {
     name: "Direct message with Bea",
   });
@@ -694,21 +705,23 @@ test("a private conversation carries on when one of the two reloads the page", a
     page.getByRole("log", { name: `Direct message with ${name}` });
   const write = async (page: Page, to: string, text: string) => {
     await page.getByRole("textbox", { name: `Message to ${to}` }).fill(text);
-    await page.getByRole("button", { name: "Send" }).click();
+    await page.getByRole("button", { name: "Send", exact: true }).click();
   };
 
   await people(alice).getByRole("button", { name: "Bob" }).click();
   await write(alice, "Bob", "before the reload");
   await bob
     .getByRole("list", { name: "Direct messages" })
-    .getByRole("button", { name: /Alice/ })
+    .getByRole("button", { name: /^Alice/ })
     .click();
   await expect(conversation(bob, "Alice")).toContainText("before the reload");
 
   await bob.reload();
 
   // Bob is the same person in the same room, and is back in the conversation he had open.
-  await expect(bob.getByText("Chatting as Bob")).toBeVisible();
+  await expect(
+    bob.getByRole("button", { name: "Your profile: Bob" }),
+  ).toBeVisible();
   await expect(conversation(bob, "Alice")).toContainText("before the reload");
 
   // Both read the same history: Bob's own copy says he left and came back, just as Alice's does.
@@ -745,10 +758,10 @@ test("a reload leaves a conversation closed when the other person is no longer i
   await alice
     .getByRole("textbox", { name: "Message to Bob" })
     .fill("hello Bob");
-  await alice.getByRole("button", { name: "Send" }).click();
+  await alice.getByRole("button", { name: "Send", exact: true }).click();
   await bob
     .getByRole("list", { name: "Direct messages" })
-    .getByRole("button", { name: /Alice/ })
+    .getByRole("button", { name: /^Alice/ })
     .click();
   await expect(
     bob.getByRole("log", { name: "Direct message with Alice" }),
@@ -763,7 +776,7 @@ test("a reload leaves a conversation closed when the other person is no longer i
   await expect(
     bob
       .getByRole("list", { name: "Direct messages" })
-      .getByRole("button", { name: /Alice/ }),
+      .getByRole("button", { name: /^Alice/ }),
   ).toBeVisible();
 });
 
@@ -773,10 +786,16 @@ test("the room says who comes and goes, unless a guest switches that off", async
   const alice = await newGuest(browser);
   await enterRoom(alice, LOUNGE.name, "Alice");
   const room = alice.getByRole("log", { name: LOUNGE.name });
-  const checkbox = alice.getByRole("checkbox", {
-    name: "Show when people join and leave",
-  });
-  await expect(checkbox).toBeChecked();
+  // The setting is an item of the burger menu, which closes again when it is used.
+  const openSetting = async () => {
+    await alice.getByRole("button", { name: "Menu" }).click();
+
+    return alice.getByRole("menuitem", {
+      name: "Show when people join and leave",
+    });
+  };
+  await expect(await openSetting()).toHaveAttribute("aria-checked", "true");
+  await alice.keyboard.press("Escape");
 
   const bob = await newGuest(browser);
   await enterRoom(bob, LOUNGE.name, "Bob");
@@ -785,11 +804,13 @@ test("the room says who comes and goes, unless a guest switches that off", async
   await bob.getByRole("button", { name: "Leave room" }).click();
   await expect(room).toContainText("Bob left the room.");
 
-  await checkbox.uncheck();
+  await (await openSetting()).click();
   await expect(room).not.toContainText("Bob left the room.");
 
   // The choice belongs to the browser, so a reload keeps it.
   await alice.reload();
-  await expect(alice.getByText("Chatting as Alice")).toBeVisible();
-  await expect(checkbox).not.toBeChecked();
+  await expect(
+    alice.getByRole("button", { name: "Your profile: Alice" }),
+  ).toBeVisible();
+  await expect(await openSetting()).toHaveAttribute("aria-checked", "false");
 });

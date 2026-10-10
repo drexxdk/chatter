@@ -3,6 +3,7 @@ import type { Server as HttpServer } from "http";
 import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
 
+import { parseAge } from "./age.js";
 import { avatarSchema, parseAvatar, type Avatar } from "./avatars.js";
 import { isBanned } from "./bans.js";
 import {
@@ -36,12 +37,17 @@ const NEW_CONVERSATION_WINDOW_MS = 60_000;
 const MAX_BLOCKED = 100;
 const MAX_REMEMBERED_PARTNERS = 200;
 const MAX_GUEST_ID_LENGTH = 64;
+// Changing the name or the profile shows up for everybody in the room, so it is limited like starting conversations.
+const PROFILE_CHANGES_PER_WINDOW = 5;
+const PROFILE_CHANGE_WINDOW_MS = 60_000;
 
 interface SocketData {
   guestId: string;
   nickname: string;
   role: ChatRole;
   avatar: Avatar;
+  // Only when the guest said how old they are.
+  age?: number;
   // The Payload account behind a signed-in role; guests have none.
   accountId?: number;
   ipHash: string;
@@ -49,6 +55,8 @@ interface SocketData {
   banned?: boolean;
   roomSlug?: string;
   recentMessageTimes: number[];
+  // When the guest last changed their profile, for the limit on that.
+  profileChangeTimes: number[];
   // Whose direct messages this connection does not want. Arrays, because the data is copied between nodes as JSON.
   blockedGuestIds: string[];
   // Who this connection has messaged, and when it started those conversations, for the new-conversation limit.
@@ -174,6 +182,9 @@ export function createSocketServer(
         nickname: (member.data as SocketData).nickname,
         role: (member.data as SocketData).role,
         avatar: (member.data as SocketData).avatar,
+        ...((member.data as SocketData).age === undefined
+          ? {}
+          : { age: (member.data as SocketData).age }),
       })),
     });
   }
@@ -302,9 +313,11 @@ export function createSocketServer(
       nickname,
       role,
       avatar: role === "guest" ? parseAvatar(auth.avatar) : "other",
+      age: role === "guest" ? parseAge(auth.age) : undefined,
       accountId,
       ipHash,
       recentMessageTimes: [],
+      profileChangeTimes: [],
       blockedGuestIds: [],
       dmPartners: [],
       dmStartTimes: [],
@@ -343,6 +356,7 @@ export function createSocketServer(
       nickname: data.nickname,
       role: data.role,
       avatar: data.avatar,
+      ...(data.age === undefined ? {} : { age: data.age }),
       resumeSecret: resumeSecrets.get(socket),
     });
 
@@ -565,6 +579,89 @@ export function createSocketServer(
       reply({ ok: true });
 
       if (was) await tellBlocked(guestId, "dm:unblocked");
+    });
+
+    // A guest changes who they are shown as: the name, the avatar and the age, each only when it is in the payload (an
+    // age of null takes it back). Everything is checked before anything changes. A moderator's name belongs to their
+    // account, so they cannot.
+    socket.on("profile:update", async (payload: unknown, ack?: Ack) => {
+      const reply: Ack = typeof ack === "function" ? ack : () => {};
+
+      if (data.role !== "guest") {
+        return reply({ ok: false, error: "forbidden" });
+      }
+
+      const fields: Record<string, unknown> =
+        typeof payload === "object" && payload !== null
+          ? (payload as Record<string, unknown>)
+          : {};
+      const now = Date.now();
+
+      data.profileChangeTimes = data.profileChangeTimes.filter(
+        (time) => now - time < PROFILE_CHANGE_WINDOW_MS,
+      );
+
+      if (data.profileChangeTimes.length >= PROFILE_CHANGES_PER_WINDOW) {
+        return reply({
+          ok: false,
+          error: "rate_limited",
+          retryAfterMs:
+            data.profileChangeTimes[0] + PROFILE_CHANGE_WINDOW_MS - now,
+        });
+      }
+
+      let nickname = data.nickname;
+      let avatar = data.avatar;
+      let age = data.age;
+
+      if ("nickname" in fields) {
+        const valid = validateNickname(fields.nickname);
+
+        if (!valid) return reply({ ok: false, error: "invalid_nickname" });
+
+        if (valid !== data.nickname) {
+          try {
+            if (isReservedNickname(valid, await getModeratorNames())) {
+              return reply({ ok: false, error: "reserved_nickname" });
+            }
+          } catch (error) {
+            console.error("Moderator names unavailable:", error);
+            return reply({ ok: false, error: "unavailable" });
+          }
+        }
+
+        nickname = valid;
+      }
+
+      if ("avatar" in fields) {
+        const parsed = avatarSchema.safeParse(fields.avatar);
+
+        if (!parsed.success) {
+          return reply({ ok: false, error: "invalid_profile" });
+        }
+
+        avatar = parsed.data;
+      }
+
+      if ("age" in fields) {
+        age = fields.age === null ? undefined : parseAge(fields.age);
+
+        if (fields.age !== null && age === undefined) {
+          return reply({ ok: false, error: "invalid_profile" });
+        }
+      }
+
+      data.nickname = nickname;
+      data.avatar = avatar;
+      data.age = age;
+      data.profileChangeTimes.push(now);
+
+      reply({
+        ok: true,
+        profile: { nickname, avatar, ...(age === undefined ? {} : { age }) },
+      });
+
+      if (data.roomSlug) await emitPresence(data.roomSlug);
     });
 
     socket.on("room:join", async (payload: unknown, ack?: Ack) => {

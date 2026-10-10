@@ -22,7 +22,21 @@ export class FakeSocket implements ChatSocket {
     "dm:send": () => ({ ok: true }),
     "dm:block": () => ({ ok: true }),
     "dm:unblock": () => ({ ok: true }),
+    // Like the real server, answers with who the guest is now.
+    "profile:update": (payload) => {
+      const changes = { ...(payload as Record<string, unknown>) };
+      if (changes.age === null) delete changes.age;
+      this.profile = { ...this.profile, ...changes };
+      if ((payload as Record<string, unknown>).age === null) {
+        delete this.profile.age;
+      }
+
+      return { ok: true, profile: this.profile };
+    },
   };
+
+  // Who the real server would say this guest is.
+  profile: Record<string, unknown>;
 
   constructor(
     readonly nickname: string,
@@ -36,7 +50,14 @@ export class FakeSocket implements ChatSocket {
     readonly avatar: string = "other",
     // The secret the real server hands each connection for resuming its identity.
     readonly resumeSecret?: string,
+    // What the guest said about their age when connecting.
+    readonly age?: number,
   ) {
+    this.profile = {
+      nickname,
+      avatar: token ? "other" : avatar,
+      ...(age === undefined ? {} : { age }),
+    };
     queueMicrotask(() => {
       if (handshakeError)
         this.serverEmit("connect_error", new Error(handshakeError));
@@ -46,6 +67,7 @@ export class FakeSocket implements ChatSocket {
           nickname,
           role: token ? "moderator" : "guest",
           avatar: token ? "other" : avatar,
+          ...(age === undefined ? {} : { age }),
           resumeSecret: this.resumeSecret,
         });
         if (waitingAnnouncement)
@@ -75,9 +97,12 @@ export class FakeSocket implements ChatSocket {
           members: [
             {
               guestId: this.guestId,
-              nickname: this.nickname,
+              nickname: this.profile.nickname,
               role: this.token ? "moderator" : "guest",
-              avatar: this.token ? "other" : this.avatar,
+              avatar: this.token ? "other" : this.profile.avatar,
+              ...(this.profile.age === undefined
+                ? {}
+                : { age: this.profile.age }),
             },
             ...this.others,
           ],
@@ -124,7 +149,7 @@ export function makeFakeServer(
   const upcomingHandshakeErrors: string[] = [];
 
   const createSocket = vi.fn<CreateSocket>(
-    (nickname, token, avatar, resume) => {
+    (nickname, token, avatar, resume, age) => {
       // A real server honours a resume with the right secret; the fake always accepts it unless told otherwise.
       const guestId =
         (options.refuseResume ? undefined : resume?.guestId) ??
@@ -137,6 +162,7 @@ export function makeFakeServer(
         options.waitingAnnouncement,
         avatar,
         options.withoutSecret ? undefined : `secret-${sockets.length + 1}`,
+        age,
       );
       Object.assign(socket.acks, acks);
       socket.others = options.others ?? [];

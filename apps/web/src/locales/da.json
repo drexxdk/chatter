@@ -1,6 +1,18 @@
 {
   "app": { "title": "Chatter" },
   "language": { "label": "Sprog" },
+  "menu": { "open": "Menu" },
+  "profile": {
+    "open": "Din profil: {{name}}",
+    "title": "Din profil",
+    "age": "Alder",
+    "ageHint": "Valgfri, {{min}}–{{max}}. Alle i rummet kan se den.",
+    "years_one": "{{count}} år",
+    "years_other": "{{count}} år",
+    "save": "Gem",
+    "saving": "Gemmer…",
+    "moderatorNote": "Du er logget ind som moderator. Dit navn kommer fra din konto og kan ikke ændres her."
+  },
   "time": {
     "fewSecondsAgo": "for få sekunder siden",
     "minutesAgo_one": "for {{count}} minut siden",
@@ -66,7 +78,6 @@
   },
   "room": {
     "leave": "Forlad rum",
-    "chattingAs": "Du chatter som {{nickname}}",
     "members": "I dette rum ({{count}})",
     "panel": "Personer og direkte beskeder",
     "closePanel": "Luk",
@@ -148,6 +159,8 @@
     "invalid_nickname": "Det kaldenavn er ikke tilladt. Brug 2–24 bogstaver, tal, mellemrum eller _ . -",
     "banned": "Du er udelukket fra denne chat.",
     "reserved_nickname": "Det kaldenavn er reserveret. Vælg et andet.",
+    "invalid_profile": "Den profil er ikke tilladt. Alderen skal være mellem {{min}} og {{max}}.",
+    "profile_rate_limited": "Du har ændret din profil for ofte. Du kan ændre den igen om {{seconds}} s.",
     "invalid_token": "Din moderatorsession er udløbet. Log ind igen.",
     "invalid_credentials": "Forkert e-mail eller adgangskode.",
     "not_a_moderator": "Denne konto kan ikke moderere chatten.",

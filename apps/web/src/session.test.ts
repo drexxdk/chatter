@@ -5,6 +5,7 @@ import {
   loadDirect,
   loadSession,
   rememberConnection,
+  rememberProfile,
   saveDirect,
   saveSession,
 } from "./session";
@@ -217,5 +218,67 @@ describe("the saved conversations", () => {
 
     expect(sessionStorage.getItem(SESSION)).toBeNull();
     expect(sessionStorage.getItem(DIRECT)).toBeNull();
+  });
+});
+
+describe("the age in the saved session", () => {
+  it("is read back when it is a valid age, and left out otherwise", () => {
+    sessionStorage.setItem(
+      SESSION,
+      JSON.stringify({ nickname: "Alice", age: 27 }),
+    );
+    expect(loadSession()).toMatchObject({ age: 27 });
+
+    for (const age of [12, 121, 20.5, "27", null]) {
+      sessionStorage.setItem(
+        SESSION,
+        JSON.stringify({ nickname: "Alice", age }),
+      );
+      expect(loadSession()).not.toHaveProperty("age");
+    }
+  });
+});
+
+describe("remembering a changed profile", () => {
+  it("replaces the name, avatar and age and keeps the rest", () => {
+    saveSession({
+      nickname: "Alice",
+      avatar: "male",
+      age: 30,
+      guestIds: ["guest-1"],
+      resume: { guestId: "guest-1", secret: "s" },
+    });
+
+    rememberProfile({ nickname: "Alicia", avatar: "female", age: 31 });
+
+    expect(stored(SESSION)).toEqual({
+      nickname: "Alicia",
+      avatar: "female",
+      age: 31,
+      guestIds: ["guest-1"],
+      resume: { guestId: "guest-1", secret: "s" },
+    });
+  });
+
+  it("drops what the guest took back, and does not keep the plain avatar", () => {
+    saveSession({ nickname: "Alice", avatar: "male", age: 30 });
+
+    rememberProfile({ nickname: "Alice", avatar: "other" });
+
+    expect(stored(SESSION)).toEqual({ nickname: "Alice" });
+  });
+
+  it("does nothing when no session is saved, so it cannot bring one back", () => {
+    rememberProfile({ nickname: "Alice", age: 30 });
+
+    expect(sessionStorage.getItem(SESSION)).toBeNull();
+  });
+
+  it("leaves a moderator's alone: the name is their account's", () => {
+    saveSession({ nickname: "Ada Mod", token: "signed" });
+
+    rememberProfile({ nickname: "Somebody", age: 30 });
+
+    expect(stored(SESSION)).toEqual({ nickname: "Ada Mod", token: "signed" });
   });
 });

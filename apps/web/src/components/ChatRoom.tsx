@@ -20,7 +20,6 @@ import { AnnounceForm } from "./AnnounceForm";
 import { PLAIN_AVATAR } from "../chat/avatar";
 import type { Partner } from "../chat/direct";
 import { timeline, withDirect, type RoomEvent } from "../chat/roomEvents";
-import { loadShowMovements, saveShowMovements } from "../preferences";
 import { focusMessageBox } from "../focusMessageBox";
 import { gifApiKey } from "../gifApi";
 import { NAV_STOP_CLASS, navStop, useRowNavigation } from "../rowNavigation";
@@ -43,6 +42,8 @@ interface ChatRoomProps {
   members: Member[];
   messages: ChatMessage[];
   events: RoomEvent[];
+  // Whether the room's log also tells who came and went.
+  showMovements: boolean;
   error: string | null;
   retryAfterSeconds: number | null;
   onSend: (text: string) => Promise<boolean>;
@@ -58,6 +59,7 @@ export function ChatRoom({
   members,
   messages,
   events,
+  showMovements,
   error,
   retryAfterSeconds,
   onSend,
@@ -66,7 +68,6 @@ export function ChatRoom({
 }: ChatRoomProps) {
   const { t } = useTranslation();
   const [text, setText] = useState("");
-  const [showMovements, setShowMovements] = useState(loadShowMovements);
   const items = withDirect(
     timeline(messages, showMovements ? events : []),
     direct.threads,
@@ -212,11 +213,6 @@ export function ChatRoom({
     );
   };
 
-  function changeShowMovements(show: boolean) {
-    setShowMovements(show);
-    saveShowMovements(show);
-  }
-
   const replyWaiting =
     replyFailure?.error === "rate_limited" && replyFailure.retryAfterSeconds;
 
@@ -225,12 +221,8 @@ export function ChatRoom({
       aria-labelledby="room-heading"
       className="grid flex-1 gap-4 md:grid-cols-[1fr_14rem]"
     >
-      <div className="flex flex-col md:col-start-1">
-        <div className="sticky top-14 z-20 space-y-2 bg-slate-950 pb-2">
-          <p className="text-sm text-slate-400">
-            {t("room.chattingAs", { nickname: session.nickname })}
-          </p>
-
+      <div className="flex min-w-0 flex-col md:col-start-1">
+        <div className="sticky top-14 z-20 space-y-2 bg-slate-950 pb-2 empty:hidden">
           {direct.active && (
             <div className="flex items-center gap-2">
               <button
@@ -414,14 +406,12 @@ export function ChatRoom({
                   onChange={chooseRecipient}
                   threads={direct.threads}
                   onOpenThread={openConversation}
-                  showMovements={showMovements}
                   notify={direct.notify}
                   onNotifyChange={direct.setNotify}
                   onSetMuted={direct.setMuted}
                   blockedIds={direct.blockedIds}
                   blockedByIds={direct.blockedByIds}
                   onSetBlocked={direct.setBlocked}
-                  onShowMovementsChange={changeShowMovements}
                 />
                 <label htmlFor="message" className="sr-only">
                   {replyTo
@@ -502,8 +492,6 @@ export function ChatRoom({
           selfGuestId={session.guestId}
           threads={direct.threads}
           onOpen={openConversation}
-          showMovements={showMovements}
-          onShowMovementsChange={changeShowMovements}
           notify={direct.notify}
           blockedIds={direct.blockedIds}
           blockedByIds={direct.blockedByIds}

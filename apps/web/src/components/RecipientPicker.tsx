@@ -24,8 +24,6 @@ export function RecipientPicker({
   onChange,
   threads,
   onOpenThread,
-  showMovements,
-  onShowMovementsChange,
   notify,
   onNotifyChange,
   onSetMuted,
@@ -38,8 +36,6 @@ export function RecipientPicker({
   onChange: (guestId: string | null) => void;
   threads: DirectThread[];
   onOpenThread: (partner: Partner) => void;
-  showMovements: boolean;
-  onShowMovementsChange: (show: boolean) => void;
   notify: boolean;
   onSetMuted: (guestId: string, muted: boolean) => void;
   onNotifyChange: (notify: boolean) => void;
@@ -233,15 +229,6 @@ export function RecipientPicker({
           onSetMuted={onSetMuted}
           onSetBlocked={onSetBlocked}
         />
-
-        <label className="flex items-center gap-2 text-sm text-slate-300 md:hidden">
-          <input
-            type="checkbox"
-            checked={showMovements}
-            onChange={(event) => onShowMovementsChange(event.target.checked)}
-          />
-          {t("room.showMovements")}
-        </label>
       </SideDrawer>
     </>
   );

@@ -25,9 +25,12 @@ const LOOKS: Record<Avatar, { symbol?: string; className: string }> = {
 export function AvatarIcon({
   avatar,
   small = false,
+  titled = true,
 }: {
   avatar: Avatar;
   small?: boolean;
+  // Whether hovering names the avatar ("Other"); off where it would only be in the way.
+  titled?: boolean;
 }) {
   const { t } = useTranslation();
   // Live messages and the list of people reach here as the server sent them, so an unknown value must not break it.
@@ -36,7 +39,7 @@ export function AvatarIcon({
 
   return (
     <span
-      title={t(`avatar.${kind}`)}
+      title={titled ? t(`avatar.${kind}`) : undefined}
       data-avatar={kind}
       aria-hidden="true"
       className={`inline-flex shrink-0 select-none items-center justify-center rounded-full ring-1 ${look.className} ${

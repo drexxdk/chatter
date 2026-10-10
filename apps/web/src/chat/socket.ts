@@ -21,14 +21,23 @@ export type CreateSocket = (
   token?: string,
   avatar?: Avatar,
   resume?: Resume,
+  age?: number,
 ) => ChatSocket;
 
 // A moderator presents the token from signing in; a guest presents a nickname and, if they chose one, an avatar.
 // Either may add the identity they had before, which the server hands back if the secret is right.
-export const createSocket: CreateSocket = (nickname, token, avatar, resume) =>
+export const createSocket: CreateSocket = (
+  nickname,
+  token,
+  avatar,
+  resume,
+  age,
+) =>
   io(CHAT_SERVER_URL, {
     auth: {
-      ...(token ? { token } : avatar ? { nickname, avatar } : { nickname }),
+      ...(token
+        ? { token }
+        : { nickname, ...(avatar ? { avatar } : {}), ...(age ? { age } : {}) }),
       ...(resume
         ? { guestId: resume.guestId, resumeSecret: resume.secret }
         : {}),

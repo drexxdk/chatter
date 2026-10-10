@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { SignInError, signInModerator, type Room } from "./api";
@@ -10,17 +10,21 @@ import { AnnouncementBanner } from "./components/AnnouncementBanner";
 import { ChatRoom } from "./components/ChatRoom";
 import { ErrorAlert } from "./components/ErrorAlert";
 import { InfoPanel } from "./components/InfoPanel";
-import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { Lobby, useRooms } from "./components/Lobby";
+import { MainMenu } from "./components/MainMenu";
 import { NicknameDialog } from "./components/NicknameDialog";
+import { ProfileButton } from "./components/ProfileButton";
+import { ProfileDialog } from "./components/ProfileDialog";
 import { RoomSwitcher } from "./components/RoomSwitcher";
 import { SideDrawer } from "./components/SideDrawer";
 import { LOBBY_PATH, roomPath, slugFromPath } from "./place";
+import { loadShowMovements, saveShowMovements } from "./preferences";
 import {
   clearSession,
   loadDirect,
   loadSession,
   rememberConnection,
+  rememberProfile,
   saveDirect,
   saveSession,
 } from "./session";
@@ -39,6 +43,13 @@ export function App({
   const [signInError, setSignInError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [showMovements, setShowMovements] = useState(loadShowMovements);
+
+  function changeShowMovements(show: boolean) {
+    setShowMovements(show);
+    saveShowMovements(show);
+  }
 
   const rooms = roomsState.status === "ready" ? roomsState.rooms : [];
   const currentRoom = rooms.find((room) => room.slug === chat.roomSlug);
@@ -58,17 +69,22 @@ export function App({
     }
   }
 
-  async function handleNickname(nickname: string, avatar: Avatar) {
+  async function handleNickname(
+    nickname: string,
+    avatar: Avatar,
+    age?: number,
+  ) {
     if (!pendingRoom) return;
 
     // The plain avatar is what the server gives anyone who sends none, so it is not sent or kept.
     const chosen = avatar === PLAIN_AVATAR ? undefined : avatar;
 
-    if (!(await chat.connect(nickname, { avatar: chosen }))) return;
+    if (!(await chat.connect(nickname, { avatar: chosen, age }))) return;
 
     saveSession({
       nickname,
       ...(chosen ? { avatar: chosen } : {}),
+      ...(age === undefined ? {} : { age }),
       guestIds: chat.guestIds(),
       ...resumeDetails(),
     });
@@ -159,6 +175,17 @@ export function App({
     });
   }, [chat.ownGuestIds, chat.session]);
 
+  // A change to the profile is what a reload has to bring the guest back as.
+  useEffect(() => {
+    if (chat.session && chat.session.role !== "moderator") {
+      rememberProfile({
+        nickname: chat.session.nickname,
+        avatar: chat.session.avatar,
+        age: chat.session.age,
+      });
+    }
+  }, [chat.session]);
+
   // Private conversations live only in the page, so what is open is kept for a reload. Not before there is a
   // connection: a reloaded page starts empty and must not overwrite what it is about to restore.
   useEffect(() => {
@@ -205,6 +232,7 @@ export function App({
       const connected = await chat.connect(saved.nickname, {
         token: saved.token,
         avatar: saved.avatar,
+        age: saved.age,
         previousGuestIds: saved.guestIds,
         resume: saved.resume,
         threads: direct.threads,
@@ -278,16 +306,22 @@ export function App({
         ) : (
           <h1 className="text-2xl font-bold">{t("app.title")}</h1>
         )}
-        <div className="flex shrink-0 items-center gap-2">
-          <LanguageSwitcher />
-          <button
-            type="button"
-            onClick={() => setInfoOpen(true)}
-            aria-label={t("info.button")}
-            className="rounded-md p-2 hover:bg-slate-800"
-          >
-            <Info aria-hidden="true" className="h-5 w-5" />
-          </button>
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          {chat.roomSlug && chat.session && (
+            <ProfileButton
+              nickname={chat.session.nickname}
+              avatar={chat.session.avatar}
+              onClick={() => setProfileOpen(true)}
+            />
+          )}
+          <MainMenu
+            onInfo={() => setInfoOpen(true)}
+            movements={
+              chat.roomSlug && chat.session && !chat.direct.active
+                ? { checked: showMovements, onChange: changeShowMovements }
+                : undefined
+            }
+          />
         </div>
       </header>
 
@@ -308,6 +342,7 @@ export function App({
             members={chat.members}
             messages={chat.messages}
             events={chat.roomEvents}
+            showMovements={showMovements}
             error={chat.error}
             retryAfterSeconds={chat.retryAfterSeconds}
             onSend={chat.sendMessage}
@@ -334,12 +369,23 @@ export function App({
         <InfoPanel slowModeSeconds={currentRoom?.slowModeSeconds} />
       </SideDrawer>
 
+      {chat.session && (
+        <ProfileDialog
+          open={profileOpen}
+          onClose={() => setProfileOpen(false)}
+          session={chat.session}
+          onSave={chat.updateProfile}
+        />
+      )}
+
       {pendingRoom && (
         <NicknameDialog
           connecting={chat.status === "connecting"}
           signingIn={signingIn}
           error={signInError ?? chat.error}
-          onSubmit={(nickname, avatar) => void handleNickname(nickname, avatar)}
+          onSubmit={(nickname, avatar, age) =>
+            void handleNickname(nickname, avatar, age)
+          }
           onSignIn={(email, password) => void handleSignIn(email, password)}
           onModeChange={clearDialogErrors}
           onCancel={handleCancel}

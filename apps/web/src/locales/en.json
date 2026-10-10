@@ -1,6 +1,18 @@
 {
   "app": { "title": "Chatter" },
   "language": { "label": "Language" },
+  "menu": { "open": "Menu" },
+  "profile": {
+    "open": "Your profile: {{name}}",
+    "title": "Your profile",
+    "age": "Age",
+    "ageHint": "Optional, {{min}}–{{max}}. Everybody in the room can see it.",
+    "years_one": "{{count}} year old",
+    "years_other": "{{count}} years old",
+    "save": "Save",
+    "saving": "Saving…",
+    "moderatorNote": "You are signed in as a moderator. Your name comes from your account and can't be changed here."
+  },
   "time": {
     "fewSecondsAgo": "a few seconds ago",
     "minutesAgo_one": "{{count}} minute ago",
@@ -66,7 +78,6 @@
   },
   "room": {
     "leave": "Leave room",
-    "chattingAs": "Chatting as {{nickname}}",
     "members": "In this room ({{count}})",
     "people": "People in this room",
     "panel": "People and direct messages",
@@ -148,6 +159,8 @@
     "invalid_nickname": "That nickname isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",
     "banned": "You are banned from this chat.",
     "reserved_nickname": "That nickname is reserved. Pick another one.",
+    "invalid_profile": "That profile isn't allowed. The age must be between {{min}} and {{max}}.",
+    "profile_rate_limited": "You have changed your profile too often. You can change it again in {{seconds}} s.",
     "invalid_token": "Your moderator session has expired. Sign in again.",
     "invalid_credentials": "Wrong email or password.",
     "not_a_moderator": "This account cannot moderate the chat.",

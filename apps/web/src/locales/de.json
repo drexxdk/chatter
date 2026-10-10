@@ -1,6 +1,18 @@
 {
   "app": { "title": "Chatter" },
   "language": { "label": "Sprache" },
+  "menu": { "open": "Menü" },
+  "profile": {
+    "open": "Dein Profil: {{name}}",
+    "title": "Dein Profil",
+    "age": "Alter",
+    "ageHint": "Optional, {{min}}–{{max}}. Alle im Raum können es sehen.",
+    "years_one": "{{count}} Jahr alt",
+    "years_other": "{{count}} Jahre alt",
+    "save": "Speichern",
+    "saving": "Wird gespeichert…",
+    "moderatorNote": "Du bist als Moderator angemeldet. Dein Name stammt aus deinem Konto und kann hier nicht geändert werden."
+  },
   "time": {
     "fewSecondsAgo": "vor wenigen Sekunden",
     "minutesAgo_one": "vor {{count}} Minute",
@@ -66,7 +78,6 @@
   },
   "room": {
     "leave": "Raum verlassen",
-    "chattingAs": "Du chattest als {{nickname}}",
     "members": "In diesem Raum ({{count}})",
     "panel": "Personen und Direktnachrichten",
     "closePanel": "Schließen",
@@ -148,6 +159,8 @@
     "invalid_nickname": "Dieser Spitzname ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",
     "banned": "Du wurdest aus diesem Chat gesperrt.",
     "reserved_nickname": "Dieser Spitzname ist reserviert. Wähle einen anderen.",
+    "invalid_profile": "Dieses Profil ist nicht erlaubt. Das Alter muss zwischen {{min}} und {{max}} liegen.",
+    "profile_rate_limited": "Du hast dein Profil zu oft geändert. Du kannst es in {{seconds}} s wieder ändern.",
     "invalid_token": "Deine Moderatoren-Sitzung ist abgelaufen. Melde dich erneut an.",
     "invalid_credentials": "Falsche E-Mail oder falsches Passwort.",
     "not_a_moderator": "Dieses Konto kann den Chat nicht moderieren.",

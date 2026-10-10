@@ -1,8 +1,9 @@
 // What is kept in this tab so that reloading the page puts a guest back where they were. It lives in session storage:
 // it is per tab (two windows can be two different guests) and gone when the tab is closed.
-import { AVATARS, type Avatar } from "./chat/avatar";
+import { AVATARS, PLAIN_AVATAR, type Avatar } from "./chat/avatar";
 import { parseThreads, type DirectThread } from "./chat/direct";
 import type { Resume } from "./chat/socket";
+import { parseAge } from "./profile";
 
 const KEY = "chatter.session";
 const DIRECT_KEY = "chatter.direct";
@@ -16,6 +17,8 @@ export interface SavedSession {
   token?: string;
   // Only when the guest chose one.
   avatar?: Avatar;
+  // Only when the guest said how old they are.
+  age?: number;
   // The ids the server gave this guest on earlier connections. A reload is a new connection with a new id, and these
   // are how what they wrote before is still shown as theirs.
   guestIds?: string[];
@@ -42,7 +45,7 @@ export function loadSession(): SavedSession | null {
 
     if (typeof value !== "object" || value === null) return null;
 
-    const { nickname, token, avatar, guestIds, resume } = value as Record<
+    const { nickname, token, avatar, age, guestIds, resume } = value as Record<
       string,
       unknown
     >;
@@ -63,6 +66,7 @@ export function loadSession(): SavedSession | null {
       ...(AVATARS.find((known) => known === avatar)
         ? { avatar: avatar as Avatar }
         : {}),
+      ...(parseAge(age) === undefined ? {} : { age: parseAge(age) }),
       ...(ids.length > 0 ? { guestIds: ids.slice(-MAX_GUEST_IDS) } : {}),
       ...(resumable ? { resume: resumable } : {}),
     };
@@ -101,6 +105,29 @@ export function rememberConnection(update: {
     ...saved,
     guestIds: update.guestIds,
     ...(update.resume ? { resume: update.resume } : {}),
+  });
+}
+
+// The guest changed who they are shown as, so a reload must bring them back as that. Does nothing for a moderator
+// (their name is their account's) or when no session is saved.
+export function rememberProfile(profile: {
+  nickname: string;
+  avatar?: Avatar;
+  age?: number;
+}): void {
+  const saved = loadSession();
+
+  if (!saved || saved.token) return;
+
+  const { avatar: _avatar, age: _age, ...rest } = saved;
+
+  saveSession({
+    ...rest,
+    nickname: profile.nickname,
+    ...(profile.avatar && profile.avatar !== PLAIN_AVATAR
+      ? { avatar: profile.avatar }
+      : {}),
+    ...(profile.age === undefined ? {} : { age: profile.age }),
   });
 }
 

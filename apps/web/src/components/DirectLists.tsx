@@ -34,6 +34,20 @@ export function BlockedByTag() {
   );
 }
 
+// How old somebody said they are, shown small next to their name.
+function AgeBadge({ age }: { age?: number }) {
+  const { t } = useTranslation();
+
+  if (age === undefined) return null;
+
+  return (
+    <span className="shrink-0 text-xs text-slate-400">
+      <span aria-hidden="true">{age}</span>
+      <span className="sr-only">{t("profile.years", { count: age })}</span>
+    </span>
+  );
+}
+
 // Everybody in the room, the guest included (not clickable: there is nobody to write to). A name opens a conversation,
 // which is only listed below once something has been said.
 export function PeopleList({
@@ -67,6 +81,7 @@ export function PeopleList({
                   <span className={nameClass(role)}>{member.nickname}</span>
                   <span className="ml-1 text-slate-500">({t("room.you")})</span>
                 </span>
+                <AgeBadge age={member.age} />
               </span>
             ) : (
               <button
@@ -84,6 +99,7 @@ export function PeopleList({
               >
                 <AvatarIcon avatar={avatar} small />
                 <span className={nameClass(role)}>{member.nickname}</span>
+                <AgeBadge age={member.age} />
                 {blockedIds.includes(member.guestId) && <BlockedTag />}
                 {blockedByIds.includes(member.guestId) && <BlockedByTag />}
               </button>
