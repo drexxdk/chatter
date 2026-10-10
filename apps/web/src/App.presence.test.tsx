@@ -371,15 +371,15 @@ describe("avatars", () => {
     }
 
     it.each([
-      ["Male", "male", "\u2642"],
-      ["Female", "female", "\u2640"],
-      ["Trans", "trans", "\u26a7"],
+      ["Male", "male", "lucide-mars"],
+      ["Female", "female", "lucide-venus"],
+      ["Trans", "trans", "lucide-transgender"],
     ])(
       "shows %s with its own symbol next to what somebody says",
-      async (title, avatar, symbol) => {
+      async (title, avatar, icon) => {
         await enterWith([message({ avatar })]);
 
-        expect(log().getByTitle(title)).toHaveTextContent(symbol);
+        expect(log().getByTitle(title).querySelector("svg")).toHaveClass(icon);
       },
     );
 

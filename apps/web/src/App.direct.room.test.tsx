@@ -125,9 +125,7 @@ describe("direct messages", () => {
       const names = () =>
         drawer
           .getAllByRole("button")
-          .map((button) =>
-            button.textContent?.replace(/[\u2640\u2642]|\u26a7\ufe0e?/g, ""),
-          )
+          .map((button) => button.textContent)
           .filter((name) => ["Bob", "Carol", "Ada Mod"].includes(name ?? ""));
 
       expect(names()).toEqual(["Bob", "Carol", "Ada Mod"]);
