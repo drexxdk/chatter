@@ -6,7 +6,9 @@ import type { DirectEntry, Partner } from "../chat/direct";
 import { isStatus } from "../chat/direct";
 import type { ActionResult } from "../chat/useChat";
 import { focusMessageBox } from "../focusMessageBox";
+import { gifApiKey } from "../gifApi";
 import { ErrorAlert } from "./ErrorAlert";
+import { GifPicker } from "./GifPicker";
 import { MessageRow, StatusRow } from "./MessageRow";
 import { MessageInput } from "./MessageInput";
 
@@ -38,19 +40,19 @@ export function DirectChat({
   const [failure, setFailure] = useState<ActionResult & { ok: false }>();
   const label = t("dm.title", { name: partner.nickname });
 
+  async function deliver(value: string): Promise<boolean> {
+    const result = await onSend(value);
+    setFailure(result.ok ? undefined : result);
+
+    return result.ok;
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    const result = await onSend(trimmed);
-
-    if (result.ok) {
-      setText("");
-      setFailure(undefined);
-    } else {
-      setFailure(result);
-    }
+    if (await deliver(trimmed)) setText("");
   }
 
   // Only for undoing a block: blocking itself is in the conversation's header.
@@ -173,15 +175,20 @@ export function DirectChat({
               {t("dm.unblockAction")}
             </button>
           ) : (
-            <button
-              key="send"
-              type="submit"
-              disabled={!present || blockedBy}
-              aria-label={t("room.send")}
-              className="rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
-            >
-              <SendHorizontal aria-hidden="true" className="h-5 w-5" />
-            </button>
+            <>
+              {gifApiKey() && (
+                <GifPicker disabled={!present || blockedBy} onPick={deliver} />
+              )}
+              <button
+                key="send"
+                type="submit"
+                disabled={!present || blockedBy}
+                aria-label={t("room.send")}
+                className="rounded-md bg-indigo-600 px-3 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
+              >
+                <SendHorizontal aria-hidden="true" className="h-5 w-5" />
+              </button>
+            </>
           )}
         </form>
       </div>

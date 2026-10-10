@@ -6,6 +6,7 @@
     "apps/*"
   ],
   "scripts": {
+    "start": "node scripts/start.mjs",
     "dev:admin": "npm run dev --workspace apps/admin",
     "dev:chat-server": "npm run dev --workspace apps/chat-server",
     "dev:web": "npm run dev --workspace apps/web",
@@ -21,7 +22,9 @@
   },
   "devDependencies": {
     "audit-ci": "^7.1.0",
-    "prettier": "^3.4.2"
+    "concurrently": "^10.0.6",
+    "prettier": "^3.4.2",
+    "wait-on": "^9.5.1"
   },
   "engines": {
     "node": ">=20"

@@ -6,6 +6,18 @@
     "minutesAgo_one": "{{count}} minute ago",
     "minutesAgo_other": "{{count}} minutes ago"
   },
+  "gif": {
+    "open": "Send a GIF",
+    "title": "Choose a GIF",
+    "search": "Search GIFs",
+    "alt": "GIF",
+    "pick": "Send GIF: {{title}}",
+    "none": "No GIFs found.",
+    "loading": "Loading…",
+    "error": "The GIFs could not be loaded.",
+    "more": "Load more",
+    "powered": "Powered by GIPHY"
+  },
   "person": {
     "actions": "Actions for {{name}}",
     "message": "Message {{name}}",

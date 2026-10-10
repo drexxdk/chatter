@@ -6,6 +6,18 @@
     "minutesAgo_one": "for {{count}} minut siden",
     "minutesAgo_other": "for {{count}} minutter siden"
   },
+  "gif": {
+    "open": "Send en GIF",
+    "title": "Vælg en GIF",
+    "search": "Søg efter GIF'er",
+    "alt": "GIF",
+    "pick": "Send GIF: {{title}}",
+    "none": "Ingen GIF'er fundet.",
+    "loading": "Henter…",
+    "error": "GIF'erne kunne ikke hentes.",
+    "more": "Vis flere",
+    "powered": "Powered by GIPHY"
+  },
   "person": {
     "actions": "Handlinger for {{name}}",
     "message": "Skriv til {{name}}",

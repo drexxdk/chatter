@@ -22,9 +22,11 @@ import type { Partner } from "../chat/direct";
 import { timeline, withDirect, type RoomEvent } from "../chat/roomEvents";
 import { loadShowMovements, saveShowMovements } from "../preferences";
 import { focusMessageBox } from "../focusMessageBox";
+import { gifApiKey } from "../gifApi";
 import { NAV_STOP_CLASS, navStop, useRowNavigation } from "../rowNavigation";
 import { DirectChat } from "./DirectChat";
 import { BlockedTag } from "./DirectLists";
+import { GifPicker } from "./GifPicker";
 import { Timestamp } from "./Timestamp";
 import { ErrorAlert } from "./ErrorAlert";
 import { DirectRow, MessageRow, StatusRow } from "./MessageRow";
@@ -135,28 +137,25 @@ export function ChatRoom({
     if (result.ok) focusMessageBox();
   }
 
+  async function deliver(value: string): Promise<boolean> {
+    // What the guest has just written is what they want to see.
+    atBottom.current = true;
+
+    if (replyTo) {
+      const result = await direct.send(replyTo.guestId, value);
+      setReplyFailure(result.ok ? undefined : result);
+      return result.ok;
+    }
+
+    return onSend(value);
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const trimmed = text.trim();
     if (!trimmed || replyBlocked || replyBlockedBy) return;
 
-    // What the guest has just written is what they want to see.
-    atBottom.current = true;
-
-    if (replyTo) {
-      const result = await direct.send(replyTo.guestId, trimmed);
-
-      if (result.ok) {
-        setText("");
-        setReplyFailure(undefined);
-      } else {
-        setReplyFailure(result);
-      }
-
-      return;
-    }
-
-    if (await onSend(trimmed)) setText("");
+    if (await deliver(trimmed)) setText("");
   }
 
   function startReply(partner: Partner | null) {
@@ -446,6 +445,9 @@ export function ChatRoom({
                   }
                   className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
                 />
+                {gifApiKey() && (
+                  <GifPicker disabled={!canWrite} onPick={deliver} />
+                )}
                 <button
                   type="submit"
                   disabled={!canWrite}

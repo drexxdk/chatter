@@ -3,10 +3,12 @@ import { useTranslation } from "react-i18next";
 
 import type { Avatar } from "../chat/avatar";
 import type { Partner } from "../chat/direct";
+import { gifOf } from "../chat/gifs";
 import type { Role } from "../chat/useChat";
 import { NAV_STOP_CLASS, navStop } from "../rowNavigation";
 import { AvatarIcon } from "./Avatar";
 import { BlockedTag } from "./DirectLists";
+import { GifImage } from "./GifImage";
 import { Timestamp } from "./Timestamp";
 
 // One line of a conversation, in a room or between two people: what others say sits on the left with their avatar,
@@ -35,6 +37,7 @@ export function MessageRow({
 }) {
   const { t } = useTranslation();
   const moderator = role === "moderator";
+  const gif = gifOf(text);
 
   return (
     <li
@@ -67,17 +70,21 @@ export function MessageRow({
           <Timestamp sentAt={sentAt} className="text-slate-500" />
         </div>
         {/* Rendered as text, never as HTML. */}
-        <p
-          className={`whitespace-pre-wrap wrap-anywhere rounded-2xl px-3 py-2 ${
-            moderator
-              ? "border border-green-500/40 bg-green-900/30 font-bold text-green-300"
-              : mine
-                ? "rounded-br-sm bg-indigo-600 text-white"
-                : "rounded-bl-sm bg-slate-800"
-          }`}
-        >
-          {text}
-        </p>
+        {gif ? (
+          <GifImage url={gif} />
+        ) : (
+          <p
+            className={`whitespace-pre-wrap wrap-anywhere rounded-2xl px-3 py-2 ${
+              moderator
+                ? "border border-green-500/40 bg-green-900/30 font-bold text-green-300"
+                : mine
+                  ? "rounded-br-sm bg-indigo-600 text-white"
+                  : "rounded-bl-sm bg-slate-800"
+            }`}
+          >
+            {text}
+          </p>
+        )}
       </div>
       {menu}
     </li>
@@ -104,6 +111,7 @@ export function DirectRow({
 }) {
   const { t } = useTranslation();
   const label = t(mine ? "dm.to" : "dm.from", { name: partner.nickname });
+  const gif = gifOf(text);
 
   return (
     <li
@@ -121,13 +129,19 @@ export function DirectRow({
           <Timestamp sentAt={sentAt} className="text-slate-500" />
         </div>
         {/* Rendered as text, never as HTML. */}
-        <p
-          className={`whitespace-pre-wrap wrap-anywhere rounded-2xl border border-dashed border-amber-400/60 bg-amber-400/10 px-3 py-1 ${
-            banned ? "font-semibold italic text-red-400" : ""
-          }`}
-        >
-          {banned ? t("room.bannedMessage") : text}
-        </p>
+        {gif && !banned ? (
+          <div className="rounded-2xl border border-dashed border-amber-400/60 bg-amber-400/10 p-1">
+            <GifImage url={gif} />
+          </div>
+        ) : (
+          <p
+            className={`whitespace-pre-wrap wrap-anywhere rounded-2xl border border-dashed border-amber-400/60 bg-amber-400/10 px-3 py-1 ${
+              banned ? "font-semibold italic text-red-400" : ""
+            }`}
+          >
+            {banned ? t("room.bannedMessage") : text}
+          </p>
+        )}
       </div>
       {menu}
     </li>
