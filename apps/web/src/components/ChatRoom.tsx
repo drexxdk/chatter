@@ -279,14 +279,14 @@ export function ChatRoom({
       className="grid flex-1 gap-4 md:grid-cols-[1fr_14rem]"
     >
       <div className="flex min-w-0 flex-col md:col-start-1">
-        <div className="sticky top-14 z-20 space-y-2 bg-slate-950 pb-2 empty:hidden">
+        <div className="sticky top-14 z-20 space-y-2 bg-neutral-950 pb-2 empty:hidden">
           {direct.active && (
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={closeConversation}
                 aria-label={t("dm.back")}
-                className="rounded-md bg-slate-800 p-1.5 hover:bg-slate-700"
+                className="rounded-md bg-neutral-800 p-1.5 hover:bg-neutral-700"
               >
                 <ArrowLeft aria-hidden="true" className="h-4 w-4" />
               </button>
@@ -302,7 +302,7 @@ export function ChatRoom({
                     type="button"
                     onClick={() => void blockActive()}
                     aria-label={t("dm.block", { name: direct.active.nickname })}
-                    className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md bg-slate-800 px-2.5 py-1.5 text-sm hover:bg-slate-700"
+                    className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-800 px-2.5 py-1.5 text-sm hover:bg-neutral-700"
                   >
                     <Ban aria-hidden="true" className="h-4 w-4" />
                     <span className="hidden sm:inline">
@@ -355,10 +355,10 @@ export function ChatRoom({
               onFocus={rows.onFocus}
               onBlur={rows.onBlur}
               onKeyDownCapture={rows.onKeyDownCapture}
-              className="flex min-h-40 flex-1 flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900 p-3 [&>*]:shrink-0 [&>:first-child]:mt-auto"
+              className="flex min-h-40 flex-1 flex-col gap-2 rounded-lg border border-neutral-800 bg-neutral-950 p-3 [&>*]:shrink-0 [&>:first-child]:mt-auto"
             >
               {items.length === 0 && (
-                <li className="text-slate-500">{t("room.empty")}</li>
+                <li className="text-neutral-500">{t("room.empty")}</li>
               )}
               {runs(items, runAuthor).map((run) => {
                 const first = run[0];
@@ -446,7 +446,7 @@ export function ChatRoom({
                       </span>
                       <Timestamp
                         sentAt={first.message.sentAt}
-                        className="ml-2 text-xs text-slate-500"
+                        className="ml-2 text-xs text-neutral-500"
                       />
                     </li>
                   );

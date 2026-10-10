@@ -47,7 +47,7 @@ export function PersonMenu({
         tabIndex={-1}
         title={label}
         aria-label={label}
-        className="grid size-7 place-items-center rounded-full text-slate-300 outline-none hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-indigo-400 data-open:bg-slate-700"
+        className="grid size-7 place-items-center rounded-full text-neutral-300 outline-none hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-indigo-400 data-open:bg-neutral-700"
       >
         <Ellipsis aria-hidden="true" className="h-4 w-4" />
       </MenuButton>

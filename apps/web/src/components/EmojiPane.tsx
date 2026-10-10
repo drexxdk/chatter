@@ -27,7 +27,7 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
           title={words.split(" ")[0]}
           aria-label={emoji}
           onClick={() => onPick(emoji)}
-          className="aspect-square w-full rounded-md text-2xl outline-none hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-indigo-400"
+          className="aspect-square w-full rounded-md text-2xl outline-none hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-indigo-400"
         >
           {emoji}
         </button>
@@ -55,14 +55,14 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
           found.length > 0 ? (
             grid(found)
           ) : (
-            <p role="status" className="text-sm text-slate-400">
+            <p role="status" className="text-sm text-neutral-400">
               {t("picker.noEmoji")}
             </p>
           )
         ) : (
           EMOJI_SECTIONS.map((section) => (
             <section key={section.id}>
-              <h3 className="mb-1 text-xs font-semibold text-slate-400">
+              <h3 className="mb-1 text-xs font-semibold text-neutral-400">
                 {t(`picker.section.${section.id}`)}
               </h3>
               {grid(section.emojis)}

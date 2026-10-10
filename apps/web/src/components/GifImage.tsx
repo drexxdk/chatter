@@ -64,7 +64,7 @@ export function GifImage({ url }: { url: string }) {
         alt={t("gif.alt")}
         loading="lazy"
         referrerPolicy="no-referrer"
-        className="h-40 min-w-24 max-w-full rounded-2xl bg-slate-800 object-contain"
+        className="h-40 min-w-24 max-w-full rounded-2xl bg-neutral-800 object-contain"
       />
     );
   }
@@ -104,7 +104,7 @@ export function GifImage({ url }: { url: string }) {
         preload="metadata"
         onEnded={() => setState("paused")}
         onError={() => setFailed(true)}
-        className="h-40 min-w-24 max-w-full rounded-2xl bg-slate-800 object-contain"
+        className="h-40 min-w-24 max-w-full rounded-2xl bg-neutral-800 object-contain"
       />
       {state === "paused" && (
         <button
@@ -116,7 +116,7 @@ export function GifImage({ url }: { url: string }) {
           title={t("gif.replay")}
           className="absolute inset-0 grid place-items-center rounded-2xl outline-none focus-visible:outline-2 focus-visible:outline-indigo-400"
         >
-          <span className="grid size-10 place-items-center rounded-full bg-slate-900/70 text-white hover:bg-slate-900/90">
+          <span className="grid size-10 place-items-center rounded-full bg-neutral-900/70 text-white hover:bg-neutral-900/90">
             <Play aria-hidden="true" className="h-5 w-5" fill="currentColor" />
           </span>
         </button>
@@ -129,7 +129,7 @@ export function GifImage({ url }: { url: string }) {
           onClick={stop}
           aria-label={t("gif.stop")}
           title={t("gif.stop")}
-          className="absolute bottom-2 right-2 grid size-8 place-items-center rounded-full bg-slate-900/70 text-white outline-none hover:bg-slate-900/90 focus-visible:outline-2 focus-visible:outline-indigo-400"
+          className="absolute bottom-2 right-2 grid size-8 place-items-center rounded-full bg-neutral-900/70 text-white outline-none hover:bg-neutral-900/90 focus-visible:outline-2 focus-visible:outline-indigo-400"
         >
           <Square aria-hidden="true" className="h-4 w-4" fill="currentColor" />
         </button>

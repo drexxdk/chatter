@@ -99,12 +99,12 @@ export function GifPane({ onPick }: { onPick: (url: string) => void }) {
           </p>
         )}
         {status === "ready" && gifs.length === 0 && (
-          <p role="status" className="text-sm text-slate-400">
+          <p role="status" className="text-sm text-neutral-400">
             {t("gif.none")}
           </p>
         )}
         {status === "loading" && (
-          <p role="status" className="text-sm text-slate-400">
+          <p role="status" className="text-sm text-neutral-400">
             {t("gif.loading")}
           </p>
         )}
@@ -119,7 +119,7 @@ export function GifPane({ onPick }: { onPick: (url: string) => void }) {
                 aria-label={
                   gif.title ? t("gif.pick", { title: gif.title }) : t("gif.alt")
                 }
-                className="block w-full overflow-hidden rounded-md bg-slate-800 outline-none hover:opacity-90 focus-visible:outline-2 focus-visible:outline-indigo-400"
+                className="block w-full overflow-hidden rounded-md bg-neutral-800 outline-none hover:opacity-90 focus-visible:outline-2 focus-visible:outline-indigo-400"
               >
                 <img
                   src={gif.previewUrl}
@@ -140,14 +140,14 @@ export function GifPane({ onPick }: { onPick: (url: string) => void }) {
             type="button"
             data-grid-item
             onClick={() => void loadMore()}
-            className="mx-auto mt-2 block rounded-md border border-slate-700 px-3 py-1.5 text-sm hover:bg-slate-800"
+            className="mx-auto mt-2 block rounded-md border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800"
           >
             {t("gif.more")}
           </button>
         )}
       </div>
 
-      <p className="shrink-0 text-center text-xs text-slate-500">
+      <p className="shrink-0 text-center text-xs text-neutral-500">
         {t("gif.powered")}
       </p>
     </div>

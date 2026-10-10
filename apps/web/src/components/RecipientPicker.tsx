@@ -17,7 +17,7 @@ const chip = (active: boolean) =>
   `flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
     active
       ? "border-indigo-400 bg-indigo-500/30 text-white"
-      : "border-slate-700 text-slate-300 hover:bg-slate-800"
+      : "border-neutral-700 text-neutral-300 hover:bg-neutral-800"
   }`;
 
 // Who the message box writes to: everybody, or one person picked from a dropdown, as with the emoji button, that can
@@ -74,8 +74,8 @@ export function RecipientPicker({
   }
 
   const row = (selected: boolean) =>
-    `flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-slate-800 ${
-      selected ? "bg-slate-800 font-semibold" : ""
+    `flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-neutral-800 ${
+      selected ? "bg-neutral-800 font-semibold" : ""
     }`;
 
   return (
@@ -98,7 +98,7 @@ export function RecipientPicker({
         {unread > 0 && (
           <span
             aria-hidden="true"
-            className="absolute right-1 top-0.5 rounded-full bg-amber-400 px-1.5 text-xs font-bold text-slate-950"
+            className="absolute right-1 top-0.5 rounded-full bg-amber-400 px-1.5 text-xs font-bold text-neutral-950"
           >
             {unread}
           </span>
@@ -202,7 +202,7 @@ export function RecipientPicker({
                           aria-label={t("dm.unblock", {
                             name: person.nickname,
                           })}
-                          className="shrink-0 rounded px-2 py-1 text-xs font-semibold text-slate-200 underline hover:bg-slate-800"
+                          className="shrink-0 rounded px-2 py-1 text-xs font-semibold text-neutral-200 underline hover:bg-neutral-800"
                         >
                           {t("dm.unblockAction")}
                         </button>
@@ -211,7 +211,7 @@ export function RecipientPicker({
                   );
                 })}
                 {filtering && shown.length === 0 && (
-                  <li className="px-2 py-1.5 text-sm text-slate-500">
+                  <li className="px-2 py-1.5 text-sm text-neutral-500">
                     {t("dm.noMatches")}
                   </li>
                 )}

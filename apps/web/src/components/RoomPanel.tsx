@@ -33,7 +33,7 @@ export function RoomPanel({
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-slate-300">
+        <h3 className="mb-2 text-sm font-semibold text-neutral-300">
           {t("room.members", { count: members.length })}
         </h3>
         <PeopleList

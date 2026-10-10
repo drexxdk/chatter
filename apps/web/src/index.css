@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/* The greys of the interface, after Teams' dark theme: neutral, with none of the blue of Tailwind's slate. 950 is the page,
+   900 what sits on it (panels, menus), 800 what sits on those (bubbles, fields), 700 borders and hovers. */
+@theme {
+  --color-neutral-950: #1f1f1f;
+  --color-neutral-900: #292929;
+  --color-neutral-800: #333333;
+  --color-neutral-700: #424242;
+  --color-neutral-600: #5c5c5c;
+  --color-neutral-500: #8a8a8a;
+  --color-neutral-400: #adadad;
+}
+
 /* The sticky header and message bar cover the top and bottom of the page; whatever is scrolled to (by focus, say)
    must land clear of them. */
 html {
@@ -74,18 +86,18 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   min-width: 2rem;
   border: 2px solid transparent;
   border-radius: 9999px;
-  background-color: var(--color-slate-600);
+  background-color: var(--color-neutral-600);
   background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-slate-500);
+  background-color: var(--color-neutral-500);
 }
 
 @supports not selector(::-webkit-scrollbar) {
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--color-slate-600) transparent;
+    scrollbar-color: var(--color-neutral-600) transparent;
   }
 }
 

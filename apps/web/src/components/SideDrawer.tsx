@@ -35,7 +35,7 @@ export function SideDrawer({
       >
         <DialogPanel
           transition
-          className={`flex h-full w-72 max-w-[85vw] flex-col gap-4 overflow-y-auto border-slate-800 bg-slate-900 p-4 shadow-xl transition-transform duration-200 ${
+          className={`flex h-full w-72 max-w-[85vw] flex-col gap-4 overflow-y-auto border-neutral-800 bg-neutral-900 p-4 shadow-xl transition-transform duration-200 ${
             side === "left"
               ? "border-r data-closed:-translate-x-full"
               : "border-l data-closed:translate-x-full"
@@ -49,7 +49,7 @@ export function SideDrawer({
               type="button"
               onClick={onClose}
               aria-label={t("room.closePanel")}
-              className="rounded-md p-1.5 hover:bg-slate-800"
+              className="rounded-md p-1.5 hover:bg-neutral-800"
             >
               <X aria-hidden="true" className="h-5 w-5" />
             </button>

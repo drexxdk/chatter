@@ -26,7 +26,7 @@ export function AvatarPicker({
             className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1 text-sm focus-within:ring-2 focus-within:ring-indigo-400 ${
               value === option
                 ? "border-indigo-400 bg-indigo-500/10"
-                : "border-slate-700"
+                : "border-neutral-700"
             }`}
           >
             <input
@@ -74,11 +74,11 @@ export function AgeField({
         onChange={(event) => onChange(event.target.value.replace(/\D/g, ""))}
         aria-invalid={invalid}
         aria-describedby={`${id}-hint`}
-        className="w-24 rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
+        className="w-24 rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2"
       />
       <p
         id={`${id}-hint`}
-        className={invalid ? "text-sm text-red-300" : "text-sm text-slate-500"}
+        className={invalid ? "text-sm text-red-300" : "text-sm text-neutral-500"}
       >
         {t("profile.ageHint", { min: MIN_AGE, max: MAX_AGE })}
       </p>

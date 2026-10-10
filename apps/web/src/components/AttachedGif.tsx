@@ -19,13 +19,13 @@ export function AttachedGif({
         src={gifStillUrl(url) ?? url}
         alt={t("gif.alt")}
         referrerPolicy="no-referrer"
-        className="h-24 max-w-full rounded-lg bg-slate-800 object-contain"
+        className="h-24 max-w-full rounded-lg bg-neutral-800 object-contain"
       />
       <button
         type="button"
         onClick={onRemove}
         aria-label={t("gif.remove")}
-        className="absolute -right-2 -top-2 grid size-6 place-items-center rounded-full border border-slate-600 bg-slate-900 hover:bg-slate-700"
+        className="absolute -right-2 -top-2 grid size-6 place-items-center rounded-full border border-neutral-600 bg-neutral-900 hover:bg-neutral-700"
       >
         <X aria-hidden="true" className="h-3.5 w-3.5" />
       </button>

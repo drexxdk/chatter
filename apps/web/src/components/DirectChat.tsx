@@ -78,7 +78,7 @@ export function DirectChat({
       {blockedBy && (
         <p
           role="status"
-          className="flex flex-wrap items-center gap-x-2 rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200"
+          className="flex flex-wrap items-center gap-x-2 rounded-md border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-neutral-200"
         >
           <Ban aria-hidden="true" className="h-4 w-4 shrink-0" />
           <span>{t("dm.blockedByWrite", { name: partner.nickname })}</span>
@@ -99,10 +99,10 @@ export function DirectChat({
         role="log"
         aria-live="polite"
         aria-label={label}
-        className="flex min-h-40 flex-1 flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900 p-3 [&>*]:shrink-0 [&>:first-child]:mt-auto"
+        className="flex min-h-40 flex-1 flex-col gap-2 rounded-lg border border-neutral-800 bg-neutral-950 p-3 [&>*]:shrink-0 [&>:first-child]:mt-auto"
       >
         {partner.entries.length === 0 && (
-          <li className="text-slate-500">{t("dm.empty")}</li>
+          <li className="text-neutral-500">{t("dm.empty")}</li>
         )}
         {runs(partner.entries, entryAuthor).map((run) => {
           const first = run[0];
@@ -183,7 +183,7 @@ export function DirectChat({
               id="unblock-direct"
               onClick={() => void unblock()}
               aria-label={t("dm.unblock", { name: partner.nickname })}
-              className={`${composerButton} gap-2 px-3 text-slate-200`}
+              className={`${composerButton} gap-2 px-3 text-neutral-200`}
             >
               <UserCheck aria-hidden="true" className="h-5 w-5" />
               {t("dm.unblockAction")}

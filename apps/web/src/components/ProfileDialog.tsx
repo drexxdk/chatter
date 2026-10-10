@@ -42,7 +42,7 @@ export function ProfileDialog({
         <div className="flex min-h-full items-center justify-center">
           <DialogPanel
             transition
-            className="w-full max-w-sm space-y-4 rounded-lg border border-slate-700 bg-slate-900 p-5 shadow-xl transition duration-200 data-closed:scale-95 data-closed:opacity-0"
+            className="w-full max-w-sm space-y-4 rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-xl transition duration-200 data-closed:scale-95 data-closed:opacity-0"
           >
             <div className="flex items-center justify-between gap-2">
               <DialogTitle className="text-lg font-semibold">
@@ -52,7 +52,7 @@ export function ProfileDialog({
                 type="button"
                 onClick={onClose}
                 aria-label={t("room.closePanel")}
-                className="rounded-md p-1.5 hover:bg-slate-800"
+                className="rounded-md p-1.5 hover:bg-neutral-800"
               >
                 <X aria-hidden="true" className="h-5 w-5" />
               </button>
@@ -64,7 +64,7 @@ export function ProfileDialog({
                   <AvatarIcon avatar={session.avatar ?? PLAIN_AVATAR} />
                   {session.nickname}
                 </p>
-                <p className="text-sm text-slate-300">
+                <p className="text-sm text-neutral-300">
                   {t("profile.moderatorNote")}
                 </p>
               </div>
@@ -141,14 +141,14 @@ function ProfileForm({
           onChange={(event) => setName(event.target.value)}
           aria-invalid={touched && !nickname}
           aria-describedby="profile-nickname-hint"
-          className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
+          className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2"
         />
         <p
           id="profile-nickname-hint"
           className={
             touched && !nickname
               ? "text-sm text-red-300"
-              : "text-sm text-slate-500"
+              : "text-sm text-neutral-500"
           }
         >
           {t("nickname.hint")}
@@ -182,7 +182,7 @@ function ProfileForm({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md px-3 py-1.5 hover:bg-slate-800"
+          className="rounded-md px-3 py-1.5 hover:bg-neutral-800"
         >
           {t("nickname.cancel")}
         </button>

@@ -47,7 +47,7 @@ export function ComposerBar({
   const { t } = useTranslation();
 
   return (
-    <div className="sticky bottom-0 z-20 space-y-2 bg-slate-950 pb-3 pt-2">
+    <div className="sticky bottom-0 z-20 space-y-2 bg-neutral-950 pb-3 pt-2">
       <ScrollToEnd />
       {alert}
       {above}
@@ -85,7 +85,7 @@ export function ComposerBar({
                 ?.focus();
             }
           }}
-          className="cursor-text rounded-md border border-slate-700 bg-slate-950 focus-within:border-indigo-400"
+          className="cursor-text rounded-md border border-neutral-700 bg-neutral-900 focus-within:border-indigo-400"
         >
           <label htmlFor={id} className="sr-only">
             {label}
@@ -105,7 +105,7 @@ export function ComposerBar({
             className="flex cursor-text items-center justify-end"
           >
             {/* The group's top and left lines meet the box's own border, which is its bottom and right; clipped to the box's corner. */}
-            <div className="flex cursor-default items-center overflow-hidden rounded-br-[5px] rounded-tl-md border-l border-t border-slate-700">
+            <div className="flex cursor-default items-center overflow-hidden rounded-br-[5px] rounded-tl-md border-l border-t border-neutral-700">
               {leading}
               {leading && <ComposerSeparator />}
               {actions ?? (

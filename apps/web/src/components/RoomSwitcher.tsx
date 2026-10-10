@@ -33,12 +33,12 @@ export function RoomSwitcher({
           if (room && room.slug !== slug) onSelect(room);
         }}
       >
-        <ListboxButton className="flex max-w-full items-center gap-1.5 rounded-md px-2 py-1 hover:bg-slate-800 outline-none data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400 disabled:hover:bg-transparent">
+        <ListboxButton className="flex max-w-full items-center gap-1.5 rounded-md px-2 py-1 hover:bg-neutral-800 outline-none data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400 disabled:hover:bg-transparent">
           <span className="truncate">{name}</span>
           {rooms.length > 1 && (
             <ChevronDown
               aria-hidden="true"
-              className="h-5 w-5 shrink-0 text-slate-400"
+              className="h-5 w-5 shrink-0 text-neutral-400"
             />
           )}
         </ListboxButton>
@@ -52,7 +52,7 @@ export function RoomSwitcher({
               <ListboxOption
                 key={room.slug}
                 value={room.slug}
-                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 data-focus:bg-slate-800"
+                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 data-focus:bg-neutral-800"
               >
                 <span className="flex-1">{room.name}</span>
                 <Check

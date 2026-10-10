@@ -27,7 +27,7 @@ export function BlockedByTag() {
   const { t } = useTranslation();
 
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded bg-slate-700 px-1.5 py-0.5 text-xs font-semibold text-slate-300">
+    <span className="inline-flex shrink-0 items-center gap-1 rounded bg-neutral-700 px-1.5 py-0.5 text-xs font-semibold text-neutral-300">
       <Ban aria-hidden="true" className="h-3 w-3" />
       {t("dm.blockedByTag")}
     </span>
@@ -41,7 +41,7 @@ function AgeBadge({ age }: { age?: number }) {
   if (age === undefined) return null;
 
   return (
-    <span className="shrink-0 text-xs text-slate-400">
+    <span className="shrink-0 text-xs text-neutral-400">
       <span aria-hidden="true">{age}</span>
       <span className="sr-only">{t("profile.years", { count: age })}</span>
     </span>
@@ -79,7 +79,7 @@ export function PeopleList({
                 <AvatarIcon avatar={avatar} small />
                 <span>
                   <span className={nameClass(role)}>{member.nickname}</span>
-                  <span className="ml-1 text-slate-500">({t("room.you")})</span>
+                  <span className="ml-1 text-neutral-500">({t("room.you")})</span>
                 </span>
                 <AgeBadge age={member.age} />
               </span>
@@ -95,7 +95,7 @@ export function PeopleList({
                     avatar,
                   })
                 }
-                className="flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-slate-800 disabled:opacity-50 disabled:hover:bg-transparent"
+                className="flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-neutral-800 disabled:opacity-50 disabled:hover:bg-transparent"
               >
                 <AvatarIcon avatar={avatar} small />
                 <span className={nameClass(role)}>{member.nickname}</span>
@@ -133,7 +133,7 @@ export function ThreadList({
   const { t } = useTranslation();
 
   if (threads.length === 0) {
-    return <p className="text-sm text-slate-500">{t("dm.none")}</p>;
+    return <p className="text-sm text-neutral-500">{t("dm.none")}</p>;
   }
 
   return (
@@ -153,7 +153,7 @@ export function ThreadList({
             className={
               thread.unread > 0
                 ? "flex min-w-0 flex-1 items-center justify-between gap-2 rounded border border-amber-400 bg-amber-400/15 px-2 py-1 text-left motion-safe:animate-pulse"
-                : "flex min-w-0 flex-1 items-center justify-between gap-2 rounded px-2 py-1 text-left hover:bg-slate-800"
+                : "flex min-w-0 flex-1 items-center justify-between gap-2 rounded px-2 py-1 text-left hover:bg-neutral-800"
             }
           >
             <span className="flex min-w-0 items-center gap-2">
@@ -170,7 +170,7 @@ export function ThreadList({
               <>
                 <span
                   aria-hidden="true"
-                  className="rounded-full bg-amber-400 px-2 text-xs font-bold text-slate-950"
+                  className="rounded-full bg-amber-400 px-2 text-xs font-bold text-neutral-950"
                 >
                   {thread.unread}
                 </span>
@@ -186,7 +186,7 @@ export function ThreadList({
               type="button"
               onClick={() => onSetBlocked(thread.guestId, false)}
               aria-label={t("dm.unblock", { name: thread.nickname })}
-              className="shrink-0 rounded px-2 py-1 text-xs font-semibold text-slate-200 underline hover:bg-slate-800"
+              className="shrink-0 rounded px-2 py-1 text-xs font-semibold text-neutral-200 underline hover:bg-neutral-800"
             >
               {t("dm.unblockAction")}
             </button>
@@ -202,7 +202,7 @@ export function ThreadList({
               title={t(thread.muted ? "dm.unmuteFrom" : "dm.muteFrom", {
                 name: thread.nickname,
               })}
-              className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 disabled:opacity-40 disabled:hover:bg-transparent"
+              className="shrink-0 rounded p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-40 disabled:hover:bg-transparent"
             >
               {thread.muted ? (
                 <BellOff aria-hidden="true" className="h-4 w-4" />
@@ -239,15 +239,15 @@ export function ThreadSection({
 
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-slate-300">
+      <h3 className="text-sm font-semibold text-neutral-300">
         {t("dm.heading")}
       </h3>
-      <Field className="flex items-center justify-between gap-2 text-sm text-slate-300">
+      <Field className="flex items-center justify-between gap-2 text-sm text-neutral-300">
         <Label>{t("dm.notify")}</Label>
         <Switch
           checked={notify}
           onChange={onNotifyChange}
-          className="group relative inline-flex h-5 w-9 shrink-0 items-center rounded-full bg-slate-700 outline-none transition-colors data-checked:bg-indigo-500 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
+          className="group relative inline-flex h-5 w-9 shrink-0 items-center rounded-full bg-neutral-700 outline-none transition-colors data-checked:bg-indigo-500 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
         >
           <span className="size-4 translate-x-0.5 rounded-full bg-white transition-transform group-data-checked:translate-x-4.5" />
         </Switch>

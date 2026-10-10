@@ -16,7 +16,7 @@ export function InfoPanel({
   ] as const;
 
   return (
-    <div className="space-y-4 text-sm text-slate-300">
+    <div className="space-y-4 text-sm text-neutral-300">
       {slowModeSeconds ? (
         <p className="text-amber-300">
           {t("room.slowMode", { seconds: slowModeSeconds })}
@@ -25,7 +25,7 @@ export function InfoPanel({
 
       {sections.map((section) => (
         <section key={section} className="space-y-1">
-          <h3 className="font-semibold text-slate-100">
+          <h3 className="font-semibold text-neutral-100">
             {t(`info.${section}Heading`)}
           </h3>
           <p>{t(`info.${section}`)}</p>
@@ -33,7 +33,7 @@ export function InfoPanel({
       ))}
 
       <section className="space-y-1">
-        <h3 className="font-semibold text-slate-100">
+        <h3 className="font-semibold text-neutral-100">
           {t("info.moderatorsHeading")}
         </h3>
         <p>{t("info.moderators")}</p>

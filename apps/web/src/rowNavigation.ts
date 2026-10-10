@@ -10,7 +10,7 @@ export const navStop = (id: string, tabStop: boolean) => ({
 });
 
 export const NAV_STOP_CLASS =
-  "outline-none focus-visible:bg-slate-100/10 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400";
+  "outline-none focus-visible:bg-neutral-100/10 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400";
 
 // One tab stop for a list of rows, with the arrow keys moving between them. The stop is the row focused while focus is
 // in the list, and the newest one otherwise, since that is what the page is scrolled to. Rows mark themselves with

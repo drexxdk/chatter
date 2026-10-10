@@ -52,7 +52,7 @@ export function AnnounceForm({
           autoComplete="off"
           disabled={disabled}
           placeholder={t("announcement.placeholder")}
-          className="flex-1 rounded-md border border-green-500/40 bg-slate-950 px-3 py-2 disabled:opacity-60"
+          className="flex-1 rounded-md border border-green-500/40 bg-neutral-950 px-3 py-2 disabled:opacity-60"
         />
         <button
           type="submit"

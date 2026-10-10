@@ -56,7 +56,7 @@ export function ScrollToEnd() {
       title={t("room.scrollToEnd")}
       // Over an avatar (36px at the log's border and padding, 13px from its left edge) with its 1px ring: a pixel bigger
       // on every side, so nothing of the ring shows around it.
-      className="absolute bottom-full left-3 mb-3 grid size-[38px] place-items-center rounded-full border border-slate-600 bg-slate-800 text-slate-100 shadow-lg hover:bg-slate-700"
+      className="absolute bottom-full left-3 mb-3 grid size-[38px] place-items-center rounded-full border border-neutral-600 bg-neutral-800 text-neutral-100 shadow-lg hover:bg-neutral-700"
     >
       <ArrowDown aria-hidden="true" className="h-5 w-5" />
     </button>

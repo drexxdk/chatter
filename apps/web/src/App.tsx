@@ -302,7 +302,7 @@ export function App({
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-4xl flex-col px-4 sm:px-6">
-      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 bg-slate-950">
+      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-neutral-800 bg-neutral-950">
         {chat.roomSlug && chat.session ? (
           <div className="flex min-w-0 items-center gap-1">
             <h1 className="sr-only">{t("app.title")}</h1>
@@ -310,7 +310,7 @@ export function App({
               type="button"
               onClick={() => void chat.leaveRoom()}
               aria-label={t("room.leave")}
-              className="shrink-0 rounded-md p-2 hover:bg-slate-800"
+              className="shrink-0 rounded-md p-2 hover:bg-neutral-800"
             >
               <ArrowLeft aria-hidden="true" className="h-5 w-5" />
             </button>

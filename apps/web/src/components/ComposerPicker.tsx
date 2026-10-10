@@ -20,7 +20,7 @@ import { FocusSearch } from "./FocusSearch";
 import { GifPane } from "./GifPane";
 
 const TAB_CLASS =
-  "relative px-3 py-2 text-sm font-medium text-slate-400 outline-none hover:text-slate-100 data-selected:text-slate-100 data-selected:after:absolute data-selected:after:inset-x-3 data-selected:after:bottom-0 data-selected:after:h-0.5 data-selected:after:rounded data-selected:after:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-indigo-400";
+  "relative px-3 py-2 text-sm font-medium text-neutral-400 outline-none hover:text-neutral-100 data-selected:text-neutral-100 data-selected:after:absolute data-selected:after:inset-x-3 data-selected:after:bottom-0 data-selected:after:h-0.5 data-selected:after:rounded data-selected:after:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-indigo-400";
 
 // The message box's emoji button and what it opens, as in Teams: a panel above it with the emoji and, when GIPHY is
 // set up, a tab of GIFs. Both are added to the message being written rather than sent.
@@ -74,7 +74,7 @@ export function ComposerPicker({
             <TabGroup className="picker-fill flex flex-col">
               <FocusSearch />
               <TabList
-                className="flex shrink-0 border-b border-slate-800 px-1"
+                className="flex shrink-0 border-b border-neutral-800 px-1"
                 onKeyDown={(event) => {
                   if (event.key !== "ArrowDown") return;
 

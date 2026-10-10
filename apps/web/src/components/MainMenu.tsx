@@ -48,7 +48,7 @@ export function MainMenu({
       <Menu>
         <MenuButton
           aria-label={t("menu.open")}
-          className="rounded-md p-2 outline-none hover:bg-slate-800 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
+          className="rounded-md p-2 outline-none hover:bg-neutral-800 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
         >
           <MenuIcon aria-hidden="true" className="h-5 w-5" />
         </MenuButton>
@@ -84,8 +84,8 @@ export function MainMenu({
               </MenuItem>
             )}
 
-            <MenuSection className="border-t border-slate-800 pt-1">
-              <MenuHeading className="px-2 py-1 text-xs font-semibold uppercase text-slate-500">
+            <MenuSection className="border-t border-neutral-800 pt-1">
+              <MenuHeading className="px-2 py-1 text-xs font-semibold uppercase text-neutral-500">
                 {t("language.label")}
               </MenuHeading>
               {LANGUAGES.map((language) => (

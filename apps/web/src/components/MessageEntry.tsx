@@ -120,7 +120,7 @@ function ReactionGrid({
           aria-label={t("reactions.react", { emoji })}
           aria-pressed={isMine(emoji)}
           onClick={() => onPick(emoji)}
-          className="size-8 rounded-md text-xl hover:bg-slate-700 aria-pressed:bg-indigo-500/30 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400"
+          className="size-8 rounded-md text-xl hover:bg-neutral-700 aria-pressed:bg-indigo-500/30 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400"
         >
           {emoji}
         </button>
@@ -217,7 +217,7 @@ export function MessageEntry({
           role="img"
           title={names(reaction)}
           aria-label={chipLabel(reaction)}
-          className="flex h-6 items-center gap-1 rounded-full border border-slate-700 bg-slate-800 px-2 text-xs text-slate-300"
+          className="flex h-6 items-center gap-1 rounded-full border border-neutral-700 bg-neutral-800 px-2 text-xs text-neutral-300"
         >
           {chipContent(reaction)}
         </span>
@@ -365,7 +365,7 @@ export function MessageEntry({
           }}
           className="absolute bottom-full z-20 hidden pb-1 group-focus-within/message:flex group-hover/message:flex has-[[data-open]]:flex data-[held]:flex"
         >
-          <div className="flex w-full items-center justify-center gap-0.5 rounded-full border border-slate-700 bg-slate-900 px-1 py-0.5 shadow-lg">
+          <div className="flex w-full items-center justify-center gap-0.5 rounded-full border border-neutral-700 bg-neutral-900 px-1 py-0.5 shadow-lg">
             {canReact && (
               <>
                 {QUICK_REACTIONS.map((emoji) => (
@@ -380,7 +380,7 @@ export function MessageEntry({
                       pick(emoji);
                       setBarHeld(false);
                     }}
-                    className="size-7 rounded-full text-base outline-none hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-indigo-400 aria-pressed:bg-indigo-500/30"
+                    className="size-7 rounded-full text-base outline-none hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-indigo-400 aria-pressed:bg-indigo-500/30"
                   >
                     {emoji}
                   </button>
@@ -389,14 +389,14 @@ export function MessageEntry({
                   isMine={mineOf}
                   onPick={pick}
                   buttonRef={addRef}
-                  className="grid size-7 place-items-center rounded-full text-slate-300 outline-none hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-indigo-400"
+                  className="grid size-7 place-items-center rounded-full text-neutral-300 outline-none hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-indigo-400"
                 />
               </>
             )}
             {canReact && menu && (
               <span
                 aria-hidden
-                className="mx-1 h-5 w-px shrink-0 bg-slate-700"
+                className="mx-1 h-5 w-px shrink-0 bg-neutral-700"
               />
             )}
             {menu && (
@@ -430,7 +430,7 @@ export function MessageEntry({
               className={`flex h-6 items-center gap-1 rounded-full border px-2 text-xs focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400 ${
                 isMine(reaction)
                   ? "border-indigo-400 bg-indigo-500/20 text-indigo-100"
-                  : "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
               }`}
             >
               {chipContent(reaction)}
@@ -439,7 +439,7 @@ export function MessageEntry({
           <AddReaction
             isMine={mineOf}
             onPick={pick}
-            className="grid h-6 w-7 place-items-center rounded-full border border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700"
+            className="grid h-6 w-7 place-items-center rounded-full border border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
           />
         </div>
       )}

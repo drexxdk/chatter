@@ -45,7 +45,7 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
         <h2 id="lobby-heading" className="text-xl font-semibold">
           {t("lobby.heading")}
         </h2>
-        <p className="text-slate-400">{t("lobby.intro")}</p>
+        <p className="text-neutral-400">{t("lobby.intro")}</p>
       </div>
 
       {state.status === "loading" && <p role="status">{t("lobby.loading")}</p>}
@@ -56,7 +56,7 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
           <button
             type="button"
             onClick={onRetry}
-            className="rounded-md bg-slate-800 px-3 py-1.5 hover:bg-slate-700"
+            className="rounded-md bg-neutral-800 px-3 py-1.5 hover:bg-neutral-700"
           >
             {t("lobby.retry")}
           </button>
@@ -72,15 +72,15 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
           {state.rooms.map((room) => (
             <li
               key={room.id}
-              className="flex flex-col justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 p-4"
+              className="flex flex-col justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-900 p-4"
             >
               <div>
                 <h3 className="font-medium">{room.name}</h3>
                 {room.description && (
-                  <p className="text-sm text-slate-400">{room.description}</p>
+                  <p className="text-sm text-neutral-400">{room.description}</p>
                 )}
                 {typeof room.maxMembers === "number" && (
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-neutral-500">
                     {t("lobby.capacity", { count: room.maxMembers })}
                   </p>
                 )}

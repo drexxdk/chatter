@@ -74,7 +74,7 @@ export function NicknameDialog({
           <DialogPanel
             as="form"
             onSubmit={handleSubmit}
-            className="w-full max-w-sm space-y-4 rounded-lg border border-slate-700 bg-slate-900 p-5"
+            className="w-full max-w-sm space-y-4 rounded-lg border border-neutral-700 bg-neutral-900 p-5"
           >
             <DialogTitle as="h2" className="text-lg font-semibold">
               {moderator ? t("nickname.moderatorTitle") : t("nickname.title")}
@@ -94,7 +94,7 @@ export function NicknameDialog({
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     aria-invalid={showInvalid && !email}
-                    className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
+                    className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2"
                   />
                 </div>
                 <div className="space-y-1">
@@ -111,7 +111,7 @@ export function NicknameDialog({
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     aria-invalid={showInvalid && !password}
-                    className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
+                    className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2"
                   />
                 </div>
               </div>
@@ -133,14 +133,14 @@ export function NicknameDialog({
                     onChange={(event) => setValue(event.target.value)}
                     aria-invalid={showInvalid}
                     aria-describedby="nickname-hint"
-                    className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
+                    className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2"
                   />
                   <p
                     id="nickname-hint"
                     className={
                       showInvalid
                         ? "text-sm text-red-300"
-                        : "text-sm text-slate-500"
+                        : "text-sm text-neutral-500"
                     }
                   >
                     {t("nickname.hint")}
@@ -172,7 +172,7 @@ export function NicknameDialog({
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded-md px-3 py-1.5 hover:bg-slate-800"
+                className="rounded-md px-3 py-1.5 hover:bg-neutral-800"
               >
                 {t("nickname.cancel")}
               </button>

@@ -89,7 +89,7 @@ export function MessageGroup({
             ? "border border-green-500/40 bg-green-900/30 font-bold text-green-300"
             : mine
               ? "rounded-br-sm bg-indigo-600 text-white"
-              : "rounded-bl-sm bg-slate-800"
+              : "rounded-bl-sm bg-neutral-800"
       }`}
     >
       {banned ? t("room.bannedMessage") : text}
@@ -145,7 +145,7 @@ export function MessageGroup({
             </span>
           )}
           {last && (
-            <Timestamp sentAt={last.sentAt} className="text-slate-500" />
+            <Timestamp sentAt={last.sentAt} className="text-neutral-500" />
           )}
         </div>
         {messages.map((message) => {
@@ -189,7 +189,7 @@ export function MessageGroup({
                     aria-label={t("person.message", { name: nickname })}
                     {...stop}
                     {...keyShortcut}
-                    className={`pointer-events-none absolute inset-0 rounded-2xl ${selectable ? "group-hover/bubble:bg-slate-100/5" : ""} ${NAV_STOP_CLASS}`}
+                    className={`pointer-events-none absolute inset-0 rounded-2xl ${selectable ? "group-hover/bubble:bg-neutral-100/5" : ""} ${NAV_STOP_CLASS}`}
                   />
                 </div>
               ) : (
@@ -206,7 +206,7 @@ export function MessageGroup({
         })}
         {/* After the messages, not beside the time: that is when the message was sent, not when they left. */}
         {gone && (
-          <p className="flex items-center gap-1 text-xs italic text-slate-400">
+          <p className="flex items-center gap-1 text-xs italic text-neutral-400">
             <LogOut aria-hidden="true" className="h-3 w-3" />
             {t("room.leftTag")}
           </p>
@@ -225,7 +225,7 @@ export function StatusRow({ text, sentAt }: { text: string; sentAt: string }) {
       <span className="rounded-full bg-sky-500/15 px-3 py-1 text-sky-300">
         {text}
       </span>
-      <Timestamp sentAt={sentAt} className="text-slate-500" />
+      <Timestamp sentAt={sentAt} className="text-neutral-500" />
     </li>
   );
 }
