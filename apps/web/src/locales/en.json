@@ -30,24 +30,20 @@
     "more": "Load more",
     "powered": "Powered by GIPHY"
   },
-  "person": {
-    "actions": "Actions for {{name}}",
-    "message": "Message {{name}}",
-    "openChat": "Open private chat"
-  },
+  "person": { "message": "Message {{name}}" },
   "info": {
     "button": "How the chat works",
     "title": "How the chat works",
     "everyoneHeading": "Writing to the room",
     "everyone": "What you write goes to everybody in the room, unless you have chosen a person next to the message box.",
     "privateHeading": "Private messages",
-    "private": "Choose a person next to the message box, or click a private message, to write only to them. Private messages only reach people who are in the same room right now, and are kept only in this tab.",
+    "private": "Choose a person next to the message box, or click one of their messages, to write only to them. Private messages only reach people who are in the same room right now, and are kept only in this tab.",
     "conversationsHeading": "Your conversations",
     "conversations": "Private conversations are listed under Direct messages, next to the message box. A number shows how many messages you have not read; opening the conversation clears it. The bell next to a person stops notifications from them, and the switch above the list stops them from everybody.",
     "blockingHeading": "Blocking",
     "blocking": "Open a private conversation to block somebody who bothers you. Their messages then no longer reach you, you can't write to them, and they are told that you blocked them. You can unblock them at any time.",
     "keyboardHeading": "Keyboard",
-    "keyboard": "Tab goes to the messages you can act on. Then use the up and down arrows to move between them, Home and End to jump to the oldest and newest, and Enter to open the menu for a message. Tab again leaves the messages.",
+    "keyboard": "Tab goes to the messages you can act on. Then use the up and down arrows to move between them, Home and End to jump to the oldest and newest, and Enter to write to the person whose message it is. Tab again leaves the messages.",
     "moderatorsHeading": "Moderators",
     "moderators": "People with a green Moderator badge look after the chat. They can post announcements to the whole room."
   },

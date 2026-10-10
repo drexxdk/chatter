@@ -19,7 +19,13 @@ import type {
 import { AnnounceForm } from "./AnnounceForm";
 import { PLAIN_AVATAR } from "../chat/avatar";
 import type { Partner } from "../chat/direct";
-import { timeline, withDirect, type RoomEvent } from "../chat/roomEvents";
+import { runs } from "../chat/runs";
+import {
+  timeline,
+  withDirect,
+  type RoomEvent,
+  type TimelineItem,
+} from "../chat/roomEvents";
 import { focusMessageBox } from "../focusMessageBox";
 import { gifApiKey } from "../gifApi";
 import { NAV_STOP_CLASS, navStop, useRowNavigation } from "../rowNavigation";
@@ -28,12 +34,27 @@ import { BlockedTag } from "./DirectLists";
 import { GifPicker } from "./GifPicker";
 import { Timestamp } from "./Timestamp";
 import { ErrorAlert } from "./ErrorAlert";
-import { DirectRow, MessageRow, StatusRow } from "./MessageRow";
+import { MessageGroup, StatusRow } from "./MessageRow";
 import { MessageInput } from "./MessageInput";
-import { PersonMenu } from "./PersonMenu";
 import { RecipientPicker } from "./RecipientPicker";
 import { RoomPanel } from "./RoomPanel";
 
+type MessageItem = Extract<TimelineItem, { kind: "message" }>;
+type DirectItem = Extract<TimelineItem, { kind: "direct" }>;
+
+// Who an item in the log is by, so that what somebody wrote in a row is shown together. A private message is by its
+// sender to one person, and a message whose author was banned stands alone.
+function runAuthor(item: TimelineItem): string | undefined {
+  if (item.kind === "message" && !item.message.banned) {
+    return `room:${item.message.guestId}`;
+  }
+
+  if (item.kind === "direct") {
+    return `direct:${item.message.fromGuestId}:${item.partner.guestId}`;
+  }
+
+  return undefined;
+}
 interface ChatRoomProps {
   roomName: string;
   session: Session;
@@ -187,32 +208,16 @@ export function ChatRoom({
     focusMessageBox();
   }
 
-  const personMenu = (partner: Partner, id: string, mine = false) => {
-    const blocked = direct.blockedIds.includes(partner.guestId);
+  // A click on somebody's message chooses them to write to privately, if they can be written to now.
+  const canWriteTo = (guestId: string) =>
+    members.some((member) => member.guestId === guestId) &&
+    !direct.blockedIds.includes(guestId) &&
+    !direct.blockedByIds.includes(guestId);
 
-    return (
-      <PersonMenu
-        partner={partner}
-        navId={id}
-        tabStop={id === rows.stopId}
-        side={mine ? "left" : "right"}
-        present={members.some((member) => member.guestId === partner.guestId)}
-        blocked={blocked}
-        blockedBy={direct.blockedByIds.includes(partner.guestId)}
-        onMessage={() => {
-          startReply(partner);
-          focusMessageBox();
-        }}
-        onOpenChat={() => openConversation(partner)}
-        onToggleBlock={() =>
-          void direct.setBlocked(partner.guestId, !blocked).then((result) => {
-            if (!result.ok) setReplyFailure(result);
-          })
-        }
-      />
-    );
-  };
-
+  function selectPerson(partner: Partner) {
+    startReply(partner);
+    focusMessageBox();
+  }
   const replyWaiting =
     replyFailure?.error === "rate_limited" && replyFailure.retryAfterSeconds;
 
@@ -300,85 +305,114 @@ export function ChatRoom({
               {items.length === 0 && (
                 <li className="text-slate-500">{t("room.empty")}</li>
               )}
-              {items.map((item) =>
-                item.kind === "event" ? (
-                  <StatusRow
-                    key={item.event.id}
-                    text={t(`room.${item.event.event}`, {
-                      name: item.event.nickname,
-                    })}
-                    sentAt={item.event.sentAt}
-                  />
-                ) : item.kind === "notice" ? (
-                  <StatusRow
-                    key={item.status.id}
-                    text={t(`dm.${item.status.event}`, {
-                      name: item.partner.nickname,
-                    })}
-                    sentAt={item.status.sentAt}
-                  />
-                ) : item.kind === "direct" ? (
-                  <DirectRow
-                    key={item.message.id}
-                    mine={ownGuestIds.includes(item.message.fromGuestId)}
-                    partner={item.partner}
-                    sentAt={item.message.sentAt}
-                    text={item.message.text}
-                    banned={item.message.banned}
-                    blocked={direct.blockedIds.includes(item.partner.guestId)}
-                    menu={personMenu(
-                      item.partner,
-                      item.message.id,
-                      ownGuestIds.includes(item.message.fromGuestId),
-                    )}
-                  />
-                ) : item.message.banned ? (
-                  <li
-                    key={item.message.id}
-                    {...navStop(
-                      item.message.id,
-                      item.message.id === rows.stopId,
-                    )}
-                    className={`-mx-2 rounded-lg px-2 py-1 ${NAV_STOP_CLASS}`}
-                  >
-                    <span className="font-semibold italic text-red-400">
-                      {t("room.bannedMessage")}
-                    </span>
-                    <Timestamp
-                      sentAt={item.message.sentAt}
-                      className="ml-2 text-xs text-slate-500"
+              {runs(items, runAuthor).map((run) => {
+                const first = run[0];
+
+                if (first.kind === "event") {
+                  return (
+                    <StatusRow
+                      key={first.event.id}
+                      text={t(`room.${first.event.event}`, {
+                        name: first.event.nickname,
+                      })}
+                      sentAt={first.event.sentAt}
                     />
-                  </li>
-                ) : (
-                  <MessageRow
-                    key={item.message.id}
-                    mine={ownGuestIds.includes(item.message.guestId)}
-                    nickname={item.message.nickname}
-                    role={item.message.role ?? "guest"}
-                    avatar={item.message.avatar ?? PLAIN_AVATAR}
-                    sentAt={item.message.sentAt}
-                    blocked={direct.blockedIds.includes(item.message.guestId)}
-                    text={item.message.text}
-                    stop={{
-                      id: item.message.id,
-                      tabStop: item.message.id === rows.stopId,
-                    }}
-                    menu={
-                      ownGuestIds.includes(item.message.guestId)
-                        ? undefined
-                        : personMenu(
-                            {
-                              guestId: item.message.guestId,
-                              nickname: item.message.nickname,
-                              role: item.message.role ?? "guest",
-                              avatar: item.message.avatar ?? PLAIN_AVATAR,
-                            },
-                            item.message.id,
-                          )
-                    }
+                  );
+                }
+
+                if (first.kind === "notice") {
+                  return (
+                    <StatusRow
+                      key={first.status.id}
+                      text={t(`dm.${first.status.event}`, {
+                        name: first.partner.nickname,
+                      })}
+                      sentAt={first.status.sentAt}
+                    />
+                  );
+                }
+
+                if (first.kind === "direct") {
+                  const entries = run as DirectItem[];
+                  const mine = ownGuestIds.includes(first.message.fromGuestId);
+
+                  return (
+                    <MessageGroup
+                      key={first.message.id}
+                      mine={mine}
+                      nickname={first.partner.nickname}
+                      role={first.partner.role}
+                      avatar={first.partner.avatar}
+                      blocked={direct.blockedIds.includes(
+                        first.partner.guestId,
+                      )}
+                      direct={{
+                        label: t(mine ? "dm.to" : "dm.from", {
+                          name: first.partner.nickname,
+                        }),
+                      }}
+                      messages={entries.map(({ message }) => ({
+                        id: message.id,
+                        text: message.text,
+                        sentAt: message.sentAt,
+                        banned: message.banned,
+                      }))}
+                      onSelect={() => selectPerson(first.partner)}
+                      selectable={canWriteTo(first.partner.guestId)}
+                      nav={{ stopId: rows.stopId }}
+                    />
+                  );
+                }
+
+                if (first.message.banned) {
+                  return (
+                    <li
+                      key={first.message.id}
+                      {...navStop(
+                        first.message.id,
+                        first.message.id === rows.stopId,
+                      )}
+                      className={`-mx-2 rounded-lg px-2 py-1 ${NAV_STOP_CLASS}`}
+                    >
+                      <span className="font-semibold italic text-red-400">
+                        {t("room.bannedMessage")}
+                      </span>
+                      <Timestamp
+                        sentAt={first.message.sentAt}
+                        className="ml-2 text-xs text-slate-500"
+                      />
+                    </li>
+                  );
+                }
+
+                const entries = run as MessageItem[];
+                const author: Partner = {
+                  guestId: first.message.guestId,
+                  nickname: first.message.nickname,
+                  role: first.message.role ?? "guest",
+                  avatar: first.message.avatar ?? PLAIN_AVATAR,
+                };
+                const mine = ownGuestIds.includes(author.guestId);
+
+                return (
+                  <MessageGroup
+                    key={first.message.id}
+                    mine={mine}
+                    nickname={author.nickname}
+                    role={author.role}
+                    avatar={author.avatar}
+                    blocked={direct.blockedIds.includes(author.guestId)}
+                    messages={entries.map(({ message }) => ({
+                      id: message.id,
+                      text: message.text,
+                      sentAt: message.sentAt,
+                    }))}
+                    selectable={canWriteTo(author.guestId)}
+                    onSelect={mine ? undefined : () => selectPerson(author)}
+                    nav={{ stopId: rows.stopId }}
                   />
-                ),
-              )}
+                );
+              })}{" "}
             </ol>
 
             <div className="sticky bottom-0 z-20 space-y-2 bg-slate-950 pb-3 pt-2">

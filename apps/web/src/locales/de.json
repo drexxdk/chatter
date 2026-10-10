@@ -30,24 +30,20 @@
     "more": "Mehr laden",
     "powered": "Powered by GIPHY"
   },
-  "person": {
-    "actions": "Aktionen für {{name}}",
-    "message": "{{name}} schreiben",
-    "openChat": "Privaten Chat öffnen"
-  },
+  "person": { "message": "{{name}} schreiben" },
   "info": {
     "button": "So funktioniert der Chat",
     "title": "So funktioniert der Chat",
     "everyoneHeading": "An den Raum schreiben",
     "everyone": "Was du schreibst, geht an alle im Raum, es sei denn, du hast neben dem Nachrichtenfeld eine Person gewählt.",
     "privateHeading": "Private Nachrichten",
-    "private": "Wähle neben dem Nachrichtenfeld eine Person oder klicke auf eine private Nachricht, um nur an sie zu schreiben. Private Nachrichten erreichen nur Personen, die gerade im selben Raum sind, und werden nur in diesem Tab gespeichert.",
+    "private": "Wähle neben dem Nachrichtenfeld eine Person oder klicke auf eine ihrer Nachrichten, um nur an sie zu schreiben. Private Nachrichten erreichen nur Personen, die gerade im selben Raum sind, und werden nur in diesem Tab gespeichert.",
     "conversationsHeading": "Deine Unterhaltungen",
     "conversations": "Private Unterhaltungen stehen unter Direktnachrichten neben dem Nachrichtenfeld. Eine Zahl zeigt, wie viele Nachrichten du noch nicht gelesen hast; sie verschwindet, wenn du die Unterhaltung öffnest. Die Glocke neben einer Person schaltet Benachrichtigungen von ihr aus, der Schalter über der Liste die von allen.",
     "blockingHeading": "Blockieren",
     "blocking": "Öffne eine private Unterhaltung, um jemanden zu blockieren, der dich stört. Deren Nachrichten erreichen dich dann nicht mehr, du kannst ihnen nicht schreiben, und sie erfahren, dass du sie blockiert hast. Du kannst die Blockierung jederzeit aufheben.",
     "keyboardHeading": "Tastatur",
-    "keyboard": "Tab springt zu den Nachrichten, mit denen du etwas tun kannst. Mit Pfeil nach oben und unten wechselst du zwischen ihnen, mit Pos1 und Ende springst du zur ältesten und neuesten, und mit Enter öffnest du das Menü einer Nachricht. Ein weiteres Tab verlässt die Nachrichten.",
+    "keyboard": "Tab springt zu den Nachrichten, mit denen du etwas tun kannst. Mit Pfeil nach oben und unten wechselst du zwischen ihnen, mit Pos1 und Ende springst du zur ältesten und neuesten, und mit Enter schreibst du der Person, von der sie ist. Ein weiteres Tab verlässt die Nachrichten.",
     "moderatorsHeading": "Moderatoren",
     "moderators": "Personen mit einem grünen Moderator-Abzeichen kümmern sich um den Chat. Sie können Ankündigungen an den ganzen Raum senden."
   },

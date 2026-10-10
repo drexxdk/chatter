@@ -2,15 +2,20 @@ import { useState, type FormEvent } from "react";
 import { Ban, SendHorizontal, UserCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import type { DirectEntry, Partner } from "../chat/direct";
+import type { DirectEntry, DirectMessage, Partner } from "../chat/direct";
 import { isStatus } from "../chat/direct";
+import { runs } from "../chat/runs";
 import type { ActionResult } from "../chat/useChat";
 import { focusMessageBox } from "../focusMessageBox";
 import { gifApiKey } from "../gifApi";
 import { ErrorAlert } from "./ErrorAlert";
 import { GifPicker } from "./GifPicker";
-import { MessageRow, StatusRow } from "./MessageRow";
+import { MessageGroup, StatusRow } from "./MessageRow";
 import { MessageInput } from "./MessageInput";
+
+// What somebody wrote one after another is shown together; a message whose author was banned is on its own.
+const entryAuthor = (entry: DirectEntry) =>
+  isStatus(entry) || entry.banned ? undefined : entry.fromGuestId;
 
 interface DirectChatProps {
   partner: Partner & { entries: DirectEntry[] };
@@ -97,33 +102,42 @@ export function DirectChat({
         {partner.entries.length === 0 && (
           <li className="text-slate-500">{t("dm.empty")}</li>
         )}
-        {partner.entries.map((entry) =>
-          isStatus(entry) ? (
-            <StatusRow
-              key={entry.id}
-              text={t(`dm.${entry.event}`, {
-                name: entry.self ? ownNickname : partner.nickname,
-              })}
-              sentAt={entry.sentAt}
+        {runs(partner.entries, entryAuthor).map((run) => {
+          const first = run[0];
+
+          if (isStatus(first)) {
+            return (
+              <StatusRow
+                key={first.id}
+                text={t(`dm.${first.event}`, {
+                  name: first.self ? ownNickname : partner.nickname,
+                })}
+                sentAt={first.sentAt}
+              />
+            );
+          }
+
+          const messages = run.filter(
+            (entry): entry is DirectMessage => !isStatus(entry),
+          );
+
+          // Nothing to choose here: the guest is already writing to this person.
+          return (
+            <MessageGroup
+              key={first.id}
+              mine={ownGuestIds.includes(first.fromGuestId)}
+              nickname={first.fromNickname}
+              role={first.fromRole}
+              avatar={first.fromAvatar}
+              messages={messages.map((message) => ({
+                id: message.id,
+                text: message.text,
+                sentAt: message.sentAt,
+                banned: message.banned,
+              }))}
             />
-          ) : entry.banned ? (
-            <li key={entry.id}>
-              <span className="font-semibold italic text-red-400">
-                {t("room.bannedMessage")}
-              </span>
-            </li>
-          ) : (
-            <MessageRow
-              key={entry.id}
-              mine={ownGuestIds.includes(entry.fromGuestId)}
-              nickname={entry.fromNickname}
-              role={entry.fromRole}
-              avatar={entry.fromAvatar}
-              sentAt={entry.sentAt}
-              text={entry.text}
-            />
-          ),
-        )}
+          );
+        })}{" "}
       </ol>
 
       <div className="sticky bottom-0 z-20 space-y-2 bg-slate-950 pb-3 pt-2">

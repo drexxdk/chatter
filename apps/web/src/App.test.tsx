@@ -1777,10 +1777,13 @@ describe("direct messages", () => {
 
   describe("in the room's own chat", () => {
     const roomLog = () => within(screen.getByRole("log"));
-    const openMenu = (user: ReturnType<typeof setup>["user"], name: string) =>
+    const clickMessage = (
+      user: ReturnType<typeof setup>["user"],
+      name: string,
+    ) =>
       user.click(
         roomLog()
-          .getAllByRole("button", { name: `Actions for ${name}` })
+          .getAllByRole("button", { name: `Message ${name}` })
           .at(-1)!,
       );
     const recipient = () => screen.getByRole("button", { name: /^Send to:/ });
@@ -1823,8 +1826,7 @@ describe("direct messages", () => {
       const { user, server } = await enter();
       receive(server, dm({ text: "psst" }));
 
-      await openMenu(user, "Bob");
-      await user.click(screen.getByRole("menuitem", { name: "Message Bob" }));
+      await clickMessage(user, "Bob");
 
       expect(pane("Bob")).toBeNull();
       expect(recipient()).toHaveAccessibleName(/^Send to: Bob/);
@@ -1902,34 +1904,23 @@ describe("direct messages", () => {
       await chooseRecipient(user, "Carol");
       receive(server, dm({ text: "psst" }));
 
-      await openMenu(user, "Bob");
-      await user.click(screen.getByRole("menuitem", { name: "Message Bob" }));
+      await clickMessage(user, "Bob");
 
       expect(recipient()).toHaveAccessibleName(/^Send to: Bob/);
       expect(pane("Bob")).toBeNull();
     });
 
-    it("lists what can be done with somebody on their message in the room", async () => {
+    it("chooses the person when their message is clicked, without opening a menu", async () => {
       const { user, server } = await enter();
       act(() =>
         server.latest.serverEmit("message:new", message({ text: "hello" })),
       );
 
-      await openMenu(user, "Bob");
+      await clickMessage(user, "Bob");
 
-      expect(
-        screen.getAllByRole("menuitem").map((item) => item.textContent),
-      ).toEqual(["Message Bob", "Open private chat", "Block Bob"]);
-
-      await user.click(screen.getByRole("menuitem", { name: "Block Bob" }));
-
-      await waitFor(() =>
-        expect(server.latest.emittedEvents("dm:block")).toEqual([
-          { guestId: "guest-bob" },
-        ]),
-      );
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(recipient()).toHaveAccessibleName(/^Send to: Bob/);
     });
-
     it("makes the chat one tab stop, with the arrow keys moving between every message", async () => {
       const { user, server } = await enter();
       act(() => {
@@ -1979,7 +1970,7 @@ describe("direct messages", () => {
       expect(rows()[0]).toHaveFocus();
 
       await user.keyboard("{ArrowDown}{Enter}");
-      expect(await screen.findByRole("menu")).toBeInTheDocument();
+      expect(recipient()).toHaveAccessibleName(/^Send to: Bob/);
     });
 
     it("returns to the newest message when the chat is tabbed back into", async () => {
@@ -2015,27 +2006,7 @@ describe("direct messages", () => {
         .getByRole("log")
         .querySelector<HTMLElement>("[data-nav-id]")!
         .focus();
-      await user.keyboard("{Enter}{Enter}");
-
-      await waitFor(() =>
-        expect(
-          screen.getByRole("textbox", { name: "Message to Bob" }),
-        ).toHaveFocus(),
-      );
-    });
-
-    it("puts the cursor in the conversation's box after opening it with the keyboard", async () => {
-      const { user, server } = await enter();
-      receive(server, dm({ text: "psst" }));
-
-      screen
-        .getByRole("log")
-        .querySelector<HTMLElement>("[data-nav-id]")!
-        .focus();
       await user.keyboard("{Enter}");
-      await user.click(
-        await screen.findByRole("menuitem", { name: "Open private chat" }),
-      );
 
       await waitFor(() =>
         expect(
@@ -2050,8 +2021,7 @@ describe("direct messages", () => {
       document.documentElement.setAttribute("data-pointer", "");
 
       try {
-        await openMenu(user, "Bob");
-        await user.click(screen.getByRole("menuitem", { name: "Message Bob" }));
+        await clickMessage(user, "Bob");
         await new Promise((resolve) => setTimeout(resolve, 100));
 
         expect(
@@ -2062,19 +2032,7 @@ describe("direct messages", () => {
       }
     });
 
-    it("opens the private conversation from the menu", async () => {
-      const { user, server } = await enter();
-      receive(server, dm({ text: "psst" }));
-
-      await openMenu(user, "Bob");
-      await user.click(
-        screen.getByRole("menuitem", { name: "Open private chat" }),
-      );
-
-      expect(pane("Bob")).toBeInTheDocument();
-    });
-
-    it("offers no menu on the guest's own messages, and no blocking of a moderator", async () => {
+    it("lets the guest choose a moderator by their message, but not themselves", async () => {
       const { user, server } = await enter();
       act(() => {
         server.latest.serverEmit(
@@ -2093,14 +2051,12 @@ describe("direct messages", () => {
       });
 
       expect(
-        screen.queryByRole("button", { name: "Actions for Alice" }),
+        roomLog().queryByRole("button", { name: "Message Alice" }),
       ).not.toBeInTheDocument();
 
-      await openMenu(user, "Ada Mod");
+      await clickMessage(user, "Ada Mod");
 
-      expect(
-        screen.getAllByRole("menuitem").map((item) => item.textContent),
-      ).toEqual(["Message Ada Mod", "Open private chat"]);
+      expect(recipient()).toHaveAccessibleName(/^Send to: Ada Mod/);
     });
   });
 
@@ -2731,10 +2687,13 @@ describe("direct messages", () => {
   });
 
   describe("blocking", () => {
-    const openMenu = (user: ReturnType<typeof setup>["user"], name: string) =>
+    const clickMessage = (
+      user: ReturnType<typeof setup>["user"],
+      name: string,
+    ) =>
       user.click(
         within(screen.getByRole("log"))
-          .getAllByRole("button", { name: `Actions for ${name}` })
+          .getAllByRole("button", { name: `Message ${name}` })
           .at(-1)!,
       );
     it("blocks the person, says so, and can undo it", async () => {
@@ -2869,7 +2828,7 @@ describe("direct messages", () => {
         ).toBeInTheDocument();
       });
 
-      it("cannot be chosen to write to, in the slide-out or the message menu", async () => {
+      it("cannot be chosen to write to, in the slide-out or by clicking their message", async () => {
         const { user, server } = await enter();
         act(() =>
           server.latest.serverEmit("message:new", message({ text: "hello" })),
@@ -2887,13 +2846,10 @@ describe("direct messages", () => {
           expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
         );
 
-        await user.click(
-          within(screen.getByRole("log"))
-            .getAllByRole("button", { name: "Actions for Bob" })
-            .at(-1)!,
-        );
         expect(
-          screen.getByRole("menuitem", { name: "Message Bob" }),
+          within(screen.getByRole("log"))
+            .getAllByRole("button", { name: "Message Bob" })
+            .at(-1),
         ).toHaveAttribute("aria-disabled", "true");
       });
 
@@ -3033,11 +2989,11 @@ describe("direct messages", () => {
         within(screen.getByRole("log")).getAllByText("Blocked").length,
       ).toBeGreaterThanOrEqual(1);
 
-      await openMenu(user, "Bob");
       expect(
-        screen.getByRole("menuitem", { name: "Message Bob" }),
+        within(screen.getByRole("log"))
+          .getAllByRole("button", { name: "Message Bob" })
+          .at(-1),
       ).toHaveAttribute("aria-disabled", "true");
-      await user.keyboard("{Escape}");
 
       await user.click(screen.getByRole("button", { name: /^Send to:/ }));
       const drawer = within(await screen.findByRole("dialog"));
@@ -4029,7 +3985,13 @@ describe("avatars", () => {
     it("shows the plain avatar for somebody who did not choose, or whose avatar is not one we know", async () => {
       await enterWith([
         message({ id: "a", text: "one" }),
-        message({ id: "b", text: "two", avatar: "robot" }),
+        message({
+          id: "b",
+          text: "two",
+          guestId: "guest-carol",
+          nickname: "Carol",
+          avatar: "robot",
+        }),
       ]);
 
       expect(log().getAllByTitle("Other")).toHaveLength(2);
