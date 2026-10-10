@@ -13,7 +13,7 @@ export function gifOf(text: string): string | null {
 
 // GIPHY's addresses carry tracking in the query; the picture is the same without it, and shorter to send.
 export function sendableGifUrl(address: string): string | null {
-  const bare = address.split(/[?#]/)[0];
+  const bare = address.split(/[?#]/)[0] ?? "";
 
   return GIF_URL.test(bare) ? bare : null;
 }

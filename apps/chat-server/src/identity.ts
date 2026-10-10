@@ -40,6 +40,6 @@ export function getClientIp(
     .filter(Boolean);
 
   return entries.length >= trustedProxyHops
-    ? entries[entries.length - trustedProxyHops]
+    ? (entries[entries.length - trustedProxyHops] ?? handshake.address)
     : handshake.address;
 }

@@ -49,12 +49,13 @@ export function useRowNavigation(ids: string[]) {
       End: rows.length - 1,
     };
 
-    if (!(event.key in moves)) return;
+    const to = moves[event.key];
+    if (to === undefined) return;
 
     // The menu button would otherwise open its menu on the arrow keys.
     event.preventDefault();
     event.stopPropagation();
-    rows[Math.min(Math.max(moves[event.key], 0), rows.length - 1)]?.focus();
+    rows[Math.min(Math.max(to, 0), rows.length - 1)]?.focus();
   };
 
   return { stopId, onFocus, onBlur, onKeyDownCapture };

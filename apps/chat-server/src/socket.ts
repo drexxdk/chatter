@@ -136,7 +136,7 @@ function floodWaitMs(data: SocketData, now: number): number {
   );
 
   return data.recentMessageTimes.length >= RATE_LIMIT_MAX_MESSAGES
-    ? data.recentMessageTimes[0] + RATE_LIMIT_WINDOW_MS - now
+    ? (data.recentMessageTimes[0] ?? now) + RATE_LIMIT_WINDOW_MS - now
     : 0;
 }
 
@@ -155,7 +155,7 @@ export function directMessageWaitMs(
   );
   const newConversation =
     data.dmStartTimes.length >= NEW_CONVERSATIONS_PER_WINDOW
-      ? data.dmStartTimes[0] + NEW_CONVERSATION_WINDOW_MS - now
+      ? (data.dmStartTimes[0] ?? now) + NEW_CONVERSATION_WINDOW_MS - now
       : 0;
 
   return Math.max(flood, newConversation);
@@ -649,7 +649,9 @@ export function createSocketServer(
           ok: false,
           error: "rate_limited",
           retryAfterMs:
-            data.profileChangeTimes[0] + PROFILE_CHANGE_WINDOW_MS - now,
+            (data.profileChangeTimes[0] ?? now) +
+            PROFILE_CHANGE_WINDOW_MS -
+            now,
         });
       }
 
@@ -900,7 +902,8 @@ export function createSocketServer(
         return reply({
           ok: false,
           error: "rate_limited",
-          retryAfterMs: data.reactionTimes[0] + REACTION_WINDOW_MS - now,
+          retryAfterMs:
+            (data.reactionTimes[0] ?? now) + REACTION_WINDOW_MS - now,
         });
       }
 

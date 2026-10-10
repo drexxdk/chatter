@@ -3,8 +3,8 @@
 export function runs<T>(
   items: T[],
   authorOf: (item: T) => string | undefined,
-): T[][] {
-  const result: T[][] = [];
+): [T, ...T[]][] {
+  const result: [T, ...T[]][] = [];
   let lastAuthor: string | undefined;
 
   for (const item of items) {

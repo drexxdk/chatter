@@ -75,16 +75,21 @@ export function timeline(
 
   for (const message of messages) {
     if (message.seq !== undefined) {
-      while (next < events.length && events[next].seq < message.seq) {
-        items.push({ kind: "event", event: events[next++] });
+      for (
+        let event = events[next];
+        event && event.seq < message.seq;
+        event = events[next]
+      ) {
+        items.push({ kind: "event", event });
+        next++;
       }
     }
 
     items.push({ kind: "message", message });
   }
 
-  for (; next < events.length; next++) {
-    items.push({ kind: "event", event: events[next] });
+  for (const event of events.slice(next)) {
+    items.push({ kind: "event", event });
   }
 
   return items;
@@ -129,7 +134,13 @@ export function withDirect(
 
   for (const item of direct) {
     let index = result.length;
-    while (index > 0 && timeOf(result[index - 1]) > timeOf(item)) index--;
+    for (
+      let before = result[index - 1];
+      before && timeOf(before) > timeOf(item);
+      before = result[index - 1]
+    ) {
+      index--;
+    }
     result.splice(index, 0, item);
   }
 

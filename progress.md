@@ -125,7 +125,7 @@ A review of the whole code base once the core features were done (rooms, private
 
 ### Low
 
-- [ ] 12. Web `tsconfig.json`: add `noUncheckedIndexedAccess` and `noImplicitReturns`.
+- [x] 12. Stricter TypeScript: `noImplicitReturns` for the whole web app, and `noUncheckedIndexedAccess` for the production code of both apps (their `tsconfig.build.json`, which the builds and `npm run typecheck` use). The same flag on the tests would need about 270 `!` assertions in them, so they are left out. It turned up about 20 places where an index or `run[0]` was assumed to exist; the groups from `runs()` are now typed as non-empty, and the rest were small guards. `noImplicitReturns` is not on in the chat-server: Express handlers mix `return res...` with falling off the end by design.
 - [ ] 13. The server logs with `console.*` (27 places): structured logs with a request/socket id.
 - [ ] 14. Performance: a list virtualiser is not needed at 200 messages; per-message popovers could be rendered only for the hovered/focused message if profiling ever shows jank.
 - [ ] 15. Emoji search matches English names only; `prefers-reduced-motion` is only honoured for GIFs.

@@ -144,7 +144,9 @@ export function MessageGroup({
               {t("room.moderatorBadge")}
             </span>
           )}
-          <Timestamp sentAt={last.sentAt} className="text-slate-500" />
+          {last && (
+            <Timestamp sentAt={last.sentAt} className="text-slate-500" />
+          )}
         </div>
         {messages.map((message) => {
           const stop = nav

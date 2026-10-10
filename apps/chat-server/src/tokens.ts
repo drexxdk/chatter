@@ -41,6 +41,7 @@ export function verifyToken(
   if (parts.length !== 2) return undefined;
 
   const [body, signature] = parts;
+  if (body === undefined || signature === undefined) return undefined;
   const expected = Buffer.from(sign(body, options.secret));
   const received = Buffer.from(signature);
 
