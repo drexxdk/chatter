@@ -37,6 +37,7 @@ import { Timestamp } from "./Timestamp";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageGroup, StatusRow } from "./MessageRow";
 import { MessageInput } from "./MessageInput";
+import type { PersonMenuOptions } from "./PersonMenu";
 import { RecipientPicker } from "./RecipientPicker";
 import { RoomPanel } from "./RoomPanel";
 
@@ -221,6 +222,24 @@ export function ChatRoom({
     startReply(partner);
     focusMessageBox();
   }
+
+  // What the "…" button of somebody's message offers.
+  function personMenu(partner: Partner): PersonMenuOptions {
+    const blocked = direct.blockedIds.includes(partner.guestId);
+
+    return {
+      partner,
+      present: members.some((member) => member.guestId === partner.guestId),
+      blocked,
+      blockedBy: direct.blockedByIds.includes(partner.guestId),
+      onMessage: () => selectPerson(partner),
+      onOpenChat: () => openConversation(partner),
+      onToggleBlock: () =>
+        void direct
+          .setBlocked(partner.guestId, !blocked)
+          .then((result) => setReplyFailure(result.ok ? undefined : result)),
+    };
+  }
   const replyWaiting =
     replyFailure?.error === "rate_limited" && replyFailure.retryAfterSeconds;
 
@@ -363,6 +382,7 @@ export function ChatRoom({
                       onSelect={() => selectPerson(first.partner)}
                       selectable={canWriteTo(first.partner.guestId)}
                       nav={{ stopId: rows.stopId }}
+                      menu={personMenu(first.partner)}
                     />
                   );
                 }
@@ -415,6 +435,7 @@ export function ChatRoom({
                     onSelect={mine ? undefined : () => selectPerson(author)}
                     nav={{ stopId: rows.stopId }}
                     reactions={{ ownIds: ownGuestIds, onReact }}
+                    menu={mine ? undefined : personMenu(author)}
                   />
                 );
               })}{" "}

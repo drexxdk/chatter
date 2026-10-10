@@ -45,7 +45,11 @@
       "activities": "Activities and objects"
     }
   },
-  "person": { "message": "Message {{name}}" },
+  "person": {
+    "actions": "Actions for {{name}}",
+    "message": "Message {{name}}",
+    "openChat": "Open private chat"
+  },
   "reactions": {
     "add": "Add reaction",
     "react": "React with {{emoji}}",

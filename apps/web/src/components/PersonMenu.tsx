@@ -1,0 +1,100 @@
+import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
+import { Ban, Ellipsis, Mail, MessageSquare } from "lucide-react";
+import type { Ref } from "react";
+import { useTranslation } from "react-i18next";
+
+import type { Partner } from "../chat/direct";
+
+const item =
+  "flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm data-focus:bg-slate-800 data-disabled:opacity-50";
+
+// What can be done with the person behind a message.
+export interface PersonMenuOptions {
+  partner: Partner;
+  // Messages only reach people who are in the room right now.
+  present: boolean;
+  blocked: boolean;
+  // They have blocked the guest, so nothing written to them gets through.
+  blockedBy: boolean;
+  onMessage: () => void;
+  onOpenChat: () => void;
+  onToggleBlock: () => void;
+}
+
+// The "…" button in a message's hover bar, and the menu it opens.
+export function PersonMenu({
+  menu,
+  buttonRef,
+  onChosen,
+}: {
+  menu: PersonMenuOptions;
+  buttonRef?: Ref<HTMLButtonElement>;
+  // After something was chosen, for a bar that was held open.
+  onChosen: () => void;
+}) {
+  const { t } = useTranslation();
+  const { partner, present, blocked, blockedBy } = menu;
+  const label = t("person.actions", { name: partner.nickname });
+
+  return (
+    <Menu>
+      <MenuButton
+        ref={buttonRef}
+        tabIndex={-1}
+        title={label}
+        aria-label={label}
+        className="grid size-7 place-items-center rounded-full text-slate-300 hover:bg-slate-700 data-open:bg-slate-700"
+      >
+        <Ellipsis aria-hidden="true" className="h-4 w-4" />
+      </MenuButton>
+      <MenuItems
+        anchor={{ to: "bottom end", gap: 4, padding: 8 }}
+        className="z-50 min-w-52 rounded-md border border-slate-700 bg-slate-900 p-1 shadow-lg focus:outline-none"
+      >
+        <MenuItem disabled={!present || blocked || blockedBy}>
+          <button
+            type="button"
+            onClick={() => {
+              menu.onMessage();
+              onChosen();
+            }}
+            className={item}
+          >
+            <MessageSquare aria-hidden="true" className="h-4 w-4" />
+            {t("person.message", { name: partner.nickname })}
+          </button>
+        </MenuItem>
+        <MenuItem>
+          <button
+            type="button"
+            onClick={() => {
+              menu.onOpenChat();
+              onChosen();
+            }}
+            className={item}
+          >
+            <Mail aria-hidden="true" className="h-4 w-4" />
+            {t("person.openChat")}
+          </button>
+        </MenuItem>
+        {partner.role !== "moderator" && (
+          <MenuItem>
+            <button
+              type="button"
+              onClick={() => {
+                menu.onToggleBlock();
+                onChosen();
+              }}
+              className={item}
+            >
+              <Ban aria-hidden="true" className="h-4 w-4" />
+              {blocked
+                ? t("dm.unblock", { name: partner.nickname })
+                : t("dm.block", { name: partner.nickname })}
+            </button>
+          </MenuItem>
+        )}
+      </MenuItems>
+    </Menu>
+  );
+}

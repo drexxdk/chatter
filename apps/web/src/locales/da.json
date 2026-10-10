@@ -45,7 +45,11 @@
       "activities": "Aktiviteter og ting"
     }
   },
-  "person": { "message": "Skriv til {{name}}" },
+  "person": {
+    "actions": "Handlinger for {{name}}",
+    "message": "Skriv til {{name}}",
+    "openChat": "Åbn privat chat"
+  },
   "reactions": {
     "add": "Tilføj reaktion",
     "react": "Reagér med {{emoji}}",

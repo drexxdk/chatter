@@ -45,7 +45,11 @@
       "activities": "Aktivitäten und Gegenstände"
     }
   },
-  "person": { "message": "{{name}} schreiben" },
+  "person": {
+    "actions": "Aktionen für {{name}}",
+    "message": "{{name}} schreiben",
+    "openChat": "Privaten Chat öffnen"
+  },
   "reactions": {
     "add": "Reaktion hinzufügen",
     "react": "Mit {{emoji}} reagieren",

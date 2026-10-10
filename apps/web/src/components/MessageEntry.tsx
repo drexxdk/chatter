@@ -16,6 +16,7 @@ import {
   REACTION_EMOJIS,
   type Reaction,
 } from "../chat/reactions";
+import { PersonMenu, type PersonMenuOptions } from "./PersonMenu";
 
 export interface ReactionOptions {
   // Every id this guest has had, to tell which reactions are theirs.
@@ -93,14 +94,16 @@ function AddReaction({
   );
 }
 
-// One message in a group, with what lets the guest react to it as in Teams: a bar of quick reactions when it is
-// hovered or focused, and under it each emoji it has been given (a click joins or leaves) beside a small button to add
-// another. With the arrow-key stop focused, R opens the full grid. A guest's own messages only show what others added.
+// One message in a group, with what lets the guest react to it as in Teams: a bar when it is hovered or focused, with
+// quick reactions and a button to add another, and a menu button for what can be done with the person; under it each
+// emoji it has been given (a click joins or leaves) beside a small button to add another. With the arrow-key stop
+// focused, R opens the full grid and the menu key opens the menu. A guest's own messages only show what others added.
 export function MessageEntry({
   id,
   mine,
   reactions,
   reacted,
+  menu,
   children,
 }: {
   id: string;
@@ -108,17 +111,20 @@ export function MessageEntry({
   // Absent where messages cannot be reacted to.
   reactions?: ReactionOptions;
   reacted: Reaction[];
+  // Absent where there is nobody to do anything with.
+  menu?: PersonMenuOptions;
   // The bubble and whatever makes it clickable or focusable.
   children: ReactNode;
 }) {
   const { t } = useTranslation();
   const addRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLButtonElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const pressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pressStart = useRef({ x: 0, y: 0 });
   // The finger that held the message is about to lift: that click must not also choose the person.
   const held = useRef(false);
-  // Touch screens have no hover, so a long press shows the quick reactions instead.
+  // Touch screens have no hover, so a long press shows the bar instead.
   const [barHeld, setBarHeld] = useState(false);
 
   useEffect(() => {
@@ -135,9 +141,7 @@ export function MessageEntry({
 
   useEffect(() => () => clearTimeout(pressTimer.current), []);
 
-  if (!reactions) {
-    return <div className="relative max-w-full">{children}</div>;
-  }
+  const canReact = !!reactions && !mine;
 
   const chipLabel = (reaction: Reaction) =>
     t("reactions.chip", {
@@ -154,7 +158,11 @@ export function MessageEntry({
     </>
   );
 
-  if (mine) {
+  if (!canReact && !menu) {
+    if (!reactions) {
+      return <div className="relative max-w-full">{children}</div>;
+    }
+
     return (
       <div className="relative flex max-w-full flex-col">
         {children}
@@ -177,14 +185,14 @@ export function MessageEntry({
     );
   }
 
-  const { ownIds, onReact } = reactions;
+  const ownIds = reactions?.ownIds ?? [];
   const isMine = (reaction: Reaction) =>
     reaction.users.some((user) => ownIds.includes(user.guestId));
   const mineOf = (emoji: string) => {
     const reaction = reacted.find((candidate) => candidate.emoji === emoji);
     return reaction ? isMine(reaction) : false;
   };
-  const pick = (emoji: string) => onReact(id, emoji);
+  const pick = (emoji: string) => reactions?.onReact(id, emoji);
 
   const cancelPress = () => clearTimeout(pressTimer.current);
 
@@ -210,9 +218,10 @@ export function MessageEntry({
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
+    if (!target.dataset.navId) return;
 
     if (
-      target.dataset.navId &&
+      canReact &&
       event.key.toLowerCase() === "r" &&
       !event.altKey &&
       !event.ctrlKey &&
@@ -220,8 +229,17 @@ export function MessageEntry({
     ) {
       event.preventDefault();
       addRef.current?.click();
+    } else if (
+      menu &&
+      (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))
+    ) {
+      event.preventDefault();
+      menuRef.current?.click();
     }
   };
+
+  // Wide enough for what the bar holds, and kept inside the message's edge.
+  const barWidth = canReact ? (menu ? "13rem" : "10rem") : "2.75rem";
 
   return (
     <div
@@ -247,36 +265,57 @@ export function MessageEntry({
         {/* The padding below the bar keeps the pointer inside the message while it moves up to the bar. */}
         <div
           data-held={barHeld || undefined}
-          className="absolute bottom-full left-[max(0px,calc(100%-10rem))] z-20 hidden w-40 pb-1 group-focus-within/message:flex group-hover/message:flex has-[[data-open]]:flex data-[held]:flex"
+          style={{
+            width: barWidth,
+            left: `max(0px, calc(100% - ${barWidth}))`,
+          }}
+          className="absolute bottom-full z-20 hidden pb-1 group-focus-within/message:flex group-hover/message:flex has-[[data-open]]:flex data-[held]:flex"
         >
           <div className="flex w-full items-center justify-center gap-0.5 rounded-full border border-slate-700 bg-slate-900 px-1 py-0.5 shadow-lg">
-            {QUICK_REACTIONS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                tabIndex={-1}
-                title={t("reactions.react", { emoji })}
-                aria-label={t("reactions.react", { emoji })}
-                aria-pressed={mineOf(emoji)}
-                onClick={() => {
-                  pick(emoji);
-                  setBarHeld(false);
-                }}
-                className="size-7 rounded-full text-base hover:bg-slate-700 aria-pressed:bg-indigo-500/30"
-              >
-                {emoji}
-              </button>
-            ))}
-            <AddReaction
-              isMine={mineOf}
-              onPick={pick}
-              buttonRef={addRef}
-              className="grid size-7 place-items-center rounded-full text-slate-300 hover:bg-slate-700"
-            />
+            {canReact && (
+              <>
+                {QUICK_REACTIONS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    tabIndex={-1}
+                    title={t("reactions.react", { emoji })}
+                    aria-label={t("reactions.react", { emoji })}
+                    aria-pressed={mineOf(emoji)}
+                    onClick={() => {
+                      pick(emoji);
+                      setBarHeld(false);
+                    }}
+                    className="size-7 rounded-full text-base hover:bg-slate-700 aria-pressed:bg-indigo-500/30"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+                <AddReaction
+                  isMine={mineOf}
+                  onPick={pick}
+                  buttonRef={addRef}
+                  className="grid size-7 place-items-center rounded-full text-slate-300 hover:bg-slate-700"
+                />
+              </>
+            )}
+            {canReact && menu && (
+              <span
+                aria-hidden
+                className="mx-1 h-5 w-px shrink-0 bg-slate-700"
+              />
+            )}
+            {menu && (
+              <PersonMenu
+                menu={menu}
+                buttonRef={menuRef}
+                onChosen={() => setBarHeld(false)}
+              />
+            )}
           </div>
         </div>
       </div>
-      {reacted.length > 0 && (
+      {canReact && reacted.length > 0 && (
         <div className="mt-1 flex flex-wrap items-center gap-1">
           {reacted.map((reaction) => (
             <button

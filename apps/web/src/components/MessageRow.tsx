@@ -9,6 +9,7 @@ import { AvatarIcon } from "./Avatar";
 import { BlockedTag } from "./DirectLists";
 import { GifImage } from "./GifImage";
 import { MessageEntry, type ReactionOptions } from "./MessageEntry";
+import type { PersonMenuOptions } from "./PersonMenu";
 import { Timestamp } from "./Timestamp";
 
 export interface GroupMessage {
@@ -41,6 +42,7 @@ export function MessageGroup({
   selectable = true,
   nav,
   reactions,
+  menu,
 }: {
   mine: boolean;
   // Who the click chooses; in a private message that is the other person, not the author.
@@ -57,6 +59,8 @@ export function MessageGroup({
   nav?: { stopId: string | null };
   // Lets the guest react to the messages; absent in private messages.
   reactions?: ReactionOptions;
+  // What can be done with the person, from the "…" button of a message's hover bar.
+  menu?: PersonMenuOptions;
 }) {
   const { t } = useTranslation();
   const moderator = role === "moderator";
@@ -153,6 +157,7 @@ export function MessageGroup({
               mine={mine}
               reactions={reactable ? reactions : undefined}
               reacted={message.reactions ?? []}
+              menu={message.banned ? undefined : menu}
             >
               {onSelect ? (
                 // The click is taken here, not by the button, so the text stays selectable.
