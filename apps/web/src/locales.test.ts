@@ -1,8 +1,40 @@
+import {
+  parse,
+  TYPE,
+  type MessageFormatElement,
+} from "@formatjs/icu-messageformat-parser";
 import { describe, expect, it } from "vitest";
 
+import i18n from "./i18n";
 import da from "./locales/da.json";
 import de from "./locales/de.json";
 import en from "./locales/en.json";
+
+// The values a message takes, wherever they are used in it, plurals and selects included.
+function argumentsOf(elements: MessageFormatElement[]): string[] {
+  return elements.flatMap((element) => {
+    switch (element.type) {
+      case TYPE.literal:
+      case TYPE.pound:
+        return [];
+      case TYPE.plural:
+      case TYPE.select:
+        return [
+          element.value,
+          ...Object.values(element.options).flatMap((option) =>
+            argumentsOf(option.value),
+          ),
+        ];
+      case TYPE.tag:
+        return argumentsOf(element.children);
+      default:
+        return [element.value];
+    }
+  });
+}
+
+const argumentsIn = (text: string) =>
+  [...new Set(argumentsOf(parse(text)))].sort();
 
 function keysOf(value: object, prefix = ""): string[] {
   return Object.entries(value).flatMap(([key, child]) =>
@@ -67,11 +99,26 @@ describe("locales", () => {
   });
 
   it.each([
+    ["en", en],
     ["da", da],
     ["de", de],
-  ])("%s keeps the same interpolation placeholders as en", (_code, locale) => {
-    const placeholders = (text: string) =>
-      [...text.matchAll(/{{\s*(\w+)\s*}}/g)].map((match) => match[1]).sort();
+  ])(
+    "%s has only messages that are valid ICU MessageFormat",
+    (_code, locale) => {
+      for (const key of keysOf(locale)) {
+        const text = key
+          .split(".")
+          .reduce<any>((node, part) => node[part], locale) as string;
+
+        expect(() => parse(text), key).not.toThrow();
+      }
+    },
+  );
+
+  it.each([
+    ["da", da],
+    ["de", de],
+  ])("%s takes the same values as en in every message", (_code, locale) => {
     const flat = (source: object) =>
       Object.fromEntries(
         keysOf(source).map((key) => [
@@ -82,9 +129,23 @@ describe("locales", () => {
     const translated = flat(locale);
 
     for (const [key, text] of Object.entries(flat(en))) {
-      expect(placeholders(translated[key]), key).toEqual(
-        placeholders(text as string),
+      expect(argumentsIn(translated[key]), key).toEqual(
+        argumentsIn(text as string),
       );
     }
   });
+
+  it.each([
+    ["en", "minutesAgo", 1, "1 minute ago"],
+    ["en", "minutesAgo", 2, "2 minutes ago"],
+    ["da", "minutesAgo", 1, "for 1 minut siden"],
+    ["da", "minutesAgo", 5, "for 5 minutter siden"],
+    ["de", "minutesAgo", 1, "vor 1 Minute"],
+    ["de", "minutesAgo", 5, "vor 5 Minuten"],
+  ])(
+    "%s says %s with %i in the right form: %s",
+    (code, key, count, expected) => {
+      expect(i18n.getFixedT(code)(`time.${key}`, { count })).toBe(expected);
+    },
+  );
 });

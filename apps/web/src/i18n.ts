@@ -1,4 +1,5 @@
 import i18n from "i18next";
+import ICU from "i18next-icu";
 import { initReactI18next } from "react-i18next";
 
 import da from "./locales/da.json";
@@ -28,16 +29,21 @@ export function setLanguage(code: string): void {
   void i18n.changeLanguage(code);
 }
 
-void i18n.use(initReactI18next).init({
-  resources: {
-    en: { translation: en },
-    da: { translation: da },
-    de: { translation: de },
-  },
-  lng: initialLanguage(),
-  fallbackLng: "en",
-  interpolation: { escapeValue: false },
-});
+// Messages are ICU MessageFormat: `{name}` for a value, and `{count, plural, one {...} other {...}}` where the wording
+// depends on a number, so that a message is one string in each language, not one per form.
+void i18n
+  .use(ICU)
+  .use(initReactI18next)
+  .init({
+    resources: {
+      en: { translation: en },
+      da: { translation: da },
+      de: { translation: de },
+    },
+    lng: initialLanguage(),
+    fallbackLng: "en",
+    interpolation: { escapeValue: false },
+  });
 
 i18n.on("languageChanged", (code) => {
   document.documentElement.lang = code;
