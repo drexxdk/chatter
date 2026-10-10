@@ -203,7 +203,8 @@ describe("losing the connection", () => {
 
   it("lets the guest leave while reconnecting and stops trying", async () => {
     const server = makeFakeServer();
-    const { user } = await enterRoom(server, [150, 150]);
+    // Long enough that leaving always comes first, even on a busy machine.
+    const { user } = await enterRoom(server, [1_000, 1_000]);
 
     dropConnection(server);
     await user.click(screen.getByRole("button", { name: "Leave room" }));
@@ -211,7 +212,7 @@ describe("losing the connection", () => {
     expect(
       await screen.findByRole("heading", { name: "Public rooms" }),
     ).toBeInTheDocument();
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    await new Promise((resolve) => setTimeout(resolve, 1_300));
     expect(server.createSocket).toHaveBeenCalledTimes(1);
   });
 

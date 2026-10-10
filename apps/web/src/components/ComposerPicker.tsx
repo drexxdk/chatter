@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import { gifApiKey } from "../gifApi";
 import { composerIconButton } from "./composerControls";
 import { EmojiPane } from "./EmojiPane";
+import { FocusSearch } from "./FocusSearch";
 import { GifPane } from "./GifPane";
 
 const TAB_CLASS =
@@ -50,6 +51,8 @@ export function ComposerPicker({
         <Smile aria-hidden="true" className="h-5 w-5" />
       </PopoverButton>
       <PopoverPanel
+        role="dialog"
+        aria-label={label}
         anchor={{ to: "top end", gap: 8, padding: 8 }}
         focus={!touch}
         className="z-40 flex h-[min(26rem,65dvh)] w-[min(22rem,calc(100vw-1rem))] flex-col rounded-xl border border-slate-700 bg-slate-900 shadow-xl"
@@ -65,14 +68,26 @@ export function ComposerPicker({
 
           return (
             <TabGroup className="flex min-h-0 flex-1 flex-col">
-              <TabList className="flex shrink-0 border-b border-slate-800 px-1">
+              <FocusSearch />
+              <TabList
+                className="flex shrink-0 border-b border-slate-800 px-1"
+                onKeyDown={(event) => {
+                  if (event.key !== "ArrowDown") return;
+
+                  // From a tab into the search box of the pane it shows.
+                  event.preventDefault();
+                  event.currentTarget.parentElement
+                    ?.querySelector<HTMLElement>('[role="tabpanel"] input')
+                    ?.focus();
+                }}
+              >
                 <Tab className={TAB_CLASS}>{t("picker.tabEmoji")}</Tab>
                 {withGifs && (
                   <Tab className={TAB_CLASS}>{t("picker.tabGifs")}</Tab>
                 )}
               </TabList>
               <TabPanels className="min-h-0 flex-1 p-3">
-                <TabPanel className="h-full">
+                <TabPanel tabIndex={-1} className="h-full">
                   <EmojiPane
                     onPick={(emoji) => {
                       onEmoji(emoji);
@@ -81,7 +96,7 @@ export function ComposerPicker({
                   />
                 </TabPanel>
                 {withGifs && (
-                  <TabPanel className="h-full">
+                  <TabPanel tabIndex={-1} className="h-full">
                     <GifPane
                       onPick={(url) => {
                         onGif(url);

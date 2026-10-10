@@ -8,6 +8,7 @@ import type { DirectThread, Partner } from "../chat/direct";
 import { AvatarIcon } from "./Avatar";
 import { composerButton } from "./composerControls";
 import { BlockedByTag, BlockedTag, ThreadSection } from "./DirectLists";
+import { FocusSearch } from "./FocusSearch";
 
 const chip = (active: boolean) =>
   `flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
@@ -103,7 +104,7 @@ export function RecipientPicker({
       </PopoverButton>
 
       <PopoverPanel
-        role="group"
+        role="dialog"
         aria-label={t("dm.recipient")}
         anchor={{ to: "top start", gap: 8, padding: 8 }}
         focus={!touch}
@@ -117,6 +118,7 @@ export function RecipientPicker({
 
           return (
             <>
+              <FocusSearch />
               <div className="relative">
                 <Search
                   aria-hidden="true"

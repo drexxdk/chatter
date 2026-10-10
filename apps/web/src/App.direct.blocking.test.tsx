@@ -165,7 +165,7 @@ describe("direct messages", () => {
 
         await user.click(screen.getByRole("button", { name: /^Send to:/ }));
         const drawer = within(
-          await screen.findByRole("group", { name: "Send to" }),
+          await screen.findByRole("dialog", { name: "Send to" }),
         );
         const row = drawer
           .getAllByRole("button", { name: /^Bob/ })
@@ -174,7 +174,7 @@ describe("direct messages", () => {
         await user.keyboard("{Escape}");
         await waitFor(() =>
           expect(
-            screen.queryByRole("group", { name: "Send to" }),
+            screen.queryByRole("dialog", { name: "Send to" }),
           ).not.toBeInTheDocument(),
         );
 
@@ -332,7 +332,7 @@ describe("direct messages", () => {
 
       await user.click(screen.getByRole("button", { name: /^Send to:/ }));
       const drawer = within(
-        await screen.findByRole("group", { name: "Send to" }),
+        await screen.findByRole("dialog", { name: "Send to" }),
       );
       const blockedRow = drawer
         .getAllByRole("button", { name: /^Bob/ })

@@ -16,6 +16,7 @@ import {
   REACTION_EMOJIS,
   type Reaction,
 } from "../chat/reactions";
+import { useGridNavigation } from "../gridNavigation";
 import { PersonMenu, type PersonMenuOptions } from "./PersonMenu";
 
 export interface ReactionOptions {
@@ -66,31 +67,58 @@ function AddReaction({
         <SmilePlus aria-hidden className="size-4" />
       </PopoverButton>
       <PopoverPanel
+        role="dialog"
+        aria-label={t("reactions.add")}
         anchor={{ to: "top start", gap: 6, padding: 8 }}
         focus
-        className="z-30 grid grid-cols-8 gap-0.5 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-xl"
+        className="z-30 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-xl"
       >
         {({ close }) => (
-          <>
-            {REACTION_EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                aria-label={t("reactions.react", { emoji })}
-                aria-pressed={isMine(emoji)}
-                onClick={() => {
-                  onPick(emoji);
-                  close();
-                }}
-                className="size-8 rounded-md text-xl hover:bg-slate-700 aria-pressed:bg-indigo-500/30 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400"
-              >
-                {emoji}
-              </button>
-            ))}
-          </>
+          <ReactionGrid
+            isMine={isMine}
+            onPick={(emoji) => {
+              onPick(emoji);
+              close();
+            }}
+          />
         )}
       </PopoverPanel>
     </Popover>
+  );
+}
+
+// Every emoji one can react with; the arrow keys move between them.
+function ReactionGrid({
+  isMine,
+  onPick,
+}: {
+  isMine: (emoji: string) => boolean;
+  onPick: (emoji: string) => void;
+}) {
+  const { t } = useTranslation();
+  const keys = useGridNavigation();
+
+  return (
+    <div
+      ref={keys.ref}
+      onFocus={keys.onFocus}
+      onKeyDown={keys.onKeyDown}
+      className="grid grid-cols-8 gap-0.5"
+    >
+      {REACTION_EMOJIS.map((emoji) => (
+        <button
+          key={emoji}
+          type="button"
+          data-grid-item
+          aria-label={t("reactions.react", { emoji })}
+          aria-pressed={isMine(emoji)}
+          onClick={() => onPick(emoji)}
+          className="size-8 rounded-md text-xl hover:bg-slate-700 aria-pressed:bg-indigo-500/30 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400"
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
   );
 }
 

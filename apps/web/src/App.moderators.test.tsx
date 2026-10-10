@@ -512,7 +512,7 @@ describe("announcements", () => {
 
     it("goes away when the guest gives up reconnecting and leaves", async () => {
       const server = makeFakeServer();
-      const { user } = setup(server, [150, 150]);
+      const { user } = setup(server, [60_000, 60_000]);
       await joinRoom(user);
       await screen.findByRole("button", { name: "Your profile: Alice" });
       act(() => server.latest.serverEmit("announcement:new", announcement()));

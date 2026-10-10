@@ -3,12 +3,17 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { fetchGifs, type Gif } from "../gifApi";
+import { useGridNavigation } from "../gridNavigation";
 
 // The GIFs tab: what is trending to begin with, search results once something is typed. Choosing a picture hands its
-// address to `onPick`.
+// address to `onPick`. The arrow keys move between the pictures, and down from the search box goes to them.
 export function GifPane({ onPick }: { onPick: (url: string) => void }) {
   const { t, i18n } = useTranslation();
   const [query, setQuery] = useState("");
+  const searchBox = useRef<HTMLInputElement>(null);
+  const gridKeys = useGridNavigation({
+    onLeaveUp: () => searchBox.current?.focus(),
+  });
   const [gifs, setGifs] = useState<Gif[]>([]);
   const [next, setNext] = useState<number | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
@@ -80,9 +85,16 @@ export function GifPane({ onPick }: { onPick: (url: string) => void }) {
           className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-slate-400"
         />
         <input
+          ref={searchBox}
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              gridKeys.focus();
+            }
+          }}
           aria-label={t("gif.search")}
           placeholder={t("gif.search")}
           autoComplete="off"
@@ -90,7 +102,12 @@ export function GifPane({ onPick }: { onPick: (url: string) => void }) {
         />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto [color-scheme:dark]">
+      <div
+        ref={gridKeys.ref}
+        onFocus={gridKeys.onFocus}
+        onKeyDown={gridKeys.onKeyDown}
+        className="min-h-0 flex-1 overflow-y-auto [color-scheme:dark]"
+      >
         {status === "error" && (
           <p role="alert" className="text-sm text-red-300">
             {t("gif.error")}
@@ -112,6 +129,7 @@ export function GifPane({ onPick }: { onPick: (url: string) => void }) {
             <li key={gif.id} className="mb-2 break-inside-avoid">
               <button
                 type="button"
+                data-grid-item
                 onClick={() => onPick(gif.url)}
                 aria-label={
                   gif.title ? t("gif.pick", { title: gif.title }) : t("gif.alt")
@@ -135,6 +153,7 @@ export function GifPane({ onPick }: { onPick: (url: string) => void }) {
         {next !== null && status !== "loading" && (
           <button
             type="button"
+            data-grid-item
             onClick={() => void loadMore()}
             className="mx-auto mt-2 block rounded-md border border-slate-700 px-3 py-1.5 text-sm hover:bg-slate-800"
           >

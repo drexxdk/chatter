@@ -1,13 +1,19 @@
 import { Search } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { EMOJI_SECTIONS, searchEmoji } from "../chat/emojiData";
+import { useGridNavigation } from "../gridNavigation";
 
-// The Emoji tab: every emoji in sections, or those that match what is typed.
+// The Emoji tab: every emoji in sections, or those that match what is typed. The arrow keys move between the emoji, and
+// down from the search box goes to them.
 export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
+  const searchBox = useRef<HTMLInputElement>(null);
+  const gridKeys = useGridNavigation({
+    onLeaveUp: () => searchBox.current?.focus(),
+  });
   const searching = query.trim() !== "";
   const found = searching ? searchEmoji(query) : [];
 
@@ -17,6 +23,7 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
         <button
           key={emoji}
           type="button"
+          data-grid-item
           title={words.split(" ")[0]}
           aria-label={emoji}
           onClick={() => onPick(emoji)}
@@ -36,9 +43,16 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
           className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-slate-400"
         />
         <input
+          ref={searchBox}
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              gridKeys.focus();
+            }
+          }}
           aria-label={t("picker.searchEmoji")}
           placeholder={t("picker.searchEmoji")}
           autoComplete="off"
@@ -46,7 +60,12 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
         />
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto [color-scheme:dark]">
+      <div
+        ref={gridKeys.ref}
+        onFocus={gridKeys.onFocus}
+        onKeyDown={gridKeys.onKeyDown}
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto [color-scheme:dark]"
+      >
         {searching ? (
           found.length > 0 ? (
             grid(found)

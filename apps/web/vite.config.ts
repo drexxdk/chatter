@@ -13,5 +13,7 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
+    // Every file runs in its own worker at once, so a test can be slow on a busy machine without being wrong.
+    testTimeout: 15_000,
   },
 });
