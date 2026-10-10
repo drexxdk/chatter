@@ -41,6 +41,12 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   padding-right: var(--scrollbar-width, 0px) !important;
 }
 
+/* Headless UI draws an anchored dropdown in the page's corner for a frame before it has worked out where it goes (left
+   and top both 0). Until it has, it is only not shown (not hidden, which would stop it from being focused as it opens). */
+[data-anchor][style*="left: 0px"][style*="top: 0px"] {
+  opacity: 0;
+}
+
 /* The emoji and GIF picker has one scrollbar, never two. While the panel is tall enough for the tabs, the search box and
    three rows of emoji (about 17.75rem), the lists scroll under them; below that the whole panel scrolls, with the lists
    shown in full. (`size` containment is what lets the panel's height be asked about; it already has one of its own.) */
