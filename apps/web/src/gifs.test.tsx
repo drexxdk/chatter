@@ -1,4 +1,11 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -77,13 +84,99 @@ const message = (text: string) => ({
 
 afterEach(() => vi.unstubAllEnvs());
 
+const openPicker = (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(screen.getByRole("button", { name: "Emoji and GIFs" }));
+
+const send = (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(screen.getByRole("button", { name: "Send" }));
+
 describe("without a GIPHY key", () => {
-  it("has no GIF button", async () => {
+  it("offers emoji only", async () => {
     vi.stubEnv("VITE_GIPHY_API_KEY", "");
     stubFetch();
-    await enter();
+    const { user } = await enter();
 
-    expect(screen.queryByRole("button", { name: "Send a GIF" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Emoji and GIFs" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Emoji" }));
+
+    expect(await screen.findByRole("tab", { name: "Emoji" })).toBeVisible();
+    expect(screen.queryByRole("tab", { name: "GIFs" })).toBeNull();
+  });
+});
+
+describe("emoji", () => {
+  beforeEach(() => {
+    vi.stubEnv("VITE_GIPHY_API_KEY", "test-key");
+    stubFetch();
+  });
+
+  it("are added to the message at the cursor, not sent", async () => {
+    const { user, server } = await enter();
+    const box = screen.getByRole("textbox", { name: "Message" });
+    await user.type(box, "hello world");
+    (box as HTMLTextAreaElement).setSelectionRange(5, 5);
+
+    await openPicker(user);
+    await user.click(await screen.findByRole("button", { name: "😀" }));
+
+    await waitFor(() => expect(box).toHaveValue("hello😀 world"));
+    expect((box as HTMLTextAreaElement).selectionStart).toBe("hello😀".length);
+    expect(server.latest.emittedEvents("message:send")).toEqual([]);
+    await waitFor(() =>
+      expect(screen.queryByRole("tab", { name: "Emoji" })).toBeNull(),
+    );
+
+    await send(user);
+
+    await waitFor(() =>
+      expect(server.latest.emittedEvents("message:send")).toEqual([
+        { text: "hello😀 world" },
+      ]),
+    );
+  });
+
+  it("replace the words that are selected", async () => {
+    const { user } = await enter();
+    const box = screen.getByRole("textbox", { name: "Message" });
+    await user.type(box, "abcdef");
+    (box as HTMLTextAreaElement).setSelectionRange(1, 3);
+
+    await openPicker(user);
+    await user.click(await screen.findByRole("button", { name: "🔥" }));
+
+    await waitFor(() => expect(box).toHaveValue("a🔥def"));
+  });
+
+  it("can be searched for by what they are called", async () => {
+    const { user } = await enter();
+
+    await openPicker(user);
+    await user.type(
+      await screen.findByRole("searchbox", { name: "Search emoji" }),
+      "pizza",
+    );
+
+    expect(screen.getByRole("button", { name: "🍕" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "😀" })).toBeNull();
+
+    await user.clear(screen.getByRole("searchbox", { name: "Search emoji" }));
+    await user.type(
+      screen.getByRole("searchbox", { name: "Search emoji" }),
+      "zzzz",
+    );
+
+    expect(screen.getByText("No emoji found.")).toBeInTheDocument();
+  });
+
+  it("are not added beyond the length of a message", async () => {
+    const { user } = await enter();
+    const box = screen.getByRole("textbox", { name: "Message" });
+    fireEvent.change(box, { target: { value: "x".repeat(499) } });
+
+    await openPicker(user);
+    await user.click(await screen.findByRole("button", { name: "😀" }));
+
+    expect(box).toHaveValue("x".repeat(499));
   });
 });
 
@@ -95,42 +188,107 @@ describe("GIFs", () => {
     calls = stubFetch();
   });
 
-  it("shows what is trending, and sends the one that is chosen as a message", async () => {
+  async function addDancing(user: ReturnType<typeof userEvent.setup>) {
+    await openPicker(user);
+    await user.click(await screen.findByRole("tab", { name: "GIFs" }));
+
+    await user.click(
+      await screen.findByRole("button", { name: "Add GIF: Dancing" }),
+    );
+  }
+
+  it("shows what is trending, and adds the one that is chosen to the message without sending it", async () => {
     const { user, server } = await enter();
 
-    await user.click(screen.getByRole("button", { name: "Send a GIF" }));
-    const dialog = within(await screen.findByRole("dialog"));
-    await user.click(
-      await dialog.findByRole("button", { name: "Send GIF: Dancing" }),
-    );
+    await addDancing(user);
+
+    expect(calls[0].pathname).toBe("/v1/gifs/trending");
+    expect(calls[0].searchParams.get("api_key")).toBe("test-key");
+    expect(calls[0].searchParams.get("rating")).toBe("g");
+    expect(
+      await screen.findByRole("button", { name: "Remove GIF" }),
+    ).toBeInTheDocument();
+    expect(server.latest.emittedEvents("message:send")).toEqual([]);
+    await waitFor(() => expect(screen.queryByRole("tab")).toBeNull());
+  });
+
+  it("sends it on its own when there are no words", async () => {
+    const { user, server } = await enter();
+    await addDancing(user);
+
+    await send(user);
 
     await waitFor(() =>
       expect(server.latest.emittedEvents("message:send")).toEqual([
         { text: BARE },
       ]),
     );
-    expect(calls[0].pathname).toBe("/v1/gifs/trending");
-    expect(calls[0].searchParams.get("api_key")).toBe("test-key");
-    expect(calls[0].searchParams.get("rating")).toBe("g");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Remove GIF" })).toBeNull(),
+    );
+  });
+
+  it("sends it after the words that were written, as one message", async () => {
+    const { user, server } = await enter();
+    await user.type(screen.getByRole("textbox", { name: "Message" }), "look");
+    await addDancing(user);
+
+    await send(user);
+
+    await waitFor(() =>
+      expect(server.latest.emittedEvents("message:send")).toEqual([
+        { text: `look\n${BARE}` },
+      ]),
+    );
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("");
+  });
+
+  it("can be taken out again before sending", async () => {
+    const { user, server } = await enter();
+    await user.type(screen.getByRole("textbox", { name: "Message" }), "look");
+    await addDancing(user);
+
+    await user.click(await screen.findByRole("button", { name: "Remove GIF" }));
+    await send(user);
+
+    await waitFor(() =>
+      expect(server.latest.emittedEvents("message:send")).toEqual([
+        { text: "look" },
+      ]),
+    );
+  });
+
+  it("leaves room for the picture in the message", async () => {
+    const { user } = await enter();
+    const box = screen.getByRole("textbox", { name: "Message" });
+    fireEvent.change(box, { target: { value: "x".repeat(500) } });
+
+    await addDancing(user);
+
+    await waitFor(() =>
+      expect((box as HTMLTextAreaElement).value.length).toBe(
+        500 - BARE.length - 1,
+      ),
+    );
+    expect(box).toHaveAttribute("maxlength", String(500 - BARE.length - 1));
   });
 
   it("searches for what is typed", async () => {
     const { user } = await enter();
 
-    await user.click(screen.getByRole("button", { name: "Send a GIF" }));
-    const dialog = within(await screen.findByRole("dialog"));
+    await openPicker(user);
+    await user.click(await screen.findByRole("tab", { name: "GIFs" }));
     await user.type(
-      dialog.getByRole("searchbox", { name: "Search GIFs" }),
+      await screen.findByRole("searchbox", { name: "Search GIFs" }),
       "cat",
     );
 
     expect(
-      await dialog.findByRole("button", { name: "Send GIF: A cat" }),
+      await screen.findByRole("button", { name: "Add GIF: A cat" }),
     ).toBeInTheDocument();
     const search = calls.filter((url) => url.pathname.endsWith("/search"));
     expect(search.at(-1)?.searchParams.get("q")).toBe("cat");
-    expect(dialog.getByText("Powered by GIPHY")).toBeInTheDocument();
+    expect(screen.getByText("Powered by GIPHY")).toBeInTheDocument();
   });
 
   it("says when the GIFs cannot be loaded", async () => {
@@ -140,13 +298,13 @@ describe("GIFs", () => {
       vi.fn(async () => ({ ok: false, status: 429 })),
     );
 
-    await user.click(screen.getByRole("button", { name: "Send a GIF" }));
+    await openPicker(user);
+    await user.click(await screen.findByRole("tab", { name: "GIFs" }));
 
-    expect(
-      await within(await screen.findByRole("dialog")).findByRole("alert"),
-    ).toHaveTextContent("The GIFs could not be loaded.");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The GIFs could not be loaded.",
+    );
   });
-
   it("shows a message that is a GIPHY picture as the picture", async () => {
     const { server } = await enter();
 
@@ -167,5 +325,17 @@ describe("GIFs", () => {
 
     expect(screen.getByText(other)).toBeInTheDocument();
     expect(within(screen.getByRole("log")).queryByRole("img")).toBeNull();
+  });
+  it("shows words with a GIF after them as the words and the picture", async () => {
+    const { server } = await enter();
+
+    act(() =>
+      server.latest.serverEmit("message:new", message(`look at this\n${BARE}`)),
+    );
+
+    const log = within(screen.getByRole("log"));
+    expect(log.getByText("look at this")).toBeInTheDocument();
+    expect(log.getByRole("img", { name: "GIF" })).toHaveAttribute("src", BARE);
+    expect(screen.queryByText(BARE)).toBeNull();
   });
 });

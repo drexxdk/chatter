@@ -211,7 +211,7 @@ test("a guest reacts to a message, everyone sees it, and a guest who joins later
 
   // The quick reactions show when the message is hovered.
   const bobsRow = bob.getByRole("listitem").filter({ hasText: text });
-  await bobsRow.getByRole("button", { name: "Message Alice" }).hover();
+  await bobsRow.getByText(text).hover();
   await bobsRow.getByRole("button", { name: "React with 👍" }).click();
 
   // The author sees what others added, but cannot react to their own message.
@@ -229,7 +229,7 @@ test("a guest reacts to a message, everyone sees it, and a guest who joins later
   );
 
   // Another emoji from the full set.
-  await bobsRow.getByRole("button", { name: "Message Alice" }).hover();
+  await bobsRow.getByText(text).hover();
   await bobsRow.getByRole("button", { name: "Add reaction" }).first().click();
   await bob.getByRole("button", { name: "React with 🔥" }).click();
   await expect(alicesRow.getByRole("img", { name: "🔥 1: Bob" })).toBeVisible();
@@ -248,6 +248,29 @@ test("a guest reacts to a message, everyone sees it, and a guest who joins later
     0,
   );
 });
+test("an emoji chosen from the picker is added to the message and sent with it", async ({
+  browser,
+}) => {
+  const alice = await newGuest(browser);
+  const bob = await newGuest(browser);
+  await enterRoom(alice, LOUNGE.name, "Alice");
+  await enterRoom(bob, LOUNGE.name, "Bob");
+  const text = `emoji ${Date.now()}`;
+
+  const box = alice.getByRole("textbox", { name: "Message" });
+  await box.fill(text);
+  await alice.getByRole("button", { name: /^Emoji/ }).click();
+  await alice.getByRole("searchbox", { name: "Search emoji" }).fill("pizza");
+  await alice.getByRole("button", { name: "🍕" }).click();
+
+  // Added to what is being written, not sent.
+  await expect(box).toHaveValue(`${text}🍕`);
+  await expect(bob.getByRole("log")).not.toContainText("🍕");
+
+  await send(alice, `${text}🍕 yum`);
+  await expect(bob.getByRole("log")).toContainText(`${text}🍕 yum`);
+});
+
 test("messages sent while a guest was disconnected appear once they reconnect", async ({
   browser,
 }) => {

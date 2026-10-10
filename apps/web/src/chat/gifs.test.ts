@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { gifOf, sendableGifUrl } from "./gifs";
+import { gifOf, sendableGifUrl, splitGif } from "./gifs";
 
 const GIF = "https://media1.giphy.com/media/abc123/200.gif";
 const MODERN =
@@ -44,5 +44,27 @@ describe("sendableGifUrl", () => {
 
   it("refuses what the message would not show as a picture", () => {
     expect(sendableGifUrl("https://example.com/a.gif")).toBeNull();
+  });
+});
+
+describe("splitGif", () => {
+  it("is the words and the picture when the last line is a picture", () => {
+    expect(splitGif(`hello\nthere\n${GIF}`)).toEqual({
+      text: "hello\nthere",
+      gif: GIF,
+    });
+  });
+
+  it("has no words when the picture is alone", () => {
+    expect(splitGif(`  ${GIF}\n`)).toEqual({ text: "", gif: GIF });
+  });
+
+  it.each([
+    ["a picture before the words", `${GIF}\nhello`],
+    ["a picture in the middle of a line", `look ${GIF}`],
+    ["another site's picture", "hi\nhttps://example.com/a.gif"],
+    ["plain words", "hello"],
+  ])("leaves %s as words", (_name, text) => {
+    expect(splitGif(text)).toEqual({ text, gif: null });
   });
 });

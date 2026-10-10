@@ -19,16 +19,31 @@
     "minutesAgo_other": "{{count}} minutes ago"
   },
   "gif": {
-    "open": "Send a GIF",
-    "title": "Choose a GIF",
     "search": "Search GIFs",
     "alt": "GIF",
-    "pick": "Send GIF: {{title}}",
+    "pick": "Add GIF: {{title}}",
+    "remove": "Remove GIF",
     "none": "No GIFs found.",
     "loading": "Loading…",
     "error": "The GIFs could not be loaded.",
     "more": "Load more",
     "powered": "Powered by GIPHY"
+  },
+  "picker": {
+    "open": "Emoji and GIFs",
+    "openEmoji": "Emoji",
+    "tabEmoji": "Emoji",
+    "tabGifs": "GIFs",
+    "searchEmoji": "Search emoji",
+    "noEmoji": "No emoji found.",
+    "section": {
+      "smileys": "Smileys",
+      "gestures": "Gestures",
+      "symbols": "Hearts and symbols",
+      "nature": "Animals and nature",
+      "food": "Food and drink",
+      "activities": "Activities and objects"
+    }
   },
   "person": { "message": "Message {{name}}" },
   "reactions": {

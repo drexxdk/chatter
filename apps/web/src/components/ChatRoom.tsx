@@ -20,6 +20,7 @@ import { AnnounceForm } from "./AnnounceForm";
 import { PLAIN_AVATAR } from "../chat/avatar";
 import type { Partner } from "../chat/direct";
 import { runs } from "../chat/runs";
+import { useComposer } from "../chat/useComposer";
 import {
   timeline,
   withDirect,
@@ -27,11 +28,11 @@ import {
   type TimelineItem,
 } from "../chat/roomEvents";
 import { focusMessageBox } from "../focusMessageBox";
-import { gifApiKey } from "../gifApi";
 import { NAV_STOP_CLASS, navStop, useRowNavigation } from "../rowNavigation";
+import { AttachedGif } from "./AttachedGif";
 import { DirectChat } from "./DirectChat";
 import { BlockedTag } from "./DirectLists";
-import { GifPicker } from "./GifPicker";
+import { ComposerPicker } from "./ComposerPicker";
 import { Timestamp } from "./Timestamp";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageGroup, StatusRow } from "./MessageRow";
@@ -90,7 +91,7 @@ export function ChatRoom({
   direct,
 }: ChatRoomProps) {
   const { t } = useTranslation();
-  const [text, setText] = useState("");
+  const composer = useComposer("message");
   const items = withDirect(
     timeline(messages, showMovements ? events : []),
     direct.threads,
@@ -176,10 +177,10 @@ export function ChatRoom({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    const trimmed = text.trim();
-    if (!trimmed || replyBlocked || replyBlockedBy) return;
+    const value = composer.message;
+    if (!value || replyBlocked || replyBlockedBy) return;
 
-    if (await deliver(trimmed)) setText("");
+    if (await deliver(value)) composer.clear();
   }
 
   function startReply(partner: Partner | null) {
@@ -437,6 +438,13 @@ export function ChatRoom({
                 }}
               />
 
+              {composer.gif && (
+                <AttachedGif
+                  url={composer.gif}
+                  onRemove={() => composer.setGif(null)}
+                />
+              )}
+
               <form onSubmit={handleSubmit} className="flex items-end gap-2">
                 <RecipientPicker
                   recipients={recipients}
@@ -458,8 +466,9 @@ export function ChatRoom({
                 </label>
                 <MessageInput
                   id="message"
-                  value={text}
-                  onChange={(event) => setText(event.target.value)}
+                  value={composer.text}
+                  reserve={composer.reserve}
+                  onChange={(event) => composer.setText(event.target.value)}
                   autoComplete="off"
                   disabled={!canWrite}
                   placeholder={
@@ -473,9 +482,12 @@ export function ChatRoom({
                   }
                   className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
                 />
-                {gifApiKey() && (
-                  <GifPicker disabled={!canWrite} onPick={deliver} />
-                )}
+                <ComposerPicker
+                  disabled={!canWrite}
+                  onEmoji={composer.addEmoji}
+                  onGif={composer.setGif}
+                  onClosed={composer.focusBox}
+                />
                 <button
                   type="submit"
                   disabled={!canWrite}

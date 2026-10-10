@@ -6,10 +6,11 @@ import type { DirectEntry, DirectMessage, Partner } from "../chat/direct";
 import { isStatus } from "../chat/direct";
 import { runs } from "../chat/runs";
 import type { ActionResult } from "../chat/useChat";
+import { useComposer } from "../chat/useComposer";
 import { focusMessageBox } from "../focusMessageBox";
-import { gifApiKey } from "../gifApi";
+import { AttachedGif } from "./AttachedGif";
+import { ComposerPicker } from "./ComposerPicker";
 import { ErrorAlert } from "./ErrorAlert";
-import { GifPicker } from "./GifPicker";
 import { MessageGroup, StatusRow } from "./MessageRow";
 import { MessageInput } from "./MessageInput";
 
@@ -41,7 +42,7 @@ export function DirectChat({
   onSetBlocked,
 }: DirectChatProps) {
   const { t } = useTranslation();
-  const [text, setText] = useState("");
+  const composer = useComposer("direct-message");
   const [failure, setFailure] = useState<ActionResult & { ok: false }>();
   const label = t("dm.title", { name: partner.nickname });
 
@@ -54,10 +55,10 @@ export function DirectChat({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    const trimmed = text.trim();
-    if (!trimmed) return;
+    const value = composer.message;
+    if (!value) return;
 
-    if (await deliver(trimmed)) setText("");
+    if (await deliver(value)) composer.clear();
   }
 
   // Only for undoing a block: blocking itself is in the conversation's header.
@@ -157,14 +158,22 @@ export function DirectChat({
           </p>
         )}
 
+        {composer.gif && (
+          <AttachedGif
+            url={composer.gif}
+            onRemove={() => composer.setGif(null)}
+          />
+        )}
+
         <form onSubmit={handleSubmit} className="flex items-end gap-2">
           <label htmlFor="direct-message" className="sr-only">
             {t("dm.label", { name: partner.nickname })}
           </label>
           <MessageInput
             id="direct-message"
-            value={text}
-            onChange={(event) => setText(event.target.value)}
+            value={composer.text}
+            reserve={composer.reserve}
+            onChange={(event) => composer.setText(event.target.value)}
             autoComplete="off"
             disabled={!present || blocked || blockedBy}
             placeholder={
@@ -190,9 +199,12 @@ export function DirectChat({
             </button>
           ) : (
             <>
-              {gifApiKey() && (
-                <GifPicker disabled={!present || blockedBy} onPick={deliver} />
-              )}
+              <ComposerPicker
+                disabled={!present || blockedBy}
+                onEmoji={composer.addEmoji}
+                onGif={composer.setGif}
+                onClosed={composer.focusBox}
+              />
               <button
                 key="send"
                 type="submit"

@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import type { Avatar } from "../chat/avatar";
-import { gifOf } from "../chat/gifs";
+import { splitGif } from "../chat/gifs";
 import type { Reaction } from "../chat/reactions";
 import type { Role } from "../chat/useChat";
 import { NAV_STOP_CLASS, navStop } from "../rowNavigation";
@@ -62,37 +62,50 @@ export function MessageGroup({
   const moderator = role === "moderator";
   const last = messages[messages.length - 1];
 
-  const bubble = (message: GroupMessage) => {
-    const gif = message.banned ? null : gifOf(message.text);
+  const picture = (url: string) =>
+    direct ? (
+      <div className="rounded-2xl border border-dashed border-amber-400/60 bg-amber-400/10 p-1">
+        <GifImage url={url} />
+      </div>
+    ) : (
+      <GifImage url={url} />
+    );
 
-    if (gif) {
-      return direct ? (
-        <div className="rounded-2xl border border-dashed border-amber-400/60 bg-amber-400/10 p-1">
-          <GifImage url={gif} />
-        </div>
-      ) : (
-        <GifImage url={gif} />
-      );
-    }
+  const words = (text: string, banned?: boolean) => (
+    /* Rendered as text, never as HTML. */
+    <p
+      className={`whitespace-pre-wrap wrap-anywhere rounded-2xl px-3 py-2 ${
+        direct
+          ? `border border-dashed border-amber-400/60 bg-amber-400/10 py-1 ${banned ? "font-semibold italic text-red-400" : ""}`
+          : moderator
+            ? "border border-green-500/40 bg-green-900/30 font-bold text-green-300"
+            : mine
+              ? "rounded-br-sm bg-indigo-600 text-white"
+              : "rounded-bl-sm bg-slate-800"
+      }`}
+    >
+      {banned ? t("room.bannedMessage") : text}
+    </p>
+  );
+
+  // A message is words, a GIF, or words with a GIF after them.
+  const bubble = (message: GroupMessage) => {
+    if (message.banned) return words(message.text, true);
+
+    const { text, gif } = splitGif(message.text);
+
+    if (!gif) return words(message.text);
+    if (!text) return picture(gif);
 
     return (
-      /* Rendered as text, never as HTML. */
-      <p
-        className={`whitespace-pre-wrap wrap-anywhere rounded-2xl px-3 py-2 ${
-          direct
-            ? `border border-dashed border-amber-400/60 bg-amber-400/10 py-1 ${message.banned ? "font-semibold italic text-red-400" : ""}`
-            : moderator
-              ? "border border-green-500/40 bg-green-900/30 font-bold text-green-300"
-              : mine
-                ? "rounded-br-sm bg-indigo-600 text-white"
-                : "rounded-bl-sm bg-slate-800"
-        }`}
+      <div
+        className={`flex flex-col gap-1 ${mine ? "items-end" : "items-start"}`}
       >
-        {message.banned ? t("room.bannedMessage") : message.text}
-      </p>
+        {words(text)}
+        {picture(gif)}
+      </div>
     );
   };
-
   return (
     <li
       data-side={mine ? "right" : "left"}

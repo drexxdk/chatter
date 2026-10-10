@@ -19,16 +19,31 @@
     "minutesAgo_other": "for {{count}} minutter siden"
   },
   "gif": {
-    "open": "Send en GIF",
-    "title": "Vælg en GIF",
     "search": "Søg efter GIF'er",
     "alt": "GIF",
-    "pick": "Send GIF: {{title}}",
+    "pick": "Tilføj GIF: {{title}}",
+    "remove": "Fjern GIF",
     "none": "Ingen GIF'er fundet.",
     "loading": "Henter…",
     "error": "GIF'erne kunne ikke hentes.",
     "more": "Vis flere",
     "powered": "Powered by GIPHY"
+  },
+  "picker": {
+    "open": "Emoji og GIF'er",
+    "openEmoji": "Emoji",
+    "tabEmoji": "Emoji",
+    "tabGifs": "GIF'er",
+    "searchEmoji": "Søg efter emoji",
+    "noEmoji": "Ingen emoji fundet.",
+    "section": {
+      "smileys": "Smileys",
+      "gestures": "Fagter",
+      "symbols": "Hjerter og symboler",
+      "nature": "Dyr og natur",
+      "food": "Mad og drikke",
+      "activities": "Aktiviteter og ting"
+    }
   },
   "person": { "message": "Skriv til {{name}}" },
   "reactions": {
