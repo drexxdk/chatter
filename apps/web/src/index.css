@@ -56,6 +56,39 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   }
 }
 
+/* Scrollbars in the theme, as in Teams: no arrows and no track, just a slim rounded thumb. The width includes a 2px
+   margin round the thumb (a transparent border it is clipped inside). Where WebKit's own pieces are not there (Firefox),
+   the standard properties give a thin one; Chrome would let those override the pieces, so they are not set for it. */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  min-height: 2rem;
+  min-width: 2rem;
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-color: var(--color-slate-600);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-slate-500);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-slate-600) transparent;
+  }
+}
+
 /* No focus ring after a click or tap; see inputMode.ts. */
 html[data-pointer] :focus-visible {
   outline: none;
