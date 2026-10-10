@@ -109,6 +109,15 @@ Every message is also appended to a Redis list for its room, so a guest who join
 - The history is read after the guest has joined, so a message sent at that moment arrives live, in the history, or both. The web client removes the duplicate by message id.
 - If Redis cannot record a message it is still delivered live (only its history entry is lost). If the history cannot be read, the guest still joins with an empty history.
 
+## Reactions
+
+A guest in a room can react to one of its messages with an emoji, as in Teams: the message shows each emoji with how many reacted.
+
+- `reaction:toggle` `{ messageId, emoji }` (client to server) adds the guest's reaction, or removes it if they had already made it. The emoji must be one of the fixed set in `src/reactions.ts` (the web client's picker offers the same set), and the message must be one the room still remembers. Ack: `{ ok: true }`, or `{ ok: false, error }` with `not_in_room`, `invalid_reaction` (unknown emoji or message id, or the message is the guest's own, or it already has 20 different emojis or 200 reactors on that emoji), `message_not_found` (no longer in the history, or replaced by a ban placeholder), `rate_limited` (more than 10 in five seconds, with `retryAfterMs`) or `unavailable`.
+- `reaction:update` `{ roomSlug, messageId, reactions }` (server to room) carries the message's complete reactions after every change: `[{ emoji, users: [{ guestId, nickname }] }]`, in the order the emojis were first used. Clients replace what they have.
+- Reactions live in the message's history entry (one atomic Redis script rewrites it), so they are served with the history to guests who join later and expire with it. Only messages still in the history can be reacted to. Direct messages cannot be reacted to.
+- The nickname is the one the guest had when they reacted.
+
 ## Bans reach the chat
 
 Bans are checked when a guest connects, and again after every ban sync (every `SYNC_INTERVAL_MS`, default 30 seconds), so a ban takes effect on guests who are already connected and on what they said:

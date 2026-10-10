@@ -13,7 +13,12 @@ import {
   type Announcement,
 } from "./announcements.js";
 import { env } from "./env.js";
-import { getHistory, recordMessage, redactMessagesFrom } from "./history.js";
+import {
+  getHistory,
+  recordMessage,
+  redactMessagesFrom,
+  toggleReaction,
+} from "./history.js";
 import { hashIdentifier, getClientIp, validateNickname } from "./identity.js";
 import {
   getModerators,
@@ -21,6 +26,7 @@ import {
   isReservedNickname,
   normalizeName,
 } from "./names.js";
+import { isReactionEmoji } from "./reactions.js";
 import { pubClient, subClient } from "./redis.js";
 import { ROLE_RULES, type ChatRole } from "./roles.js";
 import { getCachedPublicRooms } from "./rooms.js";
@@ -41,6 +47,9 @@ const MAX_GUEST_ID_LENGTH = 64;
 // Changing the name or the profile shows up for everybody in the room, so it is limited like starting conversations.
 const PROFILE_CHANGES_PER_WINDOW = 5;
 const PROFILE_CHANGE_WINDOW_MS = 60_000;
+// Reactions are cheap, but each one is rewritten into Redis and shown to the whole room.
+const REACTIONS_PER_WINDOW = 10;
+const REACTION_WINDOW_MS = 5_000;
 
 interface SocketData {
   guestId: string;
@@ -58,6 +67,8 @@ interface SocketData {
   recentMessageTimes: number[];
   // When the guest last changed their profile, for the limit on that.
   profileChangeTimes: number[];
+  // When the guest last reacted to a message, for the limit on that.
+  reactionTimes: number[];
   // Whose direct messages this connection does not want. Arrays, because the data is copied between nodes as JSON.
   blockedGuestIds: string[];
   // Who this connection has messaged, and when it started those conversations, for the new-conversation limit.
@@ -339,6 +350,7 @@ export function createSocketServer(
       ipHash,
       recentMessageTimes: [],
       profileChangeTimes: [],
+      reactionTimes: [],
       blockedGuestIds: [],
       dmPartners: [],
       dmStartTimes: [],
@@ -849,6 +861,68 @@ export function createSocketServer(
       }
 
       io.to(roomKey(message.roomSlug)).emit("message:new", message);
+
+      reply({ ok: true });
+    });
+
+    // Adds the guest's reaction to a message in their room, or removes it if they had already made it.
+    socket.on("reaction:toggle", async (payload: unknown, ack?: Ack) => {
+      const reply: Ack = typeof ack === "function" ? ack : () => {};
+      const slug = data.roomSlug;
+
+      if (!slug) {
+        return reply({ ok: false, error: "not_in_room" });
+      }
+
+      const messageId = stringField(payload, "messageId");
+      const emoji = stringField(payload, "emoji");
+
+      if (!isReactionEmoji(emoji) || !messageId || messageId.length > 64) {
+        return reply({ ok: false, error: "invalid_reaction" });
+      }
+
+      const now = Date.now();
+      data.reactionTimes = data.reactionTimes.filter(
+        (time) => now - time < REACTION_WINDOW_MS,
+      );
+
+      if (data.reactionTimes.length >= REACTIONS_PER_WINDOW) {
+        return reply({
+          ok: false,
+          error: "rate_limited",
+          retryAfterMs: data.reactionTimes[0] + REACTION_WINDOW_MS - now,
+        });
+      }
+
+      data.reactionTimes.push(now);
+
+      let result;
+
+      try {
+        result = await toggleReaction(slug, messageId, emoji, {
+          guestId: data.guestId,
+          nickname: data.nickname,
+        });
+      } catch (error) {
+        console.error("Failed to record a reaction:", error);
+        return reply({ ok: false, error: "unavailable" });
+      }
+
+      if (!result.ok) {
+        return reply({
+          ok: false,
+          error:
+            result.reason === "not_found"
+              ? "message_not_found"
+              : "invalid_reaction",
+        });
+      }
+
+      io.to(roomKey(slug)).emit("reaction:update", {
+        roomSlug: slug,
+        messageId,
+        reactions: result.reactions,
+      });
 
       reply({ ok: true });
     });

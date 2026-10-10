@@ -196,6 +196,58 @@ test("a guest who joins later sees what was said earlier in the room", async ({
   await expect(bob.getByRole("log").getByText(earlier)).toHaveCount(1);
 });
 
+test("a guest reacts to a message, everyone sees it, and a guest who joins later does too", async ({
+  browser,
+}) => {
+  const text = `react to this ${Date.now()}`;
+  const alice = await newGuest(browser);
+  const bob = await newGuest(browser);
+  const carol = await newGuest(browser);
+
+  await enterRoom(alice, LOUNGE.name, "Alice");
+  await enterRoom(bob, LOUNGE.name, "Bob");
+  await send(alice, text);
+  await expect(bob.getByRole("log")).toContainText(text);
+
+  // The quick reactions show when the message is hovered.
+  const bobsRow = bob.getByRole("listitem").filter({ hasText: text });
+  await bobsRow.getByRole("button", { name: "Message Alice" }).hover();
+  await bobsRow.getByRole("button", { name: "React with 👍" }).click();
+
+  // The author sees what others added, but cannot react to their own message.
+  const alicesRow = alice.getByRole("listitem").filter({ hasText: text });
+  await expect(alicesRow.getByRole("img", { name: "👍 1: Bob" })).toBeVisible();
+  await expect(
+    alicesRow.getByRole("button", { name: /^React with/ }),
+  ).toHaveCount(0);
+  await expect(
+    alicesRow.getByRole("button", { name: "Add reaction" }),
+  ).toHaveCount(0);
+  await expect(bob.getByRole("button", { name: "👍 1: Bob" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  // Another emoji from the full set.
+  await bobsRow.getByRole("button", { name: "Message Alice" }).hover();
+  await bobsRow.getByRole("button", { name: "Add reaction" }).first().click();
+  await bob.getByRole("button", { name: "React with 🔥" }).click();
+  await expect(alicesRow.getByRole("img", { name: "🔥 1: Bob" })).toBeVisible();
+
+  // The history carries them, so somebody who arrives later sees them too, and can join in.
+  await enterRoom(carol, LOUNGE.name, "Carol");
+  const carolsRow = carol.getByRole("listitem").filter({ hasText: text });
+  await carolsRow.getByRole("button", { name: "👍 1: Bob" }).click();
+  await expect(
+    alicesRow.getByRole("img", { name: "👍 2: Bob, Carol" }),
+  ).toBeVisible();
+
+  // Taking one back removes it for everybody.
+  await bob.getByRole("button", { name: "🔥 1: Bob" }).click();
+  await expect(alicesRow.getByRole("img", { name: "🔥 1: Bob" })).toHaveCount(
+    0,
+  );
+});
 test("messages sent while a guest was disconnected appear once they reconnect", async ({
   browser,
 }) => {

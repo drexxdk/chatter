@@ -2,11 +2,13 @@ import { useTranslation } from "react-i18next";
 
 import type { Avatar } from "../chat/avatar";
 import { gifOf } from "../chat/gifs";
+import type { Reaction } from "../chat/reactions";
 import type { Role } from "../chat/useChat";
 import { NAV_STOP_CLASS, navStop } from "../rowNavigation";
 import { AvatarIcon } from "./Avatar";
 import { BlockedTag } from "./DirectLists";
 import { GifImage } from "./GifImage";
+import { MessageEntry, type ReactionOptions } from "./MessageEntry";
 import { Timestamp } from "./Timestamp";
 
 export interface GroupMessage {
@@ -15,6 +17,12 @@ export interface GroupMessage {
   sentAt: string;
   // Its author was banned: the text is gone and a placeholder is shown.
   banned?: boolean;
+  reactions?: Reaction[];
+}
+
+// A drag across a message selects its text to copy; only a plain click chooses the person.
+function chooseUnlessSelecting(choose: () => void) {
+  if (!window.getSelection()?.toString()) choose();
 }
 
 // What somebody wrote in a row, in a room or between two people: their name once, the time of the last message, and
@@ -32,6 +40,7 @@ export function MessageGroup({
   onSelect,
   selectable = true,
   nav,
+  reactions,
 }: {
   mine: boolean;
   // Who the click chooses; in a private message that is the other person, not the author.
@@ -46,6 +55,8 @@ export function MessageGroup({
   // Whether they can be written to now (they are here and nobody has blocked anybody); if not, a click does nothing.
   selectable?: boolean;
   nav?: { stopId: string | null };
+  // Lets the guest react to the messages; absent in private messages.
+  reactions?: ReactionOptions;
 }) {
   const { t } = useTranslation();
   const moderator = role === "moderator";
@@ -118,27 +129,48 @@ export function MessageGroup({
           const stop = nav
             ? navStop(message.id, message.id === nav.stopId)
             : undefined;
+          const reactable = reactions && !message.banned;
+          const keyShortcut =
+            reactable && !mine ? { "aria-keyshortcuts": "R" } : {};
 
-          return onSelect ? (
-            <div key={message.id} className="relative max-w-full">
-              {bubble(message)}
-              <button
-                type="button"
-                onClick={selectable ? onSelect : undefined}
-                aria-disabled={selectable ? undefined : true}
-                aria-label={t("person.message", { name: nickname })}
-                {...stop}
-                className={`absolute inset-0 rounded-2xl ${selectable ? "hover:bg-slate-100/5" : "cursor-not-allowed"} ${NAV_STOP_CLASS}`}
-              />
-            </div>
-          ) : (
-            <div
+          return (
+            <MessageEntry
               key={message.id}
-              {...stop}
-              className={`max-w-full rounded-2xl ${stop ? NAV_STOP_CLASS : ""}`}
+              id={message.id}
+              mine={mine}
+              reactions={reactable ? reactions : undefined}
+              reacted={message.reactions ?? []}
             >
-              {bubble(message)}
-            </div>
+              {onSelect ? (
+                // The click is taken here, not by the button, so the text stays selectable.
+                <div
+                  className="group/bubble relative max-w-full"
+                  onClick={
+                    selectable
+                      ? () => chooseUnlessSelecting(onSelect)
+                      : undefined
+                  }
+                >
+                  {bubble(message)}
+                  <button
+                    type="button"
+                    aria-disabled={selectable ? undefined : true}
+                    aria-label={t("person.message", { name: nickname })}
+                    {...stop}
+                    {...keyShortcut}
+                    className={`pointer-events-none absolute inset-0 rounded-2xl ${selectable ? "group-hover/bubble:bg-slate-100/5" : ""} ${NAV_STOP_CLASS}`}
+                  />
+                </div>
+              ) : (
+                <div
+                  {...stop}
+                  {...keyShortcut}
+                  className={`max-w-full rounded-2xl ${stop ? NAV_STOP_CLASS : ""}`}
+                >
+                  {bubble(message)}
+                </div>
+              )}
+            </MessageEntry>
           );
         })}
       </div>

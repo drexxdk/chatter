@@ -31,6 +31,11 @@
     "powered": "Powered by GIPHY"
   },
   "person": { "message": "{{name}} schreiben" },
+  "reactions": {
+    "add": "Reaktion hinzufügen",
+    "react": "Mit {{emoji}} reagieren",
+    "chip": "{{emoji}} {{count}}: {{names}}"
+  },
   "info": {
     "button": "So funktioniert der Chat",
     "title": "So funktioniert der Chat",
@@ -43,7 +48,7 @@
     "blockingHeading": "Blockieren",
     "blocking": "Öffne eine private Unterhaltung, um jemanden zu blockieren, der dich stört. Deren Nachrichten erreichen dich dann nicht mehr, du kannst ihnen nicht schreiben, und sie erfahren, dass du sie blockiert hast. Du kannst die Blockierung jederzeit aufheben.",
     "keyboardHeading": "Tastatur",
-    "keyboard": "Tab springt zu den Nachrichten, mit denen du etwas tun kannst. Mit Pfeil nach oben und unten wechselst du zwischen ihnen, mit Pos1 und Ende springst du zur ältesten und neuesten, und mit Enter schreibst du der Person, von der sie ist. Ein weiteres Tab verlässt die Nachrichten.",
+    "keyboard": "Tab springt zu den Nachrichten, mit denen du etwas tun kannst. Mit Pfeil nach oben und unten wechselst du zwischen ihnen, mit Pos1 und Ende springst du zur ältesten und neuesten, und mit Enter schreibst du der Person, von der sie ist. R öffnet die Reaktionen auf die Nachricht. Ein weiteres Tab verlässt die Nachrichten.",
     "moderatorsHeading": "Moderatoren",
     "moderators": "Personen mit einem grünen Moderator-Abzeichen kümmern sich um den Chat. Sie können Ankündigungen an den ganzen Raum senden."
   },
@@ -150,6 +155,8 @@
     "too_many_blocked": "Du hast so viele Personen blockiert, wie möglich.",
     "recipient_blocked": "Du hast diese Person blockiert. Hebe die Blockierung auf, um ihr zu schreiben.",
     "blocked_by_recipient": "Diese Person hat dich blockiert, deine Nachricht konnte nicht gesendet werden.",
+    "invalid_reaction": "Diese Reaktion konnte nicht hinzugefügt werden.",
+    "message_not_found": "Auf diese Nachricht kann nicht mehr reagiert werden.",
     "announce_wait": "Du kannst in {{seconds}} s wieder eine Ankündigung senden.",
     "forbidden": "Nur Moderatoren können Ankündigungen senden.",
     "invalid_nickname": "Dieser Spitzname ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",

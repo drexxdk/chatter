@@ -359,6 +359,7 @@ export function App({
             error={chat.error}
             retryAfterSeconds={chat.retryAfterSeconds}
             onSend={chat.sendMessage}
+            onReact={chat.react}
             onAnnounce={chat.sendAnnouncement}
             direct={chat.direct}
           />

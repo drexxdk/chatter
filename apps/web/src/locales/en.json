@@ -31,6 +31,11 @@
     "powered": "Powered by GIPHY"
   },
   "person": { "message": "Message {{name}}" },
+  "reactions": {
+    "add": "Add reaction",
+    "react": "React with {{emoji}}",
+    "chip": "{{emoji}} {{count}}: {{names}}"
+  },
   "info": {
     "button": "How the chat works",
     "title": "How the chat works",
@@ -43,7 +48,7 @@
     "blockingHeading": "Blocking",
     "blocking": "Open a private conversation to block somebody who bothers you. Their messages then no longer reach you, you can't write to them, and they are told that you blocked them. You can unblock them at any time.",
     "keyboardHeading": "Keyboard",
-    "keyboard": "Tab goes to the messages you can act on. Then use the up and down arrows to move between them, Home and End to jump to the oldest and newest, and Enter to write to the person whose message it is. Tab again leaves the messages.",
+    "keyboard": "Tab goes to the messages you can act on. Then use the up and down arrows to move between them, Home and End to jump to the oldest and newest, and Enter to write to the person whose message it is. R opens the reactions for the message. Tab again leaves the messages.",
     "moderatorsHeading": "Moderators",
     "moderators": "People with a green Moderator badge look after the chat. They can post announcements to the whole room."
   },
@@ -150,6 +155,8 @@
     "too_many_blocked": "You have blocked as many people as you can.",
     "recipient_blocked": "You have blocked this person. Unblock them to write to them.",
     "blocked_by_recipient": "This person has blocked you, so your message could not be sent.",
+    "invalid_reaction": "That reaction could not be added.",
+    "message_not_found": "That message is no longer available to react to.",
     "announce_wait": "You can announce again in {{seconds}} s.",
     "forbidden": "Only moderators can send announcements.",
     "invalid_nickname": "That nickname isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",

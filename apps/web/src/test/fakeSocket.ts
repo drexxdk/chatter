@@ -18,6 +18,7 @@ export class FakeSocket implements ChatSocket {
     "room:join": () => ({ ok: true }),
     "room:leave": () => ({ ok: true }),
     "message:send": () => ({ ok: true }),
+    "reaction:toggle": () => ({ ok: true }),
     "announce:send": () => ({ ok: true }),
     "dm:send": () => ({ ok: true }),
     "dm:block": () => ({ ok: true }),

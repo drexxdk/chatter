@@ -31,6 +31,11 @@
     "powered": "Powered by GIPHY"
   },
   "person": { "message": "Skriv til {{name}}" },
+  "reactions": {
+    "add": "Tilføj reaktion",
+    "react": "Reagér med {{emoji}}",
+    "chip": "{{emoji}} {{count}}: {{names}}"
+  },
   "info": {
     "button": "Sådan virker chatten",
     "title": "Sådan virker chatten",
@@ -43,7 +48,7 @@
     "blockingHeading": "Bloker",
     "blocking": "Åbn en privat samtale for at blokere en, der generer dig. Vedkommendes beskeder når så ikke længere frem til dig, du kan ikke skrive til vedkommende, og vedkommende får at vide, at du har blokeret dem. Du kan til enhver tid fjerne blokeringen.",
     "keyboardHeading": "Tastatur",
-    "keyboard": "Tab går til de beskeder, du kan gøre noget ved. Brug så pil op og pil ned til at flytte mellem dem, Home og End til at hoppe til den ældste og nyeste, og Enter til at skrive til den, der har skrevet den. Tab igen forlader beskederne.",
+    "keyboard": "Tab går til de beskeder, du kan gøre noget ved. Brug så pil op og pil ned til at flytte mellem dem, Home og End til at hoppe til den ældste og nyeste, og Enter til at skrive til den, der har skrevet den. R åbner reaktionerne til beskeden. Tab igen forlader beskederne.",
     "moderatorsHeading": "Moderatorer",
     "moderators": "Personer med et grønt Moderator-mærke passer på chatten. De kan sende meddelelser til hele rummet."
   },
@@ -150,6 +155,8 @@
     "too_many_blocked": "Du har blokeret så mange, som du kan.",
     "recipient_blocked": "Du har blokeret denne person. Fjern blokeringen for at skrive til vedkommende.",
     "blocked_by_recipient": "Denne person har blokeret dig, så din besked kunne ikke sendes.",
+    "invalid_reaction": "Reaktionen kunne ikke tilføjes.",
+    "message_not_found": "Du kan ikke længere reagere på den besked.",
     "announce_wait": "Du kan sende en ny meddelelse om {{seconds}} sek.",
     "forbidden": "Kun moderatorer kan sende meddelelser.",
     "invalid_nickname": "Det kaldenavn er ikke tilladt. Brug 2–24 bogstaver, tal, mellemrum eller _ . -",

@@ -68,6 +68,7 @@ interface ChatRoomProps {
   error: string | null;
   retryAfterSeconds: number | null;
   onSend: (text: string) => Promise<boolean>;
+  onReact: (messageId: string, emoji: string) => void;
   onAnnounce: (text: string) => Promise<AnnounceResult>;
   direct: DirectApi;
 }
@@ -84,6 +85,7 @@ export function ChatRoom({
   error,
   retryAfterSeconds,
   onSend,
+  onReact,
   onAnnounce,
   direct,
 }: ChatRoomProps) {
@@ -406,10 +408,12 @@ export function ChatRoom({
                       id: message.id,
                       text: message.text,
                       sentAt: message.sentAt,
+                      reactions: message.reactions,
                     }))}
                     selectable={canWriteTo(author.guestId)}
                     onSelect={mine ? undefined : () => selectPerson(author)}
                     nav={{ stopId: rows.stopId }}
+                    reactions={{ ownIds: ownGuestIds, onReact }}
                   />
                 );
               })}{" "}

@@ -22,7 +22,7 @@ vi.mock("./redis.js", () => ({
   redis: { multi: redis.multi, lrange: redis.lrange, eval: redis.eval },
 }));
 
-const { getHistory, recordMessage, redactMessagesFrom } =
+const { getHistory, recordMessage, redactMessagesFrom, toggleReaction } =
   await import("./history.js");
 
 // What clients get.
@@ -255,5 +255,103 @@ describe("redactMessagesFrom", () => {
     redis.eval.mockResolvedValue("OK");
 
     await expect(redactMessagesFrom("general", ["h1"])).rejects.toThrow();
+  });
+});
+
+describe("reactions in the history", () => {
+  const thumbs = [{ emoji: "👍", users: [{ guestId: "g", nickname: "Bob" }] }];
+
+  it("hands out a message's reactions, but not the sender hash", async () => {
+    redis.lrange.mockResolvedValue([
+      JSON.stringify({ ...stored(1), reactions: thumbs }),
+      JSON.stringify(stored(2)),
+    ]);
+
+    expect(await getHistory("general")).toEqual([
+      { ...message(1), reactions: thumbs },
+      message(2),
+    ]);
+  });
+
+  it("treats reactions in an unexpected shape as none", async () => {
+    // What Lua writes for an empty list.
+    redis.lrange.mockResolvedValue([
+      JSON.stringify({ ...stored(1), reactions: {} }),
+    ]);
+
+    expect(await getHistory("general")).toEqual([
+      { ...message(1), reactions: [] },
+    ]);
+  });
+});
+
+describe("toggleReaction", () => {
+  const who = { guestId: "g", nickname: "Bob" };
+
+  it("runs one script on the room's list and returns the new reactions", async () => {
+    const reactions = [{ emoji: "👍", users: [who] }];
+    redis.eval.mockResolvedValue(JSON.stringify(reactions));
+
+    expect(await toggleReaction("general", "id-1", "👍", who)).toEqual({
+      ok: true,
+      reactions,
+    });
+
+    expect(redis.eval).toHaveBeenCalledTimes(1);
+    const [script, keys, ...args] = redis.eval.mock.calls[0];
+    expect(typeof script).toBe("string");
+    expect(keys).toBe(1);
+    expect(args.slice(0, 5)).toEqual([
+      "chatter:history:general",
+      "id-1",
+      "👍",
+      "g",
+      "Bob",
+    ]);
+    expect(redis.lrange).not.toHaveBeenCalled();
+  });
+
+  it("returns no reactions once the last one is taken back", async () => {
+    redis.eval.mockResolvedValue("[]");
+
+    expect(await toggleReaction("general", "id-1", "👍", who)).toEqual({
+      ok: true,
+      reactions: [],
+    });
+  });
+
+  it("says when the message is not in the history", async () => {
+    redis.eval.mockResolvedValue(null);
+
+    expect(await toggleReaction("general", "gone", "👍", who)).toEqual({
+      ok: false,
+      reason: "not_found",
+    });
+  });
+
+  it("says when the message cannot take more reactions", async () => {
+    redis.eval.mockResolvedValue("full");
+
+    expect(await toggleReaction("general", "id-1", "👍", who)).toEqual({
+      ok: false,
+      reason: "full",
+    });
+  });
+
+  it("says when the message is the guest's own", async () => {
+    redis.eval.mockResolvedValue("own");
+
+    expect(await toggleReaction("general", "id-1", "👍", who)).toEqual({
+      ok: false,
+      reason: "own",
+    });
+  });
+
+  it("propagates a Redis failure", async () => {
+    redis.eval.mockRejectedValue(new Error("redis down"));
+
+    await expect(toggleReaction("general", "id-1", "👍", who)).rejects.toThrow(
+      "redis down",
+    );
   });
 });

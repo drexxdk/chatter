@@ -19,6 +19,7 @@ const {
   recordMessage,
   getHistory,
   redactMessagesFrom,
+  toggleReaction,
   getModeratorNames,
   getModerators,
   saveAnnouncement,
@@ -32,6 +33,7 @@ const {
   recordMessage: vi.fn(),
   getHistory: vi.fn(),
   redactMessagesFrom: vi.fn(),
+  toggleReaction: vi.fn(),
   getModeratorNames: vi.fn(),
   getModerators: vi.fn(),
   saveAnnouncement: vi.fn(),
@@ -65,6 +67,7 @@ vi.mock("./history.js", () => ({
   recordMessage,
   getHistory,
   redactMessagesFrom,
+  toggleReaction,
 }));
 // In-memory adapter standing in for Redis. fetchSockets is delayed because the real adapter does a
 // network round trip there, which is what lets simultaneous joins interleave.
@@ -219,6 +222,7 @@ beforeEach(() => {
   recordMessage.mockReset().mockResolvedValue(undefined);
   getHistory.mockReset().mockResolvedValue([]);
   redactMessagesFrom.mockReset().mockResolvedValue([]);
+  toggleReaction.mockReset().mockResolvedValue({ ok: true, reactions: [] });
   getModeratorNames.mockReset().mockResolvedValue([]);
   // The accounts the tokens in these tests belong to (see tokenFor).
   getModerators.mockReset().mockResolvedValue([
@@ -536,6 +540,165 @@ describe("messaging", () => {
     alice.emit("room:join", { slug: "general" });
     await joined;
     alice.emit("message:send", { text: "no ack" });
+
+    expect(
+      (await emit(alice, "message:send", { text: "still alive" })).ok,
+    ).toBe(true);
+  });
+});
+
+describe("reactions", () => {
+  const reacted = [{ emoji: "👍", users: [{ guestId: "g", nickname: "Bob" }] }];
+
+  it("rejects reacting outside a room", async () => {
+    const alice = await connectGuest("Alice");
+
+    expect(
+      await emit(alice, "reaction:toggle", { messageId: "m1", emoji: "👍" }),
+    ).toEqual({ ok: false, error: "not_in_room" });
+    expect(toggleReaction).not.toHaveBeenCalled();
+  });
+
+  it("toggles for the reacting guest and tells the whole room what the reactions are now", async () => {
+    toggleReaction.mockResolvedValue({ ok: true, reactions: reacted });
+    const alice = await connectGuest("Alice");
+    const bob = await connectGuest("Bob");
+    const carol = await connectGuest("Carol");
+    await emit(alice, "room:join", { slug: "general" });
+    await emit(bob, "room:join", { slug: "general" });
+    await emit(carol, "room:join", { slug: "random" });
+    const received = vi.fn();
+    carol.on("reaction:update", received);
+    const bobSees = waitFor(bob, "reaction:update");
+    const aliceSees = waitFor(alice, "reaction:update");
+
+    expect(
+      await emit(bob, "reaction:toggle", { messageId: "m1", emoji: "👍" }),
+    ).toEqual({ ok: true });
+
+    const update = {
+      roomSlug: "general",
+      messageId: "m1",
+      reactions: reacted,
+    };
+    expect(await bobSees).toEqual(update);
+    expect(await aliceSees).toEqual(update);
+    expect(received).not.toHaveBeenCalled();
+    expect(toggleReaction).toHaveBeenCalledWith(
+      "general",
+      "m1",
+      "👍",
+      expect.objectContaining({ nickname: "Bob" }),
+    );
+    expect(toggleReaction.mock.calls[0][3].guestId).toEqual(expect.any(String));
+  });
+
+  it.each([
+    ["an emoji that is not offered", { messageId: "m1", emoji: "🦖" }],
+    ["text instead of an emoji", { messageId: "m1", emoji: "hello" }],
+    ["no emoji", { messageId: "m1" }],
+    ["no message", { emoji: "👍" }],
+    [
+      "a message id that is too long",
+      { messageId: "m".repeat(65), emoji: "👍" },
+    ],
+    ["no payload", undefined],
+  ])("rejects %s", async (_label, payload) => {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    expect(await emit(alice, "reaction:toggle", payload)).toEqual({
+      ok: false,
+      error: "invalid_reaction",
+    });
+    expect(toggleReaction).not.toHaveBeenCalled();
+  });
+
+  it("says when the message is not in the history any more", async () => {
+    toggleReaction.mockResolvedValue({ ok: false, reason: "not_found" });
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+    const update = vi.fn();
+    alice.on("reaction:update", update);
+
+    expect(
+      await emit(alice, "reaction:toggle", { messageId: "gone", emoji: "👍" }),
+    ).toEqual({ ok: false, error: "message_not_found" });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a reaction the message has no room for", async () => {
+    toggleReaction.mockResolvedValue({ ok: false, reason: "full" });
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    expect(
+      await emit(alice, "reaction:toggle", { messageId: "m1", emoji: "👍" }),
+    ).toEqual({ ok: false, error: "invalid_reaction" });
+  });
+
+  it("refuses a reaction to the guest's own message", async () => {
+    toggleReaction.mockResolvedValue({ ok: false, reason: "own" });
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+    const update = vi.fn();
+    alice.on("reaction:update", update);
+
+    expect(
+      await emit(alice, "reaction:toggle", { messageId: "m1", emoji: "👍" }),
+    ).toEqual({ ok: false, error: "invalid_reaction" });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("reports a Redis failure as unavailable", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    toggleReaction.mockRejectedValue(new Error("redis down"));
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    expect(
+      await emit(alice, "reaction:toggle", { messageId: "m1", emoji: "👍" }),
+    ).toEqual({ ok: false, error: "unavailable" });
+  });
+
+  it("rate limits after 10 reactions in the window, and says how long to wait", async () => {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    for (let i = 0; i < 10; i++) {
+      expect(
+        (await emit(alice, "reaction:toggle", { messageId: "m1", emoji: "👍" }))
+          .ok,
+      ).toBe(true);
+    }
+
+    const refused = await emit(alice, "reaction:toggle", {
+      messageId: "m1",
+      emoji: "👍",
+    });
+
+    expect(refused).toMatchObject({ ok: false, error: "rate_limited" });
+    expect(refused.retryAfterMs).toBeGreaterThan(0);
+    expect(refused.retryAfterMs).toBeLessThanOrEqual(5000);
+    expect(toggleReaction).toHaveBeenCalledTimes(10);
+  });
+
+  it("does not count against the limit on messages", async () => {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+    for (let i = 0; i < 5; i++) {
+      await emit(alice, "reaction:toggle", { messageId: "m1", emoji: "👍" });
+    }
+
+    expect((await emit(alice, "message:send", { text: "hi" })).ok).toBe(true);
+  });
+
+  it("survives events sent without an ack callback", async () => {
+    const alice = await connectGuest("Alice");
+    const joined = waitFor<Presence>(alice, "room:presence");
+    alice.emit("room:join", { slug: "general" });
+    await joined;
+    alice.emit("reaction:toggle", { messageId: "m1", emoji: "👍" });
 
     expect(
       (await emit(alice, "message:send", { text: "still alive" })).ok,

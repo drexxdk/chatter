@@ -18,6 +18,7 @@ import { movements, type RoomEvent } from "./roomEvents";
 import { loadNotifyDirect, saveNotifyDirect } from "../preferences";
 import { parseAge, type ProfileChanges } from "../profile";
 import { parseAvatar, PLAIN_AVATAR, type Avatar } from "./avatar";
+import { parseReactions, sameReactions, type Reaction } from "./reactions";
 import {
   createSocket as defaultCreateSocket,
   type ChatSocket,
@@ -64,6 +65,8 @@ export interface ChatMessage {
   // Who the server says sent it; absent means an ordinary guest.
   role?: Role;
   avatar?: Avatar;
+  // Who reacted with what; absent while nobody has.
+  reactions?: Reaction[];
   // The guest's place in what arrived live (see roomEvents.ts); not sent by the server.
   seq?: number;
   // The author was banned: the text and name are gone and only a placeholder is shown.
@@ -213,6 +216,8 @@ function parseMessage(value: unknown): ChatMessage | undefined {
     return undefined;
   }
 
+  const reactions = parseReactions(value.reactions);
+
   return {
     id,
     roomSlug,
@@ -222,6 +227,7 @@ function parseMessage(value: unknown): ChatMessage | undefined {
     sentAt,
     role: value.role === "moderator" ? "moderator" : "guest",
     avatar: parseAvatar(value.avatar),
+    ...(reactions.length > 0 ? { reactions } : {}),
   };
 }
 
@@ -265,6 +271,14 @@ function mergeHistory(
 
     if (!current || (message.banned && !current.banned)) {
       byId.set(message.id, message);
+      changed = true;
+    } else if (
+      !current.banned &&
+      !message.banned &&
+      !sameReactions(current.reactions, message.reactions)
+    ) {
+      // The history is the newer news about who reacted.
+      byId.set(message.id, { ...current, reactions: message.reactions });
       changed = true;
     }
   }
@@ -661,6 +675,29 @@ export function useChat(
           );
         });
 
+        socket.on("reaction:update", (update: unknown) => {
+          if (!isCurrent() || !isRecord(update)) return;
+          const { messageId } = update;
+          if (
+            typeof messageId !== "string" ||
+            update.roomSlug !== roomRef.current
+          ) {
+            return;
+          }
+
+          const reactions = parseReactions(update.reactions);
+          setMessages((previous) =>
+            previous.map((message) =>
+              message.id === messageId && !message.banned
+                ? {
+                    ...message,
+                    reactions: reactions.length ? reactions : undefined,
+                  }
+                : message,
+            ),
+          );
+        });
+
         socket.on("kicked", (payload: { reason: string }) => {
           if (isCurrent()) setError(payload.reason);
         });
@@ -878,6 +915,23 @@ export function useChat(
     [emitWithAck],
   );
 
+  // Adds the guest's reaction to a message, or takes it back; the room is told what the reactions are now.
+  const react = useCallback(
+    async (messageId: string, emoji: string): Promise<void> => {
+      setError(null);
+      setRetryAfterSeconds(null);
+      const ack = await emitWithAck("reaction:toggle", { messageId, emoji });
+
+      if (!ack.ok) {
+        setError(ack.error);
+        if (ack.retryAfterMs) {
+          setRetryAfterSeconds(Math.ceil(ack.retryAfterMs / 1000));
+        }
+      }
+    },
+    [emitWithAck],
+  );
+
   const sendAnnouncement = useCallback(
     async (text: string): Promise<AnnounceResult> =>
       toResult(await emitWithAck("announce:send", { text })),
@@ -1085,6 +1139,7 @@ export function useChat(
     joinRoom,
     leaveRoom,
     sendMessage,
+    react,
     sendAnnouncement,
     updateProfile,
     dismissAnnouncement,

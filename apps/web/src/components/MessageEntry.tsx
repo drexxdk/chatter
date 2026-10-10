@@ -1,0 +1,308 @@
+import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
+import { SmilePlus } from "lucide-react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+  type Ref,
+} from "react";
+import { useTranslation } from "react-i18next";
+
+import {
+  QUICK_REACTIONS,
+  REACTION_EMOJIS,
+  type Reaction,
+} from "../chat/reactions";
+
+export interface ReactionOptions {
+  // Every id this guest has had, to tell which reactions are theirs.
+  ownIds: string[];
+  onReact: (messageId: string, emoji: string) => void;
+}
+
+const NAMES_SHOWN = 10;
+
+// How long a finger must rest on a message to bring up its reactions, and how far it may drift meanwhile.
+const LONG_PRESS_MS = 450;
+const LONG_PRESS_SLOP_PX = 10;
+
+const names = (reaction: Reaction) => {
+  const shown = reaction.users
+    .slice(0, NAMES_SHOWN)
+    .map((user) => user.nickname);
+  const more = reaction.users.length - shown.length;
+
+  return more > 0 ? `${shown.join(", ")} +${more}` : shown.join(", ");
+};
+
+// The button that opens the grid of every emoji one can react with.
+function AddReaction({
+  isMine,
+  onPick,
+  buttonRef,
+  className,
+}: {
+  // Whether the emoji, by its own account, is one the guest has already put on the message.
+  isMine: (emoji: string) => boolean;
+  onPick: (emoji: string) => void;
+  buttonRef?: Ref<HTMLButtonElement>;
+  className: string;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <Popover className="flex">
+      <PopoverButton
+        ref={buttonRef}
+        title={t("reactions.add")}
+        aria-label={t("reactions.add")}
+        tabIndex={-1}
+        className={className}
+      >
+        <SmilePlus aria-hidden className="size-4" />
+      </PopoverButton>
+      <PopoverPanel
+        anchor={{ to: "top start", gap: 6, padding: 8 }}
+        focus
+        className="z-30 grid grid-cols-8 gap-0.5 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-xl"
+      >
+        {({ close }) => (
+          <>
+            {REACTION_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                aria-label={t("reactions.react", { emoji })}
+                aria-pressed={isMine(emoji)}
+                onClick={() => {
+                  onPick(emoji);
+                  close();
+                }}
+                className="size-8 rounded-md text-xl hover:bg-slate-700 aria-pressed:bg-indigo-500/30 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400"
+              >
+                {emoji}
+              </button>
+            ))}
+          </>
+        )}
+      </PopoverPanel>
+    </Popover>
+  );
+}
+
+// One message in a group, with what lets the guest react to it as in Teams: a bar of quick reactions when it is
+// hovered or focused, and under it each emoji it has been given (a click joins or leaves) beside a small button to add
+// another. With the arrow-key stop focused, R opens the full grid. A guest's own messages only show what others added.
+export function MessageEntry({
+  id,
+  mine,
+  reactions,
+  reacted,
+  children,
+}: {
+  id: string;
+  mine: boolean;
+  // Absent where messages cannot be reacted to.
+  reactions?: ReactionOptions;
+  reacted: Reaction[];
+  // The bubble and whatever makes it clickable or focusable.
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const addRef = useRef<HTMLButtonElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const pressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const pressStart = useRef({ x: 0, y: 0 });
+  // The finger that held the message is about to lift: that click must not also choose the person.
+  const held = useRef(false);
+  // Touch screens have no hover, so a long press shows the quick reactions instead.
+  const [barHeld, setBarHeld] = useState(false);
+
+  useEffect(() => {
+    if (!barHeld) return;
+
+    const dismiss = (event: Event) => {
+      if (!wrapperRef.current?.contains(event.target as Node))
+        setBarHeld(false);
+    };
+
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [barHeld]);
+
+  useEffect(() => () => clearTimeout(pressTimer.current), []);
+
+  if (!reactions) {
+    return <div className="relative max-w-full">{children}</div>;
+  }
+
+  const chipLabel = (reaction: Reaction) =>
+    t("reactions.chip", {
+      emoji: reaction.emoji,
+      count: reaction.users.length,
+      names: names(reaction),
+    });
+  const chipContent = (reaction: Reaction) => (
+    <>
+      <span aria-hidden className="text-sm">
+        {reaction.emoji}
+      </span>
+      <span aria-hidden>{reaction.users.length}</span>
+    </>
+  );
+
+  if (mine) {
+    return (
+      <div className="relative flex max-w-full flex-col">
+        {children}
+        {reacted.length > 0 && (
+          <div className="mt-1 flex flex-wrap items-center justify-end gap-1">
+            {reacted.map((reaction) => (
+              <span
+                key={reaction.emoji}
+                role="img"
+                title={names(reaction)}
+                aria-label={chipLabel(reaction)}
+                className="flex h-6 items-center gap-1 rounded-full border border-slate-700 bg-slate-800 px-2 text-xs text-slate-300"
+              >
+                {chipContent(reaction)}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const { ownIds, onReact } = reactions;
+  const isMine = (reaction: Reaction) =>
+    reaction.users.some((user) => ownIds.includes(user.guestId));
+  const mineOf = (emoji: string) => {
+    const reaction = reacted.find((candidate) => candidate.emoji === emoji);
+    return reaction ? isMine(reaction) : false;
+  };
+  const pick = (emoji: string) => onReact(id, emoji);
+
+  const cancelPress = () => clearTimeout(pressTimer.current);
+
+  const onPointerDown = (event: PointerEvent<HTMLElement>) => {
+    held.current = false;
+    if (event.pointerType === "mouse") return;
+
+    pressStart.current = { x: event.clientX, y: event.clientY };
+    cancelPress();
+    pressTimer.current = setTimeout(() => {
+      held.current = true;
+      setBarHeld(true);
+    }, LONG_PRESS_MS);
+  };
+
+  const onPointerMove = (event: PointerEvent<HTMLElement>) => {
+    const { x, y } = pressStart.current;
+
+    if (Math.hypot(event.clientX - x, event.clientY - y) > LONG_PRESS_SLOP_PX) {
+      cancelPress();
+    }
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+
+    if (
+      target.dataset.navId &&
+      event.key.toLowerCase() === "r" &&
+      !event.altKey &&
+      !event.ctrlKey &&
+      !event.metaKey
+    ) {
+      event.preventDefault();
+      addRef.current?.click();
+    }
+  };
+
+  return (
+    <div
+      ref={wrapperRef}
+      className="group/message relative flex max-w-full flex-col [@media(hover:none)]:[-webkit-touch-callout:none]"
+      onKeyDown={onKeyDown}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={cancelPress}
+      onPointerCancel={cancelPress}
+      onContextMenu={(event) => {
+        if (held.current) event.preventDefault();
+      }}
+      onClickCapture={(event) => {
+        if (!held.current) return;
+        held.current = false;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+    >
+      <div className="relative max-w-full">
+        {children}
+        {/* The padding below the bar keeps the pointer inside the message while it moves up to the bar. */}
+        <div
+          data-held={barHeld || undefined}
+          className="absolute bottom-full left-[max(0px,calc(100%-10rem))] z-20 hidden w-40 pb-1 group-focus-within/message:flex group-hover/message:flex has-[[data-open]]:flex data-[held]:flex"
+        >
+          <div className="flex w-full items-center justify-center gap-0.5 rounded-full border border-slate-700 bg-slate-900 px-1 py-0.5 shadow-lg">
+            {QUICK_REACTIONS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                tabIndex={-1}
+                title={t("reactions.react", { emoji })}
+                aria-label={t("reactions.react", { emoji })}
+                aria-pressed={mineOf(emoji)}
+                onClick={() => {
+                  pick(emoji);
+                  setBarHeld(false);
+                }}
+                className="size-7 rounded-full text-base hover:bg-slate-700 aria-pressed:bg-indigo-500/30"
+              >
+                {emoji}
+              </button>
+            ))}
+            <AddReaction
+              isMine={mineOf}
+              onPick={pick}
+              buttonRef={addRef}
+              className="grid size-7 place-items-center rounded-full text-slate-300 hover:bg-slate-700"
+            />
+          </div>
+        </div>
+      </div>
+      {reacted.length > 0 && (
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          {reacted.map((reaction) => (
+            <button
+              key={reaction.emoji}
+              type="button"
+              title={names(reaction)}
+              aria-label={chipLabel(reaction)}
+              aria-pressed={isMine(reaction)}
+              tabIndex={-1}
+              onClick={() => pick(reaction.emoji)}
+              className={`flex h-6 items-center gap-1 rounded-full border px-2 text-xs focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400 ${
+                isMine(reaction)
+                  ? "border-indigo-400 bg-indigo-500/20 text-indigo-100"
+                  : "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700"
+              }`}
+            >
+              {chipContent(reaction)}
+            </button>
+          ))}
+          <AddReaction
+            isMine={mineOf}
+            onPick={pick}
+            className="grid h-6 w-7 place-items-center rounded-full border border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
