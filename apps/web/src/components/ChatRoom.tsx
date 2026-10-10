@@ -227,6 +227,11 @@ export function ChatRoom({
     focusMessageBox();
   }
 
+  function closeConversation() {
+    direct.close();
+    focusMessageBox();
+  }
+
   // A click on somebody's message chooses them to write to privately, if they can be written to now.
   const canWriteTo = (guestId: string) =>
     members.some((member) => member.guestId === guestId) &&
@@ -278,7 +283,7 @@ export function ChatRoom({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={direct.close}
+                onClick={closeConversation}
                 aria-label={t("dm.back")}
                 className="rounded-md bg-slate-800 p-1.5 hover:bg-slate-700"
               >

@@ -62,6 +62,31 @@ describe("direct messages", () => {
       ).toBeInTheDocument();
     });
 
+    it("puts the cursor in the room's message box when going back, except after a tap", async () => {
+      const { user } = await enter();
+      const back = () =>
+        user.click(screen.getByRole("button", { name: "Back to the room" }));
+
+      await user.click(people().getByRole("button", { name: "Bob" }));
+      await back();
+      await waitFor(() =>
+        expect(screen.getByRole("textbox", { name: "Message" })).toHaveFocus(),
+      );
+
+      await user.click(people().getByRole("button", { name: "Bob" }));
+      document.documentElement.setAttribute("data-pointer", "touch");
+      try {
+        await back();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        expect(
+          screen.getByRole("textbox", { name: "Message" }),
+        ).not.toHaveFocus();
+      } finally {
+        document.documentElement.removeAttribute("data-pointer");
+      }
+    });
+
     it("shows who said what, and renders words as text", async () => {
       const { user, server } = await enter();
       receive(server, dm({ text: "<img src=x onerror=alert(1)>" }));

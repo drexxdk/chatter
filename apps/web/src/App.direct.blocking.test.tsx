@@ -274,6 +274,9 @@ describe("direct messages", () => {
       await user.click(
         screen.getByRole("button", { name: "Back to the room" }),
       );
+      await waitFor(() =>
+        expect(screen.getByRole("textbox", { name: "Message" })).toHaveFocus(),
+      );
 
       threads().getByRole("button", { name: /^Bob/ }).focus();
       await user.keyboard("{Enter}");
