@@ -1,8 +1,7 @@
 import crypto from "crypto";
 
 import { env } from "./env.js";
-
-const NICKNAME_PATTERN = /^[\p{L}\p{N} _.-]{2,24}$/u;
+import { NICKNAME_PATTERN } from "./limits.js";
 
 // Returns the trimmed nickname, or null if it's missing or not allowed.
 export function validateNickname(raw: unknown): string | null {

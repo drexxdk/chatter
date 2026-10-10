@@ -20,6 +20,7 @@ import {
   toggleReaction,
 } from "./history.js";
 import { hashIdentifier, getClientIp, validateNickname } from "./identity.js";
+import { MAX_MESSAGE_LENGTH } from "./limits.js";
 import {
   getModerators,
   getModeratorNames,
@@ -33,7 +34,6 @@ import { getCachedPublicRooms } from "./rooms.js";
 import { newResumeSecret, rememberResume, verifyResume } from "./resume.js";
 import { verifyToken } from "./tokens.js";
 
-const MAX_MESSAGE_LENGTH = 500;
 // The largest packet a client may send; a longer one closes its connection. The default is 1 MB, while the biggest
 // thing a client sends is a 500-character message (3 KB even if every character had to be escaped in JSON).
 const MAX_PACKET_BYTES = 8 * 1024;

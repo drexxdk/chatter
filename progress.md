@@ -116,7 +116,7 @@ A review of the whole code base once the core features were done (rooms, private
 
 ### Medium
 
-- [ ] 6. Constants copied between server and client with "must match" comments (`MAX_MESSAGE_LENGTH`, the avatar list, `REACTION_EMOJIS`): share them or test that they agree.
+- [x] 6. Constants copied between server and client: a shared package would have meant changes to the workspaces, the build and both Dockerfiles, so `apps/web/src/serverParity.test.ts` now fails if the client's message length, nickname pattern, age range, avatars or reaction emoji differ from the server's (the server's message length and nickname pattern moved to `src/limits.ts` so they can be imported). The web build type-checks with `tsconfig.build.json`, which leaves out the tests, so the image build does not need the chat-server's sources.
 - [ ] 7. `apps/web/src/chat/useChat.ts` is about 1,000 lines (socket lifecycle, room state, private messages, blocking, reactions, profile): split into hooks. `ChatRoom` and `DirectChat` duplicate the composer, scroll-to-end and failure display.
 - [ ] 8. `apps/web/src/App.test.tsx` is about 3,750 lines and holds the one timing-sensitive test ("puts the cursor on the unblock button"): split by feature, make that test deterministic.
 - [ ] 9. Multi-node behaviour: per-IP connection caps, HTTP rate limits and socket event limits are in memory per process, and the room-capacity check is only locked within a node (already noted above under "Not yet done").
