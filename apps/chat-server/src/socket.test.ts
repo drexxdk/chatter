@@ -478,6 +478,26 @@ describe("messaging", () => {
     ).toBe(true);
   });
 
+  it("accepts a message at the length limit made of characters that take more bytes", async () => {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    expect(
+      (await emit(alice, "message:send", { text: "\u{1F600}".repeat(250) })).ok,
+    ).toBe(true);
+  });
+
+  it("drops a client that sends a packet far beyond anything it could need", async () => {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+    const closed = new Promise((resolve) => alice.once("disconnect", resolve));
+
+    alice.emit("message:send", { text: "x".repeat(20 * 1024) });
+
+    await closed;
+    expect(recordMessage).not.toHaveBeenCalled();
+  });
+
   it("keeps the lines of a message, but not a run of blank ones", async () => {
     const alice = await connectGuest("Alice");
     await emit(alice, "room:join", { slug: "general" });

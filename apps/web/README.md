@@ -26,9 +26,24 @@ The end-user chat client: a lobby of public rooms, a nickname prompt, and the ch
 - Times next to messages read "a few seconds ago" and "N minutes ago" for the first 15 minutes, then show the time of day, on a 12-hour clock with AM and PM only where that is what the guest's locale uses (Dansk and Deutsch are 24-hour; for English a European or African time zone, or an English locale of a 24-hour country such as en-DK or en-GB among the browser's languages, means 24-hour; see `src/chat/clock.ts`); they update by themselves (`src/components/Timestamp.tsx`).
 - Server error codes are translated in `src/locales/*.json` under `errors.*`. Adding a new code on the server needs a key in all three files; `src/locales.test.ts` enforces that the locales stay in sync.
 
+## Docker and the content security policy
+
+`apps/web/Dockerfile` builds the client and serves it with nginx (as a non-root user, on port 8080; a room's address falls back to `index.html`). Build from the repository root:
+
+```sh
+docker build -f apps/web/Dockerfile --build-arg VITE_CHAT_SERVER_URL=https://chat.example.com -t chatter-web .
+docker run -p 8080:8080 -e CHAT_SERVER_SOURCES="https://chat.example.com wss://chat.example.com" chatter-web
+```
+
+The chat-server's address is part of the build (`VITE_CHAT_SERVER_URL`, and `VITE_GIPHY_API_KEY` for GIFs). `CHAT_SERVER_SOURCES` goes into the `Content-Security-Policy` header (`nginx.conf.template`) as the places the page may connect to besides itself and `api.giphy.com`: the chat-server's `https` address (the room list and the moderator sign-in) and its `wss` address (the socket). The policy allows scripts only from the page's own files, pictures and video only from GIPHY, and no framing, so injected markup could not run code or send anything elsewhere. The chat-server's `WEB_ORIGIN` must be the address this page is served from.
+
+The Vite dev server sends no such policy; if you add a source the page loads from (another image host, a font, an analytics script), add it to `nginx.conf.template` too, or the browser will refuse it in production and only there.
+
 ## Tests
 
 `npm run test:web` (Vitest + Testing Library). The tests run the real components, hook and i18n against a fake Socket.IO server (`src/test/fakeSocket.ts`) that replays the real protocol, including the server's event ordering. No network or running backend is needed. If the chat-server protocol changes, update the fake to match.
+
+`npm run lint --workspace apps/web` runs ESLint (`eslint.config.mjs`): the recommended TypeScript rules plus `react-hooks/rules-of-hooks` and `exhaustive-deps`, both as errors, and CI runs it. Where an effect deliberately leaves out a dependency (two places in `App.tsx`), the line above says why.
 
 ### End-to-end
 

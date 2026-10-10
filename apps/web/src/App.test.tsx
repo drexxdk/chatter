@@ -2687,15 +2687,6 @@ describe("direct messages", () => {
   });
 
   describe("blocking", () => {
-    const clickMessage = (
-      user: ReturnType<typeof setup>["user"],
-      name: string,
-    ) =>
-      user.click(
-        within(screen.getByRole("log"))
-          .getAllByRole("button", { name: `Message ${name}` })
-          .at(-1)!,
-      );
     it("blocks the person, says so, and can undo it", async () => {
       const { user, server } = await enter();
       receive(server, dm());

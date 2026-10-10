@@ -21,6 +21,12 @@ The realtime backend end-users connect to. Built with Express + Socket.IO, backe
 
 Connect with `io(url, { auth: { nickname, avatar, guestId, resumeSecret } })` as a guest (`avatar`, `guestId` and `resumeSecret` are optional, see Resuming an identity), or `io(url, { auth: { token } })` as a moderator (see Moderators). Nicknames are 2-24 characters (letters, digits, space, `_`, `.`, `-`). Connections are rejected with a `connect_error` message of `invalid_nickname`, `reserved_nickname` (the nickname is a moderator's name or looks like an authority such as "Admin"), `invalid_token` (the moderator token is wrong, expired, or sign-in is switched off), `banned` (the client IP, salted and hashed, matches an active entry in the Payload `bans` collection), `too_many_connections` (the client IP already has `MAX_CONNECTIONS_PER_IP` live connections) or `unavailable` (ban or moderator-name cache unreachable; fails closed).
 
+A client may send packets of up to 8 KB (`MAX_PACKET_BYTES` in `socket.ts`; Socket.IO's default is 1 MB, and the biggest thing a client sends is a 500-character message). A larger one closes its connection. The server pings every 25 s and drops a client that does not answer within 20 s.
+
+### Shutting down
+
+On `SIGTERM` or `SIGINT` (`src/shutdown.ts`) the server stops the background syncs, disconnects all clients and closes the HTTP server, quits its three Redis connections, and exits with 0 (1 if something failed, or if all that took more than 10 s). Clients reconnect on their own, so a deploy only shows as a short reconnect. A second signal while closing is ignored.
+
 ### Client IP and proxies
 
 Bans and the per-IP connection cap both use the client's IP address. By default that is the socket's address, and the `X-Forwarded-For` header is ignored, because any client can send that header and would otherwise choose its own address to dodge a ban or the cap.
@@ -129,9 +135,22 @@ Bans are checked when a guest connects, and again after every ban sync (every `S
 
 Every node does this for its own guests, so it works with several instances; whichever node reaches Redis first reports the replaced ids. The delay is up to one sync interval after the ban is created in Payload. A replaced message stays replaced when a temporary ban expires, because its text is gone. If the history no longer holds a message that is still on someone's screen, the `guestIds` in the notice cover it, as long as the banned guest was connected when the ban landed.
 
+## Docker
+
+`apps/chat-server/Dockerfile` builds a production image (Node 24, non-root, a health check on `/health`). Build from the repository root, which holds the lockfile:
+
+```sh
+docker build -f apps/chat-server/Dockerfile -t chatter-chat-server .
+docker run -p 4000:4000 --env-file apps/chat-server/.env -e REDIS_URL=redis://host.docker.internal:6379 -e PAYLOAD_URL=http://host.docker.internal:3000 chatter-chat-server
+```
+
+The settings are the environment variables from `.env.example`; inside a container `localhost` is the container itself, so Redis and Payload need their real addresses. The image starts `node` directly (not through `npm`), so `docker stop` reaches the server as `SIGTERM` and it shuts down gracefully.
+
 ## Tests
 
-`npm test --workspace apps/chat-server` (or `npm run test:chat-server` from the repo root) runs the Vitest suite. It needs no Docker, Redis or Payload: the socket tests start the real Socket.IO server on a local port and mock only the Redis adapter, the ban cache and the room cache. Add a test next to any behavior you change in `src/`.
+`npm test --workspace apps/chat-server` (or `npm run test:chat-server` from the repo root) runs the Vitest suite. `npm run lint --workspace apps/chat-server` runs ESLint (recommended TypeScript rules), which CI also runs. It needs no Docker, Redis or Payload: the socket tests start the real Socket.IO server on a local port and mock only the Redis adapter, the ban cache and the room cache. Add a test next to any behavior you change in `src/`.
+
+The one exception is `src/history.redis.test.ts`, which runs the history's Lua scripts (reactions, ban redaction) against a real Redis and is skipped unless `TEST_REDIS_URL` is set. Locally, with the Redis from `docker compose up -d`: `$env:TEST_REDIS_URL = "redis://localhost:6379/9"` (PowerShell) or `TEST_REDIS_URL=redis://localhost:6379/9` (sh), then `npm test`. It uses a database index of its own and a room name of its own per test, and removes what it writes. CI sets it from a Redis service container.
 
 ## Status
 

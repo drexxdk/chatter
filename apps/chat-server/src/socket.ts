@@ -34,6 +34,13 @@ import { newResumeSecret, rememberResume, verifyResume } from "./resume.js";
 import { verifyToken } from "./tokens.js";
 
 const MAX_MESSAGE_LENGTH = 500;
+// The largest packet a client may send; a longer one closes its connection. The default is 1 MB, while the biggest
+// thing a client sends is a 500-character message (3 KB even if every character had to be escaped in JSON).
+const MAX_PACKET_BYTES = 8 * 1024;
+// How often the server pings a client, and how long it waits for the answer before dropping the connection (these
+// are Socket.IO's defaults, set here so that a change of library version cannot change them unnoticed).
+const PING_INTERVAL_MS = 25_000;
+const PING_TIMEOUT_MS = 20_000;
 const MAX_ANNOUNCEMENT_LENGTH = 500;
 const RATE_LIMIT_MAX_MESSAGES = 5;
 const RATE_LIMIT_WINDOW_MS = 5_000;
@@ -178,6 +185,9 @@ export function createSocketServer(
   const resumeSecrets = new WeakMap<object, string>();
   const io = new Server(httpServer, {
     cors: { origin: env.WEB_ORIGIN, credentials: true },
+    maxHttpBufferSize: MAX_PACKET_BYTES,
+    pingInterval: PING_INTERVAL_MS,
+    pingTimeout: PING_TIMEOUT_MS,
   });
 
   io.adapter(

@@ -18,6 +18,17 @@ jobs:
     name: Format, types, build and unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # For the chat-server tests that run the history's Lua scripts against a real Redis.
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -39,12 +50,25 @@ jobs:
       - run: npm run build --workspace apps/web
 
       - run: npm test --workspace apps/chat-server
+        env:
+          TEST_REDIS_URL: redis://localhost:6379/9
 
       - run: npm test --workspace apps/web
 
       # Only the env spec: the other admin int tests need a running database.
       - run: npx vitest run --config ./vitest.config.mts tests/int/env.int.spec.ts
         working-directory: apps/admin
+
+  docker:
+    name: Docker images build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: docker build -f apps/chat-server/Dockerfile -t chatter-chat-server .
+
+      - run: docker build -f apps/web/Dockerfile -t chatter-web .
 
   e2e:
     name: End-to-end

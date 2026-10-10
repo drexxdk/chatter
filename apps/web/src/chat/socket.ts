@@ -5,8 +5,12 @@ import type { Avatar } from "./avatar";
 
 // The subset of the Socket.IO client the app uses, so tests can supply a fake.
 export interface ChatSocket {
+  // `any`, not `unknown`: handlers declare the payloads they expect, and a function that takes a narrower
+  // parameter is not assignable to one that takes `unknown`.
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   on(event: string, handler: (...args: any[]) => void): unknown;
   emit(event: string, ...args: any[]): unknown;
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   disconnect(): unknown;
 }
 

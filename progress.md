@@ -86,7 +86,7 @@ Last updated: 2026-10-03
 - Presence cost: every join, leave and disconnect sends the full member list to everyone in the room, so traffic grows roughly with the square of the room size. Fine for small rooms; very large or unlimited rooms need counts or deltas instead.
 - Payload schema changes are applied by dev-mode push only; there are no migrations yet, so the `maxMembers` change (now optional) needs a migration before any real deployment.
 - `apps/web` gaps: no typing/unread indicators, no mobile-specific layout work beyond Tailwind defaults.
-- `apps/chat-server` and `apps/web` have no ESLint setup (type checking and Prettier only).
+- ~~`apps/chat-server` and `apps/web` have no ESLint setup (type checking and Prettier only).~~ — added, see the review section below.
 - CI has no dependency audit step yet (the 9 known `braces` highs would fail a plain `npm audit`), and no deployment pipeline.
 - No tests for the Redis-backed sync jobs (`rooms.ts`, `payloadClient.ts`) or the HTTP routes yet; the socket tests mock those layers.
 - No project-specific tests added beyond fixing the template's existing Vitest/Playwright scaffolding to match the real collections.
@@ -101,6 +101,35 @@ Last updated: 2026-10-03
 ## Next Steps (in order)
 
 1. Continue through remaining plan phases: review the message-history design (below), then decide what else is wanted. The earlier candidates (dependency audit, HTTP headers and rate limiting, migrations) are done.
+
+## Code review and improvements (2026-10-10)
+
+A review of the whole code base once the core features were done (rooms, private messages, blocking, profiles, GIFs, emoji, reactions, moderation). Findings were checked against the code; things the review claimed that turned out to be wrong are not listed. Worked through in this order; `[x]` means done.
+
+### High value
+
+- [x] 1. Real-Redis tests for the Lua scripts in `apps/chat-server/src/history.ts` (`REACT_SCRIPT`, `REPLACE_SCRIPT`): every test mocked Redis, so the ban redaction and reaction toggling were only ever checked by hand. Now `src/history.redis.test.ts` (13 tests: order and trimming, expiry kept, toggling on and off, the limits, own and missing messages, banned placeholders, non-ASCII text, concurrent reactions) runs against a real Redis when `TEST_REDIS_URL` is set; CI has a Redis service container for it.
+- [x] 2. Socket.IO limits: `maxHttpBufferSize` is now 8 KB (was the 1 MB default; a message is at most 500 characters) and the ping interval and timeout are explicit. Tests: a 20 KB packet drops the connection, a 500-character emoji message still passes.
+- [x] 3. Graceful shutdown (`src/shutdown.ts`, wired in `index.ts`): on SIGTERM/SIGINT the syncs stop, clients are disconnected, the HTTP server closes and the three Redis connections quit, with a 10 s fallback and exit code 1 on failure. Unit-tested, and checked for real: `docker stop` on the container logs the shutdown and exits 0 in under half a second.
+- [x] 4. ESLint for `apps/web` (recommended TypeScript rules, `rules-of-hooks` and `exhaustive-deps` as errors) and `apps/chat-server` (recommended TypeScript rules); both have a `lint` script, so CI's `npm run lint` covers them. It found one unused helper in `App.test.tsx` (removed) and two deliberate effects in `App.tsx` (annotated with the reason). Checked that a planted conditional hook and a missing dependency fail.
+- [x] 5. Dockerfiles for the chat-server and the web client (built from the repo root; CI builds both), and a Content-Security-Policy for the web client served by nginx (`apps/web/nginx.conf.template`: own scripts only, GIPHY pictures and video, connections only to the chat-server and `api.giphy.com`, no framing). Checked in a browser against the containers: the room list, socket, messages and a GIPHY video work with no violations, and a request to another site is blocked. Running it showed that the first draft of the chat-server image lacked a package installed under `apps/chat-server/node_modules`; fixed.
+
+### Medium
+
+- [ ] 6. Constants copied between server and client with "must match" comments (`MAX_MESSAGE_LENGTH`, the avatar list, `REACTION_EMOJIS`): share them or test that they agree.
+- [ ] 7. `apps/web/src/chat/useChat.ts` is about 1,000 lines (socket lifecycle, room state, private messages, blocking, reactions, profile): split into hooks. `ChatRoom` and `DirectChat` duplicate the composer, scroll-to-end and failure display.
+- [ ] 8. `apps/web/src/App.test.tsx` is about 3,750 lines and holds the one timing-sensitive test ("puts the cursor on the unblock button"): split by feature, make that test deterministic.
+- [ ] 9. Multi-node behaviour: per-IP connection caps, HTTP rate limits and socket event limits are in memory per process, and the room-capacity check is only locked within a node (already noted above under "Not yet done").
+- [ ] 10. Page-scroll workarounds (`scrollHold.ts`, `stickyFocus.ts` patching `HTMLElement.prototype.focus`, the `ResizeObserver` in `ChatRoom`) counter the dialog library's scroll lock: tested, but fragile.
+- [ ] 11. Small gaps: `ownGuestIdsRef` in `useChat.ts` grows on every reconnect (stored copy is capped); reaction nicknames are frozen when reacting; the server's own-message check is by guest id only; keyboard paths to reactions and the person menu (R, the menu key) are not discoverable.
+
+### Low
+
+- [ ] 12. Web `tsconfig.json`: add `noUncheckedIndexedAccess` and `noImplicitReturns`.
+- [ ] 13. The server logs with `console.*` (27 places): structured logs with a request/socket id.
+- [ ] 14. Performance: a list virtualiser is not needed at 200 messages; per-message popovers could be rendered only for the hovered/focused message if profiling ever shows jank.
+- [ ] 15. Emoji search matches English names only; `prefers-reduced-motion` is only honoured for GIFs.
+- [ ] 16. Docs: a short architecture note (what lives in Redis, in memory and on the client; how messages, reactions and bans flow).
 
 ## Reference
 

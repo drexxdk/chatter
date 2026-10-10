@@ -1,0 +1,31 @@
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # What the page may load, and where it may connect. Everything else is refused by the browser, so an injected
+    # script could neither run (no inline or foreign scripts) nor send anything to a server of its own.
+    #   - GIFs come from GIPHY: pictures and video from its media hosts, the search API from api.giphy.com.
+    #   - CHAT_SERVER_SOURCES is the chat-server, as the space-separated sources the browser will use to reach it:
+    #     its https address (for /rooms and the moderator sign-in) and its wss address (the socket).
+    #   - Styles may be inline because React and the dialogs set style attributes.
+    add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.giphy.com; media-src https://*.giphy.com; connect-src 'self' https://api.giphy.com ${CHAT_SERVER_SOURCES}; font-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; object-src 'none'" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "same-origin" always;
+
+    # `expires` rather than `add_header Cache-Control`: a location with an add_header of its own would drop the
+    # headers above.
+
+    # Built files have a hash in their name, so they never change.
+    location /assets/ {
+        expires 1y;
+        try_files $uri =404;
+    }
+
+    # A room's address is a page of the app, not a file.
+    location / {
+        expires -1;
+        try_files $uri /index.html;
+    }
+}

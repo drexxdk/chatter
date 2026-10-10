@@ -182,6 +182,8 @@ export function App({
       guestIds: chat.ownGuestIds,
       resume: chat.resume(),
     });
+    // `chat.resume()` reads what the connection was last given, which has changed whenever the session has.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chat.ownGuestIds, chat.session]);
 
   // A change to the profile is what a reload has to bring the guest back as.
@@ -215,6 +217,8 @@ export function App({
   // Arriving at a room's address (a reload, a link): wait for the rooms, then join as the guest this tab already was,
   // or ask who they are.
   const restored = useRef(false);
+  // No dependency list on purpose: it runs after every render until the rooms have arrived, then once for good.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (restored.current || roomsState.status !== "ready") return;
     restored.current = true;
