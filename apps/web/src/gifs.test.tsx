@@ -363,6 +363,36 @@ describe("a GIF in a message", () => {
     return { log, video };
   }
 
+  it("is not a click on the person who sent it, which is what a click on their words is", async () => {
+    const user = userEvent.setup();
+    const server = makeFakeServer({
+      others: [{ guestId: "guest-bob", nickname: "Bob" }],
+    });
+    render(<App createSocket={server.createSocket} />);
+    await user.click(
+      await screen.findByRole("button", { name: "Join General" }),
+    );
+    await user.type(await screen.findByLabelText("Nickname"), "Alice");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("button", { name: "Your profile: Alice" });
+    act(() =>
+      server.latest.serverEmit("message:new", message(`words\n${BARE}`)),
+    );
+    const log = within(screen.getByRole("log"));
+
+    await user.click(log.getByRole("img", { name: "GIF" }));
+
+    expect(
+      screen.queryByRole("textbox", { name: "Message to Bob" }),
+    ).toBeNull();
+
+    await user.click(log.getByText("words"));
+
+    expect(
+      await screen.findByRole("textbox", { name: "Message to Bob" }),
+    ).toBeInTheDocument();
+  });
+
   it("plays once and then waits, without looping", async () => {
     const { log, video } = await show();
 

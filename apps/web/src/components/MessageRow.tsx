@@ -178,12 +178,21 @@ export function MessageGroup({
               }
             >
               {onSelect ? (
-                // The click is taken here, not by the button, so the text stays selectable.
+                // The click is taken here, not by the button, so the text stays selectable. A picture has its own buttons
+                // and is not a click on the person.
                 <div
                   className="group/bubble relative max-w-full"
                   onClick={
                     selectable
-                      ? () => chooseUnlessSelecting(onSelect)
+                      ? (event) => {
+                          if (
+                            (event.target as HTMLElement).closest("[data-gif]")
+                          ) {
+                            return;
+                          }
+
+                          chooseUnlessSelecting(onSelect);
+                        }
                       : undefined
                   }
                 >
@@ -194,7 +203,7 @@ export function MessageGroup({
                     aria-label={t("person.message", { name: nickname })}
                     {...stop}
                     {...keyShortcut}
-                    className={`pointer-events-none absolute inset-0 rounded-2xl ${selectable ? "group-hover/bubble:bg-neutral-100/5" : ""} ${NAV_STOP_CLASS}`}
+                    className={`pointer-events-none absolute inset-0 rounded-2xl ${selectable && !hasGif ? "group-hover/bubble:bg-neutral-100/5" : ""} ${NAV_STOP_CLASS}`}
                   />
                 </div>
               ) : (
