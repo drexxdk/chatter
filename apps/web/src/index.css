@@ -6,6 +6,18 @@ html {
   scroll-padding-block: 8rem;
 }
 
+/* How close a dropdown (Headless UI's anchored panels) may come to the screen's edge: as close as the messages, which
+   have the page's side padding (px-4, and sm:px-6 from 40rem). */
+:root {
+  --anchor-padding: 1rem;
+}
+
+@media (min-width: 40rem) {
+  :root {
+    --anchor-padding: 1.5rem;
+  }
+}
+
 /* A dialog hides the page's scrollbar, with padding to match, for as long as it is on the page. Headless UI undoes that
    as soon as the dialog starts to close, which would show the scrollbar again over the fading dialog; this keeps it
    hidden until the dialog has gone. (The padding wins over Headless UI's, which it measures once this has hidden the

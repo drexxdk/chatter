@@ -72,7 +72,7 @@ function AddReaction({
       <PopoverPanel
         role="dialog"
         aria-label={t("reactions.add")}
-        anchor={{ to: "top start", gap: 6, padding: 8 }}
+        anchor={{ to: "top start", gap: 6 }}
         focus
         className="z-30 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-xl"
       >

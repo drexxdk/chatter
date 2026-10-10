@@ -52,7 +52,7 @@ export function PersonMenu({
         <Ellipsis aria-hidden="true" className="h-4 w-4" />
       </MenuButton>
       <MenuItems
-        anchor={{ to: "bottom end", gap: 4, padding: 8 }}
+        anchor={{ to: "bottom end", gap: 4 }}
         className="z-50 min-w-52 rounded-md border border-slate-700 bg-slate-900 p-1 shadow-lg focus:outline-none"
       >
         <ReturnFocus to={button} />

@@ -53,7 +53,7 @@ export function ComposerPicker({
       <PopoverPanel
         role="dialog"
         aria-label={label}
-        anchor={{ to: "top end", gap: 8, padding: 8 }}
+        anchor={{ to: "top end", gap: 8 }}
         focus={!touch}
         className="z-40 flex h-[min(26rem,65dvh)] w-[min(22rem,calc(100vw-1rem))] flex-col rounded-xl border border-slate-700 bg-slate-900 shadow-xl"
       >

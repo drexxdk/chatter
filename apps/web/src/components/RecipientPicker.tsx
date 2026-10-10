@@ -106,7 +106,7 @@ export function RecipientPicker({
       <PopoverPanel
         role="dialog"
         aria-label={t("dm.recipient")}
-        anchor={{ to: "top start", gap: 8, padding: 8 }}
+        anchor={{ to: "top start", gap: 8 }}
         focus={!touch}
         className="z-40 flex max-h-[min(30rem,70dvh)] w-[min(20rem,calc(100vw-1rem))] flex-col gap-4 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-3 shadow-xl"
       >
