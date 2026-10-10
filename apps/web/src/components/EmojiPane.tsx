@@ -18,7 +18,7 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
   const found = searching ? searchEmoji(query) : [];
 
   const grid = (emojis: { emoji: string; words: string }[]) => (
-    <div className="grid grid-cols-8 gap-0.5">
+    <div className="grid grid-cols-6 gap-0.5">
       {emojis.map(({ emoji, words }) => (
         <button
           key={emoji}
@@ -27,7 +27,7 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
           title={words.split(" ")[0]}
           aria-label={emoji}
           onClick={() => onPick(emoji)}
-          className="size-9 rounded-md text-xl outline-none hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-indigo-400"
+          className="aspect-square w-full rounded-md text-2xl outline-none hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-indigo-400"
         >
           {emoji}
         </button>
@@ -36,7 +36,7 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
   );
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="relative">
         <Search
           aria-hidden="true"
@@ -64,7 +64,7 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
         ref={gridKeys.ref}
         onFocus={gridKeys.onFocus}
         onKeyDown={gridKeys.onKeyDown}
-        className="space-y-3"
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto"
       >
         {searching ? (
           found.length > 0 ? (

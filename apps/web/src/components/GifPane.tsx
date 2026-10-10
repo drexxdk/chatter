@@ -78,7 +78,7 @@ export function GifPane({ onPick }: { onPick: (url: string) => void }) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="relative">
         <Search
           aria-hidden="true"
@@ -106,6 +106,7 @@ export function GifPane({ onPick }: { onPick: (url: string) => void }) {
         ref={gridKeys.ref}
         onFocus={gridKeys.onFocus}
         onKeyDown={gridKeys.onKeyDown}
+        className="min-h-0 flex-1 overflow-y-auto"
       >
         {status === "error" && (
           <p role="alert" className="text-sm text-red-300">
@@ -161,7 +162,9 @@ export function GifPane({ onPick }: { onPick: (url: string) => void }) {
         )}
       </div>
 
-      <p className="text-center text-xs text-slate-500">{t("gif.powered")}</p>
+      <p className="shrink-0 text-center text-xs text-slate-500">
+        {t("gif.powered")}
+      </p>
     </div>
   );
 }
