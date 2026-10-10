@@ -6,6 +6,15 @@ html {
   scroll-padding-block: 8rem;
 }
 
+/* A dialog hides the page's scrollbar, with padding to match, for as long as it is on the page. Headless UI undoes that
+   as soon as the dialog starts to close, which would show the scrollbar again over the fading dialog; this keeps it
+   hidden until the dialog has gone. (The padding wins over Headless UI's, which it measures once this has hidden the
+   scrollbar.) */
+html:has(#headlessui-portal-root [role="dialog"]) {
+  overflow: hidden;
+  padding-right: var(--scrollbar-width, 0px) !important;
+}
+
 /* No focus ring after a click or tap; see inputMode.ts. */
 html[data-pointer] :focus-visible {
   outline: none;

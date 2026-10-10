@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   addDirectMessage,
@@ -1121,6 +1121,12 @@ export function useChat(
     [cancelReconnect, closeSocket],
   );
 
+  // The same array until something changes, so that what depends on it is not run by every render.
+  const roomEventsHere = useMemo(
+    () => roomEvents.filter((event) => event.roomSlug === roomSlug),
+    [roomEvents, roomSlug],
+  );
+
   return {
     status,
     session,
@@ -1130,7 +1136,7 @@ export function useChat(
     roomSlug,
     members,
     messages,
-    roomEvents: roomEvents.filter((event) => event.roomSlug === roomSlug),
+    roomEvents: roomEventsHere,
     error,
     retryAfterSeconds,
     announcement,

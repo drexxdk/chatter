@@ -5,9 +5,13 @@ import { App } from "./App";
 import "./i18n";
 import "./index.css";
 import { trackInputMode } from "./inputMode";
+import { publishScrollbarWidth } from "./scrollbarWidth";
+import { holdScrollWhilePopups } from "./scrollHold";
 import { keepStickyInView } from "./stickyFocus";
 
 trackInputMode();
+publishScrollbarWidth();
+holdScrollWhilePopups();
 keepStickyInView();
 
 createRoot(document.getElementById("root")!).render(

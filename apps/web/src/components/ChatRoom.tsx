@@ -125,11 +125,15 @@ export function ChatRoom({
 
   // Whether the page is at its end, so that something new only scrolls it when the guest is not reading further up.
   const atBottom = useRef(true);
+  // Whether it is exactly at its end, which only then follows the page getting longer.
+  const pinned = useRef(true);
   useEffect(() => {
     const page = document.documentElement;
     const update = () => {
-      atBottom.current =
-        page.scrollHeight - page.scrollTop - page.clientHeight < 120;
+      const distance = page.scrollHeight - page.scrollTop - page.clientHeight;
+
+      atBottom.current = distance < 120;
+      pinned.current = distance < 2;
     };
 
     window.addEventListener("scroll", update, { passive: true });
@@ -140,6 +144,19 @@ export function ChatRoom({
     const page = document.documentElement;
     page.scrollTop = page.scrollHeight;
   };
+
+  // Whatever makes the page longer under a guest who is exactly at its end keeps them there: a picture arriving, or the
+  // page being briefly narrower, and so shorter, while a dialog closes. Not when they have scrolled up even a little.
+  useEffect(() => {
+    if (typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => {
+      if (pinned.current) scrollToEnd();
+    });
+    observer.observe(document.body);
+
+    return () => observer.disconnect();
+  }, []);
 
   // The sticky message bar covers the page's end, so scrolling the last item into view would stop short of it.
   const openGuestId = direct.active?.guestId ?? null;
