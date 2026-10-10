@@ -356,7 +356,7 @@ export function MessageEntry({
         <div
           aria-hidden
           onClick={onClickArea}
-          className={`absolute -inset-y-0.5 w-[calc(100cqw+1rem)] ${mine ? "-right-2" : "-left-13"} ${onClickArea ? "cursor-pointer" : ""}`}
+          className={`absolute -inset-y-0.5 w-[calc(100cqw+1rem)] ${mine ? "-right-2" : "-left-13"} ${onClickArea ? "cursor-pointer rounded-lg group-hover/message:bg-neutral-100/5" : ""}`}
         />
         {children}
         {/* The padding below the bar keeps the pointer inside the message while it moves up to the bar. */}
