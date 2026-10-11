@@ -1,4 +1,5 @@
 import { LogOut } from "lucide-react";
+import clsx from "clsx";
 import { useTranslation } from "react-i18next";
 
 import type { Avatar } from "../chat/avatar";
@@ -122,7 +123,10 @@ export function MessageGroup({
 
     return (
       <div
-        className={`flex flex-col gap-1 ${mine ? "items-end" : "items-start"}`}
+        className={clsx(
+          "flex flex-col gap-1",
+          mine ? "items-end" : "items-start",
+        )}
       >
         {words(text)}
         {picture(gif)}
@@ -133,18 +137,24 @@ export function MessageGroup({
     <li
       data-side={mine ? "right" : "left"}
       {...(direct ? { "data-kind": "direct" } : {})}
-      className={`@container -mx-2 flex min-w-0 items-start gap-2 rounded-lg px-2 py-1 ${mine ? "flex-row-reverse" : ""}`}
+      className={clsx(
+        "@container -mx-2 flex min-w-0 items-start gap-2 rounded-lg px-2 py-1",
+        mine && "flex-row-reverse",
+      )}
     >
       {!mine && (
         <span
           onClick={clickPerson}
-          className={`flex shrink-0 ${clickPerson ? "cursor-pointer" : ""}`}
+          className={clsx("flex shrink-0", clickPerson && "cursor-pointer")}
         >
           <AvatarIcon avatar={avatar} dimmed={gone} />
         </span>
       )}
       <div
-        className={`flex min-w-0 max-w-[80%] flex-col gap-1 ${mine ? "items-end" : "items-start"}`}
+        className={clsx(
+          "flex min-w-0 max-w-[80%] flex-col gap-1",
+          mine ? "items-end" : "items-start",
+        )}
       >
         <div className="flex items-center gap-2 text-xs">
           {/* What the guest wrote needs no name, as in Teams; a private message still says who it is to. */}
@@ -200,7 +210,10 @@ export function MessageGroup({
                 {...stop}
                 {...keyShortcut}
                 onClick={onSeen}
-                className={`max-w-full rounded-2xl ${stop ? NAV_STOP_CLASS : ""}`}
+                className={clsx(
+                  "max-w-full rounded-2xl",
+                  stop && NAV_STOP_CLASS,
+                )}
               >
                 {bubble(message)}
               </div>

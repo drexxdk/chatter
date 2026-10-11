@@ -12,6 +12,7 @@ import {
 } from "@floating-ui/react";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import clsx from "clsx";
 import { PLAIN_AVATAR } from "../chat/avatar";
 import { splitMentions } from "../chat/mentions";
 import type { Member } from "../chat/types";
@@ -39,7 +40,10 @@ function Card({ person }: { person: Member }) {
       <AvatarIcon avatar={avatar} small titled={false} />
       <span className="min-w-0">
         <span
-          className={`block truncate font-semibold ${person.role === "moderator" ? "text-green-400" : ""}`}
+          className={clsx(
+            "block truncate font-semibold",
+            person.role === "moderator" && "text-green-400",
+          )}
         >
           {person.nickname}
         </span>

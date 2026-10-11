@@ -10,6 +10,7 @@ import { useComposer } from "../chat/useComposer";
 import { focusMessageBox } from "../focusMessageBox";
 import { ComposerBar } from "./ComposerBar";
 import { composerButton } from "./composerControls";
+import { Notice } from "./Notice";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageGroup, StatusRow } from "./MessageRow";
 
@@ -77,26 +78,6 @@ export function DirectChat({
 
   return (
     <div className="flex flex-1 flex-col gap-3">
-      {blockedBy && (
-        <p
-          role="status"
-          className="flex flex-wrap items-center gap-x-2 rounded-md border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-neutral-200"
-        >
-          <Ban aria-hidden="true" className="h-4 w-4 shrink-0" />
-          <span>{t("dm.blockedByWrite", { name: partner.nickname })}</span>
-        </p>
-      )}
-
-      {blocked && (
-        <p
-          role="status"
-          className="flex flex-wrap items-center gap-x-2 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200"
-        >
-          <Ban aria-hidden="true" className="h-4 w-4 shrink-0" />
-          <span>{t("dm.blocked", { name: partner.nickname })}</span>
-        </p>
-      )}
-
       <ol
         role="log"
         aria-live="polite"
@@ -169,14 +150,25 @@ export function DirectChat({
           />
         }
         above={
-          !present && (
-            <p
-              role="status"
-              className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"
-            >
-              {t("dm.away", { name: partner.nickname })}
-            </p>
-          )
+          <>
+            {blockedBy && (
+              <Notice role="status" tone="neutral" icon={Ban}>
+                {t("dm.blockedByWrite", { name: partner.nickname })}
+              </Notice>
+            )}
+
+            {blocked && (
+              <Notice role="status" tone="error" icon={Ban}>
+                {t("dm.blocked", { name: partner.nickname })}
+              </Notice>
+            )}
+
+            {!present && (
+              <Notice role="status">
+                {t("dm.away", { name: partner.nickname })}
+              </Notice>
+            )}
+          </>
         }
         actions={
           blocked ? (

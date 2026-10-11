@@ -10,6 +10,7 @@ import { Plugin } from "@tiptap/pm/state";
 import { EditorContent, useEditor } from "@tiptap/react";
 import type { SuggestionProps } from "@tiptap/suggestion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import clsx from "clsx";
 
 import type { Partner } from "../chat/direct";
 import { MAX_NAME_LENGTH, suggestMentions } from "../chat/mentions";
@@ -263,7 +264,7 @@ export function MessageInput({
   }, [editor]);
 
   return (
-    <div className={`relative ${disabled ? "opacity-60" : ""}`}>
+    <div className={clsx("relative", disabled && "opacity-60")}>
       {shown && (
         <MentionList
           id={listId}

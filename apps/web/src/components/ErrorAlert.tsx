@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { Notice } from "./Notice";
+
 export function ErrorAlert({
   code,
   values,
@@ -13,11 +15,8 @@ export function ErrorAlert({
   if (!code) return null;
 
   return (
-    <p
-      role="alert"
-      className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200"
-    >
+    <Notice role="alert" tone="error">
       {t(`errors.${code}`, { defaultValue: t("errors.unknown"), ...values })}
-    </p>
+    </Notice>
   );
 }

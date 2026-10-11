@@ -101,15 +101,15 @@ test("two guests chat in real time and see each other come and go", async ({
 
   await enterRoom(alice, LOUNGE.name, "Alice");
   await expect(
-    alice.getByRole("heading", { name: "In this room (1)" }),
+    alice.getByRole("heading", { name: "In this room (1 of 5)" }),
   ).toBeVisible();
 
   await enterRoom(bob, LOUNGE.name, "Bob");
   await expect(
-    alice.getByRole("heading", { name: "In this room (2)" }),
+    alice.getByRole("heading", { name: "In this room (2 of 5)" }),
   ).toBeVisible();
   await expect(
-    bob.getByRole("heading", { name: "In this room (2)" }),
+    bob.getByRole("heading", { name: "In this room (2 of 5)" }),
   ).toBeVisible();
 
   // Message text must be shown literally, never interpreted as HTML.
@@ -124,7 +124,7 @@ test("two guests chat in real time and see each other come and go", async ({
 
   await bob.getByRole("button", { name: "Leave room" }).click();
   await expect(
-    alice.getByRole("heading", { name: "In this room (1)" }),
+    alice.getByRole("heading", { name: "In this room (1 of 5)" }),
   ).toBeVisible();
 });
 
@@ -149,7 +149,7 @@ test("a guest whose connection drops is reconnected to the same room", async ({
   await enterRoom(alice, LOUNGE.name, "Alice");
   await enterRoom(bob, LOUNGE.name, "Bob");
   await expect(
-    alice.getByRole("heading", { name: "In this room (2)" }),
+    alice.getByRole("heading", { name: "In this room (2 of 5)" }),
   ).toBeVisible();
 
   await send(bob, "before the drop");
@@ -170,7 +170,7 @@ test("a guest whose connection drops is reconnected to the same room", async ({
 
   // Bob sees Alice leave and come back as a member, and they can talk again in both directions.
   await expect(
-    bob.getByRole("heading", { name: "In this room (2)" }),
+    bob.getByRole("heading", { name: "In this room (2 of 5)" }),
   ).toBeVisible();
   await send(bob, "welcome back");
   await expect(alice.getByRole("log")).toContainText("welcome back");
@@ -292,7 +292,7 @@ test("messages sent while a guest was disconnected appear once they reconnect", 
   await enterRoom(alice, LOUNGE.name, "Alice");
   await enterRoom(bob, LOUNGE.name, "Bob");
   await expect(
-    alice.getByRole("heading", { name: "In this room (2)" }),
+    alice.getByRole("heading", { name: "In this room (2 of 5)" }),
   ).toBeVisible();
 
   await connections[0].close();

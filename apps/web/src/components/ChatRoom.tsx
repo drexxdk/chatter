@@ -36,6 +36,7 @@ import { composerIconButton, ComposerSeparator } from "./composerControls";
 import { Timestamp } from "./Timestamp";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageGroup, StatusRow } from "./MessageRow";
+import { Notice } from "./Notice";
 import { MentionsProvider, type MentionsValue } from "./Mentions";
 import type { PersonMenuOptions } from "./PersonMenu";
 import { RecipientPicker } from "./RecipientPicker";
@@ -344,12 +345,7 @@ export function ChatRoom({
             )}
 
             {!connected && (
-              <p
-                role="status"
-                className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"
-              >
-                {t("room.reconnecting")}
-              </p>
+              <Notice role="status">{t("room.reconnecting")}</Notice>
             )}
           </div>
 
@@ -611,42 +607,43 @@ export function ChatRoom({
                     )}
                   </>
                 }
-                below={
+                above={
                   <>
                     {replyTo && !replyPresent && (
-                      <p role="status" className="text-sm text-amber-300">
+                      <Notice role="status">
                         {t("dm.away", { name: replyTo.nickname })}
-                      </p>
+                      </Notice>
                     )}
 
                     {replyTo && replyBlockedBy && (
-                      <p role="status" className="text-sm text-amber-300">
+                      <Notice role="status" tone="neutral" icon={Ban}>
                         {t("dm.blockedByWrite", { name: replyTo.nickname })}
-                      </p>
+                      </Notice>
                     )}
 
                     {replyTo && replyBlocked && (
-                      <p role="status" className="text-sm text-amber-300">
+                      <Notice role="status" tone="error" icon={Ban}>
                         {t("dm.blockedWrite", { name: replyTo.nickname })}{" "}
                         <button
                           type="button"
                           onClick={() =>
                             void direct.setBlocked(replyTo.guestId, false)
                           }
-                          className="font-semibold underline hover:text-amber-200"
+                          className="font-semibold underline hover:text-red-100"
                         >
                           {t("dm.unblockAction")}
                         </button>
-                      </p>
-                    )}
-
-                    {session.role === "moderator" && (
-                      <AnnounceForm
-                        disabled={!connected}
-                        onAnnounce={onAnnounce}
-                      />
+                      </Notice>
                     )}
                   </>
+                }
+                below={
+                  session.role === "moderator" && (
+                    <AnnounceForm
+                      disabled={!connected}
+                      onAnnounce={onAnnounce}
+                    />
+                  )
                 }
               />
             </div>

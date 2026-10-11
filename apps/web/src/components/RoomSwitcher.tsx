@@ -5,6 +5,7 @@ import {
   ListboxOptions,
 } from "@headlessui/react";
 import { Check, ChevronDown } from "lucide-react";
+import clsx from "clsx";
 import { useTranslation } from "react-i18next";
 
 import type { Room } from "../api";
@@ -92,7 +93,10 @@ export function RoomSwitcher({
                       <span className="flex-1">{room.name}</span>
                       <Check
                         aria-hidden="true"
-                        className={`h-4 w-4 text-indigo-300 ${room.slug === slug ? "" : "invisible"}`}
+                        className={clsx(
+                          "h-4 w-4 text-indigo-300",
+                          room.slug !== slug && "invisible",
+                        )}
                       />
                     </ListboxOption>
                   );

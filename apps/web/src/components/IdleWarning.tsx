@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Notice } from "./Notice";
+
 function clock(milliseconds: number): string {
   const seconds = Math.max(0, Math.ceil(milliseconds / 1000));
 
@@ -22,15 +24,15 @@ export function IdleWarning({ deadline }: { deadline: number }) {
   }, [deadline]);
 
   return (
-    <div
+    <Notice
       data-testid="idle-warning"
-      className="flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/15 px-3 py-2 text-sm text-amber-200"
+      className="flex items-center justify-between gap-3"
     >
       <span role="alert">{t("room.idleWarning")}</span>
       <span aria-hidden="true" className="shrink-0 tabular-nums">
         {t("room.idleTimeLeft")}{" "}
         <strong className="font-semibold">{clock(deadline - now)}</strong>
       </span>
-    </div>
+    </Notice>
   );
 }
