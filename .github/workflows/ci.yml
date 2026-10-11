@@ -148,7 +148,8 @@ jobs:
         id: seed
         run: |
           # The output holds the generated API key, so it is only shown if seeding fails.
-          if ! npm run seed --workspace apps/admin > seed.log 2>&1; then
+          # Production mode: a dev-mode run marks the schema as pushed, and the admin then asks before migrating.
+          if ! NODE_ENV=production npm run seed --workspace apps/admin > seed.log 2>&1; then
             sed -E 's/[0-9a-f]{64}/***/g' seed.log >&2
             exit 1
           fi
