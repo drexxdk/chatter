@@ -5,7 +5,7 @@
 #   docker build -f apps/web/Dockerfile --build-arg VITE_CHAT_SERVER_URL=https://chat.example.com -t chatter-web .
 #   docker run -p 8080:8080 -e CHAT_SERVER_SOURCES="https://chat.example.com wss://chat.example.com" chatter-web
 
-FROM node:24-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/admin/package.json apps/admin/
