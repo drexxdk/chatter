@@ -122,6 +122,8 @@
   },
   "room": {
     "leave": "Leave room",
+    "groupOpen": "Open chat",
+    "groupTopics": "Topics",
     "members": "In this room ({count})",
     "people": "People in this room",
     "panel": "People and direct messages",

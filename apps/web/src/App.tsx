@@ -16,6 +16,7 @@ import { NicknameDialog } from "./components/NicknameDialog";
 import { ProfileButton } from "./components/ProfileButton";
 import { ProfileDialog } from "./components/ProfileDialog";
 import { RoomSwitcher } from "./components/RoomSwitcher";
+import { roomVars } from "./roomThemes";
 import { SideDrawer } from "./components/SideDrawer";
 import { LOBBY_PATH, roomPath, slugFromPath } from "./place";
 import { loadShowMovements, saveShowMovements } from "./preferences";
@@ -301,8 +302,13 @@ export function App({
   return (
     <div className="flex min-h-dvh flex-col">
       {/* Across the whole window, with the room under its border that there is between the messages and the message box. */}
-      <div className="sticky top-0 z-30 bg-neutral-950 pb-2">
-        <div className="border-b border-neutral-800">
+      <div
+        style={roomVars(
+          chat.roomSlug && chat.session ? chat.roomSlug : undefined,
+        )}
+        className="sticky top-0 z-30 bg-[var(--room-tint,var(--color-neutral-950))] pb-2"
+      >
+        <div className="border-b border-[var(--room-border,var(--color-neutral-800))]">
           <header className="relative mx-auto flex h-14 max-w-4xl items-center justify-between gap-3 px-(--page-gutter)">
             {chat.roomSlug && chat.session ? (
               <div className="flex min-w-0 items-center gap-1">

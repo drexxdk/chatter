@@ -122,6 +122,8 @@
   },
   "room": {
     "leave": "Forlad rum",
+    "groupOpen": "Åben snak",
+    "groupTopics": "Emner",
     "members": "I dette rum ({count})",
     "panel": "Personer og direkte beskeder",
     "closePanel": "Luk",

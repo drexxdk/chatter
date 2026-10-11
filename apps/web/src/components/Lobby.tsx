@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { fetchRooms, type Room } from "../api";
+import { roomTheme, roomVars, sortRooms } from "../roomThemes";
 
 type RoomsState =
   | { status: "loading" }
@@ -37,7 +38,7 @@ interface LobbyProps {
 }
 
 export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   return (
     <section aria-labelledby="lobby-heading" className="space-y-4">
@@ -69,31 +70,44 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
 
       {state.status === "ready" && state.rooms.length > 0 && (
         <ul className="grid gap-3 sm:grid-cols-2">
-          {state.rooms.map((room) => (
-            <li
-              key={room.id}
-              className="flex flex-col justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-900 p-4"
-            >
-              <div>
-                <h3 className="font-medium">{room.name}</h3>
-                {room.description && (
-                  <p className="text-sm text-neutral-400">{room.description}</p>
-                )}
-                {typeof room.maxMembers === "number" && (
-                  <p className="mt-1 text-xs text-neutral-500">
-                    {t("lobby.capacity", { count: room.maxMembers })}
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => onSelect(room)}
-                className="rounded-md bg-indigo-600 px-3 py-1.5 font-medium hover:bg-indigo-500"
+          {sortRooms(state.rooms, i18n.language).map((room) => {
+            const Icon = roomTheme(room.slug).icon;
+
+            return (
+              <li
+                key={room.id}
+                style={roomVars(room.slug)}
+                className="flex flex-col justify-between gap-3 rounded-lg border border-(--room-border) bg-(--room-card) p-4"
               >
-                {t("lobby.join", { name: room.name })}
-              </button>
-            </li>
-          ))}
+                <div>
+                  <h3 className="flex items-center gap-2 font-medium">
+                    <Icon
+                      aria-hidden="true"
+                      className="h-5 w-5 shrink-0 text-(--room-accent)"
+                    />
+                    {room.name}
+                  </h3>
+                  {room.description && (
+                    <p className="text-sm text-neutral-400">
+                      {room.description}
+                    </p>
+                  )}
+                  {typeof room.maxMembers === "number" && (
+                    <p className="mt-1 text-xs text-neutral-500">
+                      {t("lobby.capacity", { count: room.maxMembers })}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onSelect(room)}
+                  className="rounded-md bg-indigo-600 px-3 py-1.5 font-medium hover:bg-indigo-500"
+                >
+                  {t("lobby.join", { name: room.name })}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
