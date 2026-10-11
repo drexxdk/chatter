@@ -6,6 +6,7 @@ import type { DirectThread, Partner } from "../chat/direct";
 import { PLAIN_AVATAR } from "../chat/avatar";
 import type { Member } from "../chat/useChat";
 import { AvatarIcon } from "./Avatar";
+import { Button } from "./Button";
 
 const nameClass = (role: Partner["role"]) =>
   role === "moderator" ? "font-bold text-green-400" : undefined;
@@ -184,14 +185,14 @@ export function ThreadList({
             )}
           </button>
           {blockedIds.includes(thread.guestId) ? (
-            <button
-              type="button"
+            <Button
+              variant="inline"
               onClick={() => onSetBlocked(thread.guestId, false)}
               aria-label={t("dm.unblock", { name: thread.nickname })}
-              className="shrink-0 rounded px-2 py-1 text-xs font-semibold text-neutral-200 underline hover:bg-neutral-800"
+              className="shrink-0"
             >
               {t("dm.unblockAction")}
-            </button>
+            </Button>
           ) : (
             <button
               type="button"

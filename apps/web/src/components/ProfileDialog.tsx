@@ -1,10 +1,3 @@
-import {
-  Dialog,
-  DialogBackdrop,
-  DialogPanel,
-  DialogTitle,
-} from "@headlessui/react";
-import { X } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -13,7 +6,10 @@ import type { ActionResult, Session } from "../chat/useChat";
 import { normalizeNickname } from "../nickname";
 import { MAX_AGE, MIN_AGE, readAge, type ProfileChanges } from "../profile";
 import { AvatarIcon } from "./Avatar";
+import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
+import { Field } from "./Field";
+import { Modal } from "./Modal";
 import { AgeField, AvatarPicker } from "./ProfileFields";
 
 // What the guest says about themselves, in a modal on top of the chat. A guest can change all of it; a moderator's name
@@ -32,53 +28,21 @@ export function ProfileDialog({
   const { t } = useTranslation();
 
   return (
-    <Dialog open={open} onClose={onClose} className="relative z-40">
-      <DialogBackdrop
-        transition
-        className="fixed inset-0 bg-black/60 transition-opacity duration-200 data-closed:opacity-0"
-      />
-      {/* Scrolls on its own when the form is taller than the screen, while the page behind stays put. */}
-      <div className="fixed inset-0 overflow-y-auto p-4">
-        <div className="flex min-h-full items-center justify-center">
-          <DialogPanel
-            transition
-            className="w-full max-w-sm space-y-4 rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-xl transition duration-200 data-closed:scale-95 data-closed:opacity-0"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <DialogTitle className="text-lg font-semibold">
-                {t("profile.title")}
-              </DialogTitle>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label={t("room.closePanel")}
-                className="rounded-md p-1.5 hover:bg-neutral-800"
-              >
-                <X aria-hidden="true" className="h-5 w-5" />
-              </button>
-            </div>
-
-            {session.role === "moderator" ? (
-              <div className="space-y-3">
-                <p className="flex items-center gap-2 font-bold text-green-400">
-                  <AvatarIcon avatar={session.avatar ?? PLAIN_AVATAR} />
-                  {session.nickname}
-                </p>
-                <p className="text-sm text-neutral-300">
-                  {t("profile.moderatorNote")}
-                </p>
-              </div>
-            ) : (
-              <ProfileForm
-                session={session}
-                onSave={onSave}
-                onClose={onClose}
-              />
-            )}
-          </DialogPanel>
+    <Modal open={open} onClose={onClose} title={t("profile.title")} closable>
+      {session.role === "moderator" ? (
+        <div className="space-y-3">
+          <p className="flex items-center gap-2 font-bold text-green-400">
+            <AvatarIcon avatar={session.avatar ?? PLAIN_AVATAR} />
+            {session.nickname}
+          </p>
+          <p className="text-sm text-neutral-300">
+            {t("profile.moderatorNote")}
+          </p>
         </div>
-      </div>
-    </Dialog>
+      ) : (
+        <ProfileForm session={session} onSave={onSave} onClose={onClose} />
+      )}
+    </Modal>
   );
 }
 
@@ -129,31 +93,16 @@ function ProfileForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-1">
-        <label htmlFor="profile-nickname" className="block text-sm font-medium">
-          {t("nickname.label")}
-        </label>
-        <input
-          id="profile-nickname"
-          autoComplete="off"
-          maxLength={24}
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          aria-invalid={touched && !nickname}
-          aria-describedby="profile-nickname-hint"
-          className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2"
-        />
-        <p
-          id="profile-nickname-hint"
-          className={
-            touched && !nickname
-              ? "text-sm text-red-300"
-              : "text-sm text-neutral-500"
-          }
-        >
-          {t("nickname.hint")}
-        </p>
-      </div>
+      <Field
+        id="profile-nickname"
+        label={t("nickname.label")}
+        hint={t("nickname.hint")}
+        autoComplete="off"
+        maxLength={24}
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+        invalid={touched && !nickname}
+      />
 
       <AvatarPicker value={avatar} onChange={setAvatar} name="profile-avatar" />
       <AgeField
@@ -179,20 +128,12 @@ function ProfileForm({
       />
 
       <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-md px-3 py-1.5 hover:bg-neutral-800"
-        >
+        <Button variant="ghost" onClick={onClose}>
           {t("nickname.cancel")}
-        </button>
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-md bg-indigo-600 px-3 py-1.5 font-medium hover:bg-indigo-500 disabled:opacity-60"
-        >
+        </Button>
+        <Button type="submit" variant="primary" disabled={saving}>
           {saving ? t("profile.saving") : t("profile.save")}
-        </button>
+        </Button>
       </div>
     </form>
   );

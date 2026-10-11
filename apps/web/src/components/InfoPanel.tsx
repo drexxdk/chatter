@@ -24,20 +24,23 @@ export function InfoPanel({
       ) : null}
 
       {sections.map((section) => (
-        <section key={section} className="space-y-1">
-          <h3 className="font-semibold text-neutral-100">
-            {t(`info.${section}Heading`)}
-          </h3>
-          <p>{t(`info.${section}`)}</p>
-        </section>
+        <InfoSection key={section} title={t(`info.${section}Heading`)}>
+          {t(`info.${section}`)}
+        </InfoSection>
       ))}
 
-      <section className="space-y-1">
-        <h3 className="font-semibold text-neutral-100">
-          {t("info.moderatorsHeading")}
-        </h3>
-        <p>{t("info.moderators")}</p>
-      </section>
+      <InfoSection title={t("info.moderatorsHeading")}>
+        {t("info.moderators")}
+      </InfoSection>
     </div>
+  );
+}
+
+function InfoSection({ title, children }: { title: string; children: string }) {
+  return (
+    <section className="space-y-1">
+      <h3 className="font-semibold text-neutral-100">{title}</h3>
+      <p>{children}</p>
+    </section>
   );
 }

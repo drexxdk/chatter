@@ -10,6 +10,7 @@ import { useComposer } from "../chat/useComposer";
 import { focusMessageBox } from "../focusMessageBox";
 import { ComposerBar } from "./ComposerBar";
 import { composerButton } from "./composerControls";
+import { MessageLog } from "./MessageLog";
 import { Notice } from "./Notice";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageGroup, StatusRow } from "./MessageRow";
@@ -78,12 +79,7 @@ export function DirectChat({
 
   return (
     <div className="flex flex-1 flex-col gap-3">
-      <ol
-        role="log"
-        aria-live="polite"
-        aria-label={label}
-        className="flex min-h-40 flex-1 flex-col gap-2 rounded-lg border border-neutral-800 bg-neutral-950 p-3 [&>*]:shrink-0 [&>:first-child]:mt-auto"
-      >
+      <MessageLog label={label}>
         {partner.entries.length === 0 && (
           <li className="text-neutral-500">{t("dm.empty")}</li>
         )}
@@ -125,7 +121,7 @@ export function DirectChat({
             />
           );
         })}{" "}
-      </ol>
+      </MessageLog>
 
       <ComposerBar
         composer={composer}

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { AVATARS, type Avatar } from "../chat/avatar";
 import { MAX_AGE, MIN_AGE } from "../profile";
 import { AvatarIcon } from "./Avatar";
+import { Field } from "./Field";
 
 // How the guest wants to be shown, as one choice among the avatars. `name` keeps two groups on a page apart.
 export function AvatarPicker({
@@ -61,29 +62,17 @@ export function AgeField({
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-1">
-      <label htmlFor={id} className="block text-sm font-medium">
-        {t("profile.age")}
-      </label>
-      <input
-        id={id}
-        inputMode="numeric"
-        autoComplete="off"
-        maxLength={3}
-        value={value}
-        onChange={(event) => onChange(event.target.value.replace(/\D/g, ""))}
-        aria-invalid={invalid}
-        aria-describedby={`${id}-hint`}
-        className="w-24 rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2"
-      />
-      <p
-        id={`${id}-hint`}
-        className={
-          invalid ? "text-sm text-red-300" : "text-sm text-neutral-500"
-        }
-      >
-        {t("profile.ageHint", { min: MIN_AGE, max: MAX_AGE })}
-      </p>
-    </div>
+    <Field
+      id={id}
+      label={t("profile.age")}
+      hint={t("profile.ageHint", { min: MIN_AGE, max: MAX_AGE })}
+      width="short"
+      inputMode="numeric"
+      autoComplete="off"
+      maxLength={3}
+      value={value}
+      onChange={(event) => onChange(event.target.value.replace(/\D/g, ""))}
+      invalid={invalid}
+    />
   );
 }

@@ -4,6 +4,9 @@ import { useTranslation } from "react-i18next";
 
 import { gifStillUrl, gifVideoUrl } from "../chat/gifs";
 
+const IMAGE =
+  "h-40 min-w-24 max-w-full rounded-2xl bg-neutral-800 object-contain";
+
 const reducedMotion = () =>
   typeof matchMedia === "function" &&
   matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -64,7 +67,7 @@ export function GifImage({ url }: { url: string }) {
         alt={t("gif.alt")}
         loading="lazy"
         referrerPolicy="no-referrer"
-        className="h-40 min-w-24 max-w-full rounded-2xl bg-neutral-800 object-contain"
+        className={IMAGE}
       />
     );
   }
@@ -104,7 +107,7 @@ export function GifImage({ url }: { url: string }) {
         preload="metadata"
         onEnded={() => setState("paused")}
         onError={() => setFailed(true)}
-        className="h-40 min-w-24 max-w-full rounded-2xl bg-neutral-800 object-contain"
+        className={IMAGE}
       />
       {state === "paused" && (
         <button

@@ -9,8 +9,9 @@ import clsx from "clsx";
 import { useTranslation } from "react-i18next";
 
 import type { Room } from "../api";
-import { groupRooms, roomTheme, roomVars } from "../roomThemes";
+import { groupRooms } from "../roomThemes";
 import { HEADER_DROPDOWN, MENU_SURFACE } from "./dropdown";
+import { RoomIcon } from "./RoomIcon";
 
 // The room's name as the page's title, which is also how to move to another room.
 export function RoomSwitcher({
@@ -27,7 +28,6 @@ export function RoomSwitcher({
   onSelect: (room: Room) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const Icon = roomTheme(slug).icon;
   const groups = groupRooms(rooms, i18n.language);
 
   return (
@@ -41,12 +41,7 @@ export function RoomSwitcher({
         }}
       >
         <ListboxButton className="flex max-w-full items-center gap-1.5 rounded-md px-2 py-1 hover:bg-neutral-800 outline-none data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400 disabled:hover:bg-transparent">
-          <span style={roomVars(slug)} className="contents">
-            <Icon
-              aria-hidden="true"
-              className="h-5 w-5 shrink-0 text-(--room-accent)"
-            />
-          </span>
+          <RoomIcon slug={slug} />
           <span className="truncate">{name}</span>
           {rooms.length > 1 && (
             <ChevronDown
@@ -76,31 +71,23 @@ export function RoomSwitcher({
                 >
                   {t(group === "open" ? "room.groupOpen" : "room.groupTopics")}
                 </div>
-                {inGroup.map((room) => {
-                  const RoomIcon = roomTheme(room.slug).icon;
-
-                  return (
-                    <ListboxOption
-                      key={room.slug}
-                      value={room.slug}
-                      style={roomVars(room.slug)}
-                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 data-focus:bg-neutral-800"
-                    >
-                      <RoomIcon
-                        aria-hidden="true"
-                        className="h-4 w-4 shrink-0 text-(--room-accent)"
-                      />
-                      <span className="flex-1">{room.name}</span>
-                      <Check
-                        aria-hidden="true"
-                        className={clsx(
-                          "h-4 w-4 text-indigo-300",
-                          room.slug !== slug && "invisible",
-                        )}
-                      />
-                    </ListboxOption>
-                  );
-                })}
+                {inGroup.map((room) => (
+                  <ListboxOption
+                    key={room.slug}
+                    value={room.slug}
+                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 data-focus:bg-neutral-800"
+                  >
+                    <RoomIcon slug={room.slug} className="h-4 w-4" />
+                    <span className="flex-1">{room.name}</span>
+                    <Check
+                      aria-hidden="true"
+                      className={clsx(
+                        "h-4 w-4 text-indigo-300",
+                        room.slug !== slug && "invisible",
+                      )}
+                    />
+                  </ListboxOption>
+                ))}
               </div>
             ))}
           </ListboxOptions>

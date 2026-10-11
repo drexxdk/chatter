@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { fetchRooms, type Room } from "../api";
-import { roomTheme, roomVars, sortRooms } from "../roomThemes";
+import { roomVars, sortRooms } from "../roomThemes";
+import { Button } from "./Button";
+import { RoomIcon } from "./RoomIcon";
 
 // How often the numbers of people in the rooms are fetched again while the lobby is open.
 const REFRESH_MS = 10_000;
@@ -85,13 +87,7 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
       {state.status === "error" && (
         <div role="alert" className="space-y-2">
           <p className="text-red-200">{t("lobby.loadError")}</p>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="rounded-md bg-neutral-800 px-3 py-1.5 hover:bg-neutral-700"
-          >
-            {t("lobby.retry")}
-          </button>
+          <Button onClick={onRetry}>{t("lobby.retry")}</Button>
         </div>
       )}
 
@@ -102,8 +98,6 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
       {state.status === "ready" && state.rooms.length > 0 && (
         <ul className="grid gap-3 sm:grid-cols-2">
           {sortRooms(state.rooms, i18n.language).map((room) => {
-            const Icon = roomTheme(room.slug).icon;
-
             return (
               <li
                 key={room.id}
@@ -112,10 +106,7 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
               >
                 <div>
                   <h3 className="flex items-center gap-2 font-medium">
-                    <Icon
-                      aria-hidden="true"
-                      className="h-5 w-5 shrink-0 text-(--room-accent)"
-                    />
+                    <RoomIcon slug={room.slug} />
                     {room.name}
                   </h3>
                   {room.description && (
@@ -143,13 +134,9 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onSelect(room)}
-                  className="rounded-md bg-indigo-600 px-3 py-1.5 font-medium hover:bg-indigo-500"
-                >
+                <Button variant="primary" onClick={() => onSelect(room)}>
                   {t("lobby.join", { name: room.name })}
-                </button>
+                </Button>
               </li>
             );
           })}

@@ -8,12 +8,13 @@ import {
   TabPanel,
   TabPanels,
 } from "@headlessui/react";
+import clsx from "clsx";
 import { Smile } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { gifApiKey } from "../gifApi";
 import { isTouchScreen } from "../touch";
-import { composerIconButton } from "./composerControls";
+import { composerIconButton, pickerPane } from "./composerControls";
 import { PANEL_HEIGHT, PANEL_SURFACE } from "./dropdown";
 import { EmojiPane } from "./EmojiPane";
 import { FocusSearch } from "./FocusSearch";
@@ -71,7 +72,7 @@ export function ComposerPicker({
           };
 
           return (
-            <TabGroup className="picker-fill flex flex-col">
+            <TabGroup className={pickerPane}>
               <FocusSearch />
               <TabList
                 className="flex shrink-0 border-b border-neutral-800 px-1"
@@ -90,8 +91,8 @@ export function ComposerPicker({
                   <Tab className={TAB_CLASS}>{t("picker.tabGifs")}</Tab>
                 )}
               </TabList>
-              <TabPanels className="picker-fill flex flex-col p-3">
-                <TabPanel tabIndex={-1} className="picker-fill flex flex-col">
+              <TabPanels className={clsx(pickerPane, "p-3")}>
+                <TabPanel tabIndex={-1} className={pickerPane}>
                   <EmojiPane
                     onPick={(emoji) => {
                       onEmoji(emoji);
@@ -100,7 +101,7 @@ export function ComposerPicker({
                   />
                 </TabPanel>
                 {withGifs && (
-                  <TabPanel tabIndex={-1} className="picker-fill flex flex-col">
+                  <TabPanel tabIndex={-1} className={pickerPane}>
                     <GifPane
                       onPick={(url) => {
                         onGif(url);

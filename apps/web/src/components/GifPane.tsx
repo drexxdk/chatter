@@ -1,8 +1,10 @@
+import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { fetchGifs, type Gif } from "../gifApi";
 import { useGridNavigation } from "../gridNavigation";
+import { pickerPane } from "./composerControls";
 import { SearchBox } from "./SearchBox";
 
 // The GIFs tab: what is trending to begin with, search results once something is typed. Choosing a picture hands its
@@ -78,7 +80,7 @@ export function GifPane({ onPick }: { onPick: (url: string) => void }) {
   }
 
   return (
-    <div className="picker-fill flex flex-col gap-2">
+    <div className={clsx(pickerPane, "gap-2")}>
       <SearchBox
         ref={searchBox}
         value={query}

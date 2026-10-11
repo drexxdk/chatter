@@ -6,6 +6,9 @@ export const composerButton =
 // A button that is only an icon.
 export const composerIconButton = `${composerButton} w-9 shrink-0 justify-center`;
 
+// A pane of the emoji and GIF picker, filling what is left of its panel.
+export const pickerPane = "picker-fill flex flex-col";
+
 export function ComposerSeparator() {
   return (
     <span

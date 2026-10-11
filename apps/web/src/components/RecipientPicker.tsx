@@ -7,6 +7,7 @@ import { AVATARS, type Avatar } from "../chat/avatar";
 import type { DirectThread, Partner } from "../chat/direct";
 import { isTouchScreen } from "../touch";
 import { AvatarIcon } from "./Avatar";
+import { Button } from "./Button";
 import { composerButton } from "./composerControls";
 import { BlockedByTag, BlockedTag, ThreadSection } from "./DirectLists";
 import { PANEL_MAX_HEIGHT, PANEL_SURFACE } from "./dropdown";
@@ -196,16 +197,16 @@ export function RecipientPicker({
                         {blockedBy && <BlockedByTag />}
                       </button>
                       {blocked && (
-                        <button
-                          type="button"
+                        <Button
+                          variant="inline"
                           onClick={() => onSetBlocked(person.guestId, false)}
                           aria-label={t("dm.unblock", {
                             name: person.nickname,
                           })}
-                          className="shrink-0 rounded px-2 py-1 text-xs font-semibold text-neutral-200 underline hover:bg-neutral-800"
+                          className="shrink-0"
                         >
                           {t("dm.unblockAction")}
-                        </button>
+                        </Button>
                       )}
                     </li>
                   );

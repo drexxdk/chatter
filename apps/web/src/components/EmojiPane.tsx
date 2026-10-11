@@ -1,8 +1,10 @@
+import clsx from "clsx";
 import { FrequentlyUsed, init, Picker, SearchIndex } from "emoji-mart";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useGridNavigation } from "../gridNavigation";
+import { pickerPane } from "./composerControls";
 import pickerStyles from "./emojiPicker.css?inline";
 import { SearchBox } from "./SearchBox";
 
@@ -144,7 +146,7 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
   const found = needle && results?.query === needle ? results.found : [];
 
   return (
-    <div className="picker-fill flex flex-col gap-2">
+    <div className={clsx(pickerPane, "gap-2")}>
       <SearchBox
         ref={searchBox}
         value={query}
@@ -157,7 +159,7 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
       <div
         ref={host}
         hidden={needle !== ""}
-        className={needle ? undefined : "picker-fill flex flex-col"}
+        className={needle ? undefined : pickerPane}
       />
 
       {needle !== "" && (

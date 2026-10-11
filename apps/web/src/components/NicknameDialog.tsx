@@ -1,16 +1,13 @@
-import {
-  Dialog,
-  DialogBackdrop,
-  DialogPanel,
-  DialogTitle,
-} from "@headlessui/react";
 import { useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
 import { normalizeNickname } from "../nickname";
 import { readAge } from "../profile";
+import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
+import { Field } from "./Field";
+import { Modal } from "./Modal";
 import { AgeField, AvatarPicker } from "./ProfileFields";
 
 interface NicknameDialogProps {
@@ -66,133 +63,79 @@ export function NicknameDialog({
   }
 
   return (
-    <Dialog open onClose={onCancel} className="relative z-40">
-      <DialogBackdrop className="fixed inset-0 bg-black/60" />
-      {/* Scrolls on its own when the form is taller than the screen, while the page behind stays put. */}
-      <div className="fixed inset-0 overflow-y-auto p-4">
-        <div className="flex min-h-full items-center justify-center">
-          <DialogPanel
-            as="form"
-            onSubmit={handleSubmit}
-            className="w-full max-w-sm space-y-4 rounded-lg border border-neutral-700 bg-neutral-900 p-5"
-          >
-            <DialogTitle as="h2" className="text-lg font-semibold">
-              {moderator ? t("nickname.moderatorTitle") : t("nickname.title")}
-            </DialogTitle>
+    <Modal
+      onClose={onCancel}
+      title={moderator ? t("nickname.moderatorTitle") : t("nickname.title")}
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {moderator ? (
+          <div className="space-y-3">
+            <Field
+              id="email"
+              label={t("nickname.email")}
+              type="email"
+              autoFocus
+              autoComplete="username"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              invalid={showInvalid && !email}
+            />
+            <Field
+              id="password"
+              label={t("nickname.password")}
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              invalid={showInvalid && !password}
+            />
+          </div>
+        ) : (
+          <>
+            <Field
+              id="nickname"
+              label={t("nickname.label")}
+              hint={t("nickname.hint")}
+              autoFocus
+              autoComplete="nickname"
+              maxLength={24}
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              invalid={showInvalid}
+            />
+            <AvatarPicker value={avatar} onChange={setAvatar} />
+            <AgeField
+              id="age"
+              value={ageText}
+              onChange={setAgeText}
+              invalid={touched && !age.ok}
+            />
+          </>
+        )}
 
-            {moderator ? (
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <label htmlFor="email" className="block text-sm font-medium">
-                    {t("nickname.email")}
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    autoFocus
-                    autoComplete="username"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    aria-invalid={showInvalid && !email}
-                    className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label
-                    htmlFor="password"
-                    className="block text-sm font-medium"
-                  >
-                    {t("nickname.password")}
-                  </label>
-                  <input
-                    id="password"
-                    type="password"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    aria-invalid={showInvalid && !password}
-                    className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2"
-                  />
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-1">
-                  <label
-                    htmlFor="nickname"
-                    className="block text-sm font-medium"
-                  >
-                    {t("nickname.label")}
-                  </label>
-                  <input
-                    id="nickname"
-                    autoFocus
-                    autoComplete="nickname"
-                    maxLength={24}
-                    value={value}
-                    onChange={(event) => setValue(event.target.value)}
-                    aria-invalid={showInvalid}
-                    aria-describedby="nickname-hint"
-                    className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2"
-                  />
-                  <p
-                    id="nickname-hint"
-                    className={
-                      showInvalid
-                        ? "text-sm text-red-300"
-                        : "text-sm text-neutral-500"
-                    }
-                  >
-                    {t("nickname.hint")}
-                  </p>
-                </div>
-                <AvatarPicker value={avatar} onChange={setAvatar} />
-                <AgeField
-                  id="age"
-                  value={ageText}
-                  onChange={setAgeText}
-                  invalid={touched && !age.ok}
-                />
-              </>
-            )}
+        <ErrorAlert code={error} />
 
-            <ErrorAlert code={error} />
+        <Button variant="link" onClick={switchMode}>
+          {moderator
+            ? t("nickname.continueAsGuest")
+            : t("nickname.signInAsModerator")}
+        </Button>
 
-            <button
-              type="button"
-              onClick={switchMode}
-              className="text-sm text-indigo-300 underline hover:text-indigo-200"
-            >
-              {moderator
-                ? t("nickname.continueAsGuest")
-                : t("nickname.signInAsModerator")}
-            </button>
-
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={onCancel}
-                className="rounded-md px-3 py-1.5 hover:bg-neutral-800"
-              >
-                {t("nickname.cancel")}
-              </button>
-              <button
-                type="submit"
-                disabled={busy}
-                className="rounded-md bg-indigo-600 px-3 py-1.5 font-medium hover:bg-indigo-500 disabled:opacity-60"
-              >
-                {moderator
-                  ? signingIn
-                    ? t("nickname.signingIn")
-                    : t("nickname.signIn")
-                  : connecting
-                    ? t("nickname.connecting")
-                    : t("nickname.submit")}
-              </button>
-            </div>
-          </DialogPanel>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onCancel}>
+            {t("nickname.cancel")}
+          </Button>
+          <Button type="submit" variant="primary" disabled={busy}>
+            {moderator
+              ? signingIn
+                ? t("nickname.signingIn")
+                : t("nickname.signIn")
+              : connecting
+                ? t("nickname.connecting")
+                : t("nickname.submit")}
+          </Button>
         </div>
-      </div>
-    </Dialog>
+      </form>
+    </Modal>
   );
 }

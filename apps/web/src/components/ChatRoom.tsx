@@ -36,6 +36,7 @@ import { composerIconButton, ComposerSeparator } from "./composerControls";
 import { Timestamp } from "./Timestamp";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageGroup, StatusRow } from "./MessageRow";
+import { MessageLog } from "./MessageLog";
 import { Notice } from "./Notice";
 import { MentionsProvider, type MentionsValue } from "./Mentions";
 import type { PersonMenuOptions } from "./PersonMenu";
@@ -371,14 +372,11 @@ export function ChatRoom({
             />
           ) : (
             <div className="flex flex-1 flex-col">
-              <ol
-                role="log"
-                aria-live="polite"
-                aria-label={roomName}
+              <MessageLog
+                label={roomName}
                 onFocus={rows.onFocus}
                 onBlur={rows.onBlur}
                 onKeyDownCapture={rows.onKeyDownCapture}
-                className="flex min-h-40 flex-1 flex-col gap-2 rounded-lg border border-neutral-800 bg-neutral-950 p-3 [&>*]:shrink-0 [&>:first-child]:mt-auto"
               >
                 {runs(items, runAuthor).map((run) => {
                   const first = run[0];
@@ -528,7 +526,7 @@ export function ChatRoom({
                 {items.every((item) => item.kind === "event") && (
                   <li className="text-neutral-500">{t("room.empty")}</li>
                 )}
-              </ol>
+              </MessageLog>
 
               <ComposerBar
                 composer={composer}
