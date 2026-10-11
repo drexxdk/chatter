@@ -136,10 +136,11 @@ In this order, because the chat-server cannot start before the seed has made its
 
 - [ ] 4.1 Nightly backup job (cron) and **one tested restore** into a scratch database.
 - [ ] 4.2 UptimeRobot checks on `/health` and the web address, alert by email.
-- [ ] 4.3 Log handling: JSON lines go to Docker's log driver with rotation (`max-size`, `max-file`); decide whether a
-      free log service is worth it.
-- [ ] 4.4 A short runbook (`deploy/runbook.md`): restart, roll back to the previous image tag, rotate a secret, restore.
-- [ ] 4.5 Dependabot or a monthly reminder for base images and `npm audit`.
+- [x] 4.3 Log handling: JSON lines go to Docker's log driver with rotation (`max-size`, `max-file`); decide whether a
+      free log service is worth it. Rotation is set (5 x 10 MB per service); no log service for now.
+- [x] 4.4 A short runbook (`deploy/runbook.md`): restart, roll back to the previous image tag, rotate a secret, restore.
+- [x] 4.5 Dependabot or a monthly reminder for base images and `npm audit`. `.github/dependabot.yml`: monthly, npm
+      (minor and patch grouped), Dockerfiles, compose images and Actions; the Audit workflow stays.
 
 ### Phase 5 — Before real users (hobby launch)
 
