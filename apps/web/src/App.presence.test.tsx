@@ -543,7 +543,7 @@ describe("avatars", () => {
       for (const name of ["Male", "Female", "Trans"]) {
         expect(group.getByRole("radio", { name })).not.toBeChecked();
       }
-      expect(group.getByRole("radio", { name: "Other" })).toBeChecked();
+      expect(group.getByRole("radio", { name: "Not specified" })).toBeChecked();
     });
 
     it("joins with the avatar that was chosen", async () => {
@@ -649,7 +649,7 @@ describe("avatars", () => {
         }),
       ]);
 
-      expect(log().getAllByTitle("Other")).toHaveLength(2);
+      expect(log().getAllByTitle("Not specified")).toHaveLength(2);
     });
 
     it("does not show an avatar next to the guest's own messages", async () => {

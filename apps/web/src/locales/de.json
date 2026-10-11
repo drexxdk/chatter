@@ -158,7 +158,7 @@
     "male": "Männlich",
     "female": "Weiblich",
     "trans": "Trans",
-    "other": "Andere"
+    "other": "Nicht angegeben"
   },
   "dm": {
     "left": "{name} hat den Raum verlassen.",

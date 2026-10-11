@@ -158,7 +158,7 @@
     "male": "Male",
     "female": "Female",
     "trans": "Trans",
-    "other": "Other"
+    "other": "Not specified"
   },
   "dm": {
     "left": "{name} left the room.",

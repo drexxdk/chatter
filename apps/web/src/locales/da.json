@@ -158,7 +158,7 @@
     "male": "Mand",
     "female": "Kvinde",
     "trans": "Trans",
-    "other": "Andet"
+    "other": "Ikke angivet"
   },
   "dm": {
     "left": "{name} forlod rummet.",

@@ -150,7 +150,9 @@ describe("direct messages", () => {
       expect(theirs).toHaveAttribute("data-side", "left");
       expect(within(theirs!).getByTitle("Male")).toBeInTheDocument();
       expect(mine).toHaveAttribute("data-side", "right");
-      expect(within(mine!).queryByTitle("Other")).not.toBeInTheDocument();
+      expect(
+        within(mine!).queryByTitle("Not specified"),
+      ).not.toBeInTheDocument();
     });
 
     it("shows the other person's avatar in both lists", async () => {
