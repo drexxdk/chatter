@@ -29,6 +29,9 @@
     "more": "Mehr laden",
     "powered": "Powered by GIPHY"
   },
+  "mentions": {
+    "label": "Personen zum Erwähnen"
+  },
   "picker": {
     "open": "Emoji und GIFs",
     "openEmoji": "Emoji",

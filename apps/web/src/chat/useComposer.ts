@@ -24,16 +24,22 @@ export function useComposer(boxId: string) {
     caret.current = null;
   }, [text, boxId]);
 
+  // Puts `added` in place of what is between `start` and `end`, with the cursor after it.
+  function replaceRange(start: number, end: number, added: string) {
+    const next = text.slice(0, start) + added + text.slice(end);
+
+    if (next.length > max) return;
+
+    caret.current = start + added.length;
+    setText(next);
+  }
+
   function addEmoji(emoji: string) {
     const box = document.getElementById(boxId) as HTMLTextAreaElement | null;
     const start = Math.min(box?.selectionStart ?? text.length, text.length);
     const end = Math.min(box?.selectionEnd ?? start, text.length);
-    const next = text.slice(0, start) + emoji + text.slice(end);
 
-    if (next.length > max) return;
-
-    caret.current = start + emoji.length;
-    setText(next);
+    replaceRange(start, end, emoji);
   }
 
   function setGif(url: string | null) {
@@ -64,6 +70,7 @@ export function useComposer(boxId: string) {
     setGif,
     reserve,
     addEmoji,
+    replaceRange,
     focusBox,
     // What is sent; empty when there is nothing to send.
     message: [text.trim(), gif].filter(Boolean).join("\n"),

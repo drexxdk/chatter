@@ -531,6 +531,11 @@ export function ChatRoom({
               disabled={!canWrite}
               onSubmit={handleSubmit}
               idleDeadline={idleDeadline}
+              mentionable={recipients.filter(
+                (person) =>
+                  members.some((member) => member.guestId === person.guestId) &&
+                  !direct.blockedIds.includes(person.guestId),
+              )}
               alert={
                 <ErrorAlert
                   code={

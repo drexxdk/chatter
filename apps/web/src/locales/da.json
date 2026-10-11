@@ -29,6 +29,9 @@
     "more": "Vis flere",
     "powered": "Powered by GIPHY"
   },
+  "mentions": {
+    "label": "Personer du kan nævne"
+  },
   "picker": {
     "open": "Emoji og GIF'er",
     "openEmoji": "Emoji",

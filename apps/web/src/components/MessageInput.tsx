@@ -17,11 +17,9 @@ export function MessageInput({
   value,
   reserve = 0,
   className = "",
+  onKeyDown,
   ...rest
-}: Omit<
-  TextareaHTMLAttributes<HTMLTextAreaElement>,
-  "rows" | "maxLength" | "onKeyDown"
-> & {
+}: Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "rows" | "maxLength"> & {
   // Characters of the message taken by something else, such as a GIF added to it.
   reserve?: number;
 }) {
@@ -61,6 +59,10 @@ export function MessageInput({
   }, [fit]);
 
   function submitOnEnter(event: KeyboardEvent<HTMLTextAreaElement>) {
+    // The owner may take a key for itself (a list of suggestions, say) by preventing its default.
+    onKeyDown?.(event);
+    if (event.defaultPrevented) return;
+
     const touch = isTouchScreen();
 
     if (
