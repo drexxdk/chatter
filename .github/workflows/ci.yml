@@ -30,7 +30,7 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - run: docker build -f apps/chat-server/Dockerfile -t chatter-chat-server .
 
@@ -106,7 +106,7 @@ jobs:
       SEED_ADMIN_EMAIL: admin@chatter.test
       SEED_ADMIN_PASSWORD: ci-admin-password-1A!
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
