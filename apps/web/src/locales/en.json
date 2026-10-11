@@ -103,6 +103,7 @@
     "retry": "Try again",
     "empty": "No rooms are available yet.",
     "capacity": "Up to {count} people",
+    "inRoom": "{count, plural, =0 {Nobody here now} one {# person here now} other {# people here now}}",
     "join": "Join {name}"
   },
   "nickname": {
@@ -125,6 +126,7 @@
     "groupOpen": "Open chat",
     "groupTopics": "Topics",
     "members": "In this room ({count})",
+    "membersOfMax": "In this room ({count} of {max})",
     "people": "People in this room",
     "panel": "People and direct messages",
     "closePanel": "Close",

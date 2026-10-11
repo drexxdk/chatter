@@ -7,6 +7,7 @@ import { PeopleList, ThreadSection } from "./DirectLists";
 // The people in the room and the private conversations: a sidebar on wide screens.
 export function RoomPanel({
   members,
+  maxMembers,
   selfGuestId,
   threads,
   onOpen,
@@ -18,6 +19,8 @@ export function RoomPanel({
   onSetBlocked,
 }: {
   members: Member[];
+  // Absent or null means the room has no limit.
+  maxMembers?: number | null;
   selfGuestId: string;
   threads: DirectApi["threads"];
   onOpen: (partner: Partner) => void;
@@ -34,7 +37,9 @@ export function RoomPanel({
     <div className="space-y-5">
       <div>
         <h3 className="mb-2 text-sm font-semibold text-neutral-300">
-          {t("room.members", { count: members.length })}
+          {typeof maxMembers === "number"
+            ? t("room.membersOfMax", { count: members.length, max: maxMembers })
+            : t("room.members", { count: members.length })}
         </h3>
         <PeopleList
           members={members}

@@ -13,8 +13,16 @@ export const ROOMS = [
     slug: "general",
     maxMembers: 100,
     description: "Open chat",
+    memberCount: 3,
   },
-  { id: 2, name: "Music", slug: "music", maxMembers: 30, description: null },
+  {
+    id: 2,
+    name: "Music",
+    slug: "music",
+    maxMembers: 30,
+    description: null,
+    memberCount: 0,
+  },
   // Payload sends null when a room's limit field is left empty.
   {
     id: 3,

@@ -60,7 +60,7 @@ describe("losing the connection", () => {
     expect(screen.getByLabelText("Message")).not.toBeLocked();
     expect(screen.getByText("before the drop")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "In this room (1)" }),
+      screen.getByRole("heading", { name: "In this room (1 of 100)" }),
     ).toBeInTheDocument();
   });
 

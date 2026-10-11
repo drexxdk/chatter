@@ -1,17 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { fetchRooms, type Room } from "../api";
 import { roomTheme, roomVars, sortRooms } from "../roomThemes";
+
+// How often the numbers of people in the rooms are fetched again while the lobby is open.
+const REFRESH_MS = 10_000;
 
 type RoomsState =
   | { status: "loading" }
   | { status: "error" }
   | { status: "ready"; rooms: Room[] };
 
-export function useRooms() {
+export function useRooms(lobbyOpen = false) {
   const [state, setState] = useState<RoomsState>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const wasAway = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -25,6 +29,33 @@ export function useRooms() {
 
     return () => controller.abort();
   }, [attempt]);
+
+  // Quietly, so a failed refresh keeps the rooms that are shown.
+  useEffect(() => {
+    if (!lobbyOpen) {
+      wasAway.current = true;
+      return;
+    }
+
+    const controller = new AbortController();
+    const refresh = () =>
+      fetchRooms(controller.signal)
+        .then((rooms) => setState({ status: "ready", rooms }))
+        .catch(() => undefined);
+
+    // Back from a room, where the numbers have moved on.
+    if (wasAway.current) {
+      wasAway.current = false;
+      void refresh();
+    }
+
+    const timer = setInterval(() => void refresh(), REFRESH_MS);
+
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+    };
+  }, [lobbyOpen]);
 
   const retry = useCallback(() => setAttempt((value) => value + 1), []);
 
@@ -92,9 +123,23 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
                       {room.description}
                     </p>
                   )}
-                  {typeof room.maxMembers === "number" && (
-                    <p className="mt-1 text-xs text-neutral-500">
-                      {t("lobby.capacity", { count: room.maxMembers })}
+                  {(typeof room.memberCount === "number" ||
+                    typeof room.maxMembers === "number") && (
+                    <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-neutral-500">
+                      {typeof room.memberCount === "number" && (
+                        <span
+                          className={
+                            room.memberCount > 0 ? "text-(--room-accent)" : ""
+                          }
+                        >
+                          {t("lobby.inRoom", { count: room.memberCount })}
+                        </span>
+                      )}
+                      {typeof room.maxMembers === "number" && (
+                        <span>
+                          {t("lobby.capacity", { count: room.maxMembers })}
+                        </span>
+                      )}
                     </p>
                   )}
                 </div>

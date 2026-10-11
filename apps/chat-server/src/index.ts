@@ -9,12 +9,15 @@ import {
   createSocketServer,
   enforceBans,
   enforceModerators,
+  roomOccupancy,
 } from "./socket.js";
 import { startPublicRoomsSync } from "./rooms.js";
 import { startBansSync } from "./bans.js";
 import { startModeratorsSync } from "./names.js";
 
-const httpServer = http.createServer(createApp());
+const httpServer = http.createServer(
+  createApp({ occupancy: () => roomOccupancy(io) }),
+);
 const io = createSocketServer(httpServer);
 
 const timers = [

@@ -53,6 +53,21 @@ describe("routes", () => {
     expect(await (await get("/rooms")).json()).toEqual(ROOMS);
   });
 
+  it("adds how many are in each room when it can count them", async () => {
+    const get = await start({
+      occupancy: async () => new Map([["general", 3]]),
+    });
+    getCachedPublicRooms.mockResolvedValue([
+      ...ROOMS,
+      { id: 2, name: "Music", slug: "music", maxMembers: null },
+    ]);
+
+    expect(await (await get("/rooms")).json()).toEqual([
+      { ...ROOMS[0], memberCount: 3 },
+      { id: 2, name: "Music", slug: "music", maxMembers: null, memberCount: 0 },
+    ]);
+  });
+
   it("allows only the configured web origin", async () => {
     const get = await start();
 

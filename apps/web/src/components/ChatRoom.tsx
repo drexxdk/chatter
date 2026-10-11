@@ -59,6 +59,8 @@ function runAuthor(item: TimelineItem): string | undefined {
 }
 interface ChatRoomProps {
   roomName: string;
+  // Absent or null means the room has no limit.
+  maxMembers?: number | null;
   session: Session;
   ownGuestIds: string[];
   connected: boolean;
@@ -79,6 +81,7 @@ interface ChatRoomProps {
 
 export function ChatRoom({
   roomName,
+  maxMembers,
   session,
   ownGuestIds,
   connected,
@@ -656,6 +659,7 @@ export function ChatRoom({
         >
           <RoomPanel
             members={members}
+            maxMembers={maxMembers}
             selfGuestId={session.guestId}
             threads={direct.threads}
             onOpen={openConversation}

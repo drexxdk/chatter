@@ -103,6 +103,7 @@
     "retry": "Prøv igen",
     "empty": "Der er ingen rum endnu.",
     "capacity": "Op til {count} personer",
+    "inRoom": "{count, plural, =0 {Ingen her nu} one {# person her nu} other {# personer her nu}}",
     "join": "Deltag i {name}"
   },
   "nickname": {
@@ -125,6 +126,7 @@
     "groupOpen": "Åben snak",
     "groupTopics": "Emner",
     "members": "I dette rum ({count})",
+    "membersOfMax": "I dette rum ({count} af {max})",
     "panel": "Personer og direkte beskeder",
     "closePanel": "Luk",
     "people": "Personer i dette rum",

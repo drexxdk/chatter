@@ -103,6 +103,7 @@
     "retry": "Erneut versuchen",
     "empty": "Es gibt noch keine Räume.",
     "capacity": "Bis zu {count} Personen",
+    "inRoom": "{count, plural, =0 {Niemand hier} one {# Person hier} other {# Personen hier}}",
     "join": "{name} beitreten"
   },
   "nickname": {
@@ -125,6 +126,7 @@
     "groupOpen": "Offener Chat",
     "groupTopics": "Themen",
     "members": "In diesem Raum ({count})",
+    "membersOfMax": "In diesem Raum ({count} von {max})",
     "panel": "Personen und Direktnachrichten",
     "closePanel": "Schließen",
     "people": "Personen in diesem Raum",

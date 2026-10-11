@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   ROOMS,
@@ -39,6 +39,71 @@ describe("lobby", () => {
     expect(lounge).not.toHaveTextContent(/null|undefined|NaN/);
     // The other rooms still show theirs.
     expect(screen.getAllByText(/Up to/)).toHaveLength(2);
+  });
+
+  it("shows how many are in each room, when the server tells", async () => {
+    setup();
+
+    const card = async (name: string) =>
+      (await screen.findByRole("heading", { name }))
+        .parentElement as HTMLElement;
+
+    expect(await card("General")).toHaveTextContent("3 people here now");
+    expect(await card("Music")).toHaveTextContent("Nobody here now");
+    // An older chat server sends no count.
+    expect(await card("Lounge")).not.toHaveTextContent(/here now/);
+  });
+
+  describe("refreshing the numbers", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("fetches them again every so often while the lobby is open", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const fetchMock = stubRooms();
+      setup();
+      await screen.findByRole("heading", { name: "General" });
+
+      fetchMock.mockImplementation(
+        async () =>
+          ({
+            ok: true,
+            json: async () => [{ ...ROOMS[0], memberCount: 7 }],
+          }) as never,
+      );
+      await act(() => vi.advanceTimersByTimeAsync(10_000));
+
+      expect(await screen.findByText("7 people here now")).toBeInTheDocument();
+    });
+
+    it("keeps the rooms it has when a refresh fails", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const fetchMock = stubRooms();
+      setup();
+      await screen.findByRole("heading", { name: "General" });
+
+      fetchMock.mockImplementation(async () => ({ ok: false, status: 503 }));
+      await act(() => vi.advanceTimersByTimeAsync(10_000));
+
+      expect(screen.getByRole("heading", { name: "General" })).toBeVisible();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+  });
+
+  it("fetches the numbers again when back in the lobby from a room", async () => {
+    const { user } = setup();
+    await joinRoom(user);
+    await screen.findByRole("button", { name: "Your profile: Alice" });
+    const fetchMock = stubRooms(async () => ({
+      ok: true,
+      json: async () => [{ ...ROOMS[0], memberCount: 5 }],
+    }));
+
+    await user.click(screen.getByRole("button", { name: "Leave room" }));
+
+    expect(await screen.findByText("5 people here now")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("shows an error and lets the user retry when rooms fail to load", async () => {
@@ -95,9 +160,19 @@ describe("joining a room", () => {
 
     // The server sends presence before it acknowledges the join, so it must not be dropped.
     expect(
-      await screen.findByRole("heading", { name: "In this room (1)" }),
+      await screen.findByRole("heading", { name: "In this room (1 of 100)" }),
     ).toBeInTheDocument();
     expect(screen.getByText("(you)")).toBeInTheDocument();
+  });
+
+  it("shows only the number in a room without a limit", async () => {
+    const { user } = setup();
+
+    await joinRoom(user, "Lounge");
+
+    expect(
+      await screen.findByRole("heading", { name: "In this room (1)" }),
+    ).toBeInTheDocument();
   });
 
   it("rejects an invalid nickname locally without connecting", async () => {
@@ -200,7 +275,7 @@ describe("inside a room", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "In this room (2)" }),
+      screen.getByRole("heading", { name: "In this room (2 of 100)" }),
     ).toBeInTheDocument();
     const people = within(
       screen.getByRole("list", { name: "People in this room" }),

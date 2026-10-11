@@ -1169,6 +1169,23 @@ export function createSocketServer(
   return io;
 }
 
+// How many are in each room, across all nodes; a room nobody is in is left out.
+export async function roomOccupancy(io: Server): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  const prefix = roomKey("");
+
+  for (const socket of await io.fetchSockets()) {
+    for (const key of socket.rooms) {
+      if (!key.startsWith(prefix)) continue;
+
+      const slug = key.slice(prefix.length);
+      counts.set(slug, (counts.get(slug) ?? 0) + 1);
+    }
+  }
+
+  return counts;
+}
+
 // Cuts off signed-in accounts that may no longer moderate, even though their token has not expired. Like bans, every
 // node does this for its own connections.
 export async function enforceModerators(

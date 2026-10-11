@@ -43,6 +43,8 @@ export function createApp(
     trustedProxyHops?: number;
     // An empty string switches moderator sign-in off, like leaving AUTH_TOKEN_SECRET unset.
     authTokenSecret?: string;
+    // How many are in each room by its slug; the rooms are listed without a count when this is left out.
+    occupancy?: () => Promise<Map<string, number>>;
   } = {},
 ): express.Express {
   const authTokenSecret = options.authTokenSecret ?? env.AUTH_TOKEN_SECRET;
@@ -67,7 +69,18 @@ export function createApp(
       },
     ),
     async (_req, res) => {
-      res.json(await getCachedPublicRooms());
+      const rooms = await getCachedPublicRooms();
+
+      if (!options.occupancy) return res.json(rooms);
+
+      const counts = await options.occupancy();
+
+      res.json(
+        rooms.map((room) => ({
+          ...room,
+          memberCount: counts.get(room.slug) ?? 0,
+        })),
+      );
     },
   );
 

@@ -9,6 +9,8 @@ export interface Room {
   // Seconds a guest must wait between messages; absent only when talking to an older chat server.
   slowModeSeconds?: number | null;
   description?: string | null;
+  // How many are in the room now; absent when talking to an older chat server.
+  memberCount?: number;
 }
 
 export async function fetchRooms(signal?: AbortSignal): Promise<Room[]> {

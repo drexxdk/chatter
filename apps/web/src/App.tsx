@@ -42,7 +42,7 @@ export function App({
 }) {
   const { t } = useTranslation();
   const chat = useChat(createSocket, { reconnectDelaysMs });
-  const { state: roomsState, retry } = useRooms();
+  const { state: roomsState, retry } = useRooms(!chat.roomSlug);
   const [pendingRoom, setPendingRoom] = useState<Room | null>(null);
   const [signInError, setSignInError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
@@ -365,6 +365,7 @@ export function App({
             <ChatRoom
               key={chat.roomSlug}
               roomName={currentRoom?.name ?? chat.roomSlug}
+              maxMembers={currentRoom?.maxMembers}
               session={chat.session}
               ownGuestIds={chat.ownGuestIds}
               connected={chat.status === "connected"}

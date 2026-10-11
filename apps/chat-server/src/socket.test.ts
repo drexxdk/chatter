@@ -102,6 +102,7 @@ const {
   enforceBans,
   enforceModerators,
   directMessageWaitMs,
+  roomOccupancy,
 } = await import("./socket.js");
 const { signToken } = await import("./tokens.js");
 const { hashIdentifier } = await import("./identity.js");
@@ -395,6 +396,27 @@ describe("rooms", () => {
     await emit(alice, "room:leave");
 
     expect((await emit(bob, "room:join", { slug: "tiny" })).ok).toBe(true);
+  });
+
+  it("counts who is in each room", async () => {
+    const alice = await connectGuest("Alice");
+    const bob = await connectGuest("Bob");
+    const carol = await connectGuest("Carol");
+    await connectGuest("Dave");
+    await emit(alice, "room:join", { slug: "general" });
+    await emit(bob, "room:join", { slug: "general" });
+    await emit(carol, "room:join", { slug: "tiny" });
+
+    expect(await roomOccupancy(ioServer)).toEqual(
+      new Map([
+        ["general", 2],
+        ["tiny", 1],
+      ]),
+    );
+
+    await emit(bob, "room:leave");
+
+    expect((await roomOccupancy(ioServer)).get("general")).toBe(1);
   });
 
   it("moves a guest between rooms and updates the old room's presence", async () => {
