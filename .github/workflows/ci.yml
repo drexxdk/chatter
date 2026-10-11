@@ -170,10 +170,11 @@ jobs:
         run: npm run build --workspace apps/admin
 
       - name: Start the admin app
+        timeout-minutes: 5
         run: |
           nohup npm run start --workspace apps/admin > admin.log 2>&1 &
-          for _ in $(seq 1 60); do
-            if curl -fsS http://localhost:3000/api/public-rooms > /dev/null; then exit 0; fi
+          for _ in $(seq 1 30); do
+            if curl -fsS --max-time 10 http://localhost:3000/api/public-rooms > /dev/null; then exit 0; fi
             sleep 2
           done
           echo "Admin did not become ready" >&2
@@ -181,6 +182,7 @@ jobs:
           exit 1
 
       - name: Run the end-to-end tests
+        timeout-minutes: 15
         run: npm run test:e2e --workspace apps/web
 
       - name: Keep the Playwright report when something failed
