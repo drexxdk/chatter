@@ -97,7 +97,7 @@ services:
     logging: *logging
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     restart: unless-stopped
     # Append-only, so the cached rooms and bans and the recent history survive a restart.
     command: redis-server --appendonly yes
