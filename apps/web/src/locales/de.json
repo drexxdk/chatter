@@ -114,6 +114,8 @@
     "scrollToEnd": "Zu den neuesten Nachrichten scrollen",
     "slowMode": "Langsamer Modus: eine Nachricht alle {seconds} s.",
     "joined": "{name} hat den Raum betreten.",
+    "youJoined": "Du bist dem Raum beigetreten.",
+    "youLeft": "Du hast den Raum verlassen.",
     "left": "{name} hat den Raum verlassen.",
     "idleWarning": "Du wirst aus dem Raum getrennt, wenn du nichts schreibst.",
     "idleTimeLeft": "Verbleibende Zeit",

@@ -15,15 +15,30 @@ const redis = vi.hoisted(() => {
     multi: vi.fn(() => chain),
     lrange: vi.fn(),
     eval: vi.fn(),
+    set: vi.fn(),
+    del: vi.fn(),
   };
 });
 
 vi.mock("./redis.js", () => ({
-  redis: { multi: redis.multi, lrange: redis.lrange, eval: redis.eval },
+  redis: {
+    multi: redis.multi,
+    lrange: redis.lrange,
+    eval: redis.eval,
+    set: redis.set,
+    del: redis.del,
+  },
 }));
 
-const { getHistory, recordMessage, redactMessagesFrom, toggleReaction } =
-  await import("./history.js");
+const {
+  getHistory,
+  markAway,
+  recordMessage,
+  recordMovement,
+  redactMessagesFrom,
+  takeAway,
+  toggleReaction,
+} = await import("./history.js");
 
 // What clients get.
 const message = (n: number, roomSlug = "general") => ({
@@ -282,6 +297,88 @@ describe("reactions in the history", () => {
     expect(await getHistory("general")).toEqual([
       { ...message(1), reactions: [] },
     ]);
+  });
+});
+
+describe("who came and went, in the history", () => {
+  const came = (n: number, roomSlug = "general") => ({
+    id: `move-${n}`,
+    roomSlug,
+    sentAt: message(n, roomSlug).sentAt,
+    event: "joined" as const,
+    guestId: `guest-${n}`,
+    nickname: "Alice",
+  });
+
+  beforeEach(() => {
+    redis.set.mockReset().mockResolvedValue("OK");
+    redis.del.mockReset().mockResolvedValue(1);
+  });
+
+  it("is kept in the room's list like a message", async () => {
+    await recordMovement({ ...came(1), ipHash: "hash-1" });
+
+    expect(redis.calls[0]).toEqual([
+      "rpush",
+      "chatter:history:general",
+      JSON.stringify({ ...came(1), ipHash: "hash-1" }),
+    ]);
+  });
+
+  it("is handed out among the messages, without the hash", async () => {
+    redis.lrange.mockResolvedValue([
+      JSON.stringify(stored(1)),
+      JSON.stringify({ ...came(2), ipHash: "hash-2" }),
+      JSON.stringify(stored(3)),
+    ]);
+
+    expect(await getHistory("general")).toEqual([
+      message(1),
+      came(2),
+      message(3),
+    ]);
+  });
+
+  it("is skipped once a ban has removed it", async () => {
+    redis.lrange.mockResolvedValue([
+      JSON.stringify({
+        id: "move-1",
+        roomSlug: "general",
+        sentAt: came(1).sentAt,
+        removed: true,
+      }),
+      JSON.stringify(stored(2)),
+    ]);
+
+    expect(await getHistory("general")).toEqual([message(2)]);
+  });
+
+  it("is dropped by the ban script, not turned into a placeholder", async () => {
+    await redactMessagesFrom("general", ["h1"]);
+
+    const script = redis.eval.mock.calls[0][0] as string;
+    expect(script).toContain("message.event");
+    expect(script).toContain("removed = true");
+  });
+
+  it("marks a guest as away for a while, in a key every node can see", async () => {
+    await markAway("general", "guest-1", 30_000);
+
+    expect(redis.set).toHaveBeenCalledWith(
+      "chatter:away:general:guest-1",
+      "1",
+      "PX",
+      30_000,
+    );
+  });
+
+  it("says whether the guest was away, and no longer is", async () => {
+    expect(await takeAway("general", "guest-1")).toBe(true);
+    expect(redis.del).toHaveBeenCalledWith("chatter:away:general:guest-1");
+
+    redis.del.mockResolvedValue(0);
+
+    expect(await takeAway("general", "guest-1")).toBe(false);
   });
 });
 

@@ -5,10 +5,12 @@ import {
   type DirectThread,
   type Partner,
 } from "./direct";
-import type { ChatMessage, Member } from "./types";
+import { isRecord } from "../isRecord";
+import type { ChatMessage } from "./types";
 
-// Somebody came into the room or went out of it, as far as this client noticed. `seq` says where it fell among the
-// messages that arrived live, which the clocks of different computers could not.
+// Somebody came into the room or went out of it, as the server told. `seq` says where it fell among the messages that
+// arrived live, which the clocks of different computers could not; what came with the history has none, and is set
+// among the messages by the time it happened.
 export interface RoomEvent {
   id: string;
   roomSlug: string;
@@ -16,9 +18,8 @@ export interface RoomEvent {
   guestId: string;
   nickname: string;
   sentAt: string;
-  seq: number;
+  seq?: number;
 }
-
 export type TimelineItem =
   | { kind: "message"; message: ChatMessage }
   | { kind: "event"; event: RoomEvent }
@@ -26,75 +27,112 @@ export type TimelineItem =
   // Somebody blocked the guest or took it back, which the room's timeline says as well as the conversation.
   | { kind: "notice"; status: DirectStatus; partner: Partner };
 
-// Who left and who came, comparing two lists of the room's people. The guest themselves is not announced to themselves.
-export function movements(
-  previous: Member[],
-  next: Member[],
-  selfGuestId: string | null,
+// A line of the room's history, or a live message from the server, about somebody coming or going.
+export function parseRoomEvent(value: unknown): RoomEvent | undefined {
+  if (!isRecord(value)) return undefined;
+  const { id, roomSlug, event, guestId, nickname, sentAt } = value;
+
+  if (
+    typeof id !== "string" ||
+    typeof roomSlug !== "string" ||
+    (event !== "joined" && event !== "left") ||
+    typeof guestId !== "string" ||
+    typeof nickname !== "string" ||
+    typeof sentAt !== "string"
+  ) {
+    return undefined;
+  }
+
+  return { id, roomSlug, event, guestId, nickname, sentAt };
+}
+
+// What the room's history says about who came and went in this room, apart from the messages.
+export function eventsFromHistory(
+  history: unknown,
   roomSlug: string,
-  now: string,
-  nextSeq: () => number,
-  newId: () => string,
 ): RoomEvent[] {
-  const before = new Set(previous.map((member) => member.guestId));
-  const after = new Set(next.map((member) => member.guestId));
-  const event = (kind: RoomEvent["event"], member: Member): RoomEvent => ({
-    id: newId(),
-    roomSlug,
-    event: kind,
-    guestId: member.guestId,
-    nickname: member.nickname,
-    sentAt: now,
-    seq: nextSeq(),
+  if (!Array.isArray(history)) return [];
+
+  return history.flatMap((entry) => {
+    const event = parseRoomEvent(entry);
+
+    return event && event.roomSlug === roomSlug ? [event] : [];
   });
+}
+
+// The events known so far with new ones added, each once: the same one can arrive live and in the history. What came
+// with the history goes first, by the time it happened, and then what came live in the order it did.
+export function mergeEvents(
+  existing: RoomEvent[],
+  added: RoomEvent[],
+): RoomEvent[] {
+  const known = new Set(existing.map((event) => event.id));
+  const fresh = added.filter((event) => !known.has(event.id));
+  if (fresh.length === 0) return existing;
+
+  const all = [...existing, ...fresh];
 
   return [
-    ...previous
-      .filter(
-        (member) =>
-          member.guestId !== selfGuestId && !after.has(member.guestId),
-      )
-      .map((member) => event("left", member)),
-    ...next
-      .filter(
-        (member) =>
-          member.guestId !== selfGuestId && !before.has(member.guestId),
-      )
-      .map((member) => event("joined", member)),
+    ...all
+      .filter((event) => event.seq === undefined)
+      .sort((a, b) => (a.sentAt < b.sentAt ? -1 : a.sentAt > b.sentAt ? 1 : 0)),
+    ...all
+      .filter((event) => event.seq !== undefined)
+      .sort((a, b) => a.seq! - b.seq!),
   ];
 }
 
 // The messages with the events set between them where they happened. Messages from the history carry no `seq` and
-// come before anything that happened since.
+// come before anything that happened since; they and the history's events are put in the order of the time they were
+// sent.
 export function timeline(
   messages: ChatMessage[],
   events: RoomEvent[],
 ): TimelineItem[] {
   const items: TimelineItem[] = [];
-  let next = 0;
+  const earlier = events.filter((event) => event.seq === undefined);
+  const live = events.filter((event) => event.seq !== undefined);
+  let nextEarlier = 0;
+  let nextLive = 0;
+
+  const flushEarlier = (until?: string) => {
+    for (
+      let event = earlier[nextEarlier];
+      event && (until === undefined || event.sentAt <= until);
+      event = earlier[nextEarlier]
+    ) {
+      items.push({ kind: "event", event });
+      nextEarlier++;
+    }
+  };
 
   for (const message of messages) {
-    if (message.seq !== undefined) {
+    if (message.seq === undefined) {
+      flushEarlier(message.sentAt);
+    } else {
+      flushEarlier();
+
       for (
-        let event = events[next];
-        event && event.seq < message.seq;
-        event = events[next]
+        let event = live[nextLive];
+        event && event.seq! < message.seq;
+        event = live[nextLive]
       ) {
         items.push({ kind: "event", event });
-        next++;
+        nextLive++;
       }
     }
 
     items.push({ kind: "message", message });
   }
 
-  for (const event of events.slice(next)) {
+  flushEarlier();
+
+  for (const event of live.slice(nextLive)) {
     items.push({ kind: "event", event });
   }
 
   return items;
 }
-
 const timeOf = (item: TimelineItem) =>
   Date.parse(
     item.kind === "event"

@@ -363,9 +363,6 @@ export function ChatRoom({
               onKeyDownCapture={rows.onKeyDownCapture}
               className="flex min-h-40 flex-1 flex-col gap-2 rounded-lg border border-neutral-800 bg-neutral-950 p-3 [&>*]:shrink-0 [&>:first-child]:mt-auto"
             >
-              {items.length === 0 && (
-                <li className="text-neutral-500">{t("room.empty")}</li>
-              )}
               {runs(items, runAuthor).map((run) => {
                 const first = run[0];
 
@@ -373,9 +370,17 @@ export function ChatRoom({
                   return (
                     <StatusRow
                       key={first.event.id}
-                      text={t(`room.${first.event.event}`, {
-                        name: first.event.nickname,
-                      })}
+                      text={
+                        ownGuestIds.includes(first.event.guestId)
+                          ? t(
+                              first.event.event === "joined"
+                                ? "room.youJoined"
+                                : "room.youLeft",
+                            )
+                          : t(`room.${first.event.event}`, {
+                              name: first.event.nickname,
+                            })
+                      }
                       sentAt={first.event.sentAt}
                     />
                   );
@@ -500,7 +505,10 @@ export function ChatRoom({
                     menu={mine ? undefined : personMenu(author)}
                   />
                 );
-              })}{" "}
+              })}
+              {items.every((item) => item.kind === "event") && (
+                <li className="text-neutral-500">{t("room.empty")}</li>
+              )}
             </ol>
 
             <ComposerBar

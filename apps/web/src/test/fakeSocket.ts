@@ -7,6 +7,7 @@ type AckResponder = (payload: any) => unknown;
 
 // Stands in for the Socket.IO client and replays the chat-server protocol documented in apps/chat-server/README.md.
 export class FakeSocket implements ChatSocket {
+  private static events = 0;
   private handlers = new Map<string, Handler[]>();
   emitted: { event: string; payload: unknown }[] = [];
   disconnected = false;
@@ -108,6 +109,15 @@ export class FakeSocket implements ChatSocket {
             },
             ...this.others,
           ],
+        });
+        // And then tells the room, the guest too, that they came in.
+        this.serverEmit("room:event", {
+          id: `joined-${this.guestId}-${++FakeSocket.events}`,
+          roomSlug: (payload as { slug: string }).slug,
+          event: "joined",
+          guestId: this.guestId,
+          nickname: this.profile.nickname,
+          sentAt: new Date().toISOString(),
         });
       }
 

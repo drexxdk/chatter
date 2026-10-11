@@ -41,7 +41,19 @@ const storedSchema = z.object({
 // What is left of a message after its author was banned: no text, no name, nothing to identify them.
 const replacedSchema = z.object({ ...messageFields, banned: z.literal(true) });
 
+// Somebody coming into the room or going out of it, kept among the messages so that a guest who arrives later sees
+// what happened before they did. It carries the same hash, so a ban removes it with the messages.
+const movementSchema = z.object({
+  ...messageFields,
+  event: z.enum(["joined", "left"]),
+  guestId: z.string(),
+  nickname: z.string(),
+  ipHash: z.string(),
+});
+
 export type StoredMessage = z.infer<typeof storedSchema>;
+export type StoredMovement = z.infer<typeof movementSchema>;
+export type PublicMovement = Omit<StoredMovement, "ipHash">;
 export type PublicMessage =
   Omit<StoredMessage, "ipHash"> | z.infer<typeof replacedSchema>;
 
@@ -49,6 +61,37 @@ const historyKey = (slug: string) => `chatter:history:${slug}`;
 
 // One Redis list per room, so every server node sees the same history. It expires after a quiet period.
 export async function recordMessage(message: StoredMessage): Promise<void> {
+  await append(message);
+}
+
+export async function recordMovement(movement: StoredMovement): Promise<void> {
+  await append(movement);
+}
+
+const awayKey = (slug: string, guestId: string) =>
+  `chatter:away:${slug}:${guestId}`;
+
+// A guest who went out of a room is not announced as gone at once, in case they come straight back (a reload, a
+// dropped connection). This says they went, for as long as it takes to be sure; it is shared so that any node can
+// see it.
+export async function markAway(
+  slug: string,
+  guestId: string,
+  forMs: number,
+): Promise<void> {
+  await redis.set(awayKey(slug, guestId), "1", "PX", forMs);
+}
+
+// Whether the guest was marked away and is now not: true for the one who comes first, so either their return or the
+// end of the wait decides what is announced, never both.
+export async function takeAway(
+  slug: string,
+  guestId: string,
+): Promise<boolean> {
+  return (await redis.del(awayKey(slug, guestId))) === 1;
+}
+
+async function append(message: StoredMessage | StoredMovement): Promise<void> {
   const key = historyKey(message.roomSlug);
 
   const results = await redis
@@ -64,9 +107,15 @@ export async function recordMessage(message: StoredMessage): Promise<void> {
   if (!results) throw new Error("Redis discarded the history update");
 }
 
-function toPublic(entry: unknown): PublicMessage | undefined {
+function toPublic(entry: unknown): PublicMessage | PublicMovement | undefined {
   const replaced = replacedSchema.safeParse(entry);
   if (replaced.success) return replaced.data;
+
+  const movement = movementSchema.safeParse(entry);
+  if (movement.success) {
+    const { ipHash: _ipHash, ...rest } = movement.data;
+    return rest;
+  }
 
   const stored = storedSchema.safeParse(entry);
   if (!stored.success) return undefined;
@@ -75,9 +124,12 @@ function toPublic(entry: unknown): PublicMessage | undefined {
   return message;
 }
 
-export async function getHistory(slug: string): Promise<PublicMessage[]> {
+// What the room remembers, oldest first: the messages, and who came and went between them.
+export async function getHistory(
+  slug: string,
+): Promise<(PublicMessage | PublicMovement)[]> {
   const entries = await redis.lrange(historyKey(slug), 0, -1);
-  const messages: PublicMessage[] = [];
+  const messages: (PublicMessage | PublicMovement)[] = [];
 
   for (const entry of entries) {
     // A bad entry must not stop a guest from joining, so it is skipped rather than thrown.
@@ -102,10 +154,17 @@ local entries = redis.call('LRANGE', KEYS[1], 0, -1)
 for index, raw in ipairs(entries) do
   local ok, message = pcall(cjson.decode, raw)
   if ok and type(message) == 'table' and type(message.ipHash) == 'string' and banned[message.ipHash] then
-    redis.call('LSET', KEYS[1], index - 1, cjson.encode({
-      id = message.id, roomSlug = message.roomSlug, sentAt = message.sentAt, banned = true
-    }))
-    table.insert(ids, message.id)
+    if message.event then
+      -- Who came and went is dropped, not announced: the client has no placeholder for it.
+      redis.call('LSET', KEYS[1], index - 1, cjson.encode({
+        id = message.id, roomSlug = message.roomSlug, sentAt = message.sentAt, removed = true
+      }))
+    else
+      redis.call('LSET', KEYS[1], index - 1, cjson.encode({
+        id = message.id, roomSlug = message.roomSlug, sentAt = message.sentAt, banned = true
+      }))
+      table.insert(ids, message.id)
+    end
   end
 end
 return ids

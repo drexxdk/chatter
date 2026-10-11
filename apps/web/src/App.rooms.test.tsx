@@ -658,7 +658,9 @@ describe("banned authors", () => {
 
     redact(server, { roomSlug: "general", ids: [bad.id], guestIds: [] });
 
-    const items = within(screen.getByRole("log")).getAllByRole("listitem");
+    const items = within(screen.getByRole("log"))
+      .getAllByRole("listitem")
+      .filter((item) => !item.textContent?.startsWith("You joined"));
     expect(items.map((item) => item.textContent)).toEqual([
       expect.stringContaining("first"),
       expect.stringContaining(PLACEHOLDER),

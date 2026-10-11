@@ -15,8 +15,11 @@ import {
 import { env } from "./env.js";
 import {
   getHistory,
+  markAway,
   recordMessage,
+  recordMovement,
   redactMessagesFrom,
+  takeAway,
   toggleReaction,
 } from "./history.js";
 import { hashIdentifier, getClientIp, validateNickname } from "./identity.js";
@@ -45,6 +48,9 @@ const PING_TIMEOUT_MS = 20_000;
 const MAX_ANNOUNCEMENT_LENGTH = 500;
 // A guest who has done nothing is warned this long before they are disconnected for it (when the timeout is longer).
 const IDLE_WARNING_BEFORE_MS = 2 * 60_000;
+// Somebody who goes out of a room and is back within this long (a reload, a dropped connection) is not announced as
+// having gone.
+const LEAVE_GRACE_MS = 15_000;
 const RATE_LIMIT_MAX_MESSAGES = 5;
 const RATE_LIMIT_WINDOW_MS = 5_000;
 // Starting a conversation reaches somebody new, so it is limited more tightly than messages in one already going.
@@ -205,6 +211,8 @@ export function createSocketServer(
     inactivityTimeoutMs?: number;
     // How long before an inactivity disconnect the guest is warned, once for each.
     idleWarningBeforeMs?: number;
+    // How long somebody can be out of a room before the room is told they went.
+    leaveGraceMs?: number;
     maxConnectionsPerIp?: number;
     trustedProxyHops?: number;
     // An empty string means no moderator can sign in, like leaving AUTH_TOKEN_SECRET unset.
@@ -216,6 +224,7 @@ export function createSocketServer(
     options.inactivityTimeoutMs ?? env.INACTIVITY_TIMEOUT_MS;
   const idleWarningBeforeMs =
     options.idleWarningBeforeMs ?? IDLE_WARNING_BEFORE_MS;
+  const leaveGraceMs = options.leaveGraceMs ?? LEAVE_GRACE_MS;
   // Undefined means no cap.
   const maxConnectionsPerIp =
     options.maxConnectionsPerIp ?? env.MAX_CONNECTIONS_PER_IP;
@@ -251,6 +260,65 @@ export function createSocketServer(
           : { age: (member.data as SocketData).age }),
       })),
     });
+  }
+
+  // Tells the room that somebody came or went, after it is remembered, so whatever a guest has seen live is also in the
+  // history a later joiner reads. Failing to remember it costs the history entry, not the announcement.
+  async function announce(
+    slug: string,
+    event: "joined" | "left",
+    data: SocketData,
+  ): Promise<void> {
+    const movement = {
+      id: crypto.randomUUID(),
+      roomSlug: slug,
+      sentAt: new Date().toISOString(),
+      event,
+      guestId: data.guestId,
+      nickname: data.nickname,
+    };
+
+    await recordMovement({ ...movement, ipHash: data.ipHash }).catch((error) =>
+      log.error("Failed to remember who came or went", error),
+    );
+    io.to(roomKey(slug)).emit("room:event", movement);
+  }
+
+  // Not announced when the guest is back from a moment ago: whoever left is still in the room as far as anybody knows.
+  async function announceJoin(slug: string, data: SocketData): Promise<void> {
+    if (data.banned) return;
+
+    const returned = await takeAway(slug, data.guestId).catch((error) => {
+      log.error("Failed to read who was away", error);
+      return false;
+    });
+
+    if (!returned) await announce(slug, "joined", data);
+  }
+
+  // Announced once the guest has stayed away for the grace period; whichever of that and their return comes first
+  // takes the mark, so only one of them says anything.
+  function announceLeave(slug: string, data: SocketData): void {
+    if (data.banned) return;
+    const who = { ...data };
+
+    const settle = async () => {
+      if (leaveGraceMs > 0 && !(await takeAway(slug, who.guestId))) return;
+      await announce(slug, "left", who);
+    };
+    const failed = (error: unknown) =>
+      log.error("Failed to announce that somebody left", error);
+
+    if (leaveGraceMs <= 0) {
+      settle().catch(failed);
+      return;
+    }
+
+    markAway(slug, who.guestId, leaveGraceMs * 2)
+      .then(() => {
+        setTimeout(() => settle().catch(failed), leaveGraceMs).unref();
+      })
+      .catch(failed);
   }
 
   // The connection of this guest, if they are in the room. Looking the room up can fail (Redis is down); that is left
@@ -441,6 +509,7 @@ export function createSocketServer(
 
       data.roomSlug = undefined;
       await socket.leave(roomKey(slug));
+      announceLeave(slug, data);
       await emitPresence(slug);
     }
 
@@ -917,6 +986,7 @@ export function createSocketServer(
 
       if (outcome === "joined") {
         await emitPresence(slug);
+        await announceJoin(slug, data);
       }
 
       // Read after joining, so a message sent in between is in the history, delivered live, or both (the client
@@ -1088,6 +1158,7 @@ export function createSocketServer(
 
       // Socket.IO has already removed the socket from its rooms; just refresh presence for the others.
       if (data.roomSlug) {
+        announceLeave(data.roomSlug, data);
         emitPresence(data.roomSlug).catch((error) =>
           log.error("Presence update failed", error),
         );

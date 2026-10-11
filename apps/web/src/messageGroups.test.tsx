@@ -52,7 +52,11 @@ const emit = (
     }
   });
 
-const rows = () => within(screen.getByRole("log")).getAllByRole("listitem");
+// The guest's own arrival is the first line of every room, which these tests are not about.
+const rows = () =>
+  within(screen.getByRole("log"))
+    .getAllByRole("listitem")
+    .filter((row) => !row.textContent?.startsWith("You joined the room."));
 
 describe("messages by the same person", () => {
   it("are shown together under one name, with the time of the last", async () => {
@@ -100,20 +104,13 @@ describe("messages by the same person", () => {
     emit(server, said(BOB, "before", 1));
 
     act(() =>
-      server.latest.serverEmit("room:presence", {
+      server.latest.serverEmit("room:event", {
+        id: "dan-in",
         roomSlug: "general",
-        members: [{ guestId: "guest-me", nickname: "Alice" }, BOB, CAROL],
-      }),
-    );
-    act(() =>
-      server.latest.serverEmit("room:presence", {
-        roomSlug: "general",
-        members: [
-          { guestId: "guest-me", nickname: "Alice" },
-          BOB,
-          CAROL,
-          { guestId: "guest-dan", nickname: "Dan" },
-        ],
+        event: "joined",
+        guestId: "guest-dan",
+        nickname: "Dan",
+        sentAt: new Date().toISOString(),
       }),
     );
     emit(server, said(BOB, "after", 5));

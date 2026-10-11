@@ -17,6 +17,9 @@ const {
   isBanned,
   getCachedPublicRooms,
   recordMessage,
+  recordMovement,
+  markAway,
+  takeAway,
   getHistory,
   redactMessagesFrom,
   toggleReaction,
@@ -31,6 +34,9 @@ const {
   isBanned: vi.fn(),
   getCachedPublicRooms: vi.fn(),
   recordMessage: vi.fn(),
+  recordMovement: vi.fn(),
+  markAway: vi.fn(),
+  takeAway: vi.fn(),
   getHistory: vi.fn(),
   redactMessagesFrom: vi.fn(),
   toggleReaction: vi.fn(),
@@ -65,6 +71,9 @@ vi.mock("./names.js", async (importOriginal) => ({
 }));
 vi.mock("./history.js", () => ({
   recordMessage,
+  recordMovement,
+  markAway,
+  takeAway,
   getHistory,
   redactMessagesFrom,
   toggleReaction,
@@ -169,6 +178,7 @@ async function connectGuest(
 async function startServer(options?: {
   inactivityTimeoutMs?: number;
   idleWarningBeforeMs?: number;
+  leaveGraceMs?: number;
   maxConnectionsPerIp?: number;
   trustedProxyHops?: number;
   authTokenSecret?: string;
@@ -221,6 +231,9 @@ beforeEach(() => {
   isBanned.mockReset().mockResolvedValue(false);
   getCachedPublicRooms.mockReset().mockResolvedValue(ROOMS);
   recordMessage.mockReset().mockResolvedValue(undefined);
+  recordMovement.mockReset().mockResolvedValue(undefined);
+  markAway.mockReset().mockResolvedValue(undefined);
+  takeAway.mockReset().mockResolvedValue(false);
   getHistory.mockReset().mockResolvedValue([]);
   redactMessagesFrom.mockReset().mockResolvedValue([]);
   toggleReaction.mockReset().mockResolvedValue({ ok: true, reactions: [] });
@@ -1658,6 +1671,169 @@ describe("inactivity", () => {
 
     expect(active.connected).toBe(true);
     expect(onKicked).not.toHaveBeenCalled();
+  });
+});
+
+describe("who comes into a room and who goes out of it", () => {
+  type Movement = {
+    id: string;
+    roomSlug: string;
+    event: "joined" | "left";
+    guestId: string;
+    nickname: string;
+    sentAt: string;
+  };
+
+  const heard = (socket: Socket) => {
+    const events: Movement[] = [];
+    socket.on("room:event", (event: Movement) => events.push(event));
+    return events;
+  };
+
+  it("tells the room, the guest too, and remembers it with the hash that bans use", async () => {
+    const watcher = await connectGuest("Watcher");
+    await emit(watcher, "room:join", { slug: "general" });
+    const seen = heard(watcher);
+    const newcomer = await connectGuest("Newcomer");
+    const own = heard(newcomer);
+
+    await emit(newcomer, "room:join", { slug: "general" });
+
+    await vi.waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0]).toMatchObject({
+      roomSlug: "general",
+      event: "joined",
+      nickname: "Newcomer",
+    });
+    expect(Object.keys(seen[0])).not.toContain("ipHash");
+    expect(own.map((event) => event.id)).toEqual([seen[0].id]);
+    expect(recordMovement).toHaveBeenCalledWith({
+      ...seen[0],
+      ipHash: expect.any(String),
+    });
+  });
+
+  it("remembers who came before it hands over the history, so the guest's own arrival is in it", async () => {
+    const order: string[] = [];
+    recordMovement.mockImplementation(async () => {
+      order.push("remembered");
+    });
+    getHistory.mockImplementation(async () => {
+      order.push("read");
+      return [];
+    });
+    const guest = await connectGuest("Guest");
+
+    await emit(guest, "room:join", { slug: "general" });
+
+    expect(order).toEqual(["remembered", "read"]);
+  });
+
+  it("says when somebody goes out, once they have been gone for the grace period", async () => {
+    const { io, port } = await startServer({ leaveGraceMs: 0 });
+    const watcher = await connectGuest("Watcher", port);
+    await emit(watcher, "room:join", { slug: "general" });
+    const leaver = await connectGuest("Leaver", port);
+    await emit(leaver, "room:join", { slug: "general" });
+    const seen = heard(watcher);
+
+    await emit(leaver, "room:leave");
+
+    await vi.waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0]).toMatchObject({ event: "left", nickname: "Leaver" });
+    expect(recordMovement).toHaveBeenLastCalledWith(
+      expect.objectContaining({ event: "left", roomSlug: "general" }),
+    );
+    await io.close();
+  });
+
+  it("says so when the connection drops, too", async () => {
+    const { io, port } = await startServer({ leaveGraceMs: 0 });
+    const watcher = await connectGuest("Watcher", port);
+    await emit(watcher, "room:join", { slug: "general" });
+    const leaver = await connectGuest("Leaver", port);
+    await emit(leaver, "room:join", { slug: "general" });
+    const seen = heard(watcher);
+
+    leaver.disconnect();
+
+    await vi.waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0]).toMatchObject({ event: "left", nickname: "Leaver" });
+    await io.close();
+  });
+
+  it("waits to say it, marking the guest as away meanwhile", async () => {
+    const { io, port } = await startServer({ leaveGraceMs: 100 });
+    const watcher = await connectGuest("Watcher", port);
+    await emit(watcher, "room:join", { slug: "general" });
+    const leaver = await connectGuest("Leaver", port);
+    await emit(leaver, "room:join", { slug: "general" });
+    const seen = heard(watcher);
+    takeAway.mockResolvedValue(true);
+
+    await emit(leaver, "room:leave");
+
+    await vi.waitFor(() =>
+      expect(markAway).toHaveBeenCalledWith("general", expect.any(String), 200),
+    );
+    expect(seen).toHaveLength(0);
+    await vi.waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0]).toMatchObject({ event: "left" });
+    await io.close();
+  });
+
+  it("says nothing about somebody who came back within the grace period", async () => {
+    const watcher = await connectGuest("Watcher");
+    await emit(watcher, "room:join", { slug: "general" });
+    const seen = heard(watcher);
+    takeAway.mockResolvedValue(true);
+    recordMovement.mockClear();
+    const back = await connectGuest("Back");
+
+    await emit(back, "room:join", { slug: "general" });
+
+    expect(seen).toHaveLength(0);
+    expect(recordMovement).not.toHaveBeenCalled();
+  });
+
+  it("says nothing about somebody who has not been away when the wait is over", async () => {
+    const { io, port } = await startServer({ leaveGraceMs: 50 });
+    const watcher = await connectGuest("Watcher", port);
+    await emit(watcher, "room:join", { slug: "general" });
+    const leaver = await connectGuest("Leaver", port);
+    await emit(leaver, "room:join", { slug: "general" });
+    const seen = heard(watcher);
+    takeAway.mockResolvedValue(false);
+
+    await emit(leaver, "room:leave");
+    await new Promise((resolve) => setTimeout(resolve, 250));
+
+    expect(seen).toHaveLength(0);
+    await io.close();
+  });
+
+  it("does not announce a guest who was banned", async () => {
+    const { io, port } = await startServer({
+      leaveGraceMs: 0,
+      trustedProxyHops: 1,
+    });
+    const connectAt = async (nickname: string, ip: string) => {
+      const { socket } = await connect({ nickname }, port, {
+        "x-forwarded-for": ip,
+      });
+      if (!socket) throw new Error(`${nickname} failed to connect`);
+      await emit(socket, "room:join", { slug: "general" });
+      return socket;
+    };
+    const watcher = await connectAt("Watcher", "203.0.113.2");
+    await connectAt("Target", "203.0.113.1");
+    const seen = heard(watcher);
+
+    await enforceBans(io, [hashIdentifier("203.0.113.1")]);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(seen.filter((event) => event.event === "left")).toHaveLength(0);
+    await io.close();
   });
 });
 

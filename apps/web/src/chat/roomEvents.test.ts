@@ -1,73 +1,113 @@
 import { describe, expect, it } from "vitest";
 
-import { movements, timeline, type RoomEvent } from "./roomEvents";
-import type { ChatMessage, Member } from "./types";
+import {
+  eventsFromHistory,
+  mergeEvents,
+  parseRoomEvent,
+  timeline,
+  type RoomEvent,
+} from "./roomEvents";
+import type { ChatMessage } from "./types";
 
-const me: Member = { guestId: "me", nickname: "Alice" };
-const bob: Member = { guestId: "bob", nickname: "Bob" };
-const carol: Member = { guestId: "carol", nickname: "Carol" };
+const told = (extra: Record<string, unknown> = {}) => ({
+  id: "event-1",
+  roomSlug: "general",
+  event: "joined",
+  guestId: "bob",
+  nickname: "Bob",
+  sentAt: "2026-10-04T12:00:00.000Z",
+  ...extra,
+});
 
-function changes(
-  previous: Member[],
-  next: Member[],
-  self: string | null = "me",
-) {
-  let seq = 0;
-  let id = 0;
-
-  return movements(
-    previous,
-    next,
-    self,
-    "general",
-    "2026-10-04T12:00:00.000Z",
-    () => ++seq,
-    () => `event-${++id}`,
-  );
-}
-
-describe("movements", () => {
-  it("names who came", () => {
-    expect(changes([me], [me, bob])).toEqual([
-      {
-        id: "event-1",
-        roomSlug: "general",
-        event: "joined",
-        guestId: "bob",
-        nickname: "Bob",
-        sentAt: "2026-10-04T12:00:00.000Z",
-        seq: 1,
-      },
-    ]);
+describe("parseRoomEvent", () => {
+  it("reads what the server sends, without a place among the live messages", () => {
+    expect(parseRoomEvent(told())).toEqual(told());
+    expect(parseRoomEvent(told({ event: "left" }))).toMatchObject({
+      event: "left",
+    });
   });
 
-  it("names who went, by the name they had", () => {
-    expect(changes([me, bob], [me])).toMatchObject([
-      { event: "left", nickname: "Bob" },
-    ]);
+  it("leaves out what the server did not send", () => {
+    expect(parseRoomEvent(told({ ipHash: "secret", seq: 7 }))).toEqual(told());
   });
 
-  it("puts those who left before those who came, each with the next number", () => {
-    expect(changes([me, bob], [me, carol])).toMatchObject([
-      { event: "left", nickname: "Bob", seq: 1 },
-      { event: "joined", nickname: "Carol", seq: 2 },
-    ]);
-  });
-
-  it("says nothing when the people are the same, in whatever order", () => {
-    expect(changes([me, bob], [bob, me])).toEqual([]);
-  });
-
-  it("leaves the guest out, coming or going", () => {
-    expect(changes([bob], [bob, me])).toEqual([]);
-    expect(changes([me, bob], [bob])).toEqual([]);
-  });
-
-  it("announces everybody when it does not know who the guest is", () => {
-    expect(changes([], [me], null)).toMatchObject([{ nickname: "Alice" }]);
+  it.each([
+    ["nothing", undefined],
+    ["null", null],
+    ["a string", "joined"],
+    ["another event", told({ event: "danced" })],
+    ["no id", told({ id: undefined })],
+    ["no room", told({ roomSlug: 1 })],
+    ["no guest", told({ guestId: undefined })],
+    ["no name", told({ nickname: null })],
+    ["no time", told({ sentAt: undefined })],
+  ])("refuses %s", (_label, value) => {
+    expect(parseRoomEvent(value)).toBeUndefined();
   });
 });
 
+describe("eventsFromHistory", () => {
+  it("picks the movements out of the messages, for this room", () => {
+    const history = [
+      { ...said("a"), roomSlug: "general" },
+      told({ id: "x" }),
+      told({ id: "y", roomSlug: "music" }),
+      "junk",
+    ];
+
+    expect(eventsFromHistory(history, "general").map((e) => e.id)).toEqual([
+      "x",
+    ]);
+  });
+
+  it("is nothing when there is no history", () => {
+    expect(eventsFromHistory(undefined, "general")).toEqual([]);
+    expect(eventsFromHistory("no", "general")).toEqual([]);
+  });
+});
+
+describe("mergeEvents", () => {
+  const one = (id: string, extra: Partial<RoomEvent> = {}): RoomEvent => ({
+    ...(told({ id }) as RoomEvent),
+    ...extra,
+  });
+
+  it("adds each event once, keeping the first that came", () => {
+    const first = one("a", { seq: 1 });
+
+    const merged = mergeEvents([first], [one("a"), one("b", { seq: 2 })]);
+
+    expect(merged.map((e) => e.id)).toEqual(["a", "b"]);
+    expect(merged[0]).toBe(first);
+  });
+
+  it("is the same list when nothing is new", () => {
+    const existing = [one("a", { seq: 1 })];
+
+    expect(mergeEvents(existing, [one("a")])).toBe(existing);
+  });
+
+  it("puts the history's by the time they happened, ahead of the live ones", () => {
+    const merged = mergeEvents(
+      [one("live", { seq: 1 })],
+      [
+        one("late", { sentAt: "2026-10-04T12:00:09.000Z" }),
+        one("early", { sentAt: "2026-10-04T12:00:01.000Z" }),
+      ],
+    );
+
+    expect(merged.map((e) => e.id)).toEqual(["early", "late", "live"]);
+  });
+
+  it("keeps the live ones in the order they came", () => {
+    const merged = mergeEvents(
+      [one("b", { seq: 2 })],
+      [one("a", { seq: 1 }), one("c", { seq: 3 })],
+    );
+
+    expect(merged.map((e) => e.id)).toEqual(["a", "b", "c"]);
+  });
+});
 const event = (seq: number): RoomEvent => ({
   id: `event-${seq}`,
   roomSlug: "general",
@@ -98,6 +138,39 @@ const names = (items: ReturnType<typeof timeline>) =>
   );
 
 describe("timeline", () => {
+  const earlier = (id: string, second: number): RoomEvent => {
+    const { seq: _seq, ...rest } = event(0);
+
+    return {
+      ...rest,
+      id,
+      sentAt: `2026-10-04T12:00:0${second}.000Z`,
+    };
+  };
+  const old = (id: string, second: number): ChatMessage => ({
+    ...said(id),
+    sentAt: `2026-10-04T12:00:0${second}.000Z`,
+  });
+
+  it("sets the history's events among the history's messages by their time", () => {
+    expect(
+      names(
+        timeline(
+          [old("a", 1), old("b", 3), old("c", 5)],
+          [earlier("x", 0), earlier("y", 2), earlier("z", 4), earlier("w", 6)],
+        ),
+      ),
+    ).toEqual(["x", "a", "y", "b", "z", "c", "w"]);
+  });
+
+  it("puts the history's events before the live messages and the live events", () => {
+    expect(
+      names(
+        timeline([old("a", 1), said("live", 5)], [event(2), earlier("x", 8)]),
+      ),
+    ).toEqual(["a", "x", "event-2", "live"]);
+  });
+
   it("is just the messages when nothing happened", () => {
     expect(names(timeline([said("a"), said("b", 1)], []))).toEqual(["a", "b"]);
   });

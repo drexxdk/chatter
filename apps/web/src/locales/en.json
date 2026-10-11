@@ -114,6 +114,8 @@
     "scrollToEnd": "Scroll to the latest messages",
     "slowMode": "Slow mode: one message every {seconds} s.",
     "joined": "{name} joined the room.",
+    "youJoined": "You joined the room.",
+    "youLeft": "You left the room.",
     "left": "{name} left the room.",
     "idleWarning": "You will be disconnected from the room unless you write something.",
     "idleTimeLeft": "Time left",

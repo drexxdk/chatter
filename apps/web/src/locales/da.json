@@ -114,6 +114,8 @@
     "scrollToEnd": "Rul til de nyeste beskeder",
     "slowMode": "Langsom tilstand: én besked hvert {seconds}. sekund.",
     "joined": "{name} kom ind i rummet.",
+    "youJoined": "Du kom ind i rummet.",
+    "youLeft": "Du forlod rummet.",
     "left": "{name} forlod rummet.",
     "idleWarning": "Du bliver koblet fra rummet, medmindre du skriver noget.",
     "idleTimeLeft": "Tid tilbage",

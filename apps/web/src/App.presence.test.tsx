@@ -2,7 +2,7 @@ import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { stubRooms, setup, joinRoom, message } from "./test/app";
+import { stubRooms, setup, joinRoom, message, at } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
 beforeEach(() => {
@@ -30,31 +30,82 @@ describe("who comes and goes", () => {
     roomSlug = "general",
   ) =>
     act(() => server.latest.serverEmit("room:presence", { roomSlug, members }));
+  // What the server tells the room when somebody comes in or goes out. `at` is when, for what the history holds.
+  const movement = (
+    event: "joined" | "left",
+    who: { guestId: string; nickname: string },
+    extra: { id?: string; roomSlug?: string; sentAt?: string } = {},
+  ) => ({
+    id: extra.id ?? `${event}-${who.guestId}-${Math.random()}`,
+    roomSlug: extra.roomSlug ?? "general",
+    event,
+    guestId: who.guestId,
+    nickname: who.nickname,
+    sentAt: extra.sentAt ?? new Date().toISOString(),
+  });
+  const came = (
+    server: ReturnType<typeof makeFakeServer>,
+    who: { guestId: string; nickname: string },
+    extra: { id?: string; roomSlug?: string } = {},
+  ) =>
+    act(() =>
+      server.latest.serverEmit("room:event", movement("joined", who, extra)),
+    );
+  const went = (
+    server: ReturnType<typeof makeFakeServer>,
+    who: { guestId: string; nickname: string },
+    extra: { id?: string; roomSlug?: string } = {},
+  ) =>
+    act(() =>
+      server.latest.serverEmit("room:event", movement("left", who, extra)),
+    );
   const said = (server: ReturnType<typeof makeFakeServer>, text: string) =>
     act(() => server.latest.serverEmit("message:new", message({ text })));
 
-  async function enter(members = [ME, BOB], leaveGraceMs = 0) {
-    const result = setup(
-      makeFakeServer({
-        others: members.filter((member) => member.guestId !== ME.guestId),
-      }),
-      undefined,
-      leaveGraceMs,
-    );
+  async function enter(members = [ME, BOB], history: unknown[] = []) {
+    const server = makeFakeServer({
+      others: members.filter((member) => member.guestId !== ME.guestId),
+    });
+    const result = setup(server);
+    // What the server hands over with the join.
+    server.acks["room:join"] = () => ({ ok: true, history });
     await joinRoom(result.user);
     await screen.findByRole("button", { name: "Your profile: Alice" });
     return result;
   }
 
+  // The guest's own arrival is there in every room, so it is left out unless a test is about it.
+  const others = /^(?!You ).*(joined|left) the room/;
   const lines = () =>
     roomLog()
       .getAllByRole("listitem")
-      .map((item) => item.textContent ?? "");
+      .map((item) => item.textContent ?? "")
+      .filter(
+        (text) =>
+          !text.startsWith("You joined the room.") &&
+          !text.startsWith("No messages yet."),
+      );
+
+  it("tells the guest, with the time, that they came into the room", async () => {
+    await enter();
+
+    const item = roomLog().getByText("You joined the room.").closest("li")!;
+    expect(item).toHaveAttribute("data-kind", "status");
+    expect(item.querySelector("time")).toHaveAttribute("datetime");
+  });
+
+  it("does not tell the guest again when the list of people is sent again", async () => {
+    const { server } = await enter();
+
+    present(server, [ME, BOB]);
+
+    expect(roomLog().getAllByText("You joined the room.")).toHaveLength(1);
+  });
 
   it("says, with the time, when somebody comes into the room", async () => {
     const { server } = await enter();
 
-    present(server, [ME, BOB, CAROL]);
+    came(server, CAROL);
 
     const item = roomLog().getByText("Carol joined the room.").closest("li")!;
     expect(item).toHaveAttribute("data-kind", "status");
@@ -64,7 +115,7 @@ describe("who comes and goes", () => {
   it("says when somebody goes out of it", async () => {
     const { server } = await enter();
 
-    present(server, [ME]);
+    went(server, BOB);
 
     expect(roomLog().getByText("Bob left the room.")).toBeInTheDocument();
   });
@@ -72,29 +123,54 @@ describe("who comes and goes", () => {
   it("says nothing about the people who were already there, or about the guest", async () => {
     await enter([ME, BOB, CAROL]);
 
-    expect(roomLog().queryByText(/joined the room|left the room/)).toBeNull();
+    expect(roomLog().queryByText(others)).toBeNull();
   });
 
-  it("says nothing when the list is for another room", async () => {
+  it("says nothing about another room", async () => {
     const { server } = await enter();
 
-    present(server, [CAROL], "music");
+    came(server, CAROL, { roomSlug: "music" });
 
-    expect(roomLog().queryByText(/joined the room|left the room/)).toBeNull();
+    expect(roomLog().queryByText(others)).toBeNull();
   });
 
-  it("says nothing when the list did not change", async () => {
+  it("says nothing when only the list of people comes", async () => {
     const { server } = await enter();
 
-    present(server, [ME, BOB]);
+    present(server, [ME, BOB, CAROL]);
 
-    expect(roomLog().queryByText(/joined the room|left the room/)).toBeNull();
+    expect(roomLog().queryByText(others)).toBeNull();
   });
 
-  it("says who left and who came when both happen at once", async () => {
+  it("says it once, however many times it is told", async () => {
     const { server } = await enter();
 
-    present(server, [ME, CAROL]);
+    came(server, CAROL, { id: "same" });
+    came(server, CAROL, { id: "same" });
+
+    expect(roomLog().getAllByText("Carol joined the room.")).toHaveLength(1);
+  });
+
+  it("ignores what is not a movement", async () => {
+    const { server } = await enter();
+
+    act(() => server.latest.serverEmit("room:event", undefined));
+    act(() => server.latest.serverEmit("room:event", { event: "joined" }));
+    act(() =>
+      server.latest.serverEmit("room:event", {
+        ...movement("joined", CAROL),
+        event: "danced",
+      }),
+    );
+
+    expect(lines()).toEqual([]);
+  });
+
+  it("says who left and who came in the order the server did", async () => {
+    const { server } = await enter();
+
+    went(server, BOB);
+    came(server, CAROL);
 
     expect(lines()).toEqual([
       expect.stringContaining("Bob left the room."),
@@ -106,7 +182,7 @@ describe("who comes and goes", () => {
     const { server } = await enter();
 
     said(server, "before");
-    present(server, [ME, BOB, CAROL]);
+    came(server, CAROL);
     said(server, "after");
 
     expect(lines()).toEqual([
@@ -116,79 +192,107 @@ describe("who comes and goes", () => {
     ]);
   });
 
-  it("does not count the room as empty when only the movements are there", async () => {
+  it("still asks for a first message when only the movements are there", async () => {
     const { server } = await enter();
 
-    present(server, [ME, BOB, CAROL]);
+    came(server, CAROL);
+
+    expect(screen.getByText("No messages yet. Say hello!")).toBeInTheDocument();
+  });
+
+  it("stops asking once somebody has said something", async () => {
+    const { server } = await enter();
+
+    said(server, "hello");
 
     expect(screen.queryByText("No messages yet. Say hello!")).toBeNull();
   });
 
-  describe("somebody who is back soon", () => {
-    const GRACE = 15_000;
-    const wait = (ms: number) => act(() => vi.advanceTimersByTime(ms));
-    const enterWithGrace = async () => {
-      const result = await enter([ME, BOB], GRACE);
-      vi.useFakeTimers();
-      return result;
-    };
+  describe("what happened before the guest came", () => {
+    const earlier = (n: number) => at(n);
 
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
-    it("is not announced as leaving or joining", async () => {
-      const { server } = await enterWithGrace();
-
-      present(server, [ME]);
-      wait(5_000);
-      present(server, [ME, BOB]);
-      wait(GRACE * 2);
-
-      expect(roomLog().queryByText(/joined the room|left the room/)).toBeNull();
-    });
-
-    it("is announced as leaving once the time is up, where they left", async () => {
-      const { server } = await enterWithGrace();
-
-      said(server, "before");
-      present(server, [ME]);
-      said(server, "after");
-      expect(roomLog().queryByText("Bob left the room.")).toBeNull();
-
-      wait(GRACE);
+    it("is there, set among the earlier messages by the time it happened", async () => {
+      await enter(
+        [ME],
+        [
+          movement("joined", BOB, { sentAt: earlier(1) }),
+          message({ text: "hey", sentAt: earlier(2), guestId: BOB.guestId }),
+          movement("left", BOB, { sentAt: earlier(3) }),
+          message({ text: "anyone?", sentAt: earlier(4) }),
+        ],
+      );
 
       expect(lines()).toEqual([
-        expect.stringContaining("before"),
-        expect.stringContaining("Bob left the room."),
-        expect.stringContaining("after"),
-      ]);
-    });
-
-    it("is announced as joining when they come back after that", async () => {
-      const { server } = await enterWithGrace();
-
-      present(server, [ME]);
-      wait(GRACE);
-      present(server, [ME, BOB]);
-
-      expect(lines()).toEqual([
-        expect.stringContaining("Bob left the room."),
         expect.stringContaining("Bob joined the room."),
+        expect.stringContaining("hey"),
+        expect.stringContaining("Bob left the room."),
+        expect.stringContaining("anyone?"),
       ]);
     });
 
-    it("does not hold back others", async () => {
-      const { server } = await enterWithGrace();
+    it("comes before the guest's own arrival", async () => {
+      await enter([ME], [movement("joined", CAROL, { sentAt: earlier(1) })]);
 
-      present(server, [ME, CAROL]);
-
-      expect(lines()).toEqual([
+      expect(
+        roomLog()
+          .getAllByRole("listitem")
+          .map((item) => item.textContent),
+      ).toEqual([
         expect.stringContaining("Carol joined the room."),
+        expect.stringContaining("You joined the room."),
+        expect.stringContaining("No messages yet."),
       ]);
+    });
+
+    it("is not shown twice when it came live as well", async () => {
+      const arrival = movement("joined", CAROL, { id: "once" });
+      const { server } = await enter([ME], [arrival]);
+
+      came(server, CAROL, { id: "once" });
+
+      expect(roomLog().getAllByText("Carol joined the room.")).toHaveLength(1);
+    });
+
+    it("is shown the same to the guest who was there and the one who came after", async () => {
+      const first = await enter([ME]);
+      came(first.server, BOB, { id: "bob-in" });
+      const live = lines().map((line) => line.split(".")[0]);
+      first.unmount();
+      sessionStorage.clear();
+      window.history.replaceState(null, "", "/");
+
+      await enter(
+        [ME],
+        [movement("joined", BOB, { id: "bob-in", sentAt: earlier(1) })],
+      );
+
+      expect(live).toEqual(["Bob joined the room"]);
+      expect(lines().map((line) => line.split(".")[0])).toEqual(live);
+    });
+
+    it("says nothing about guests the history names that were banned", async () => {
+      const { server } = await enter(
+        [ME],
+        [movement("joined", CAROL, { sentAt: earlier(1) })],
+      );
+
+      act(() =>
+        server.latest.serverEmit("message:redacted", {
+          roomSlug: "general",
+          ids: [],
+          guestIds: [CAROL.guestId],
+        }),
+      );
+
+      expect(roomLog().queryByText(/Carol/)).toBeNull();
     });
   });
 
+  it("calls the guest's own earlier visits by 'You'", async () => {
+    await enter([ME], [movement("left", ME, { sentAt: at(1) })]);
+
+    expect(roomLog().getByText("You left the room.")).toBeInTheDocument();
+  });
   describe("the countdown before being disconnected for doing nothing", () => {
     const warn = (
       server: ReturnType<typeof makeFakeServer>,
@@ -271,6 +375,7 @@ describe("who comes and goes", () => {
       expect(banner()).toBeNull();
     });
   });
+
   describe("the checkbox", () => {
     it("is ticked to begin with", async () => {
       const { user } = await enter();
@@ -281,7 +386,7 @@ describe("who comes and goes", () => {
     it("hides what was announced, and shows it again", async () => {
       const { user, server } = await enter();
       said(server, "hello all");
-      present(server, [ME, BOB, CAROL]);
+      came(server, CAROL);
 
       await user.click(await toggleItem(user));
 
@@ -297,7 +402,7 @@ describe("who comes and goes", () => {
       const { user, server } = await enter();
       await user.click(await toggleItem(user));
 
-      present(server, [ME, BOB, CAROL]);
+      came(server, CAROL);
       expect(roomLog().queryByText("Carol joined the room.")).toBeNull();
 
       await user.click(await toggleItem(user));
@@ -321,7 +426,7 @@ describe("who comes and goes", () => {
         "false",
       );
       await next.user.keyboard("{Escape}");
-      present(next.server, [ME, BOB, CAROL]);
+      came(next.server, CAROL);
       expect(roomLog().queryByText("Carol joined the room.")).toBeNull();
     });
 
@@ -357,7 +462,7 @@ describe("who comes and goes", () => {
 
     it("takes their name out of what was announced", async () => {
       const { server } = await enter([ME, BOB]);
-      present(server, [ME, BOB, CAROL]);
+      came(server, CAROL);
 
       banned(server, CAROL.guestId);
 
@@ -366,12 +471,12 @@ describe("who comes and goes", () => {
 
     it("leaves what was announced about others", async () => {
       const { server } = await enter([ME, BOB]);
-      present(server, [ME, BOB, CAROL]);
+      came(server, CAROL);
 
       banned(server, CAROL.guestId);
 
       expect(roomLog().queryByText(/Carol/)).toBeNull();
-      present(server, [ME]);
+      went(server, BOB);
       expect(roomLog().getByText("Bob left the room.")).toBeInTheDocument();
     });
 
@@ -379,14 +484,14 @@ describe("who comes and goes", () => {
       const { server } = await enter([ME, BOB, CAROL]);
 
       banned(server, CAROL.guestId);
-      present(server, [ME, BOB]);
+      went(server, CAROL);
 
       expect(roomLog().queryByText(/Carol/)).toBeNull();
     });
 
     it("ignores an empty id in the notice", async () => {
       const { server } = await enter([ME, BOB]);
-      present(server, [ME, BOB, CAROL]);
+      came(server, CAROL);
 
       banned(server, "");
 
@@ -396,7 +501,7 @@ describe("who comes and goes", () => {
 
   it("starts afresh in another room", async () => {
     const { user, server } = await enter();
-    present(server, [ME, BOB, CAROL]);
+    came(server, CAROL);
 
     await user.click(screen.getByRole("button", { name: "Leave room" }));
     await screen.findByRole("heading", { name: "Public rooms" });

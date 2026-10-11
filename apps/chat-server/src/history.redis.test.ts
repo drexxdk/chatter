@@ -28,8 +28,15 @@ vi.mock("./redis.js", async () => {
   return { redis: client.current };
 });
 
-const { getHistory, recordMessage, redactMessagesFrom, toggleReaction } =
-  await import("./history.js");
+const {
+  getHistory,
+  markAway,
+  recordMessage,
+  recordMovement,
+  redactMessagesFrom,
+  takeAway,
+  toggleReaction,
+} = await import("./history.js");
 const { MAX_REACTION_KINDS, MAX_REACTORS_PER_EMOJI } =
   await import("./reactions.js");
 
@@ -242,6 +249,20 @@ describe.skipIf(!URL)("history against a real Redis", () => {
     });
   });
 
+  describe("who is away", () => {
+    it("is taken once: by the first to ask, and not at all after the time is up", async () => {
+      await markAway(slug, "g-1", 5_000);
+
+      expect(await takeAway(slug, "g-1")).toBe(true);
+      expect(await takeAway(slug, "g-1")).toBe(false);
+
+      await markAway(slug, "g-2", 20);
+      await new Promise((resolve) => setTimeout(resolve, 60));
+
+      expect(await takeAway(slug, "g-2")).toBe(false);
+    });
+  });
+
   describe("replacing a banned guest's messages", () => {
     it("replaces exactly their messages with placeholders, reactions included, and says which", async () => {
       await recordMessage(message("a", { ipHash: "bad" }));
@@ -262,6 +283,29 @@ describe.skipIf(!URL)("history against a real Redis", () => {
       });
       expect(history[1]).toMatchObject({ id: "b", text: "hello b" });
       expect(history[2]).toMatchObject({ banned: true });
+    });
+
+    it("removes who came and went from a banned guest, and keeps the others'", async () => {
+      const moved = (id: string, ipHash: string) => ({
+        id,
+        roomSlug: slug,
+        sentAt: new Date(Date.UTC(2026, 9, 3, 12, 0, ++n % 60)).toISOString(),
+        event: "joined" as const,
+        guestId: `guest-${id}`,
+        nickname: `Nick ${id}`,
+        ipHash,
+      });
+      await recordMovement(moved("x", "bad"));
+      await recordMovement(moved("y", "good"));
+      await recordMessage(message("a", { ipHash: "bad" }));
+
+      const ids = await redactMessagesFrom(slug, ["bad"]);
+
+      expect(ids).toEqual(["a"]);
+      const history = await getHistory(slug);
+      expect(history.map((m) => m.id)).toEqual(["y", "a"]);
+      expect(history[0]).toMatchObject({ event: "joined", nickname: "Nick y" });
+      expect(JSON.stringify(history)).not.toContain("Nick x");
     });
 
     it("leaves messages that were stored without a sender hash alone", async () => {
