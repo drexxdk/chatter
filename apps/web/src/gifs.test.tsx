@@ -9,7 +9,9 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { FrequentlyUsed, Picker } from "emoji-mart";
 import { App } from "./App";
+import i18n from "./i18n";
 import { editorOf, fillBox, selectText } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
@@ -149,27 +151,91 @@ describe("emoji", () => {
     await waitFor(() => expect(box).toHaveDraft("a🔥def"));
   });
 
-  it("can be searched for by what they are called", async () => {
+  it("can be searched for by what they are called, in the box the GIFs tab has", async () => {
     const { user } = await enter();
+    await openPicker(user);
 
+    const box = await screen.findByRole("searchbox", { name: "Search emoji" });
+    await user.type(box, "pizza");
+
+    expect(
+      await screen.findByRole("button", { name: "🍕" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "😀" })).toBeNull();
+
+    await user.clear(box);
+    await user.type(box, "zzzz");
+
+    expect(await screen.findByText("No emoji found.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "🍕" })).toBeNull();
+  });
+
+  it("has the picker back when the search is cleared", async () => {
+    const { user } = await enter();
+    await openPicker(user);
+    const box = await screen.findByRole("searchbox", { name: "Search emoji" });
+    await user.type(box, "fire");
+    await screen.findByRole("button", { name: "🔥" });
+    expect(screen.queryByRole("button", { name: "😀" })).toBeNull();
+
+    await user.clear(box);
+
+    expect(await screen.findByRole("button", { name: "😀" })).toBeVisible();
+  });
+
+  it("adds what was found to the message, and to what is used most", async () => {
+    const { user } = await enter();
+    const message = screen.getByRole("textbox", { name: "Message" });
     await openPicker(user);
     await user.type(
       await screen.findByRole("searchbox", { name: "Search emoji" }),
       "pizza",
     );
 
-    expect(screen.getByRole("button", { name: "🍕" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "😀" })).toBeNull();
+    await user.click(await screen.findByRole("button", { name: "🍕" }));
 
-    await user.clear(screen.getByRole("searchbox", { name: "Search emoji" }));
-    await user.type(
-      screen.getByRole("searchbox", { name: "Search emoji" }),
-      "zzzz",
-    );
-
-    expect(screen.getByText("No emoji found.")).toBeInTheDocument();
+    await waitFor(() => expect(message).toHaveDraft("🍕"));
+    expect(FrequentlyUsed.add).toHaveBeenCalledWith({ id: "pizza" });
   });
+  describe("the picker", () => {
+    const lastProps = () => {
+      const calls = vi.mocked(Picker).mock.calls;
 
+      return calls[calls.length - 1][0] as Record<string, unknown> & {
+        i18n: { search: string; categories: { people: string } };
+      };
+    };
+
+    it("has its sections as tabs along the bottom, and no preview", async () => {
+      const { user } = await enter();
+
+      await openPicker(user);
+      await screen.findByRole("button", { name: "😀" });
+
+      expect(lastProps()).toMatchObject({
+        navPosition: "bottom",
+        previewPosition: "none",
+        searchPosition: "none",
+        skinTonePosition: "none",
+        theme: "dark",
+        set: "native",
+      });
+    });
+
+    it("speaks the language of the page, and is drawn again when that changes", async () => {
+      const { user } = await enter();
+      await openPicker(user);
+      await screen.findByRole("button", { name: "😀" });
+      expect(lastProps().i18n.search).toBe("Search");
+
+      await act(() => i18n.changeLanguage("da"));
+      await waitFor(() => expect(lastProps().i18n.search).toBe("Søg"));
+      expect(lastProps().i18n.categories.people).toBe("Smileys og personer");
+
+      await act(() => i18n.changeLanguage("de"));
+      await waitFor(() => expect(lastProps().i18n.search).toBe("Suchen"));
+    });
+  });
   it("are not added beyond the length of a message", async () => {
     const { user } = await enter();
     const box = screen.getByRole("textbox", { name: "Message" });

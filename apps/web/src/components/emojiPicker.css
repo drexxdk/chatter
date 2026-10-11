@@ -1,0 +1,6 @@
+/* Added to the emoji picker's own styles, which its web component keeps to itself: the spacing round what it shows is left
+   to the panel, as in the GIF tab. (Its own search box is not used; the tab's is.) */
+#root {
+  --padding: 0px;
+  --padding-small: 6px;
+}

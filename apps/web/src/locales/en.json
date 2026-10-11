@@ -39,13 +39,34 @@
     "tabGifs": "GIFs",
     "searchEmoji": "Search emoji",
     "noEmoji": "No emoji found.",
-    "section": {
-      "smileys": "Smileys",
-      "gestures": "Gestures",
-      "symbols": "Hearts and symbols",
-      "nature": "Animals and nature",
-      "food": "Food and drink",
-      "activities": "Activities and objects"
+    "mart": {
+      "search": "Search",
+      "search_no_results_1": "Oh no!",
+      "search_no_results_2": "That emoji could not be found",
+      "pick": "Pick an emoji…",
+      "add_custom": "Add a custom emoji",
+      "categories": {
+        "activity": "Activities",
+        "custom": "Custom",
+        "flags": "Flags",
+        "foods": "Food & drink",
+        "frequent": "Frequently used",
+        "nature": "Animals & nature",
+        "objects": "Objects",
+        "people": "Smileys & people",
+        "places": "Travel & places",
+        "search": "Search results",
+        "symbols": "Symbols"
+      },
+      "skins": {
+        "choose": "Choose a default skin tone",
+        "1": "Default",
+        "2": "Light",
+        "3": "Medium-light",
+        "4": "Medium",
+        "5": "Medium-dark",
+        "6": "Dark"
+      }
     }
   },
   "person": {
