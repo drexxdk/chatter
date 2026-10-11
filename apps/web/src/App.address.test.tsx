@@ -231,7 +231,7 @@ describe("keeping your place", () => {
         save({ nickname: "Alice", resume });
         goTo("/rooms/general");
         const server = makeFakeServer();
-        const { user } = setup(server, [150]);
+        const { user } = setup(server, [60_000]);
         await screen.findByRole("button", { name: "Your profile: Alice" });
 
         act(() => server.latest.serverEmit("disconnect", "transport close"));

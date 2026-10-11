@@ -527,7 +527,7 @@ describe("direct messages", () => {
 
     it("forgets them all when the connection is given up", async () => {
       const server = makeFakeServer();
-      const { user } = setup(server, [150, 150]);
+      const { user } = setup(server, [60_000, 60_000]);
       await joinRoom(user);
       await screen.findByRole("button", { name: "Your profile: Alice" });
       present(server, [bob]);

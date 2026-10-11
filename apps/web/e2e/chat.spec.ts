@@ -395,6 +395,7 @@ test("a room with slow mode makes a guest wait between messages", async ({
     alice.getByText("Slow mode: one message every 3 s."),
   ).toBeVisible();
   await alice.keyboard.press("Escape");
+  await expect(alice.getByRole("dialog")).toHaveCount(0);
 
   await send(alice, "first");
   await expect(alice.getByRole("log")).toContainText("first");
