@@ -146,7 +146,7 @@ describe("direct messages", () => {
       await waitFor(() =>
         expect(
           screen.getByRole("textbox", { name: "Message to Bob" }),
-        ).toHaveValue(""),
+        ).toHaveDraft(""),
       );
     });
 
@@ -213,7 +213,7 @@ describe("direct messages", () => {
       );
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),
-      ).toHaveValue("again");
+      ).toHaveDraft("again");
     });
 
     it("explains when the person has gone", async () => {
@@ -279,7 +279,7 @@ describe("direct messages", () => {
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       expect(
         screen.getByRole("textbox", { name: "Message to Carol" }),
-      ).toHaveValue("");
+      ).toHaveDraft("");
     });
   });
 
@@ -290,7 +290,7 @@ describe("direct messages", () => {
       await user.click(threads().getByRole("button", { name: /^Bob/ }));
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),
-      ).toBeEnabled();
+      ).not.toBeLocked();
 
       present(server, [carol, ada]);
 
@@ -299,7 +299,7 @@ describe("direct messages", () => {
       );
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),
-      ).toBeDisabled();
+      ).toBeLocked();
       expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
       // What was said stays readable.
       expect(log("Bob").getByText("hi Alice")).toBeInTheDocument();
@@ -309,7 +309,7 @@ describe("direct messages", () => {
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),
-      ).toBeEnabled();
+      ).not.toBeLocked();
     });
 
     it("replaces the words of somebody who was banned, as in the room", async () => {

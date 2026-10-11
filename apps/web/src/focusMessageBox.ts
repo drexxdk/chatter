@@ -10,7 +10,7 @@ export function focusMessageBox() {
   const attempt = () => {
     const overlay = document.querySelector('[role="dialog"], [role="menu"]');
     const box = document.querySelector<HTMLElement>(
-      "#message:not(:disabled), #direct-message:not(:disabled), #unblock-direct",
+      '#message:not([aria-disabled="true"]), #direct-message:not([aria-disabled="true"]), #unblock-direct',
     );
 
     if (!overlay && box) {

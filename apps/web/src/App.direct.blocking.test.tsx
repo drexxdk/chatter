@@ -46,7 +46,7 @@ describe("direct messages", () => {
       ).toBeInTheDocument();
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),
-      ).toBeDisabled();
+      ).toBeLocked();
       expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
       expect(screen.queryByRole("button", { name: "Block Bob" })).toBeNull();
 
@@ -64,7 +64,7 @@ describe("direct messages", () => {
       ).toBeInTheDocument();
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),
-      ).toBeEnabled();
+      ).not.toBeLocked();
     });
 
     it("stops saying that a blocked person leaves or joins the room, and starts again once unblocked", async () => {
@@ -149,7 +149,7 @@ describe("direct messages", () => {
         ).toBeInTheDocument();
         expect(
           screen.getByRole("textbox", { name: "Message to Bob" }),
-        ).toBeDisabled();
+        ).toBeLocked();
         expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
         expect(
           screen.getByText("Bob has blocked you, so you can't write to them."),
@@ -205,7 +205,7 @@ describe("direct messages", () => {
 
         expect(
           screen.getByRole("textbox", { name: "Message to Bob" }),
-        ).toBeEnabled();
+        ).not.toBeLocked();
       });
 
       it("learns it from the server's refusal as well, and shows the person as having blocked the guest", async () => {
@@ -228,7 +228,7 @@ describe("direct messages", () => {
         await waitFor(() =>
           expect(
             screen.getByRole("textbox", { name: "Message to Bob" }),
-          ).toBeDisabled(),
+          ).toBeLocked(),
         );
         expect(
           log("Bob").getByText(
@@ -256,7 +256,7 @@ describe("direct messages", () => {
       expect(button).toHaveAccessibleName("Unblock Bob");
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),
-      ).toBeDisabled();
+      ).toBeLocked();
 
       await user.click(button);
 

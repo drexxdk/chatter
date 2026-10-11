@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
+import { editorOf, fillBox, selectText } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
 const ROOMS = [{ id: 1, name: "General", slug: "general", maxMembers: 100 }];
@@ -115,13 +116,13 @@ describe("emoji", () => {
     const { user, server } = await enter();
     const box = screen.getByRole("textbox", { name: "Message" });
     await user.type(box, "hello world");
-    (box as HTMLTextAreaElement).setSelectionRange(5, 5);
+    selectText(box, 5);
 
     await openPicker(user);
     await user.click(await screen.findByRole("button", { name: "😀" }));
 
-    await waitFor(() => expect(box).toHaveValue("hello😀 world"));
-    expect((box as HTMLTextAreaElement).selectionStart).toBe("hello😀".length);
+    await waitFor(() => expect(box).toHaveDraft("hello😀 world"));
+    expect(editorOf(box).state.selection.from - 1).toBe("hello😀".length);
     expect(server.latest.emittedEvents("message:send")).toEqual([]);
     await waitFor(() =>
       expect(screen.queryByRole("tab", { name: "Emoji" })).toBeNull(),
@@ -140,12 +141,12 @@ describe("emoji", () => {
     const { user } = await enter();
     const box = screen.getByRole("textbox", { name: "Message" });
     await user.type(box, "abcdef");
-    (box as HTMLTextAreaElement).setSelectionRange(1, 3);
+    selectText(box, 1, 3);
 
     await openPicker(user);
     await user.click(await screen.findByRole("button", { name: "🔥" }));
 
-    await waitFor(() => expect(box).toHaveValue("a🔥def"));
+    await waitFor(() => expect(box).toHaveDraft("a🔥def"));
   });
 
   it("can be searched for by what they are called", async () => {
@@ -172,12 +173,12 @@ describe("emoji", () => {
   it("are not added beyond the length of a message", async () => {
     const { user } = await enter();
     const box = screen.getByRole("textbox", { name: "Message" });
-    fireEvent.change(box, { target: { value: "x".repeat(499) } });
+    fillBox(box, "x".repeat(499));
 
     await openPicker(user);
     await user.click(await screen.findByRole("button", { name: "😀" }));
 
-    expect(box).toHaveValue("x".repeat(499));
+    expect(box).toHaveDraft("x".repeat(499));
   });
 });
 
@@ -241,7 +242,7 @@ describe("GIFs", () => {
         { text: `look\n${BARE}` },
       ]),
     );
-    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveDraft("");
   });
 
   it("can be taken out again before sending", async () => {
@@ -262,16 +263,16 @@ describe("GIFs", () => {
   it("leaves room for the picture in the message", async () => {
     const { user } = await enter();
     const box = screen.getByRole("textbox", { name: "Message" });
-    fireEvent.change(box, { target: { value: "x".repeat(500) } });
+    fillBox(box, "x".repeat(500));
 
     await addDancing(user);
 
     await waitFor(() =>
-      expect((box as HTMLTextAreaElement).value.length).toBe(
-        500 - BARE.length - 1,
-      ),
+      expect(box.textContent).toHaveLength(500 - BARE.length - 1),
     );
-    expect(box).toHaveAttribute("maxlength", String(500 - BARE.length - 1));
+    // Nothing more fits.
+    fillBox(box, "y");
+    expect(box.textContent).toHaveLength(500 - BARE.length - 1);
   });
 
   it("searches for what is typed", async () => {

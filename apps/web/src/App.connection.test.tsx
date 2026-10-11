@@ -38,7 +38,7 @@ describe("losing the connection", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Connection lost. Reconnecting…",
     );
-    expect(screen.getByLabelText("Message")).toBeDisabled();
+    expect(screen.getByLabelText("Message")).toBeLocked();
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
     expect(screen.getByText("before the drop")).toBeInTheDocument();
 
@@ -57,7 +57,7 @@ describe("losing the connection", () => {
     expect(server.latest.emittedEvents("room:join")).toEqual([
       { slug: "general" },
     ]);
-    expect(screen.getByLabelText("Message")).toBeEnabled();
+    expect(screen.getByLabelText("Message")).not.toBeLocked();
     expect(screen.getByText("before the drop")).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "In this room (1)" }),
@@ -115,7 +115,9 @@ describe("losing the connection", () => {
     const { user, server } = await enterRoom();
 
     dropConnection(server);
-    await waitFor(() => expect(screen.getByLabelText("Message")).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByLabelText("Message")).not.toBeLocked(),
+    );
     await user.type(screen.getByLabelText("Message"), "back again");
     await user.click(screen.getByRole("button", { name: "Send" }));
 
@@ -136,7 +138,7 @@ describe("losing the connection", () => {
     await waitFor(() =>
       expect(screen.queryByRole("status")).not.toBeInTheDocument(),
     );
-    expect(screen.getByLabelText("Message")).toBeEnabled();
+    expect(screen.getByLabelText("Message")).not.toBeLocked();
   });
 
   it("keeps trying when the old connection still counts against the network's limit", async () => {
@@ -150,7 +152,7 @@ describe("losing the connection", () => {
     await waitFor(() =>
       expect(screen.queryByRole("status")).not.toBeInTheDocument(),
     );
-    expect(screen.getByLabelText("Message")).toBeEnabled();
+    expect(screen.getByLabelText("Message")).not.toBeLocked();
   });
 
   it("gives up after the last attempt and returns to the lobby", async () => {

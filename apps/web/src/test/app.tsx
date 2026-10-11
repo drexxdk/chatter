@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { Editor } from "@tiptap/core";
 import { vi } from "vitest";
 
 import { App } from "../App";
@@ -72,4 +73,21 @@ export function message(overrides: Partial<Record<string, string>> = {}) {
     sentAt: new Date().toISOString(),
     ...overrides,
   };
+}
+
+// The message box is an editor; these reach it to set up what a test needs, where typing would not do (a cursor or a
+// selection somewhere, or a long text at once). Positions are in the words, not in the document.
+export const editorOf = (box: HTMLElement) =>
+  (box as unknown as { editor: Editor }).editor;
+
+export function selectText(box: HTMLElement, from: number, to = from) {
+  act(() => {
+    editorOf(box).commands.setTextSelection({ from: from + 1, to: to + 1 });
+  });
+}
+
+export function fillBox(box: HTMLElement, text: string) {
+  act(() => {
+    editorOf(box).commands.insertContent(text);
+  });
 }

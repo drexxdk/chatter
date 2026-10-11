@@ -264,7 +264,7 @@ test("an emoji chosen from the picker is added to the message and sent with it",
   await alice.getByRole("button", { name: "🍕" }).click();
 
   // Added to what is being written, not sent.
-  await expect(box).toHaveValue(`${text}🍕`);
+  await expect(box).toHaveText(`${text}🍕`);
   await expect(bob.getByRole("log")).not.toContainText("🍕");
 
   await send(alice, `${text}🍕 yum`);
@@ -404,7 +404,7 @@ test("a room with slow mode makes a guest wait between messages", async ({
   await expect(alice.getByRole("alert")).toContainText(
     /You can send again in [1-3] s\./,
   );
-  await expect(alice.getByRole("textbox", { name: "Message" })).toHaveValue(
+  await expect(alice.getByRole("textbox", { name: "Message" })).toHaveText(
     "too soon",
   );
   await expect(alice.getByRole("log")).not.toContainText("too soon");

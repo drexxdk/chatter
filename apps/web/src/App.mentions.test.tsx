@@ -1,7 +1,7 @@
-import { screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { joinRoom, setup, stubRooms } from "./test/app";
+import { editorOf, joinRoom, selectText, setup, stubRooms } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
 beforeEach(() => {
@@ -98,7 +98,7 @@ describe("mentioning somebody with @", () => {
 
     await user.click(within(list()!).getByRole("option", { name: "Bobby" }));
 
-    expect(box).toHaveValue("hi Bobby ");
+    expect(box).toHaveDraft("hi Bobby ");
     expect(list()).toBeNull();
     expect(box).toHaveFocus();
   });
@@ -106,11 +106,12 @@ describe("mentioning somebody with @", () => {
   it("keeps what follows the cursor", async () => {
     const { user, box } = await enter();
     await user.type(box, "hi @ca there");
-    await user.keyboard("{ArrowLeft>6/}");
+    selectText(box, "hi @ca".length);
 
     await user.click(within(list()!).getByRole("option", { name: "Carol" }));
 
-    expect(box).toHaveValue("hi Carol  there");
+    // The space after the cursor is the one the name comes with.
+    expect(box).toHaveDraft("hi Carol there");
   });
 
   it("takes a name with a space in it whole", async () => {
@@ -120,7 +121,7 @@ describe("mentioning somebody with @", () => {
     expect(names()).toEqual(["Anne Linde"]);
     await user.keyboard("{Enter}");
 
-    expect(box).toHaveValue("Anne Linde ");
+    expect(box).toHaveDraft("Anne Linde ");
   });
 
   it("does not come back for a name that is already written", async () => {
@@ -152,7 +153,7 @@ describe("mentioning somebody with @", () => {
       await user.type(box, "hi @");
       await user.keyboard("{ArrowDown}{Enter}");
 
-      expect(box).toHaveValue("hi Bobby ");
+      expect(box).toHaveDraft("hi Bobby ");
       expect(server.latest.emittedEvents("message:send")).toEqual([]);
     });
 
@@ -162,7 +163,7 @@ describe("mentioning somebody with @", () => {
 
       await user.keyboard("{Tab}");
 
-      expect(box).toHaveValue("Carol ");
+      expect(box).toHaveDraft("Carol ");
       expect(box).toHaveFocus();
     });
 
@@ -199,7 +200,7 @@ describe("mentioning somebody with @", () => {
 
       await user.keyboard("{Shift>}{Enter}{/Shift}");
 
-      expect(box).toHaveValue("@bo\n");
+      expect(box).toHaveDraft("@bo\n");
     });
   });
 
@@ -250,14 +251,13 @@ describe("mentioning somebody with @", () => {
 
     expect(list()).toBeNull();
   });
+
   describe("once chosen", () => {
-    // The box colours what it cannot colour itself with a copy of the text behind it.
-    const coloured = () =>
-      Array.from(
-        document.querySelectorAll<HTMLElement>(
-          '[aria-hidden="true"] .text-indigo-400',
-        ),
-      ).map((part) => part.textContent);
+    // What the box shows in the colour of a mention.
+    const coloured = (box: HTMLElement) =>
+      Array.from(box.querySelectorAll<HTMLElement>(".text-indigo-400")).map(
+        (part) => part.textContent,
+      );
 
     it("shows the name in colour, without the @", async () => {
       const { user, box } = await enter();
@@ -265,8 +265,8 @@ describe("mentioning somebody with @", () => {
       await user.type(box, "hello @ca");
       await user.keyboard("{Enter}");
 
-      expect(box).toHaveValue("hello Carol ");
-      expect(coloured()).toEqual(["Carol"]);
+      expect(box).toHaveDraft("hello Carol ");
+      expect(coloured(box)).toEqual(["Carol"]);
     });
 
     it("has no colour before somebody is chosen, even for an @ typed out", async () => {
@@ -274,7 +274,7 @@ describe("mentioning somebody with @", () => {
 
       await user.type(box, "hello @Carol ");
 
-      expect(coloured()).toEqual([]);
+      expect(coloured(box)).toEqual([]);
     });
 
     it("is sent with its @, so that everybody sees who was meant", async () => {
@@ -296,35 +296,40 @@ describe("mentioning somebody with @", () => {
       const { user, box } = await enter();
       await user.type(box, "hi @ca");
       await user.keyboard("{Enter}");
+      selectText(box, 0);
 
-      await user.keyboard("{Home}well ");
+      await user.keyboard("well ");
 
-      expect(box).toHaveValue("well hi Carol ");
-      expect(coloured()).toEqual(["Carol"]);
+      expect(box).toHaveDraft("well hi Carol ");
+      expect(coloured(box)).toEqual(["Carol"]);
     });
 
-    it("is words like any other once it has been changed", async () => {
+    it("is taken out whole by one Backspace, not letter by letter", async () => {
       const { user, server, box } = await enter();
       await user.type(box, "hi @ca");
       await user.keyboard("{Enter}");
+      // Right after the name: "hi " is three places in, the name one, and the paragraph opens one before them.
+      act(() => {
+        editorOf(box).commands.setTextSelection(5);
+      });
 
-      await user.keyboard("{ArrowLeft}{ArrowLeft}{Backspace}");
-      expect(coloured()).toEqual([]);
+      await user.keyboard("{Backspace}");
+
+      expect(box).toHaveDraft("hi  ");
+      expect(coloured(box)).toEqual([]);
       await user.keyboard("{Enter}");
-
       expect(server.latest.emittedEvents("message:send")).toEqual([
-        { text: "hi Carl" },
+        { text: "hi" },
       ]);
     });
-
     it("is gone when the box is emptied by sending", async () => {
       const { user, box } = await enter();
       await user.type(box, "@ca");
       await user.keyboard("{Enter}");
       await user.keyboard("x{Enter}");
 
-      expect(box).toHaveValue("");
-      expect(coloured()).toEqual([]);
+      expect(box).toHaveDraft("");
+      expect(coloured(box)).toEqual([]);
     });
   });
 });

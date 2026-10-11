@@ -95,7 +95,7 @@ export function ChatRoom({
   idleDeadline,
 }: ChatRoomProps) {
   const { t } = useTranslation();
-  const composer = useComposer("message");
+  const composer = useComposer();
   const items = withDirect(
     timeline(messages, showMovements ? events : []),
     direct.threads,

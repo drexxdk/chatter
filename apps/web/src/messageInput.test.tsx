@@ -1,21 +1,45 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { useComposer } from "./chat/useComposer";
 import { MessageInput } from "./components/MessageInput";
+import { editorOf, fillBox } from "./test/app";
 
 afterEach(() => vi.unstubAllGlobals());
 
+function Harness({
+  onSubmit,
+}: {
+  onSubmit: (event: React.SubmitEvent) => void;
+}) {
+  const composer = useComposer();
+
+  return (
+    <form onSubmit={onSubmit}>
+      <span id="label">Message</span>
+      <MessageInput
+        id="message"
+        labelledBy="label"
+        composer={composer}
+        placeholder="Write something"
+        disabled={false}
+      />
+      <output aria-label="Sent as">{composer.text}</output>
+      <button type="submit">Send</button>
+    </form>
+  );
+}
+
 function setup() {
   const submitted = vi.fn((event: React.SubmitEvent) => event.preventDefault());
-  render(
-    <form onSubmit={submitted}>
-      <MessageInput aria-label="Message" defaultValue="" />
-      <button type="submit">Send</button>
-    </form>,
-  );
+  render(<Harness onSubmit={submitted} />);
 
-  return { submitted, user: userEvent.setup() };
+  return {
+    submitted,
+    user: userEvent.setup(),
+    box: screen.getByRole("textbox", { name: "Message" }),
+  };
 }
 
 const touchScreen = (touch: boolean) =>
@@ -30,10 +54,11 @@ const touchScreen = (touch: boolean) =>
 describe("the Enter key in the message box", () => {
   it("sends with a mouse and keyboard, and Shift+Enter starts a new line", async () => {
     touchScreen(false);
-    const { submitted, user } = setup();
+    const { submitted, user, box } = setup();
 
-    await user.type(screen.getByRole("textbox"), "a{Shift>}{Enter}{/Shift}b");
+    await user.type(box, "a{Shift>}{Enter}{/Shift}b");
     expect(submitted).not.toHaveBeenCalled();
+    expect(box).toHaveDraft("a\nb");
 
     await user.keyboard("{Enter}");
     expect(submitted).toHaveBeenCalledTimes(1);
@@ -41,20 +66,100 @@ describe("the Enter key in the message box", () => {
 
   it("starts a new line on a touch screen, where the Send button sends", async () => {
     touchScreen(true);
-    const { submitted, user } = setup();
+    const { submitted, user, box } = setup();
 
-    await user.type(screen.getByRole("textbox"), "a{Enter}b");
+    await user.type(box, "a{Enter}b");
 
     expect(submitted).not.toHaveBeenCalled();
-    expect(screen.getByRole("textbox")).toHaveValue("a\nb");
+    expect(box).toHaveDraft("a\nb");
 
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect(submitted).toHaveBeenCalledTimes(1);
   });
 });
 
-describe("the height of the message box", () => {
-  it("is fitted again when the box gets narrower or wider, not only when the words change", () => {
+describe("what the box holds", () => {
+  it("is reported as the words that are sent, line breaks included", async () => {
+    const { user, box } = setup();
+
+    await user.type(box, "one{Shift>}{Enter}{/Shift}two");
+
+    expect(screen.getByLabelText("Sent as")).toHaveTextContent("one two");
+    expect(screen.getByLabelText("Sent as").textContent).toBe("one\ntwo");
+  });
+
+  it("shows what to write while it is empty, and not after", async () => {
+    const { user, box } = setup();
+    expect(screen.getByText("Write something")).toBeInTheDocument();
+    expect(box).toHaveAttribute("aria-placeholder", "Write something");
+
+    await user.type(box, "x");
+
+    expect(screen.queryByText("Write something")).toBeNull();
+  });
+
+  describe("pasted", () => {
+    const paste = (box: HTMLElement, text: string, html = "") =>
+      fireEvent.paste(box, {
+        clipboardData: {
+          types: html ? ["text/plain", "text/html"] : ["text/plain"],
+          getData: (type: string) =>
+            type === "text/plain" ? text : type === "text/html" ? html : "",
+        },
+      });
+
+    it("is words, with the line breaks kept", () => {
+      const { box } = setup();
+
+      paste(box, "one\r\ntwo\nthree");
+
+      expect(box).toHaveDraft("one\ntwo\nthree");
+      expect(screen.getByLabelText("Sent as").textContent).toBe(
+        "one\ntwo\nthree",
+      );
+    });
+
+    it("has no formatting", () => {
+      const { box } = setup();
+
+      paste(box, "bold", "<b>bold</b>");
+
+      expect(box).toHaveDraft("bold");
+      expect(box.querySelector("b, strong")).toBeNull();
+    });
+
+    it("is cut to what fits", async () => {
+      const { box } = setup();
+      fillBox(box, "x".repeat(490));
+
+      paste(box, "y".repeat(50));
+
+      expect(box.textContent).toBe("x".repeat(490) + "y".repeat(10));
+    });
+  });
+  it("is no longer than a message can be", async () => {
+    const { box } = setup();
+
+    fillBox(box, "x".repeat(600));
+    expect(box.textContent).toHaveLength(0);
+
+    fillBox(box, "x".repeat(500));
+    fillBox(box, "y");
+
+    expect(box.textContent).toHaveLength(500);
+  });
+
+  it("is a text box to assistive technology, named by its label", () => {
+    const { box } = setup();
+
+    expect(box).toHaveAttribute("aria-multiline", "true");
+    expect(box).toHaveAttribute("id", "message");
+    expect(editorOf(box).isEditable).toBe(true);
+  });
+});
+
+describe("keeping the page at its end when the box grows", () => {
+  function observe() {
     let notify: () => void = () => {};
     vi.stubGlobal(
       "ResizeObserver",
@@ -66,24 +171,50 @@ describe("the height of the message box", () => {
         disconnect() {}
       },
     );
-    render(<MessageInput aria-label="Message" defaultValue="some words" />);
-    const box = screen.getByRole("textbox");
-    let lines = 36;
-    let width = 400;
-    Object.defineProperty(box, "scrollHeight", { get: () => lines });
-    Object.defineProperty(box, "offsetWidth", { get: () => width });
 
-    notify();
-    expect(box.style.height).toBe("36px");
+    return () => act(() => notify());
+  }
 
-    // The same width: nothing to do (and no loop from the box changing its own height).
-    box.style.height = "1px";
-    notify();
-    expect(box.style.height).toBe("1px");
+  const page = (scrollHeight: number, scrollTop: number) => {
+    const root = document.documentElement;
+    Object.defineProperty(root, "scrollHeight", {
+      configurable: true,
+      get: () => scrollHeight,
+    });
+    Object.defineProperty(root, "clientHeight", {
+      configurable: true,
+      get: () => 800,
+    });
+    root.scrollTop = scrollTop;
 
-    width = 200;
-    lines = 84;
+    return root;
+  };
+
+  it("scrolls to the end when the guest was there before it grew", () => {
+    const notify = observe();
+    const { box } = setup();
+    let height = 40;
+    Object.defineProperty(box, "offsetHeight", { get: () => height });
+    const root = page(2000, 1160);
+
+    height = 112;
+    page(2072, 1160);
     notify();
-    expect(box.style.height).toBe("84px");
+
+    expect(root.scrollTop).toBe(2072);
+  });
+
+  it("leaves the page alone when the guest had scrolled up", () => {
+    const notify = observe();
+    const { box } = setup();
+    let height = 40;
+    Object.defineProperty(box, "offsetHeight", { get: () => height });
+    const root = page(2000, 300);
+
+    height = 112;
+    page(2072, 300);
+    notify();
+
+    expect(root.scrollTop).toBe(300);
   });
 });

@@ -1,7 +1,15 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { ROOMS, stubRooms, setup, joinRoom, at, message } from "./test/app";
+import {
+  ROOMS,
+  stubRooms,
+  setup,
+  joinRoom,
+  at,
+  message,
+  fillBox,
+} from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
 beforeEach(() => {
@@ -259,7 +267,7 @@ describe("inside a room", () => {
     await user.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Message")).toHaveValue(""),
+      expect(screen.getByLabelText("Message")).toHaveDraft(""),
     );
     expect(server.latest.emittedEvents("message:send")).toEqual([
       { text: "hi all" },
@@ -281,7 +289,7 @@ describe("inside a room", () => {
       const box = screen.getByLabelText("Message");
 
       await user.type(box, "first{Shift>}{Enter}{/Shift}second");
-      expect(box).toHaveValue("first\nsecond");
+      expect(box).toHaveDraft("first\nsecond");
       expect(server.latest.emittedEvents("message:send")).toEqual([]);
 
       await user.keyboard("{Enter}");
@@ -293,12 +301,14 @@ describe("inside a room", () => {
       );
     });
 
-    it("starts as one line and holds at most 500 characters", async () => {
+    it("holds at most 500 characters", async () => {
       await enterRoom();
       const box = screen.getByLabelText("Message");
 
-      expect(box).toHaveAttribute("rows", "1");
-      expect(box).toHaveAttribute("maxlength", "500");
+      fillBox(box, "x".repeat(500));
+      fillBox(box, "y");
+
+      expect(box.textContent).toBe("x".repeat(500));
     });
 
     it("shows the lines of a message", async () => {
@@ -330,7 +340,7 @@ describe("inside a room", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "You're sending messages too fast.",
     );
-    expect(screen.getByLabelText("Message")).toHaveValue("too fast");
+    expect(screen.getByLabelText("Message")).toHaveDraft("too fast");
   });
 
   it("tells the guest how long to wait when a message is refused", async () => {
@@ -348,7 +358,7 @@ describe("inside a room", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "You can send again in 7 s.",
     );
-    expect(screen.getByLabelText("Message")).toHaveValue("too fast");
+    expect(screen.getByLabelText("Message")).toHaveDraft("too fast");
   });
 
   describe("slow mode", () => {
@@ -542,7 +552,7 @@ describe("message history", () => {
     await joinWithHistory(history);
 
     expect(shown()).toEqual([]);
-    expect(screen.getByLabelText("Message")).toBeEnabled();
+    expect(screen.getByLabelText("Message")).not.toBeLocked();
   });
 
   it("leaves a room's history behind when moving to another room", async () => {

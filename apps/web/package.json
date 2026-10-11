@@ -13,7 +13,18 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json"
   },
   "dependencies": {
+    "@floating-ui/react": "^0.27.20",
     "@headlessui/react": "^2.2.10",
+    "@tiptap/core": "^3.31.4",
+    "@tiptap/extension-document": "^3.31.4",
+    "@tiptap/extension-hard-break": "^3.31.4",
+    "@tiptap/extension-mention": "^3.31.4",
+    "@tiptap/extension-paragraph": "^3.31.4",
+    "@tiptap/extension-text": "^3.31.4",
+    "@tiptap/extensions": "^3.31.4",
+    "@tiptap/pm": "^3.31.4",
+    "@tiptap/react": "^3.31.4",
+    "@tiptap/suggestion": "^3.31.4",
     "country-flag-icons": "^1.6.20",
     "i18next": "^26.4.2",
     "i18next-icu": "^2.5.0",

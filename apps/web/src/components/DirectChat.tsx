@@ -45,7 +45,7 @@ export function DirectChat({
   idleDeadline,
 }: DirectChatProps) {
   const { t } = useTranslation();
-  const composer = useComposer("direct-message");
+  const composer = useComposer();
   const [failure, setFailure] = useState<ActionResult & { ok: false }>();
   const label = t("dm.title", { name: partner.nickname });
 
