@@ -7,6 +7,8 @@
   ],
   "scripts": {
     "start": "node scripts/start.mjs",
+    "stop": "node scripts/stop.mjs",
+    "restart": "node scripts/stop.mjs && node scripts/start.mjs",
     "dev:admin": "npm run dev --workspace apps/admin",
     "dev:chat-server": "npm run dev --workspace apps/chat-server",
     "dev:web": "npm run dev --workspace apps/web",
