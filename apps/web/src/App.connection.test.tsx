@@ -76,8 +76,10 @@ describe("losing the connection", () => {
         }),
       ),
     );
-    const author = () => within(screen.getByRole("log")).getByText("Alice");
-    expect(author()).toHaveClass("text-indigo-300");
+    // Hers are on the right, which is how they are told from the others.
+    const own = () =>
+      within(screen.getByRole("log")).getByText("my old message").closest("li");
+    expect(own()).toHaveAttribute("data-side", "right");
 
     dropConnection(server);
     await waitFor(() => expect(server.createSocket).toHaveBeenCalledTimes(2));
@@ -86,7 +88,7 @@ describe("losing the connection", () => {
     );
 
     expect(server.latest.guestId).toBe("guest-me-2");
-    expect(author()).toHaveClass("text-indigo-300");
+    expect(own()).toHaveAttribute("data-side", "right");
   });
 
   it("fills in the messages missed while disconnected, without repeating the ones already shown", async () => {

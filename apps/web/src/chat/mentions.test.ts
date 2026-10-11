@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { Partner } from "./direct";
-import { findMention, suggestMentions } from "./mentions";
+import { findMention, splitMentions, suggestMentions } from "./mentions";
+import type { Member } from "./types";
 
 describe("findMention", () => {
   it("finds an @ that begins the text", () => {
@@ -95,5 +96,72 @@ describe("suggestMentions", () => {
     const many = Array.from({ length: 20 }, (_, i) => person(`User ${i}`));
 
     expect(suggestMentions(many, "")).toHaveLength(8);
+  });
+});
+
+describe("splitMentions", () => {
+  const member = (nickname: string): Member => ({
+    guestId: `g-${nickname}`,
+    nickname,
+  });
+  const room = ["Bob", "Bobby", "Anne", "Anne Linde", "Carol"].map(member);
+  // Plain words as they are, a mention as `[name]`.
+  const shown = (text: string) =>
+    splitMentions(text, room).map((piece) =>
+      typeof piece === "string" ? piece : `[${piece.mention.nickname}]`,
+    );
+
+  it("is the text itself when there is no mention", () => {
+    expect(splitMentions("hello there", room)).toEqual(["hello there"]);
+    expect(splitMentions("", room)).toEqual([]);
+  });
+
+  it("sets apart the name of somebody in the room", () => {
+    expect(shown("hi @Carol, how are you")).toEqual([
+      "hi ",
+      "[Carol]",
+      ", how are you",
+    ]);
+  });
+
+  it("takes the @ with the name, as it was written", () => {
+    const [, mention] = splitMentions("hi @carol", room);
+
+    expect(mention).toEqual({
+      mention: expect.objectContaining({ nickname: "Carol" }),
+      text: "@carol",
+    });
+  });
+
+  it("finds a mention at the start and at the end", () => {
+    expect(shown("@Bob")).toEqual(["[Bob]"]);
+    expect(shown("@Bob @Carol")).toEqual(["[Bob]", " ", "[Carol]"]);
+  });
+
+  it("takes the longest name that fits, with a space in it", () => {
+    expect(shown("@Anne Linde came")).toEqual(["[Anne Linde]", " came"]);
+    expect(shown("@Anne came")).toEqual(["[Anne]", " came"]);
+  });
+
+  it("does not stop in the middle of a longer name", () => {
+    expect(shown("@Bobby")).toEqual(["[Bobby]"]);
+    expect(shown("@Bobcat")).toEqual(["@Bobcat"]);
+  });
+
+  it("ends at punctuation", () => {
+    expect(shown("thanks @Bob.")).toEqual(["thanks ", "[Bob]", "."]);
+    expect(shown("(@Bob)")).toEqual(["(@Bob)"]);
+  });
+
+  it("leaves an @ in the middle of a word alone", () => {
+    expect(shown("mail bob@Bob.dk")).toEqual(["mail bob@Bob.dk"]);
+  });
+
+  it("leaves the name of somebody who is not here alone", () => {
+    expect(shown("hi @Zed")).toEqual(["hi @Zed"]);
+  });
+
+  it("finds a mention after a line break", () => {
+    expect(shown("hi\n@Bob")).toEqual(["hi\n", "[Bob]"]);
   });
 });

@@ -346,9 +346,8 @@ describe("direct messages", () => {
         );
       });
 
-      for (const name of roomLog().getAllByText("Alice")) {
-        expect(name).not.toHaveClass("cursor-pointer");
-      }
+      // Nothing of the guest's own is a name to click.
+      expect(roomLog().queryByText("Alice")).toBeNull();
 
       await clickMessage(user, "Ada Mod");
 

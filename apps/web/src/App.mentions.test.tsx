@@ -98,7 +98,7 @@ describe("mentioning somebody with @", () => {
 
     await user.click(within(list()!).getByRole("option", { name: "Bobby" }));
 
-    expect(box).toHaveValue("hi @Bobby ");
+    expect(box).toHaveValue("hi Bobby ");
     expect(list()).toBeNull();
     expect(box).toHaveFocus();
   });
@@ -110,7 +110,7 @@ describe("mentioning somebody with @", () => {
 
     await user.click(within(list()!).getByRole("option", { name: "Carol" }));
 
-    expect(box).toHaveValue("hi @Carol  there");
+    expect(box).toHaveValue("hi Carol  there");
   });
 
   it("takes a name with a space in it whole", async () => {
@@ -120,7 +120,7 @@ describe("mentioning somebody with @", () => {
     expect(names()).toEqual(["Anne Linde"]);
     await user.keyboard("{Enter}");
 
-    expect(box).toHaveValue("@Anne Linde ");
+    expect(box).toHaveValue("Anne Linde ");
   });
 
   it("does not come back for a name that is already written", async () => {
@@ -152,7 +152,7 @@ describe("mentioning somebody with @", () => {
       await user.type(box, "hi @");
       await user.keyboard("{ArrowDown}{Enter}");
 
-      expect(box).toHaveValue("hi @Bobby ");
+      expect(box).toHaveValue("hi Bobby ");
       expect(server.latest.emittedEvents("message:send")).toEqual([]);
     });
 
@@ -162,7 +162,7 @@ describe("mentioning somebody with @", () => {
 
       await user.keyboard("{Tab}");
 
-      expect(box).toHaveValue("@Carol ");
+      expect(box).toHaveValue("Carol ");
       expect(box).toHaveFocus();
     });
 
@@ -249,5 +249,82 @@ describe("mentioning somebody with @", () => {
     await user.type(box, "@");
 
     expect(list()).toBeNull();
+  });
+  describe("once chosen", () => {
+    // The box colours what it cannot colour itself with a copy of the text behind it.
+    const coloured = () =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '[aria-hidden="true"] .text-indigo-400',
+        ),
+      ).map((part) => part.textContent);
+
+    it("shows the name in colour, without the @", async () => {
+      const { user, box } = await enter();
+
+      await user.type(box, "hello @ca");
+      await user.keyboard("{Enter}");
+
+      expect(box).toHaveValue("hello Carol ");
+      expect(coloured()).toEqual(["Carol"]);
+    });
+
+    it("has no colour before somebody is chosen, even for an @ typed out", async () => {
+      const { user, box } = await enter();
+
+      await user.type(box, "hello @Carol ");
+
+      expect(coloured()).toEqual([]);
+    });
+
+    it("is sent with its @, so that everybody sees who was meant", async () => {
+      const { user, server, box } = await enter();
+      await user.type(box, "hi @ca");
+      await user.keyboard("{Enter}");
+      await user.type(box, "and @an");
+      await user.keyboard("{Enter}");
+      await user.type(box, "bye");
+
+      await user.keyboard("{Enter}");
+
+      expect(server.latest.emittedEvents("message:send")).toEqual([
+        { text: "hi @Carol and @Anne Linde bye" },
+      ]);
+    });
+
+    it("keeps its colour when words are written before it", async () => {
+      const { user, box } = await enter();
+      await user.type(box, "hi @ca");
+      await user.keyboard("{Enter}");
+
+      await user.keyboard("{Home}well ");
+
+      expect(box).toHaveValue("well hi Carol ");
+      expect(coloured()).toEqual(["Carol"]);
+    });
+
+    it("is words like any other once it has been changed", async () => {
+      const { user, server, box } = await enter();
+      await user.type(box, "hi @ca");
+      await user.keyboard("{Enter}");
+
+      await user.keyboard("{ArrowLeft}{ArrowLeft}{Backspace}");
+      expect(coloured()).toEqual([]);
+      await user.keyboard("{Enter}");
+
+      expect(server.latest.emittedEvents("message:send")).toEqual([
+        { text: "hi Carl" },
+      ]);
+    });
+
+    it("is gone when the box is emptied by sending", async () => {
+      const { user, box } = await enter();
+      await user.type(box, "@ca");
+      await user.keyboard("{Enter}");
+      await user.keyboard("x{Enter}");
+
+      expect(box).toHaveValue("");
+      expect(coloured()).toEqual([]);
+    });
   });
 });

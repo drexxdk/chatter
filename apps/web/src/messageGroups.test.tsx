@@ -170,9 +170,7 @@ describe("choosing the person to write to", () => {
 
     emit(server, said({ guestId: "guest-me", nickname: "Alice" }, "mine", 1));
 
-    expect(within(rows()[0]).queryByText("Alice")).not.toHaveClass(
-      "cursor-pointer",
-    );
+    expect(within(rows()[0]).queryByText("Alice")).toBeNull();
   });
 
   it("is not done by the keyboard from the message itself", async () => {

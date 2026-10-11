@@ -95,7 +95,12 @@ describe("direct messages", () => {
       await user.click(people().getByRole("button", { name: "Bob" }));
 
       expect(log("Bob").getByText("Bob")).toBeInTheDocument();
-      expect(log("Bob").getByText("Alice")).toHaveClass("text-indigo-300");
+      // What the guest said is on the right and has no name, as in Teams.
+      expect(log("Bob").queryByText("Alice")).toBeNull();
+      expect(log("Bob").getByText("my answer").closest("li")).toHaveAttribute(
+        "data-side",
+        "right",
+      );
       expect(
         log("Bob").getByText("<img src=x onerror=alert(1)>"),
       ).toBeInTheDocument();

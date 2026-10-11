@@ -84,10 +84,9 @@ export function ComposerBar({
     if (!mention) return;
 
     const end = Math.min(caret, composer.text.length);
-    const added = `@${person.nickname} `;
 
-    composer.replaceRange(mention.start, end, added);
-    setCaret(mention.start + added.length);
+    composer.addMention(mention.start, end, person.nickname);
+    setCaret(mention.start + person.nickname.length + 1);
   }
 
   function handleListKeys(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -174,6 +173,7 @@ export function ComposerBar({
             id={id}
             value={composer.text}
             reserve={composer.reserve}
+            highlights={composer.mentions}
             onChange={(event) => {
               const { value, selectionStart } = event.target;
 

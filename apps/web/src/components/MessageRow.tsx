@@ -10,6 +10,7 @@ import { AvatarIcon } from "./Avatar";
 import { BlockedTag } from "./DirectLists";
 import { GifImage } from "./GifImage";
 import { MessageEntry, type ReactionOptions } from "./MessageEntry";
+import { MentionedText } from "./Mentions";
 import type { PersonMenuOptions } from "./PersonMenu";
 import { Timestamp } from "./Timestamp";
 
@@ -98,11 +99,15 @@ export function MessageGroup({
           : moderator
             ? "border border-green-500/40 bg-green-900/30 font-bold text-green-300"
             : mine
-              ? "rounded-br-sm bg-indigo-600 text-white"
+              ? "rounded-br-sm bg-sent text-white"
               : "rounded-bl-sm bg-neutral-800"
       }`}
     >
-      {banned ? t("room.bannedMessage") : text}
+      {banned ? (
+        t("room.bannedMessage")
+      ) : (
+        <MentionedText text={text} onDark={mine} />
+      )}
     </p>
   );
 
@@ -142,20 +147,21 @@ export function MessageGroup({
         className={`flex min-w-0 max-w-[80%] flex-col gap-1 ${mine ? "items-end" : "items-start"}`}
       >
         <div className="flex items-center gap-2 text-xs">
-          <span
-            onClick={mine ? undefined : clickPerson}
-            className={`${
-              direct
-                ? "font-semibold text-amber-300"
-                : moderator
-                  ? "font-bold text-green-400"
-                  : mine
-                    ? "font-semibold text-indigo-300"
+          {/* What the guest wrote needs no name, as in Teams; a private message still says who it is to. */}
+          {(!mine || direct) && (
+            <span
+              onClick={mine ? undefined : clickPerson}
+              className={`${
+                direct
+                  ? "font-semibold text-amber-300"
+                  : moderator
+                    ? "font-bold text-green-400"
                     : "font-semibold"
-            } ${clickPerson && !mine ? "cursor-pointer hover:underline" : ""}`}
-          >
-            {direct ? direct.label : nickname}
-          </span>
+              } ${clickPerson && !mine ? "cursor-pointer hover:underline" : ""}`}
+            >
+              {direct ? direct.label : nickname}
+            </span>
+          )}
           {blocked && <BlockedTag />}
           {!direct && moderator && (
             <span className="rounded bg-green-500/20 px-1.5 py-0.5 font-semibold uppercase text-green-300">
