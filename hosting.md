@@ -101,8 +101,9 @@ the deploy workflow.
       a fallback VPS).
 - [x] 2.2 Docker and the compose plugin installed, and a `deploy` user (Docker group, key-only login with
       `~/.ssh/chatter_deploy`) that owns `/opt/chatter`. The GitHub secrets `DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS` and the
-      variable `DEPLOY_USER` are set. `DEPLOY_HOST` is left unset until Phase 3 has run once by hand: with it set, the deploy
-      workflow starts restarting the machine on every push.
+      variable `DEPLOY_USER` are set. `DEPLOY_HOST` (`chatter-drexx-api.duckdns.org`) was set after the first green CI run;
+      from then on every push to `main` that passes CI is deployed. The key in `DEPLOY_SSH_KEY` is a separate CI-only key
+      (its public half is in the `deploy` user's `authorized_keys`).
 - [x] 2.3a Ports 80 and 443 are open in Oracle's default security list (checked from outside with temporary web servers).
 - [x] 2.3 DuckDNS names point at the machine's public IP (see 1.5).
 - [x] 2.4 `/opt/chatter` is a clone of the public repository (as the `deploy` user; update with `git pull`), and the three
