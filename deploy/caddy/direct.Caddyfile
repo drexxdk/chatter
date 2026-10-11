@@ -1,0 +1,3 @@
+# Browsers reach this machine directly, so the address Caddy sees is the client's: set TRUST_PROXY_HOPS=1 for the
+# chat-server (Caddy is the one proxy in front of it).
+import sites.caddy

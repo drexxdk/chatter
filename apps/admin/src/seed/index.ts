@@ -96,7 +96,9 @@ async function seed() {
     })
 
     payload.logger.info('Created chat-server service account.')
-    payload.logger.info(`Set this as PAYLOAD_SERVICE_API_KEY in apps/chat-server/.env: ${apiKey}`)
+    payload.logger.info(
+      `Set this as PAYLOAD_SERVICE_API_KEY in the chat-server's settings (apps/chat-server/.env, or deploy/chat-server.env in production): ${apiKey}`,
+    )
   }
 
   process.exit(0)

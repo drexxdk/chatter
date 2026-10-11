@@ -68,6 +68,8 @@ jobs:
 
       - run: docker build -f apps/chat-server/Dockerfile -t chatter-chat-server .
 
+      - run: docker build -f apps/admin/Dockerfile -t chatter-admin .
+
       - run: docker build -f apps/web/Dockerfile -t chatter-web .
 
   e2e:

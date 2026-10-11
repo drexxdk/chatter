@@ -14,6 +14,9 @@ out/
 .env.*.local
 !.env.example
 
+# Production settings and secrets (the .example files are committed)
+deploy/*.env
+
 # Logs
 npm-debug.log*
 *.log

@@ -1,0 +1,117 @@
+name: chatter-prod
+
+# The production stack, for a single always-on machine. See hosting.md for the plan and deploy/ for the settings.
+#
+#   cp deploy/stack.env.example deploy/stack.env   (and the two service files; fill them in)
+#   docker compose --env-file deploy/stack.env -f docker-compose.prod.yml up -d
+#
+# Nothing but Caddy is published: the apps and the databases talk to each other on the stack's own network.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      API_HOST: ${API_HOST:?set API_HOST in deploy/stack.env}
+      ADMIN_HOST: ${ADMIN_HOST:?set ADMIN_HOST in deploy/stack.env}
+    # direct (browsers reach this machine) or cloudflare (Cloudflare is in front); see deploy/caddy.
+    command: caddy run --config /etc/caddy/${CADDY_MODE:-direct}.Caddyfile --adapter caddyfile
+    volumes:
+      - ./deploy/caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - chat-server
+      - admin
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  chat-server:
+    image: ${IMAGE_PREFIX:-chatter}-chat-server:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: apps/chat-server/Dockerfile
+    restart: unless-stopped
+    env_file: deploy/chat-server.env
+    environment:
+      PORT: "4000"
+      REDIS_URL: redis://redis:6379
+      PAYLOAD_URL: http://admin:3000
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging: *logging
+
+  admin:
+    image: ${IMAGE_PREFIX:-chatter}-admin:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    restart: unless-stopped
+    env_file: deploy/admin.env
+    environment:
+      DATABASE_URL: postgres://chatter:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/stack.env}@postgres:5432/chatter
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *logging
+
+  # One-off jobs with the whole workspace, like the seed:
+  #   docker compose --env-file deploy/stack.env -f docker-compose.prod.yml run --rm admin-tools
+  admin-tools:
+    profiles: [tools]
+    image: ${IMAGE_PREFIX:-chatter}-admin-tools:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+      target: tools
+    env_file: deploy/admin.env
+    environment:
+      DATABASE_URL: postgres://chatter:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/stack.env}@postgres:5432/chatter
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    # The major version is pinned: a newer one needs a dump and a restore (see deploy/restore.md).
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: chatter
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/stack.env}
+      POSTGRES_DB: chatter
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatter"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Append-only, so the cached rooms and bans and the recent history survive a restart.
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,108 @@
+name: Deploy
+
+# After CI has passed on main: build the images, publish them to GitHub's container registry and update the machine.
+# The web client is not part of this: Cloudflare Pages builds it from the repository itself (see hosting.md).
+#
+# Needs, once the machine exists (hosting.md, Phase 3), in the repository settings:
+#   variables: DEPLOY_HOST, DEPLOY_USER          secrets: DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS
+# Without DEPLOY_HOST the workflow only builds and publishes the images.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+# Two deployments at once would fight over the machine; the second waits.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  images:
+    name: Build and publish ${{ matrix.image }}
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # The machine is ARM (Oracle's free instances), so the images are built on ARM too: no emulation.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        include:
+          - image: chat-server
+            dockerfile: apps/chat-server/Dockerfile
+          - image: admin
+            dockerfile: apps/admin/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Name the image
+        id: name
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/chatter-${{ matrix.image }}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ steps.name.outputs.image }}:latest
+            ${{ steps.name.outputs.image }}:${{ github.event.workflow_run.head_sha || github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  deploy:
+    name: Update the machine
+    needs: images
+    if: vars.DEPLOY_HOST != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+
+      - name: Set up SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Copy the stack files
+        run: |
+          target="${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}"
+          scp -i ~/.ssh/deploy_key docker-compose.prod.yml "$target:/opt/chatter/"
+          scp -i ~/.ssh/deploy_key -r deploy/caddy deploy/backup.sh "$target:/opt/chatter/deploy/"
+
+      - name: Pull and restart
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}" bash -s <<EOF
+          set -euo pipefail
+          cd /opt/chatter
+          sed -i "s/^TAG=.*/TAG=$SHA/" deploy/stack.env
+          docker compose --env-file deploy/stack.env -f docker-compose.prod.yml pull chat-server admin
+          docker compose --env-file deploy/stack.env -f docker-compose.prod.yml up -d --remove-orphans
+          docker image prune -f
+          EOF

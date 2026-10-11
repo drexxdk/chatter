@@ -31,7 +31,7 @@ export default defineConfig([
   },
   {
     // Config and Playwright files run in Node.
-    files: ["*.{ts,mjs}", "e2e/**/*.ts"],
+    files: ["*.{ts,mjs}", "e2e/**/*.ts", "scripts/**/*.{ts,mjs}"],
     languageOptions: { globals: { ...globals.node } },
   },
   {

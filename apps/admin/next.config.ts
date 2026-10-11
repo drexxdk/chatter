@@ -7,6 +7,10 @@ const __filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(__filename)
 
 const nextConfig: NextConfig = {
+  // A self-contained server for the Docker image (apps/admin/Dockerfile).
+  output: 'standalone',
+  // The workspace root: node_modules are hoisted there, and the standalone trace has to include them.
+  outputFileTracingRoot: path.resolve(dirname, '../..'),
   images: {
     localPatterns: [
       {

@@ -1,0 +1,9 @@
+{$API_HOST} {
+	# Socket.IO's websocket upgrade is proxied as it is.
+	reverse_proxy chat-server:4000
+}
+
+{$ADMIN_HOST} {
+	encode zstd gzip
+	reverse_proxy admin:3000
+}

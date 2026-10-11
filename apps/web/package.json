@@ -7,6 +7,7 @@
     "dev": "vite",
     "lint": "eslint .",
     "build": "tsc --noEmit -p tsconfig.build.json && vite build",
+    "build:pages": "npm run build && node scripts/pagesHeaders.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",

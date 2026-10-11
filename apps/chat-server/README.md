@@ -95,7 +95,7 @@ A nickname is reserved for as long as somebody has it in a room: `room:join` is 
 
 ## Direct messages
 
-A guest can write privately to another guest who is in the same room. Nothing is stored on the server: a direct message exists only while both connections do. A guest who reloads keeps their identity (see Resuming an identity), and the web client keeps its own side of the conversations in the tab's session storage. (Keeping them on the server for signed-in members is planned, see progress.md.)
+A guest can write privately to another guest who is in the same room. Nothing is stored on the server: a direct message exists only while both connections do. A guest who reloads keeps their identity (see Resuming an identity), and the web client keeps its own side of the conversations in the tab's session storage. (Keeping them on the server for signed-in members is planned, see hosting.md.)
 
 - `dm:send` `{ toGuestId, text }` (client to server). `toGuestId` is the `guestId` shown in the room's presence list. The text is trimmed and must be 1-500 characters, with the same line handling as `message:send`. Ack: `{ ok: true }`, or `{ ok: false, error }` with `not_in_room`, `invalid_recipient` (missing, or yourself), `invalid_message`, `recipient_blocked` (the sender has blocked them), `blocked_by_recipient` (they have blocked the sender; nothing is sent), `user_not_found` (not in this room right now, or gone), `rate_limited` (with `retryAfterMs`) or `unavailable`.
 - `dm:new` `{ id, fromGuestId, fromNickname, fromRole, fromAvatar, toGuestId, toNickname, toAvatar, text, sentAt }` (server to the recipient **and** to the sender). The sender is shown the message through the same event, so a client has one place to read them from.
