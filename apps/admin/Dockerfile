@@ -6,7 +6,7 @@
 # The `tools` target has the whole workspace and is for one-off jobs, like the seed that creates the first super-admin:
 #   docker build -f apps/admin/Dockerfile --target tools -t chatter-admin-tools .
 
-FROM node:24-alpine AS deps
+FROM node:25-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 # npm checks the lockfile against every workspace, so all of their manifests have to be there.
@@ -29,7 +29,7 @@ WORKDIR /app/apps/admin
 ENV NODE_ENV=production
 CMD ["npm", "run", "seed"]
 
-FROM node:24-alpine AS runner
+FROM node:25-alpine AS runner
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
