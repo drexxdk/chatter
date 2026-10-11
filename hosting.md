@@ -80,41 +80,57 @@ the deploy workflow.
 
 ### Phase 1 — Accounts and domain (needs you)
 
-- [ ] 1.1 Create the Cloudflare account (Pages now, R2 for backups). No domain yet, so Cloudflare stays out of the way of
+- [x] 1.1 Create the Cloudflare account (Pages now, R2 for backups). No domain yet, so Cloudflare stays out of the way of
       the API (section 6).
-- [ ] 1.2 Create the Oracle Cloud account and an Always Free ARM instance (Ubuntu). If sign-up or capacity fails, switch
-      to the fallback VPS (an ARM one keeps the images as they are); nothing else in the plan changes.
-- [ ] 1.3 Create the Cloudflare R2 bucket and an API token (backups now, images later).
+- [x] 1.2 Oracle Cloud account (Free Tier, home region Frankfurt) and the instance `chatter`: Ubuntu 24.04 on
+      `VM.Standard.A1.Flex` (ARM), 2 OCPU, 12 GB, about 96 GB disk, a new VCN with a public subnet, and an ephemeral public
+      IP that stays while the instance exists. (The create form did not give it a public IP; it was added afterwards under
+      the VNIC's IP administration.) Logins: `~/.ssh/chatter_oracle` for the `ubuntu` admin user.
+- [x] 1.3 R2 is subscribed ($0 until the free limits are passed) and the bucket `chatter-backups` exists (EU
+      jurisdiction, private). The API token `chatter-backups-vm` (Object Read & Write, that bucket only) is made, and its two
+      keys are in the owner's password manager.
 - [ ] 1.4 Create the UptimeRobot account.
-- [ ] 1.5 Claim two DuckDNS names (for example `chatter-api` and `chatter-admin`) pointing at the machine's address.
+- [x] 1.5 DuckDNS names `chatter-drexx-api.duckdns.org` and `chatter-drexx-admin.duckdns.org` (the first choice was
+      taken), both pointing at the machine's public IP. DuckDNS fills in the IP of whoever creates a name, so set it to the
+      machine's address afterwards. If the public IP ever changes, update both there.
 
 ### Phase 2 — Server setup
 
-- [ ] 2.1 SSH key login only; firewall allows 22, 80, 443 and nothing else; `unattended-upgrades`; swap file.
-- [ ] 2.2 Install Docker and the compose plugin; create a non-root `deploy` user.
-- [ ] 2.3 Point the DuckDNS names at the machine; open 80 and 443 in Oracle's network rules as well as the firewall.
-- [ ] 2.4 Put the files in `/opt/chatter` (the deploy workflow copies the stack files after the first run; the first time,
-      copy `docker-compose.prod.yml` and `deploy/`), then make the three `deploy/*.env` files from the examples
-      (`chmod 600`); generated secrets go in a password manager.
+- [x] 2.1 SSH key login only (no passwords, no root), `unattended-upgrades` on, a 2 GB swap file, and the machine's own
+      firewall open for 22, 80 and 443 (`deploy/server-setup.sh`, safe to run again; made for this machine and reusable for
+      a fallback VPS).
+- [x] 2.2 Docker and the compose plugin installed, and a `deploy` user (Docker group, key-only login with
+      `~/.ssh/chatter_deploy`) that owns `/opt/chatter`. The GitHub secrets `DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS` and the
+      variable `DEPLOY_USER` are set. `DEPLOY_HOST` is left unset until Phase 3 has run once by hand: with it set, the deploy
+      workflow starts restarting the machine on every push.
+- [x] 2.3a Ports 80 and 443 are open in Oracle's default security list (checked from outside with temporary web servers).
+- [x] 2.3 DuckDNS names point at the machine's public IP (see 1.5).
+- [x] 2.4 `/opt/chatter` is a clone of the public repository (as the `deploy` user; update with `git pull`), and the three
+      `deploy/*.env` files were made there with generated secrets (never printed; `chmod 600`).
 
 ### Phase 3 — First deployment
 
 In this order, because the chat-server cannot start before the seed has made its key. `COMPOSE` is
 `docker compose --env-file deploy/stack.env -f docker-compose.prod.yml`.
 
-- [ ] 3.1 `COMPOSE up -d postgres redis admin`; the admin migrates the database as it starts.
-- [ ] 3.2 `COMPOSE run --rm admin-tools` runs the seed (first super-admin, sample rooms, the chat-server's service
-      account) and prints the service API key once. Put the key in `deploy/chat-server.env` as
-      `PAYLOAD_SERVICE_API_KEY`, then remove `SEED_ADMIN_*` from `deploy/admin.env`.
-- [ ] 3.3 `COMPOSE up -d`; check `https://<API_HOST>/health`, sign in to `https://<ADMIN_HOST>/admin`, and confirm
-      `GET /rooms` lists the rooms within one sync interval. Edit the rooms to taste.
-- [ ] 3.4 Deploy the web to Cloudflare Pages from the repository: build command
+- [x] 3.1 `COMPOSE up -d --build postgres redis admin` (the images are built on the machine for now); the admin
+      migrated the database as it started.
+- [x] 3.2 `bash deploy/seed.sh` runs the seed (first super-admin, sample rooms, the chat-server's service account) and
+      writes the service key into `deploy/chat-server.env` without printing it. Still to do by hand: read the super-admin
+      password once from `deploy/admin.env` (`SEED_ADMIN_PASSWORD`) into the password manager, then delete the two
+      `SEED_ADMIN_*` lines from that file.
+- [x] 3.3 `COMPOSE up -d --build`. Checked from outside: `/health`, `/rooms` (the five rooms, synced from the admin),
+      the admin login page, a valid Let's Encrypt certificate for both names, and a websocket join.
+- [x] 3.4 Deploy the web to Cloudflare Pages from the repository: build command
       `npm run build:pages --workspace apps/web`, output `apps/web/dist`, variables `VITE_CHAT_SERVER_URL=https://<API_HOST>`
-      and `VITE_GIPHY_API_KEY`.
-- [ ] 3.5 Set `WEB_ORIGIN` in `deploy/chat-server.env` to exactly the Pages origin (no trailing slash) and
-      `COMPOSE up -d chat-server`.
-- [ ] 3.6 Smoke test from a phone and a laptop: join a room, two guests chat, reconnect after toggling network, a
+      and `VITE_GIPHY_API_KEY`. Done: project `chatter-drexx` (`https://chatter-drexx.pages.dev`), `NODE_VERSION=24`.
+      `VITE_GIPHY_API_KEY` is not set yet (no GIF button until it is added and the project is redeployed).
+- [x] 3.5 Set `WEB_ORIGIN` in `deploy/chat-server.env` to exactly the Pages origin (no trailing slash) and
+      `COMPOSE up -d chat-server`. The guessed value already matched; CORS and the Socket.IO handshake verified.
+- [x] 3.6 Smoke test from a phone and a laptop: join a room, two guests chat, reconnect after toggling network, a
       moderator signs in, an `/rooms/<slug>` link works after a reload, GIF search works, no CSP errors in the console.
+      Done by the owner (GIF search not applicable until `VITE_GIPHY_API_KEY` is set). Super-admin password saved and
+      `SEED_ADMIN_*` removed from `admin.env`.
 
 ### Phase 4 — Operations
 
