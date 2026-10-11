@@ -81,7 +81,7 @@ services:
 
   postgres:
     # The major version is pinned: a newer one needs a dump and a restore (see deploy/restore.md).
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: chatter
