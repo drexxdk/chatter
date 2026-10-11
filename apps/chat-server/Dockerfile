@@ -3,7 +3,7 @@
 # The settings (REDIS_URL, PAYLOAD_URL, PAYLOAD_SERVICE_API_KEY, BAN_HASH_SALT, WEB_ORIGIN, ...) are environment
 # variables at run time; see README.md.
 
-FROM node:24-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app
 # npm checks the lockfile against every workspace, so all of their manifests have to be there.
 COPY package.json package-lock.json ./
@@ -14,7 +14,7 @@ RUN npm ci --workspace apps/chat-server --ignore-scripts
 COPY apps/chat-server apps/chat-server
 RUN npm run build --workspace apps/chat-server
 
-FROM node:24-alpine AS dependencies
+FROM node:25-alpine AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/admin/package.json apps/admin/
@@ -22,7 +22,7 @@ COPY apps/chat-server/package.json apps/chat-server/
 COPY apps/web/package.json apps/web/
 RUN npm ci --workspace apps/chat-server --omit=dev --ignore-scripts
 
-FROM node:24-alpine
+FROM node:25-alpine
 ENV NODE_ENV=production
 WORKDIR /app
 # The whole install, not just the root node_modules: a package whose version differs from the one another workspace
