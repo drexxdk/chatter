@@ -16,16 +16,18 @@ const ROOMS = [
   room("Tech Talk", "tech-talk"),
   room("Random", "random"),
   room("General", "general"),
+  room("Dating", "dating"),
 ];
 
 describe("sortRooms", () => {
-  it("puts the open rooms first and sorts each group by name", () => {
+  it("puts the rooms about something first, the open ones last, and sorts each group by name", () => {
     expect(sortRooms(ROOMS, "en").map((r) => r.name)).toEqual([
-      "General",
-      "Random",
+      "Dating",
       "Gaming",
       "Music",
       "Tech Talk",
+      "General",
+      "Random",
     ]);
   });
 
@@ -33,12 +35,13 @@ describe("sortRooms", () => {
     const sorted = sortRooms([...ROOMS, room("Lounge", "lounge")], "en");
 
     expect(sorted.map((r) => r.name)).toEqual([
-      "General",
-      "Random",
+      "Dating",
       "Gaming",
       "Lounge",
       "Music",
       "Tech Talk",
+      "General",
+      "Random",
     ]);
   });
 
@@ -55,8 +58,8 @@ describe("groupRooms", () => {
     expect(
       groupRooms(ROOMS, "en").map((g) => [g.group, g.rooms.length]),
     ).toEqual([
+      ["topics", 4],
       ["open", 2],
-      ["topics", 3],
     ]);
   });
 
@@ -68,18 +71,25 @@ describe("groupRooms", () => {
 });
 
 describe("roomTheme", () => {
-  it("gives music, gaming and tech talk a colour each", () => {
-    const accents = ["music", "gaming", "tech-talk"].map(
+  it("gives dating, music, gaming and tech talk a colour each", () => {
+    const accents = ["dating", "music", "gaming", "tech-talk"].map(
       (slug) => roomTheme(slug).accent,
     );
 
-    expect(new Set(accents).size).toBe(3);
+    expect(new Set(accents).size).toBe(4);
   });
 
   it("gives every known room an icon of its own", () => {
-    const slugs = ["general", "random", "music", "gaming", "tech-talk"];
+    const slugs = [
+      "general",
+      "random",
+      "dating",
+      "music",
+      "gaming",
+      "tech-talk",
+    ];
 
-    expect(new Set(slugs.map((slug) => roomTheme(slug).icon)).size).toBe(5);
+    expect(new Set(slugs.map((slug) => roomTheme(slug).icon)).size).toBe(6);
   });
 
   it("keeps general and random as the page's greys", () => {

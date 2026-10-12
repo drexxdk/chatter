@@ -8,6 +8,12 @@ import { seedLegal } from './legal'
 
 const SAMPLE_ROOMS = [
   {
+    name: 'Dating',
+    slug: 'dating',
+    maxMembers: 100,
+    description: 'Meet new people and flirt.',
+  },
+  {
     name: 'General',
     slug: 'general',
     maxMembers: 100,
@@ -41,8 +47,6 @@ const SAMPLE_ROOMS = [
 
 // One-time bootstrap: creates the first super-admin and sample public rooms if they don't exist yet.
 async function seed() {
-  const { SEED_ADMIN_EMAIL: email, SEED_ADMIN_PASSWORD: password } = parseSeedEnv(process.env)
-
   const payload = await getPayload({ config })
 
   const existingAdmins = await payload.count({ collection: 'admins' })
@@ -50,6 +54,9 @@ async function seed() {
   if (existingAdmins.totalDocs > 0) {
     payload.logger.info('Admins already exist, skipping admin seed.')
   } else {
+    // Only a database without admins needs the first one's credentials (deploy/seed.env).
+    const { SEED_ADMIN_EMAIL: email, SEED_ADMIN_PASSWORD: password } = parseSeedEnv(process.env)
+
     await payload.create({
       collection: 'admins',
       data: {

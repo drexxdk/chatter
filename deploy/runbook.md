@@ -68,9 +68,12 @@ A language is shown only when both documents are complete in it; others see Engl
   and browsers may keep the old text for up to a minute.
 - Change **Terms version** (any text, for example a date) only when the change matters: every guest is then asked to
   accept again. Fixing a typo does not need it.
-- The first time (a database that has never been seeded, such as production after this was deployed), run
-  `bash deploy/seed.sh` once on the machine: it adds the draft text that is in `apps/admin/src/seed/legal/` and leaves
-  everything that exists alone. Until then `/legal` answers 404 and the terms pages say they cannot be loaded.
+- The first time (a database that has never been seeded, such as production after this was deployed), wait for the
+  deploy to finish (the admin applies the migrations when it starts) and run `npm run seed:prod -- <the machine's
+address>` on your computer. It resets the checkout to `origin/main` and runs `bash deploy/seed.sh` on the machine over SSH as `deploy`
+  (`DEPLOY_USER` and `DEPLOY_SSH_KEY_FILE` change that). The seed adds the draft text that is in
+  `apps/admin/src/seed/legal/` and leaves everything that exists alone. Until then `/legal` answers 404 and the terms
+  pages say they cannot be loaded.
 - The draft is plain-language and not legal advice; have somebody who knows the law read it.
 
 ## Backups and restore

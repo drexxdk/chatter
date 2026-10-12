@@ -156,19 +156,25 @@ export async function fetchModerators(): Promise<Moderator[]> {
 const perLanguage = <T extends z.ZodType>(value: T) =>
   z.record(z.string(), value.nullish());
 
+// Before anybody has written it, Payload gives an array field as an empty list instead of the per-language object.
+const sectionsPerLanguage = z.preprocess(
+  (value) => (Array.isArray(value) ? {} : value),
+  perLanguage(
+    z.array(
+      z.object({
+        heading: z.string(),
+        paragraphs: z.string().nullish(),
+        items: z.string().nullish(),
+      }),
+    ),
+  ),
+);
+
 const legalDocumentSchema = z
   .object({
     title: perLanguage(z.string()),
     updated: perLanguage(z.string()),
-    sections: perLanguage(
-      z.array(
-        z.object({
-          heading: z.string(),
-          paragraphs: z.string().nullish(),
-          items: z.string().nullish(),
-        }),
-      ),
-    ),
+    sections: sectionsPerLanguage,
   })
   .partial()
   .nullish();

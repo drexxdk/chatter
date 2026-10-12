@@ -387,6 +387,19 @@ describe("fetchLegal", () => {
     expect(await fetchLegal()).toEqual({});
   });
 
+  it("accepts the empty lists Payload gives for a global that is saved but empty", async () => {
+    respondWith({
+      terms: { sections: [] },
+      privacy: { sections: [] },
+      _status: "draft",
+    });
+
+    expect(await fetchLegal()).toEqual({
+      terms: { sections: {} },
+      privacy: { sections: {} },
+    });
+  });
+
   it("rejects a section without a heading and names the field", async () => {
     respondWith({ terms: { sections: { en: [{ paragraphs: "P" }] } } });
 

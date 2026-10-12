@@ -2,11 +2,10 @@
 # Runs the seed (first super-admin, sample rooms, the chat-server's service account) and puts the service API key it makes
 # into deploy/chat-server.env, so the key is never printed. Run it once from the stack's folder after the admin has started:
 #   bash deploy/seed.sh
+# deploy/seed.env (see seed.env.example) is only needed for a database that has no admin yet.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-
-[ -f deploy/seed.env ] || { echo "Make deploy/seed.env first (see deploy/seed.env.example)." >&2; exit 1; }
 
 COMPOSE=(docker compose --env-file deploy/stack.env -f docker-compose.prod.yml)
 log="$(mktemp)"

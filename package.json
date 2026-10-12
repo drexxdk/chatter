@@ -21,7 +21,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "audit": "audit-ci --config audit-ci.jsonc",
-    "loadtest": "npm run loadtest --workspace apps/chat-server --"
+    "loadtest": "npm run loadtest --workspace apps/chat-server --",
+    "seed:prod": "node scripts/seedProd.mjs"
   },
   "devDependencies": {
     "audit-ci": "^7.1.0",

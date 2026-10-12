@@ -3,6 +3,7 @@ import {
   Dices,
   Gamepad2,
   Hash,
+  Heart,
   MessageCircle,
   Music,
   type LucideIcon,
@@ -38,6 +39,14 @@ const PLAIN = {
 const THEMES: Record<string, RoomTheme> = {
   general: { group: "open", icon: MessageCircle, ...PLAIN },
   random: { group: "open", icon: Dices, ...PLAIN },
+  dating: {
+    group: "topics",
+    icon: Heart,
+    tint: "#2e1420",
+    border: "#6b2a47",
+    card: "#260f19",
+    accent: "#fb7185",
+  },
   music: {
     group: "topics",
     icon: Music,
@@ -82,9 +91,10 @@ export function roomVars(slug: string | undefined): CSSProperties | undefined {
   } as CSSProperties;
 }
 
-const GROUPS: RoomGroup[] = ["open", "topics"];
+const GROUPS: RoomGroup[] = ["topics", "open"];
 
-// The rooms in the order they are listed in: the open ones first, and in each group by name.
+// The rooms in the order they are listed in: the ones about something first, the open ones last, and in each group by
+// name.
 export function sortRooms(rooms: Room[], language: string): Room[] {
   const collator = new Intl.Collator(language);
 

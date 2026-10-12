@@ -18,7 +18,7 @@ Status legend: `[ ]` to do, `[~]` in progress.
   Danish and German, managed in the admin panel (**Terms and privacy**, localized, with drafts; seeded from
   `apps/admin/src/seed/legal/`), shown at `/terms` and `/privacy`, contact `draxxdk@gmail.com` (changeable in the same
   place), report handling in `deploy/runbook.md`. Still to do: have somebody who knows the law read it (it is a draft,
-  not legal advice), and run `bash deploy/seed.sh` on the VM once after deploying so the text exists in production.
+  not legal advice), and run `npm run seed:prod -- <host>` once after deploying so the text exists in production.
 - [x] Age rule: 18 or older, said in the terms and asked for in the nickname dialog (a browser that has not accepted the
       current terms must tick the box). There is no way to verify an age.
 - [x] A report button with auto-hide and a review list: done (see the chat-server README, "Reports", and the runbook).
