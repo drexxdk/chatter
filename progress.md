@@ -8,7 +8,8 @@ Status legend: `[ ]` to do, `[~]` in progress.
 ## Small loose ends (owner)
 
 - [ ] Regenerate the DuckDNS token (it was shown once in a tool output).
-- [ ] Set `VITE_GIPHY_API_KEY` in the Cloudflare Pages project settings and redeploy, if GIF search is wanted.
+- [ ] Giphy: the key in use is a development key (limited to about 100 requests an hour). Apply for a production key in
+      the Giphy developer dashboard before real users, then replace `VITE_GIPHY_API_KEY` in the Pages settings.
 - [ ] Optional: a domain (about 10 USD a year), then Cloudflare in front of the API (see the README, "Decisions").
 
 ## Before real users (hobby launch)
