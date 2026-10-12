@@ -135,7 +135,10 @@ In this order, because the chat-server cannot start before the seed has made its
 
 ### Phase 4 — Operations
 
-- [ ] 4.1 Nightly backup job (cron) and **one tested restore** into a scratch database.
+- [x] 4.1 Nightly backup job (cron) and **one tested restore** into a scratch database. Cron (`deploy` user) runs
+      `deploy/backup.sh` at 03:17 UTC, log in `/home/deploy/chatter-backup.log`. First backup uploaded to R2 and restored from
+      there into a scratch database: row counts matched. The R2 token is limited to the bucket, hence
+      `RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true`; rclone 1.60 retries each upload once after a 501 (harmless).
 - [ ] 4.2 UptimeRobot checks on `/health` and the web address, alert by email.
 - [x] 4.3 Log handling: JSON lines go to Docker's log driver with rotation (`max-size`, `max-file`); decide whether a
       free log service is worth it. Rotation is set (5 x 10 MB per service); no log service for now.

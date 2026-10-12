@@ -16,7 +16,7 @@ export DEBIAN_FRONTEND=noninteractive
 echo "== System updates"
 apt-get update -y
 apt-get upgrade -y
-apt-get install -y ca-certificates curl unattended-upgrades iptables-persistent
+apt-get install -y ca-certificates curl unattended-upgrades iptables-persistent rclone
 dpkg-reconfigure -f noninteractive unattended-upgrades
 
 echo "== Docker"

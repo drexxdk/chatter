@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Backs up the Postgres database to Cloudflare R2 (any rclone remote works): a compressed dump, checked before it is
 # uploaded, with old dumps removed. Run it from cron on the machine that runs the stack:
-#   17 3 * * * bash /opt/chatter/deploy/backup.sh >> /var/log/chatter-backup.log 2>&1
+#   17 3 * * * bash /opt/chatter/deploy/backup.sh >> /home/deploy/chatter-backup.log 2>&1
 # The settings are in deploy/backup.env (see backup.env.example). Restoring is in deploy/restore.md.
 set -euo pipefail
 
