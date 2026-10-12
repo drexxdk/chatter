@@ -6,6 +6,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+[ -f deploy/seed.env ] || { echo "Make deploy/seed.env first (see deploy/seed.env.example)." >&2; exit 1; }
+
 COMPOSE=(docker compose --env-file deploy/stack.env -f docker-compose.prod.yml)
 log="$(mktemp)"
 trap 'rm -f "$log"' EXIT

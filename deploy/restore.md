@@ -27,9 +27,8 @@ Run everything from the stack's folder on the machine (for example `/opt/chatter
 
 ## A new machine
 
-1. Set the machine up as in the runbook ("Rebuild on a new machine", steps 1 to 3) and put the three `deploy/*.env` files
-   back (they are in the
-   password manager, not in the backup).
+1. Set the machine up as in the runbook ("Rebuild on a new machine", steps 1 to 3) and put the `deploy/*.env` files
+   back (they are in the password manager, not in the backup).
 2. Start only the database: `COMPOSE up -d postgres`, then restore as above (steps 1 and 3).
 3. `COMPOSE up -d`. Do not run the seed: the data already has the admin and the service account.
 

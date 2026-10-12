@@ -49,6 +49,10 @@ Things to know:
 - The admin migrates its database when it starts (`prodMigrations`). Change a collection, add a migration
   (`npm run migrate:create --workspace apps/admin -- <name>`); CI fails if one is missing. Production never pushes schema
   changes by itself, so do not run the seed in dev mode against it.
+- Seeding a new, empty database: put the first super-admin's email and password in `deploy/seed.env` (see
+  `seed.env.example`), then `bash deploy/seed.sh`. It also makes the chat-server's API key and writes it to
+  `chat-server.env`. The seed does nothing when the database already has admins, so the file can stay. Only the one-off
+  `admin-tools` service reads it.
 - Postgres 16 is pinned. A newer major version needs a dump and restore ([deploy/restore.md](deploy/restore.md)).
 - Dependabot opens monthly update PRs and skips major versions; those are done by hand.
 

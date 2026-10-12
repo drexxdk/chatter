@@ -72,7 +72,11 @@ services:
       context: .
       dockerfile: apps/admin/Dockerfile
       target: tools
-    env_file: deploy/admin.env
+    # seed.env (the first super-admin's email and password) is only for this one-off service, not the running admin.
+    env_file:
+      - deploy/admin.env
+      - path: deploy/seed.env
+        required: false
     environment:
       DATABASE_URL: postgres://chatter:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/stack.env}@postgres:5432/chatter
     depends_on:
