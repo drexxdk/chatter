@@ -89,7 +89,7 @@ the deploy workflow.
 - [x] 1.3 R2 is subscribed ($0 until the free limits are passed) and the bucket `chatter-backups` exists (EU
       jurisdiction, private). The API token `chatter-backups-vm` (Object Read & Write, that bucket only) is made, and its two
       keys are in the owner's password manager.
-- [ ] 1.4 Create the UptimeRobot account.
+- [x] 1.4 Create the UptimeRobot account.
 - [x] 1.5 DuckDNS names `chatter-drexx-api.duckdns.org` and `chatter-drexx-admin.duckdns.org` (the first choice was
       taken), both pointing at the machine's public IP. DuckDNS fills in the IP of whoever creates a name, so set it to the
       machine's address afterwards. If the public IP ever changes, update both there.
@@ -139,7 +139,8 @@ In this order, because the chat-server cannot start before the seed has made its
       `deploy/backup.sh` at 03:17 UTC, log in `/home/deploy/chatter-backup.log`. First backup uploaded to R2 and restored from
       there into a scratch database: row counts matched. The R2 token is limited to the bucket, hence
       `RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true`; rclone 1.60 retries each upload once after a 501 (harmless).
-- [ ] 4.2 UptimeRobot checks on `/health` and the web address, alert by email.
+- [x] 4.2 UptimeRobot checks on `/health` and the web address, alert by email. Three HTTP monitors (free plan, 5 minutes):
+      the Pages site, `/health` on the API, and `/admin/login` on the admin.
 - [x] 4.3 Log handling: JSON lines go to Docker's log driver with rotation (`max-size`, `max-file`); decide whether a
       free log service is worth it. Rotation is set (5 x 10 MB per service); no log service for now.
 - [x] 4.4 A short runbook (`deploy/runbook.md`): restart, roll back to the previous image tag, rotate a secret, restore.
