@@ -1,0 +1,82 @@
+# Chatter
+
+A real-time chat for guests: public rooms, private messages, moderators and bans. A monorepo with three apps:
+
+| App                                            | What it is                                                                      |
+| ---------------------------------------------- | ------------------------------------------------------------------------------- |
+| [apps/web](apps/web/README.md)                 | The client: React, Vite, Tailwind. A static build with SPA routes (`/rooms/x`). |
+| [apps/chat-server](apps/chat-server/README.md) | Express and Socket.IO, with Redis. Needs one always-running process.            |
+| [apps/admin](apps/admin/README.md)             | Payload CMS on Next.js, with Postgres: rooms, bans and admin accounts.          |
+
+## Run it locally
+
+Needs Node 20 or newer and Docker (Postgres and Redis come from `docker-compose.yml`).
+
+```
+npm install
+npm start        # admin :3000, chat-server :4000, web :5173 (npm run stop to stop)
+```
+
+The first time, copy `.env.example` to `.env` in the repository root and in each app, then run
+`npm run seed --workspace apps/admin` for the first super-admin, the sample rooms and the chat-server's API key. Checks: `npm run format:check`, `lint`, `typecheck`,
+`test:chat-server`, `test:web` and `test:web:e2e`. CI runs the same.
+
+## How it is hosted
+
+Roughly $0 a month, on one small machine:
+
+| Part                                       | Where                                                                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Web                                        | Cloudflare Pages, `https://chatter-drexx.pages.dev`, built from `main` by Cloudflare itself                      |
+| Chat-server, admin, Postgres, Redis, Caddy | One Oracle Cloud Always Free ARM machine, Docker Compose (`docker-compose.prod.yml`)                             |
+| API and admin addresses                    | DuckDNS names `chatter-drexx-api.duckdns.org` and `chatter-drexx-admin.duckdns.org`; Caddy gets the certificates |
+| Backups                                    | Nightly `pg_dump` to Cloudflare R2 (`chatter-backups`)                                                           |
+| Uptime                                     | UptimeRobot: the web, `/health` on the API, `/admin/login` on the admin                                          |
+
+A push to `main` that passes CI is deployed: `.github/workflows/deploy.yml` builds ARM images, pushes them to GHCR and
+restarts the stack over SSH. The settings (`deploy/*.env`, never committed) live on the machine, the secrets in the
+owner's password manager. How to restart, roll back, rotate a secret, restore and rebuild is in
+[deploy/runbook.md](deploy/runbook.md) and [deploy/restore.md](deploy/restore.md).
+
+Things to know:
+
+- Run **one** chat-server instance. The connection cap, room capacity lock and rate limits are per process.
+- The chat-server copies rooms and bans from the admin every 30 seconds and keeps the last copy in Redis. If the admin is
+  down, chat keeps working; moderator sign-in and changes to rooms or bans do not.
+- The web's Content-Security-Policy is in `apps/web/nginx.conf.template`. Cloudflare Pages gets the same policy as a
+  `_headers` file written at build time (`apps/web/scripts/pagesHeaders.mjs`); a test fails if the two differ.
+- `VITE_CHAT_SERVER_URL` and `VITE_GIPHY_API_KEY` are baked into the web build (Pages settings). Change them, then redeploy.
+- The admin migrates its database when it starts (`prodMigrations`). Change a collection, add a migration
+  (`npm run migrate:create --workspace apps/admin -- <name>`); CI fails if one is missing. Production never pushes schema
+  changes by itself, so do not run the seed in dev mode against it.
+- Postgres 16 is pinned. A newer major version needs a dump and restore ([deploy/restore.md](deploy/restore.md)).
+- Dependabot opens monthly update PRs and skips major versions; those are done by hand.
+
+### Decisions
+
+- **No domain.** The web is on `*.pages.dev`, the API and admin on DuckDNS, in `CADDY_MODE=direct` with
+  `TRUST_PROXY_HOPS=1`. Cloudflare can only sit in front of a name in a zone you own. The day a domain is bought: add it
+  to Cloudflare, point `API_HOST` and `ADMIN_HOST` at subdomains, set `CADDY_MODE=cloudflare` and `TRUST_PROXY_HOPS=2`,
+  and test that a forged `X-Forwarded-For` has no effect.
+- **Oracle Always Free** for the machine. It can be refused or reclaimed; the fallback is a small VPS (about EUR 4 a
+  month), and `deploy/server-setup.sh` prepares any Ubuntu machine. Nothing is tied to Oracle.
+- **The admin runs on the same machine** as the chat-server. Vercel Hobby forbids commercial use, and the chat-server
+  needs the admin for moderator sign-in anyway.
+- **Not Render or Koyeb free tiers** for the chat-server: they sleep when idle, which drops every connection.
+
+### When it outgrows free
+
+Up to a few hundred people at once fits the machine. Past that, in order: a bigger machine (EUR 5-15), a managed
+Postgres, Redis moved off the machine, then more chat-server instances behind a load balancer once the per-process
+limits are in Redis. Rough cost: 15-50 USD a month at launch scale, 400-1,000 USD around 100k monthly users (an estimate,
+check the providers' prices).
+
+### Where things are
+
+- Oracle machine `chatter` (Frankfurt, Ubuntu 24.04, ARM). Admin login `~/.ssh/chatter_oracle` as `ubuntu`; the stack runs
+  as the `deploy` user (`~/.ssh/chatter_deploy`) in `/opt/chatter`. The public IP is ephemeral: if it changes, update both
+  DuckDNS names.
+- GitHub Actions: variables `DEPLOY_HOST` and `DEPLOY_USER`, secrets `DEPLOY_SSH_KEY` (a CI-only key) and
+  `DEPLOY_KNOWN_HOSTS`.
+- R2 token `chatter-backups-vm` (that bucket only). Because of that, `deploy/backup.env` sets
+  `RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true`.

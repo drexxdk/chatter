@@ -1,6 +1,6 @@
 name: chatter-prod
 
-# The production stack, for a single always-on machine. See hosting.md for the plan and deploy/ for the settings.
+# The production stack, for a single always-on machine. See the README for the plan and deploy/ for the settings.
 #
 #   cp deploy/stack.env.example deploy/stack.env   (and the two service files; fill them in)
 #   docker compose --env-file deploy/stack.env -f docker-compose.prod.yml up -d

@@ -54,5 +54,17 @@ Notes per secret:
 
 ## Rebuild on a new machine
 
-`deploy/server-setup.sh` prepares Ubuntu, then follow Phase 3 of `hosting.md` and restore the latest backup
-(`deploy/restore.md`, "new machine").
+For a replacement machine, or the very first setup:
+
+1. Ubuntu with SSH key login. Copy `deploy/server-setup.sh` over and run it with sudo (the command is in the script's
+   header). It makes the `deploy` user, Docker, rclone, swap and the firewall, and is safe to run again. Open ports 22, 80
+   and 443 in the provider's own firewall too.
+2. Point the two DuckDNS names (`API_HOST`, `ADMIN_HOST`) at the new public IP.
+3. As `deploy`: clone the repository to `/opt/chatter` and make the three `deploy/*.env` files from their `.example`
+   files (generate the secrets, `chmod 600`; the old ones are in the password manager).
+4. A new, empty database: `COMPOSE up -d postgres redis admin`, then `bash deploy/seed.sh` (it writes the service key into
+   `chat-server.env`), then read `SEED_ADMIN_PASSWORD` once, save it, and delete the two `SEED_ADMIN_*` lines from
+   `admin.env`. From a backup instead: restore it and do not seed (`deploy/restore.md`, "A new machine").
+5. `COMPOSE up -d`. Check `/health`, `/rooms` and `/admin/login` from outside.
+6. Update `DEPLOY_HOST` and `DEPLOY_KNOWN_HOSTS` in GitHub, put the cron line from `deploy/backup.sh` back, and make sure
+   `WEB_ORIGIN` matches the web address.

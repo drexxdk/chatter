@@ -1,9 +1,9 @@
 name: Deploy
 
 # After CI has passed on main: build the images, publish them to GitHub's container registry and update the machine.
-# The web client is not part of this: Cloudflare Pages builds it from the repository itself (see hosting.md).
+# The web client is not part of this: Cloudflare Pages builds it from the repository itself (see the README).
 #
-# Needs, once the machine exists (hosting.md, Phase 3), in the repository settings:
+# Needs, in the repository settings:
 #   variables: DEPLOY_HOST, DEPLOY_USER          secrets: DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS
 # Without DEPLOY_HOST the workflow only builds and publishes the images.
 
