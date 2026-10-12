@@ -63,7 +63,7 @@ describe("saying who you are when joining", () => {
     expect(server.createSocket).toHaveBeenCalledWith("Alice");
   });
 
-  it.each(["12", "17", "121"])("does not join with the age %s", async (age) => {
+  it.each(["12", "17", "100"])("does not join with the age %s", async (age) => {
     const user = userEvent.setup();
     const server = makeFakeServer();
     render(<App createSocket={server.createSocket} />);
@@ -113,13 +113,13 @@ describe("the profile button", () => {
   it("opens a modal with who the guest is", async () => {
     const { user } = await enter(makeFakeServer(), {
       age: "31",
-      avatar: "Trans",
+      avatar: "Transgender",
     });
 
     const dialog = await openProfile(user);
 
     expect(dialog.getByLabelText("Nickname")).toHaveValue("Alice");
-    expect(dialog.getByRole("radio", { name: "Trans" })).toBeChecked();
+    expect(dialog.getByRole("radio", { name: "Transgender" })).toBeChecked();
     expect(dialog.getByLabelText("Age")).toHaveValue("31");
   });
 

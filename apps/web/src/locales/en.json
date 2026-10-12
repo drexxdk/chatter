@@ -6,7 +6,8 @@
     "open": "Your profile: {name}",
     "title": "Your profile",
     "age": "Age",
-    "ageHint": "Optional, {min}–{max}. Everybody in the room can see it.",
+    "ageHint": "{min}–{max}",
+    "visible": "Your nickname, avatar and age are shown to everybody in the room.",
     "years": "{count, plural, one {# year old} other {# years old}}",
     "save": "Save",
     "saving": "Saving…",
@@ -193,7 +194,7 @@
     "legend": "Avatar",
     "male": "Male",
     "female": "Female",
-    "trans": "Trans",
+    "trans": "Transgender",
     "other": "Not specified"
   },
   "dm": {

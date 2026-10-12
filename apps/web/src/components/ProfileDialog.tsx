@@ -8,9 +8,8 @@ import { MAX_AGE, MIN_AGE, readAge, type ProfileChanges } from "../profile";
 import { AvatarIcon } from "./Avatar";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
-import { Field } from "./Field";
 import { Modal } from "./Modal";
-import { AgeField, AvatarPicker } from "./ProfileFields";
+import { AvatarPicker, NameAndAge, VisibleNote } from "./ProfileFields";
 
 // What the guest says about themselves, in a modal on top of the chat. A guest can change all of it; a moderator's name
 // belongs to their account, so theirs is only shown.
@@ -93,24 +92,20 @@ function ProfileForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <Field
-        id="profile-nickname"
-        label={t("nickname.label")}
-        hint={t("nickname.hint")}
+      <NameAndAge
+        nicknameId="profile-nickname"
+        ageId="profile-age"
+        nickname={name}
+        onNicknameChange={setName}
+        invalidNickname={touched && !nickname}
+        age={ageText}
+        onAgeChange={setAgeText}
+        invalidAge={touched && !age.ok}
         autoComplete="off"
-        maxLength={24}
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        invalid={touched && !nickname}
       />
 
       <AvatarPicker value={avatar} onChange={setAvatar} name="profile-avatar" />
-      <AgeField
-        id="profile-age"
-        value={ageText}
-        onChange={setAgeText}
-        invalid={touched && !age.ok}
-      />
+      <VisibleNote />
 
       <ErrorAlert
         code={

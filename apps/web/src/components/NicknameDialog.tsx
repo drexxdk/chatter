@@ -10,7 +10,7 @@ import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
 import { LegalSentence } from "./LegalLinks";
 import { Modal } from "./Modal";
-import { AgeField, AvatarPicker } from "./ProfileFields";
+import { AvatarPicker, NameAndAge, VisibleNote } from "./ProfileFields";
 
 interface NicknameDialogProps {
   connecting: boolean;
@@ -84,6 +84,7 @@ export function NicknameDialog({
               id="email"
               label={t("nickname.email")}
               type="email"
+              required
               autoFocus
               autoComplete="username"
               value={email}
@@ -94,6 +95,7 @@ export function NicknameDialog({
               id="password"
               label={t("nickname.password")}
               type="password"
+              required
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -102,37 +104,33 @@ export function NicknameDialog({
           </div>
         ) : (
           <>
-            <Field
-              id="nickname"
-              label={t("nickname.label")}
-              hint={t("nickname.hint")}
+            <NameAndAge
+              nicknameId="nickname"
+              ageId="age"
+              nickname={value}
+              onNicknameChange={setValue}
+              invalidNickname={showInvalid}
+              age={ageText}
+              onAgeChange={setAgeText}
+              invalidAge={touched && !age.ok}
               autoFocus
               autoComplete="nickname"
-              maxLength={24}
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
-              invalid={showInvalid}
             />
             <AvatarPicker value={avatar} onChange={setAvatar} />
-            <AgeField
-              id="age"
-              value={ageText}
-              onChange={setAgeText}
-              invalid={touched && !age.ok}
-            />
+            <VisibleNote />
             {rememberedTerms ? (
               <p className="text-xs text-neutral-400">
                 <LegalSentence i18nKey="terms.accepted" />
               </p>
             ) : (
               <div className="space-y-1">
-                <label className="flex items-start gap-2 text-sm">
+                <label className="flex items-start gap-2 rounded-md bg-neutral-950 p-3 text-sm text-neutral-300">
                   <input
                     type="checkbox"
                     checked={termsTicked}
                     onChange={(event) => setTermsTicked(event.target.checked)}
                     aria-invalid={touched && !termsTicked}
-                    className="mt-1 accent-indigo-500"
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-500"
                   />
                   <span>
                     <LegalSentence i18nKey="terms.accept" />
@@ -150,12 +148,6 @@ export function NicknameDialog({
 
         <ErrorAlert code={error} />
 
-        <Button variant="link" onClick={switchMode}>
-          {moderator
-            ? t("nickname.continueAsGuest")
-            : t("nickname.signInAsModerator")}
-        </Button>
-
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onCancel}>
             {t("nickname.cancel")}
@@ -168,6 +160,14 @@ export function NicknameDialog({
               : connecting
                 ? t("nickname.connecting")
                 : t("nickname.submit")}
+          </Button>
+        </div>
+
+        <div className="flex justify-center border-t border-neutral-800 pt-3">
+          <Button variant="link" onClick={switchMode}>
+            {moderator
+              ? t("nickname.continueAsGuest")
+              : t("nickname.signInAsModerator")}
           </Button>
         </div>
       </form>

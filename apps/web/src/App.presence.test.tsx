@@ -540,7 +540,7 @@ describe("avatars", () => {
       const group = await openDialog(user);
 
       expect(group.getAllByRole("radio")).toHaveLength(4);
-      for (const name of ["Male", "Female", "Trans"]) {
+      for (const name of ["Male", "Female", "Transgender"]) {
         expect(group.getByRole("radio", { name })).not.toBeChecked();
       }
       expect(group.getByRole("radio", { name: "Not specified" })).toBeChecked();
@@ -581,7 +581,7 @@ describe("avatars", () => {
 
     it("is kept for a reload, along with the nickname", async () => {
       const first = setup();
-      await submitAs(first.user, "Trans");
+      await submitAs(first.user, "Transgender");
       first.unmount();
 
       const { server } = setup();
@@ -627,7 +627,7 @@ describe("avatars", () => {
     it.each([
       ["Male", "male", "lucide-mars"],
       ["Female", "female", "lucide-venus"],
-      ["Trans", "trans", "lucide-transgender"],
+      ["Transgender", "trans", "lucide-transgender"],
     ])(
       "shows %s with its own symbol next to what somebody says",
       async (title, avatar, icon) => {
@@ -682,7 +682,7 @@ describe("avatars", () => {
         screen.getByRole("list", { name: "People in this room" }),
       );
       expect(people.getByTitle("Female")).toBeInTheDocument();
-      expect(people.getByTitle("Trans")).toBeInTheDocument();
+      expect(people.getByTitle("Transgender")).toBeInTheDocument();
     });
   });
 

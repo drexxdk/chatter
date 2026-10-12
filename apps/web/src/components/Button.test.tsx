@@ -80,7 +80,7 @@ describe("Field", () => {
   it("can be a short box", () => {
     render(<Field id="age" label="Age" width="short" />);
 
-    expect(screen.getByLabelText("Age")).toHaveClass("w-24");
+    expect(screen.getByLabelText("Age")).toHaveClass("w-16");
     expect(screen.getByLabelText("Age")).not.toHaveClass("w-full");
   });
 });

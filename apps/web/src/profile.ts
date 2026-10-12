@@ -1,6 +1,6 @@
 // Mirrors the chat-server's limits on a guest's age (apps/chat-server/src/age.ts); the server stays authoritative.
 export const MIN_AGE = 18;
-export const MAX_AGE = 120;
+export const MAX_AGE = 99;
 
 export function parseAge(value: unknown): number | undefined {
   return typeof value === "number" &&
@@ -20,7 +20,7 @@ export function readAge(
 
   if (trimmed === "") return { ok: true };
 
-  const age = /^\d{1,3}$/.test(trimmed) ? parseAge(Number(trimmed)) : undefined;
+  const age = /^\d{1,2}$/.test(trimmed) ? parseAge(Number(trimmed)) : undefined;
 
   return age === undefined ? { ok: false } : { ok: true, age };
 }

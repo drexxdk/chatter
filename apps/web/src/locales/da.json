@@ -6,7 +6,8 @@
     "open": "Din profil: {name}",
     "title": "Din profil",
     "age": "Alder",
-    "ageHint": "Valgfri, {min}–{max}. Alle i rummet kan se den.",
+    "ageHint": "{min}–{max}",
+    "visible": "Dit kaldenavn, din avatar og din alder vises for alle i rummet.",
     "years": "{count, plural, one {# år} other {# år}}",
     "save": "Gem",
     "saving": "Gemmer…",
@@ -193,7 +194,7 @@
     "legend": "Avatar",
     "male": "Mand",
     "female": "Kvinde",
-    "trans": "Trans",
+    "trans": "Transkønnet",
     "other": "Ikke angivet"
   },
   "dm": {

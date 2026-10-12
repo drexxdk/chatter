@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseAge, readAge } from "./profile";
 
 describe("parseAge", () => {
-  it.each([18, 30, 120])("accepts %s", (age) => {
+  it.each([18, 30, 99])("accepts %s", (age) => {
     expect(parseAge(age)).toBe(age);
   });
 
