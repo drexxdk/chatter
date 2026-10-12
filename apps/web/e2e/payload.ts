@@ -105,8 +105,27 @@ export class PayloadApi {
     return ids;
   }
 
-  async remove(collection: "public-rooms" | "bans" | "admins", id: number) {
+  async remove(
+    collection: "public-rooms" | "bans" | "admins" | "reports",
+    id: number,
+  ) {
     await this.request(`${collection}/${id}`, { method: "DELETE" });
+  }
+
+  // What the admin kept of a reported message, found by the words in it.
+  async findReports(text: string) {
+    const { docs } = await this.request(
+      `reports?limit=10&where[text][equals]=${encodeURIComponent(text)}`,
+    );
+
+    return (docs ?? []) as unknown as {
+      id: number;
+      status: string;
+      nickname: string;
+      reporterCount: number;
+      reasons: string[];
+      senderHash: string;
+    }[];
   }
 
   async createModerator(email: string, password: string, displayName: string) {
@@ -133,10 +152,16 @@ export class PayloadApi {
     const moderators = await this.request(
       `admins?limit=100&where[email][like]=${E2E.moderatorEmailPrefix}`,
     );
+    const reports = await this.request(
+      `reports?limit=100&where[roomSlug][like]=${E2E.slugPrefix}`,
+    );
 
     await Promise.all([
       ...(rooms.docs ?? []).map((room) => this.remove("public-rooms", room.id)),
       ...(bans.docs ?? []).map((ban) => this.remove("bans", ban.id)),
+      ...(reports.docs ?? []).map((report) =>
+        this.remove("reports", report.id),
+      ),
       ...(moderators.docs ?? []).map((admin) =>
         this.remove("admins", admin.id),
       ),

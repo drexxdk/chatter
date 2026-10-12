@@ -30,7 +30,9 @@ import { MAX_GUEST_IDS } from "../session";
 import { parseAge, type ProfileChanges } from "../profile";
 import { parseAvatar, PLAIN_AVATAR, type Avatar } from "./avatar";
 import {
+  applyHidden,
   applyRedaction,
+  hideMessage,
   MAX_MESSAGES,
   mergeHistory,
   parseAnnouncement,
@@ -60,6 +62,7 @@ import {
   type ChatStatus,
   type ConnectOptions,
   type Member,
+  type ReportReason,
   type Session,
 } from "./types";
 
@@ -474,6 +477,14 @@ export function useChat(
           );
         });
 
+        // Enough people reported a message, so the server hid it for everybody.
+        socket.on("message:hidden", (notice: unknown) => {
+          if (!isCurrent()) return;
+          setMessages((previous) =>
+            applyHidden(previous, notice, roomRef.current),
+          );
+        });
+
         socket.on("reaction:update", (update: unknown) => {
           if (!isCurrent() || !isRecord(update)) return;
           const { messageId } = update;
@@ -787,6 +798,25 @@ export function useChat(
     [emitWithAck],
   );
 
+  // Reports a message in the room. It is hidden for the guest at once; the server hides it for everybody once enough
+  // different people have reported it.
+  const reportMessage = useCallback(
+    async (messageId: string, reason: ReportReason): Promise<ActionResult> => {
+      const result = toResult(
+        await emitWithAck("message:report", { messageId, reason }),
+      );
+
+      if (result.ok) {
+        setMessages((previous) =>
+          hideMessage(previous, messageId, roomRef.current),
+        );
+      }
+
+      return result;
+    },
+    [emitWithAck],
+  );
+
   const openDirect = useCallback((next: Partner) => {
     partnerRef.current = next;
     setPartner(next);
@@ -1003,6 +1033,7 @@ export function useChat(
     leaveRoom,
     sendMessage,
     react,
+    reportMessage,
     sendAnnouncement,
     updateProfile,
     dismissAnnouncement,

@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { LegalLinks } from "./LegalLinks";
+
 // What a guest needs to know to use the chat; kept out of the page itself so it does not take room from the messages.
 export function InfoPanel({
   slowModeSeconds,
@@ -32,6 +34,8 @@ export function InfoPanel({
       <InfoSection title={t("info.moderatorsHeading")}>
         {t("info.moderators")}
       </InfoSection>
+
+      <LegalLinks />
     </div>
   );
 }

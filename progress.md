@@ -14,12 +14,20 @@ Status legend: `[ ]` to do, `[~]` in progress.
 
 ## Before real users (hobby launch)
 
-- [ ] Terms and privacy text, a contact address for reports, and a rule for how reports are handled.
-- [ ] A report button with auto-hide and a review list (the safety plan: report, auto-hide after several distinct
-      reports, new-account limits, stricter default for private messages). Unmoderated content is the biggest risk;
-      launch text-only.
-- [ ] Decide on an age rule and say it in the terms.
-- [ ] Load check: a script that opens a few hundred sockets, to see where the machine and the per-IP cap stand.
+- [~] Terms and privacy text, a contact address for reports, and a rule for how reports are handled: drafted in English,
+  Danish and German, managed in the admin panel (**Terms and privacy**, localized, with drafts; seeded from
+  `apps/admin/src/seed/legal/`), shown at `/terms` and `/privacy`, contact `draxxdk@gmail.com` (changeable in the same
+  place), report handling in `deploy/runbook.md`. Still to do: have somebody who knows the law read it (it is a draft,
+  not legal advice), and run `bash deploy/seed.sh` on the VM once after deploying so the text exists in production.
+- [x] Age rule: 18 or older, said in the terms and asked for in the nickname dialog (a browser that has not accepted the
+      current terms must tick the box). There is no way to verify an age.
+- [x] A report button with auto-hide and a review list: done (see the chat-server README, "Reports", and the runbook).
+- [ ] Still of the safety plan: new-account limits (what a guest who just arrived may do) and a stricter default for
+      private messages (for example, only people who have written in the room, or an accept step).
+      Unmoderated content is the biggest risk; launch text-only.
+- [x] Load check: `npm run loadtest` (chat-server README, "Load check"). On a laptop, 270 guests with no per-address cap
+      were all in within seconds and a message came back in 4 ms (95th percentile). Still to do: run it once against the
+      Oracle machine (raise `MAX_CONNECTIONS_PER_IP` for the run) to see where that machine stands.
 
 ## Later
 

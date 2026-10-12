@@ -7,6 +7,8 @@ import { fileURLToPath } from 'url'
 import { Admins } from './collections/Admins'
 import { PublicRooms } from './collections/PublicRooms'
 import { Bans } from './collections/Bans'
+import { Reports } from './collections/Reports'
+import { Legal } from './globals/Legal'
 import { env } from './env'
 import { migrations } from './migrations'
 
@@ -20,7 +22,18 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Admins, PublicRooms, Bans],
+  collections: [Admins, PublicRooms, Bans, Reports],
+  globals: [Legal],
+  // The languages of the web client; only fields marked `localized` differ between them.
+  localization: {
+    locales: [
+      { label: 'English', code: 'en' },
+      { label: 'Dansk', code: 'da' },
+      { label: 'Deutsch', code: 'de' },
+    ],
+    defaultLocale: 'en',
+    fallback: true,
+  },
   editor: lexicalEditor(),
   secret: env.PAYLOAD_SECRET,
   typescript: {

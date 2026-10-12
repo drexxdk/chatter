@@ -44,6 +44,7 @@ export function MessageGroup({
   nav,
   reactions,
   menu,
+  onReport,
 }: {
   mine: boolean;
   // Who the click chooses; in a private message that is the other person, not the author.
@@ -67,6 +68,8 @@ export function MessageGroup({
   reactions?: ReactionOptions;
   // What can be done with the person, from the "…" button of a message's hover bar.
   menu?: PersonMenuOptions;
+  // Reports one of the messages, from the same menu. Absent where they cannot be reported.
+  onReport?: (messageId: string) => void;
 }) {
   const { t } = useTranslation();
   const moderator = role === "moderator";
@@ -205,6 +208,9 @@ export function MessageGroup({
               reactions={reactable ? reactions : undefined}
               reacted={message.reactions ?? []}
               menu={message.banned ? undefined : menu}
+              onReport={
+                onReport && !mine ? () => onReport(message.id) : undefined
+              }
             >
               <div
                 {...stop}

@@ -20,6 +20,7 @@ import { AnnounceForm } from "./AnnounceForm";
 import { PLAIN_AVATAR } from "../chat/avatar";
 import { isStatus, type Partner } from "../chat/direct";
 import { runs } from "../chat/runs";
+import type { ReportReason } from "../chat/types";
 import { useComposer } from "../chat/useComposer";
 import {
   timeline,
@@ -41,6 +42,7 @@ import { Notice } from "./Notice";
 import { MentionsProvider, type MentionsValue } from "./Mentions";
 import type { PersonMenuOptions } from "./PersonMenu";
 import { RecipientPicker } from "./RecipientPicker";
+import { ReportDialog } from "./ReportDialog";
 import { RoomPanel } from "./RoomPanel";
 
 type MessageItem = Extract<TimelineItem, { kind: "message" }>;
@@ -75,6 +77,7 @@ interface ChatRoomProps {
   retryAfterSeconds: number | null;
   onSend: (text: string) => Promise<boolean>;
   onReact: (messageId: string, emoji: string) => void;
+  onReport: (messageId: string, reason: ReportReason) => Promise<ActionResult>;
   onAnnounce: (text: string) => Promise<AnnounceResult>;
   direct: DirectApi;
   // When the guest is disconnected for doing nothing, once they have been warned (milliseconds since 1970).
@@ -95,12 +98,18 @@ export function ChatRoom({
   retryAfterSeconds,
   onSend,
   onReact,
+  onReport,
   onAnnounce,
   direct,
   idleDeadline,
 }: ChatRoomProps) {
   const { t } = useTranslation();
   const composer = useComposer();
+  // The message the guest is reporting, and who wrote it, while the dialog asks why.
+  const [reporting, setReporting] = useState<{
+    id: string;
+    nickname: string;
+  } | null>(null);
   const items = withDirect(
     timeline(messages, showMovements ? events : []),
     direct.threads,
@@ -470,8 +479,18 @@ export function ChatRoom({
                         )}
                         className={`-mx-2 rounded-lg px-2 py-1 ${NAV_STOP_CLASS}`}
                       >
-                        <span className="font-semibold italic text-red-400">
-                          {t("room.bannedMessage")}
+                        <span
+                          className={
+                            first.message.hidden
+                              ? "italic text-neutral-400"
+                              : "font-semibold italic text-red-400"
+                          }
+                        >
+                          {t(
+                            first.message.hidden
+                              ? "room.hiddenMessage"
+                              : "room.bannedMessage",
+                          )}
                         </span>
                         <Timestamp
                           sentAt={first.message.sentAt}
@@ -520,6 +539,15 @@ export function ChatRoom({
                       nav={{ stopId: rows.stopId }}
                       reactions={{ ownIds: ownGuestIds, onReact }}
                       menu={mine ? undefined : personMenu(author)}
+                      onReport={
+                        mine || author.role === "moderator"
+                          ? undefined
+                          : (messageId) =>
+                              setReporting({
+                                id: messageId,
+                                nickname: author.nickname,
+                              })
+                      }
                     />
                   );
                 })}
@@ -667,6 +695,17 @@ export function ChatRoom({
           />
         </aside>
       </section>
+      {reporting && (
+        <ReportDialog
+          nickname={reporting.nickname}
+          onCancel={() => setReporting(null)}
+          onSubmit={async (reason) => {
+            const result = await onReport(reporting.id, reason);
+            if (result.ok) setReporting(null);
+            return result;
+          }}
+        />
+      )}
     </MentionsProvider>
   );
 }

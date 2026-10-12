@@ -72,7 +72,38 @@
   "person": {
     "actions": "Actions for {name}",
     "message": "Message {name}",
-    "openChat": "Open private chat"
+    "openChat": "Open private chat",
+    "report": "Report message"
+  },
+  "report": {
+    "title": "Report this message",
+    "intro": "{name} wrote this. If it breaks the rules, tell us why. It is hidden for you at once, and for everybody once enough people have reported it. A moderator then looks at it.",
+    "reasonLabel": "Why are you reporting it?",
+    "reasons": {
+      "spam": "Spam",
+      "harassment": "Harassment or hate",
+      "sexual": "Sexual content",
+      "illegal": "Something illegal",
+      "other": "Something else"
+    },
+    "send": "Report",
+    "cancel": "Cancel"
+  },
+  "legal": {
+    "nav": "Terms and privacy",
+    "terms": "Terms of use",
+    "privacy": "Privacy policy",
+    "breadcrumb": "You are here",
+    "loading": "Loading…",
+    "unavailable": "The text could not be loaded right now. Try again in a moment, or write to {email}.",
+    "retry": "Try again"
+  },
+  "terms": {
+    "accept": "I am 18 or older and accept the {terms} and the {privacy}.",
+    "accepted": "By continuing you confirm that you are 18 or older and accept the {terms} and the {privacy}.",
+    "acceptRequired": "To continue you need to be 18 or older and accept the terms.",
+    "termsLink": "terms of use",
+    "privacyLink": "privacy policy"
   },
   "reactions": {
     "add": "Add reaction",
@@ -137,6 +168,7 @@
     "send": "Send",
     "reconnecting": "Connection lost. Reconnecting…",
     "bannedMessage": "This user was banned",
+    "hiddenMessage": "Message hidden after being reported",
     "moderatorBadge": "Moderator",
     "leftTag": "Left the room",
     "scrollToEnd": "Scroll to the latest messages",
@@ -209,7 +241,9 @@
     "recipient_blocked": "You have blocked this person. Unblock them to write to them.",
     "blocked_by_recipient": "This person has blocked you, so your message could not be sent.",
     "invalid_reaction": "That reaction could not be added.",
-    "message_not_found": "That message is no longer available to react to.",
+    "message_not_found": "That message is no longer available.",
+    "own_message": "You cannot report your own message.",
+    "invalid_report": "That report could not be sent.",
     "announce_wait": "You can announce again in {seconds} s.",
     "forbidden": "Only moderators can send announcements.",
     "invalid_nickname": "That nickname isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",

@@ -4,6 +4,7 @@ import { getPayload } from 'payload'
 
 import config from '../payload.config'
 import { parseSeedEnv } from '../envSchema'
+import { seedLegal } from './legal'
 
 const SAMPLE_ROOMS = [
   {
@@ -100,6 +101,8 @@ async function seed() {
       `Set this as PAYLOAD_SERVICE_API_KEY in the chat-server's settings (apps/chat-server/.env, or deploy/chat-server.env in production): ${apiKey}`,
     )
   }
+
+  await seedLegal(payload)
 
   process.exit(0)
 }

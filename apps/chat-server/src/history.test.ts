@@ -36,6 +36,7 @@ const {
   recordMessage,
   recordMovement,
   redactMessagesFrom,
+  reportMessage,
   takeAway,
   toggleReaction,
 } = await import("./history.js");
@@ -226,6 +227,31 @@ describe("getHistory", () => {
     ]);
 
     expect(await getHistory("general")).toEqual([replaced(2)]);
+  });
+
+  it("returns a message hidden by reports as a bare placeholder", async () => {
+    const hidden = {
+      id: "id-2",
+      roomSlug: "general",
+      sentAt: message(2).sentAt,
+      hidden: true as const,
+    };
+    redis.lrange.mockResolvedValue([
+      JSON.stringify({ ...hidden, text: "kept", nickname: "Mallory" }),
+    ]);
+
+    expect(await getHistory("general")).toEqual([hidden]);
+  });
+
+  it("never returns who reported a message", async () => {
+    redis.lrange.mockResolvedValue([
+      JSON.stringify({ ...stored(1), reporters: ["hash-a", "hash-b"] }),
+    ]);
+
+    const [first] = await getHistory("general");
+
+    expect(first).toEqual(message(1));
+    expect(first).not.toHaveProperty("reporters");
   });
 });
 
@@ -450,5 +476,87 @@ describe("toggleReaction", () => {
     await expect(toggleReaction("general", "id-1", "👍", who)).rejects.toThrow(
       "redis down",
     );
+  });
+});
+
+describe("reportMessage", () => {
+  const reporter = { guestId: "g", ipHash: "hash-r" };
+  const options = { hideAt: 3, hideNow: false };
+  const answer = {
+    count: 1,
+    hidden: false,
+    added: true,
+    text: "hello 1",
+    nickname: "Alice",
+    guestId: "guest-1",
+    ipHash: "hash-1",
+  };
+
+  it("runs one script on the room's list and returns what a moderator needs", async () => {
+    redis.eval.mockResolvedValue(JSON.stringify(answer));
+
+    expect(await reportMessage("general", "id-1", reporter, options)).toEqual({
+      ok: true,
+      report: answer,
+    });
+
+    expect(redis.eval).toHaveBeenCalledTimes(1);
+    const [script, keys, ...args] = redis.eval.mock.calls[0];
+    expect(typeof script).toBe("string");
+    expect(keys).toBe(1);
+    expect(args).toEqual([
+      "chatter:history:general",
+      "id-1",
+      "g",
+      "hash-r",
+      "3",
+      "0",
+    ]);
+  });
+
+  it("asks for the message to be hidden at once when told to", async () => {
+    redis.eval.mockResolvedValue(JSON.stringify({ ...answer, hidden: true }));
+
+    const result = await reportMessage("general", "id-1", reporter, {
+      hideAt: 3,
+      hideNow: true,
+    });
+
+    expect(result).toMatchObject({ ok: true, report: { hidden: true } });
+    expect(redis.eval.mock.calls[0].at(-1)).toBe("1");
+  });
+
+  it("says when the message is not in the history, or cannot be reported", async () => {
+    redis.eval.mockResolvedValue(null);
+
+    expect(await reportMessage("general", "gone", reporter, options)).toEqual({
+      ok: false,
+      reason: "not_found",
+    });
+  });
+
+  it("says when the message is the reporter's own", async () => {
+    redis.eval.mockResolvedValue("own");
+
+    expect(await reportMessage("general", "id-1", reporter, options)).toEqual({
+      ok: false,
+      reason: "own",
+    });
+  });
+
+  it("rejects an unexpected answer instead of trusting it", async () => {
+    redis.eval.mockResolvedValue(JSON.stringify({ count: "many" }));
+
+    await expect(
+      reportMessage("general", "id-1", reporter, options),
+    ).rejects.toThrow();
+  });
+
+  it("propagates a Redis failure", async () => {
+    redis.eval.mockRejectedValue(new Error("redis down"));
+
+    await expect(
+      reportMessage("general", "id-1", reporter, options),
+    ).rejects.toThrow("redis down");
   });
 });

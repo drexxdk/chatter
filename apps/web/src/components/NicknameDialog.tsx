@@ -3,10 +3,12 @@ import { useTranslation } from "react-i18next";
 
 import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
 import { normalizeNickname } from "../nickname";
+import { loadTermsAccepted, saveTermsAccepted } from "../preferences";
 import { readAge } from "../profile";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
+import { LegalSentence } from "./LegalLinks";
 import { Modal } from "./Modal";
 import { AgeField, AvatarPicker } from "./ProfileFields";
 
@@ -19,6 +21,8 @@ interface NicknameDialogProps {
   // Called when the guest switches between the two forms, so an error about one is not shown on the other.
   onModeChange: () => void;
   onCancel: () => void;
+  // The version of the terms the chat-server names now; null while it is not known.
+  termsVersion: string | null;
 }
 
 export function NicknameDialog({
@@ -29,6 +33,7 @@ export function NicknameDialog({
   onSignIn,
   onModeChange,
   onCancel,
+  termsVersion,
 }: NicknameDialogProps) {
   const { t } = useTranslation();
   const [moderator, setModerator] = useState(false);
@@ -38,6 +43,10 @@ export function NicknameDialog({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [touched, setTouched] = useState(false);
+  // A browser that has accepted this version of the terms is only reminded of them; any other is asked.
+  const rememberedTerms = loadTermsAccepted(termsVersion);
+  const [termsTicked, setTermsTicked] = useState(false);
+  const termsAccepted = rememberedTerms || termsTicked;
 
   const nickname = normalizeNickname(value);
   const age = readAge(ageText);
@@ -50,7 +59,8 @@ export function NicknameDialog({
 
     if (moderator) {
       if (email && password) onSignIn(email.trim(), password);
-    } else if (nickname && age.ok) {
+    } else if (nickname && age.ok && termsAccepted) {
+      if (!rememberedTerms) saveTermsAccepted(termsVersion);
       onSubmit(nickname, avatar, age.age);
     }
   }
@@ -110,6 +120,31 @@ export function NicknameDialog({
               onChange={setAgeText}
               invalid={touched && !age.ok}
             />
+            {rememberedTerms ? (
+              <p className="text-xs text-neutral-400">
+                <LegalSentence i18nKey="terms.accepted" />
+              </p>
+            ) : (
+              <div className="space-y-1">
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={termsTicked}
+                    onChange={(event) => setTermsTicked(event.target.checked)}
+                    aria-invalid={touched && !termsTicked}
+                    className="mt-1 accent-indigo-500"
+                  />
+                  <span>
+                    <LegalSentence i18nKey="terms.accept" />
+                  </span>
+                </label>
+                {touched && !termsTicked && (
+                  <p className="text-sm text-red-300">
+                    {t("terms.acceptRequired")}
+                  </p>
+                )}
+              </div>
+            )}
           </>
         )}
 

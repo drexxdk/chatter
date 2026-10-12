@@ -155,6 +155,7 @@ export function MessageEntry({
   reactions,
   reacted,
   menu,
+  onReport,
   children,
 }: {
   id: string;
@@ -164,6 +165,8 @@ export function MessageEntry({
   reacted: Reaction[];
   // Absent where there is nobody to do anything with.
   menu?: PersonMenuOptions;
+  // Reports this message, from the menu; absent where messages cannot be reported.
+  onReport?: () => void;
   // The bubble and whatever makes it clickable or focusable.
   children: ReactNode;
 }) {
@@ -404,6 +407,7 @@ export function MessageEntry({
               <PersonMenu
                 menu={menu}
                 buttonRef={menuRef}
+                onReport={onReport}
                 onChosen={() => {
                   // Only a touch or a click lets go of the bar; from the keyboard it is where focus comes back to.
                   if (document.documentElement.hasAttribute("data-pointer")) {

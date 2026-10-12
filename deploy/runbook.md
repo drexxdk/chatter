@@ -42,6 +42,37 @@ Notes per secret:
 - DuckDNS token and R2 keys live outside the repo (the provider dashboards and the vault); rotate there, then update
   `deploy/backup.env` for R2.
 
+## Reports
+
+Guests report a message from the "…" menu of a message. Three different addresses (`REPORT_HIDE_THRESHOLD`) hide it for
+everybody; a moderator's report hides it at once. Each reported message is kept in the admin panel under **Reports**
+(text, nickname, reasons, how many reported it), deleted after `REPORT_RETENTION_DAYS` (90) days.
+
+- Review: open **Reports** in the admin panel, read the message, and set the status: _Dismissed_ (nothing wrong) or
+  _Actioned_ (you dealt with it). New reports are _Open_ (still visible) or _Hidden_ (hidden for everybody).
+- Ban the sender: copy `senderHash` into a new entry under **Bans** (set an expiry, or leave it empty for permanent). The
+  ban reaches the chat within `SYNC_INTERVAL_MS` and replaces that sender's remaining messages. The hash is of their
+  address, so it also covers anybody sharing it.
+- A report with an empty `senderHash` was about a moderator's message.
+- Where reports go to is the contact address in the terms (see "Terms and privacy" below): answer it, and delete a report from the
+  admin panel earlier than the retention period when somebody asks for it.
+
+## Terms and privacy
+
+The text of the terms of use and the privacy policy is in the admin panel under **Globals > Terms and privacy**, in
+English, Danish and German (switch the language at the top of the form). Sections have a heading, paragraphs (separate
+them with an empty line; `{contact}` becomes the contact address as a link) and optionally a list (one item per line).
+A language is shown only when both documents are complete in it; others see English.
+
+- Saving as a draft changes nothing for guests; **Publish** does. The chat-server picks it up within `SYNC_INTERVAL_MS`,
+  and browsers may keep the old text for up to a minute.
+- Change **Terms version** (any text, for example a date) only when the change matters: every guest is then asked to
+  accept again. Fixing a typo does not need it.
+- The first time (a database that has never been seeded, such as production after this was deployed), run
+  `bash deploy/seed.sh` once on the machine: it adds the draft text that is in `apps/admin/src/seed/legal/` and leaves
+  everything that exists alone. Until then `/legal` answers 404 and the terms pages say they cannot be loaded.
+- The draft is plain-language and not legal advice; have somebody who knows the law read it.
+
 ## Backups and restore
 
 - Nightly: cron runs `bash /opt/chatter/deploy/backup.sh` (settings in `deploy/backup.env`).

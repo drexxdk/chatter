@@ -5,11 +5,14 @@ import type { Announcement, ChatMessage } from "./types";
 
 export const MAX_MESSAGES = 200;
 
-function placeholderFor(message: {
-  id: string;
-  roomSlug: string;
-  sentAt: string;
-}): ChatMessage {
+function placeholderFor(
+  message: {
+    id: string;
+    roomSlug: string;
+    sentAt: string;
+  },
+  hidden = false,
+): ChatMessage {
   return {
     id: message.id,
     roomSlug: message.roomSlug,
@@ -18,10 +21,12 @@ function placeholderFor(message: {
     nickname: "",
     text: "",
     banned: true,
+    ...(hidden ? { hidden: true } : {}),
   };
 }
 
-// A message as the server sends it: either a full message or, once its author was banned, a bare placeholder.
+// A message as the server sends it: either a full message or, once its author was banned or enough people reported
+// it, a bare placeholder.
 export function parseMessage(value: unknown): ChatMessage | undefined {
   if (!isRecord(value)) return undefined;
   const { id, roomSlug, sentAt } = value;
@@ -35,6 +40,9 @@ export function parseMessage(value: unknown): ChatMessage | undefined {
   }
 
   if (value.banned === true) return placeholderFor({ id, roomSlug, sentAt });
+  if (value.hidden === true) {
+    return placeholderFor({ id, roomSlug, sentAt }, true);
+  }
 
   const { guestId, nickname, text } = value;
 
@@ -147,4 +155,38 @@ export function applyRedaction(
       ? placeholderFor(message)
       : message,
   );
+}
+
+// A message was reported (by the guest, or enough people for the server to hide it): it turns into a placeholder.
+export function hideMessage(
+  existing: ChatMessage[],
+  id: string,
+  roomSlug: string | null,
+): ChatMessage[] {
+  if (!existing.some((message) => message.id === id && !message.banned)) {
+    return existing;
+  }
+
+  return existing.map((message) =>
+    message.id === id && !message.banned && message.roomSlug === roomSlug
+      ? placeholderFor(message, true)
+      : message,
+  );
+}
+
+// The server hid a message that was reported enough times.
+export function applyHidden(
+  existing: ChatMessage[],
+  notice: unknown,
+  roomSlug: string | null,
+): ChatMessage[] {
+  if (
+    !isRecord(notice) ||
+    notice.roomSlug !== roomSlug ||
+    typeof notice.id !== "string"
+  ) {
+    return existing;
+  }
+
+  return hideMessage(existing, notice.id, roomSlug);
 }

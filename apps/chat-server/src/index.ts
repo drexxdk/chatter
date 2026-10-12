@@ -13,7 +13,9 @@ import {
 } from "./socket.js";
 import { startPublicRoomsSync } from "./rooms.js";
 import { startBansSync } from "./bans.js";
+import { startLegalSync } from "./legal.js";
 import { startModeratorsSync } from "./names.js";
+import { startReportsPrune } from "./reports.js";
 
 const httpServer = http.createServer(
   createApp({ occupancy: () => roomOccupancy(io) }),
@@ -24,6 +26,8 @@ const timers = [
   startPublicRoomsSync(),
   startModeratorsSync((ids) => enforceModerators(io, ids)),
   startBansSync((hashes) => enforceBans(io, hashes)),
+  startReportsPrune(),
+  startLegalSync(),
 ];
 
 const shutdown = createShutdown({

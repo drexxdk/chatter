@@ -35,11 +35,16 @@ const storedSchema = z.object({
   text: z.string(),
   // Absent until somebody reacts.
   reactions: reactionsSchema.optional(),
+  // Hashes of the addresses that reported the message, so that one person counts once. Absent until it is reported.
+  reporters: z.array(z.string()).optional(),
   ipHash: z.string(),
 });
 
 // What is left of a message after its author was banned: no text, no name, nothing to identify them.
 const replacedSchema = z.object({ ...messageFields, banned: z.literal(true) });
+
+// What is left of a message that enough people reported: it stays hidden until a moderator has looked at it.
+const hiddenSchema = z.object({ ...messageFields, hidden: z.literal(true) });
 
 // Somebody coming into the room or going out of it, kept among the messages so that a guest who arrives later sees
 // what happened before they did. It carries the same hash, so a ban removes it with the messages.
@@ -55,7 +60,9 @@ export type StoredMessage = z.infer<typeof storedSchema>;
 export type StoredMovement = z.infer<typeof movementSchema>;
 export type PublicMovement = Omit<StoredMovement, "ipHash">;
 export type PublicMessage =
-  Omit<StoredMessage, "ipHash"> | z.infer<typeof replacedSchema>;
+  | Omit<StoredMessage, "ipHash" | "reporters">
+  | z.infer<typeof replacedSchema>
+  | z.infer<typeof hiddenSchema>;
 
 const historyKey = (slug: string) => `chatter:history:${slug}`;
 
@@ -111,6 +118,9 @@ function toPublic(entry: unknown): PublicMessage | PublicMovement | undefined {
   const replaced = replacedSchema.safeParse(entry);
   if (replaced.success) return replaced.data;
 
+  const hidden = hiddenSchema.safeParse(entry);
+  if (hidden.success) return hidden.data;
+
   const movement = movementSchema.safeParse(entry);
   if (movement.success) {
     const { ipHash: _ipHash, ...rest } = movement.data;
@@ -120,7 +130,7 @@ function toPublic(entry: unknown): PublicMessage | PublicMovement | undefined {
   const stored = storedSchema.safeParse(entry);
   if (!stored.success) return undefined;
 
-  const { ipHash: _ipHash, ...message } = stored.data;
+  const { ipHash: _ipHash, reporters: _reporters, ...message } = stored.data;
   return message;
 }
 
@@ -197,7 +207,7 @@ local entries = redis.call('LRANGE', KEYS[1], 0, -1)
 for index, raw in ipairs(entries) do
   local ok, message = pcall(cjson.decode, raw)
   if ok and type(message) == 'table' and message.id == ARGV[1] then
-    if message.banned then return nil end
+    if message.banned or message.hidden then return nil end
     if message.guestId == ARGV[3] then return 'own' end
     local reactions = message.reactions
     if type(reactions) ~= 'table' then reactions = {} end
@@ -269,4 +279,88 @@ export async function toggleReaction(
   const parsed: unknown = JSON.parse(z.string().parse(result));
 
   return { ok: true, reactions: reactionsSchema.parse(parsed) };
+}
+
+// Adds a report to a message, and replaces the message with a hidden placeholder once enough different addresses have
+// reported it (or at once, when ARGV[5] is 1). Runs inside Redis so it cannot interleave with other changes to the list.
+// Returns nothing when the message is not (or no longer) a message that can be reported, 'own' for the sender's own
+// message, and otherwise JSON: how many addresses have reported it, whether it is now hidden, whether this report was
+// a new one, and what a moderator needs to judge it.
+const REPORT_SCRIPT = `
+local entries = redis.call('LRANGE', KEYS[1], 0, -1)
+for index, raw in ipairs(entries) do
+  local ok, message = pcall(cjson.decode, raw)
+  if ok and type(message) == 'table' and message.id == ARGV[1] then
+    if message.banned or message.hidden or message.removed or message.event then return nil end
+    local ipHash = message.ipHash
+    if type(ipHash) ~= 'string' then ipHash = '' end
+    if message.guestId == ARGV[2] then return 'own' end
+    local reporters = message.reporters
+    if type(reporters) ~= 'table' then reporters = {} end
+    local known = false
+    for _, hash in ipairs(reporters) do
+      if hash == ARGV[3] then known = true end
+    end
+    if not known then table.insert(reporters, ARGV[3]) end
+    local hidden = #reporters >= tonumber(ARGV[4]) or ARGV[5] == '1'
+    if hidden then
+      redis.call('LSET', KEYS[1], index - 1, cjson.encode({
+        id = message.id, roomSlug = message.roomSlug, sentAt = message.sentAt, hidden = true
+      }))
+    elseif not known then
+      message.reporters = reporters
+      redis.call('LSET', KEYS[1], index - 1, cjson.encode(message))
+    end
+    return cjson.encode({
+      count = #reporters, hidden = hidden, added = not known,
+      text = message.text, nickname = message.nickname, guestId = message.guestId, ipHash = ipHash
+    })
+  end
+end
+return nil
+`;
+
+const reportedSchema = z.object({
+  count: z.number(),
+  hidden: z.boolean(),
+  added: z.boolean(),
+  text: z.string(),
+  nickname: z.string(),
+  guestId: z.string(),
+  ipHash: z.string(),
+});
+
+export type ReportResult =
+  | { ok: true; report: z.infer<typeof reportedSchema> }
+  | { ok: false; reason: "not_found" | "own" };
+
+// Records that this guest reported the message. `ipHash` is the reporter's: addresses count once however many
+// identities one person makes (people sharing an address can still report each other, they just count as one).
+// `hideAt` is how many addresses hide the message; `hideNow` hides it whatever the count (a moderator's report).
+export async function reportMessage(
+  slug: string,
+  messageId: string,
+  reporter: { guestId: string; ipHash: string },
+  options: { hideAt: number; hideNow: boolean },
+): Promise<ReportResult> {
+  const result = await redis.eval(
+    REPORT_SCRIPT,
+    1,
+    historyKey(slug),
+    messageId,
+    reporter.guestId,
+    reporter.ipHash,
+    String(options.hideAt),
+    options.hideNow ? "1" : "0",
+  );
+
+  if (result === null || result === undefined) {
+    return { ok: false, reason: "not_found" };
+  }
+
+  if (result === "own") return { ok: false, reason: "own" };
+
+  const report = reportedSchema.parse(JSON.parse(z.string().parse(result)));
+
+  return { ok: true, report };
 }

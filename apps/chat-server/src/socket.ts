@@ -19,6 +19,7 @@ import {
   recordMessage,
   recordMovement,
   redactMessagesFrom,
+  reportMessage,
   takeAway,
   toggleReaction,
 } from "./history.js";
@@ -31,6 +32,8 @@ import {
   normalizeName,
 } from "./names.js";
 import { isReactionEmoji } from "./reactions.js";
+import { REPORT_REASONS, type ReportReason } from "./payloadClient.js";
+import { recordReport } from "./reports.js";
 import { pubClient, subClient } from "./redis.js";
 import { ROLE_RULES, type ChatRole } from "./roles.js";
 import { getCachedPublicRooms } from "./rooms.js";
@@ -66,6 +69,9 @@ const PROFILE_CHANGE_WINDOW_MS = 60_000;
 // Reactions are cheap, but each one is rewritten into Redis and shown to the whole room.
 const REACTIONS_PER_WINDOW = 10;
 const REACTION_WINDOW_MS = 5_000;
+// A report can hide somebody's message, so one connection cannot file many of them.
+const REPORTS_PER_WINDOW = 5;
+const REPORT_WINDOW_MS = 60_000;
 
 interface SocketData {
   guestId: string;
@@ -85,6 +91,8 @@ interface SocketData {
   profileChangeTimes: number[];
   // When the guest last reacted to a message, for the limit on that.
   reactionTimes: number[];
+  // When the guest last reported a message, for the limit on that.
+  reportTimes: number[];
   // Whose direct messages this connection does not want. Arrays, because the data is copied between nodes as JSON.
   blockedGuestIds: string[];
   // Who this connection has messaged, and when it started those conversations, for the new-conversation limit.
@@ -479,6 +487,7 @@ export function createSocketServer(
       recentMessageTimes: [],
       profileChangeTimes: [],
       reactionTimes: [],
+      reportTimes: [],
       blockedGuestIds: [],
       dmPartners: [],
       dmStartTimes: [],
@@ -1151,6 +1160,96 @@ export function createSocketServer(
       });
 
       reply({ ok: true });
+    });
+
+    // Reports a message in the guest's room. Enough different addresses hide it for everybody (at once when a moderator
+    // reports it); the admin keeps a copy of what was reported, for a moderator to judge.
+    socket.on("message:report", async (payload: unknown, ack?: Ack) => {
+      const reply = ackOf(ack);
+      const slug = data.roomSlug;
+
+      if (!slug) {
+        return reply({ ok: false, error: "not_in_room" });
+      }
+
+      const messageId = stringField(payload, "messageId");
+      const reason = stringField(payload, "reason") || "other";
+
+      if (
+        !messageId ||
+        messageId.length > 64 ||
+        !REPORT_REASONS.includes(reason as ReportReason)
+      ) {
+        return reply({ ok: false, error: "invalid_report" });
+      }
+
+      const now = Date.now();
+      const { recent, waitMs } = slidingWindow(
+        data.reportTimes,
+        now,
+        REPORT_WINDOW_MS,
+        REPORTS_PER_WINDOW,
+      );
+      data.reportTimes = recent;
+
+      if (waitMs > 0) {
+        return reply({
+          ok: false,
+          error: "rate_limited",
+          retryAfterMs: waitMs,
+        });
+      }
+
+      data.reportTimes.push(now);
+
+      let result;
+
+      try {
+        result = await reportMessage(
+          slug,
+          messageId,
+          { guestId: data.guestId, ipHash: data.ipHash },
+          {
+            hideAt: env.REPORT_HIDE_THRESHOLD,
+            hideNow: data.role === "moderator",
+          },
+        );
+      } catch (error) {
+        log.error("Failed to record a report", error);
+        return reply({ ok: false, error: "unavailable" });
+      }
+
+      if (!result.ok) {
+        return reply({
+          ok: false,
+          error: result.reason === "own" ? "own_message" : "message_not_found",
+        });
+      }
+
+      const { report } = result;
+
+      if (report.hidden) {
+        io.to(roomKey(slug)).emit("message:hidden", {
+          roomSlug: slug,
+          id: messageId,
+        });
+      }
+
+      if (report.added) {
+        recordReport({
+          messageId,
+          roomSlug: slug,
+          text: report.text,
+          nickname: report.nickname,
+          guestId: report.guestId,
+          senderHash: report.ipHash,
+          reporterCount: report.count,
+          hidden: report.hidden,
+          reason: reason as ReportReason,
+        });
+      }
+
+      reply({ ok: true, hidden: report.hidden });
     });
 
     socket.on("disconnect", () => {

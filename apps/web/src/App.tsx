@@ -9,16 +9,18 @@ import { useChat } from "./chat/useChat";
 import { AnnouncementBanner } from "./components/AnnouncementBanner";
 import { ChatRoom } from "./components/ChatRoom";
 import { ErrorAlert } from "./components/ErrorAlert";
+import { HeaderFrame } from "./components/HeaderFrame";
 import { InfoPanel } from "./components/InfoPanel";
+import { LegalLinks } from "./components/LegalLinks";
 import { Lobby, useRooms } from "./components/Lobby";
 import { MainMenu } from "./components/MainMenu";
 import { NicknameDialog } from "./components/NicknameDialog";
 import { ProfileButton } from "./components/ProfileButton";
 import { ProfileDialog } from "./components/ProfileDialog";
 import { RoomSwitcher } from "./components/RoomSwitcher";
-import { roomVars } from "./roomThemes";
 import { SideDrawer } from "./components/SideDrawer";
 import { LOBBY_PATH, roomPath, slugFromPath } from "./place";
+import { useLegal } from "./legal/useLegal";
 import { loadShowMovements, saveShowMovements } from "./preferences";
 import {
   clearSession,
@@ -43,6 +45,10 @@ export function App({
   const { t } = useTranslation();
   const chat = useChat(createSocket, { reconnectDelaysMs });
   const { state: roomsState, retry } = useRooms(!chat.roomSlug);
+  const { state: legalState } = useLegal();
+  // The version of the terms the guest has to have accepted; null while the chat-server has not said.
+  const termsVersion =
+    legalState.status === "ready" ? legalState.legal.version : null;
   const [pendingRoom, setPendingRoom] = useState<Room | null>(null);
   const [signInError, setSignInError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
@@ -301,57 +307,49 @@ export function App({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      {/* Across the whole window, with the room under its border that there is between the messages and the message box. */}
-      <div
-        style={roomVars(
-          chat.roomSlug && chat.session ? chat.roomSlug : undefined,
-        )}
-        className="sticky top-0 z-30 bg-[var(--room-tint,var(--color-neutral-950))] pb-2"
+      <HeaderFrame
+        roomSlug={chat.roomSlug && chat.session ? chat.roomSlug : undefined}
       >
-        <div className="border-b border-[var(--room-border,var(--color-neutral-800))]">
-          <header className="relative mx-auto flex h-14 max-w-4xl items-center justify-between gap-3 px-(--page-gutter)">
-            {chat.roomSlug && chat.session ? (
-              <div className="flex min-w-0 items-center gap-1">
-                <h1 className="sr-only">{t("app.title")}</h1>
-                <button
-                  type="button"
-                  onClick={() => void chat.leaveRoom()}
-                  aria-label={t("room.leave")}
-                  className="shrink-0 rounded-md p-2 hover:bg-neutral-800"
-                >
-                  <ArrowLeft aria-hidden="true" className="h-5 w-5" />
-                </button>
-                <RoomSwitcher
-                  rooms={rooms}
-                  slug={chat.roomSlug}
-                  name={currentRoom?.name ?? chat.roomSlug}
-                  disabled={chat.status !== "connected"}
-                  onSelect={(room) => void handleSelect(room)}
-                />
-              </div>
-            ) : (
-              <h1 className="text-2xl font-bold">{t("app.title")}</h1>
-            )}
-            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-              {chat.roomSlug && chat.session && (
-                <ProfileButton
-                  nickname={chat.session.nickname}
-                  avatar={chat.session.avatar}
-                  onClick={() => setProfileOpen(true)}
-                />
-              )}
-              <MainMenu
-                onInfo={() => setInfoOpen(true)}
-                movements={
-                  chat.roomSlug && chat.session && !chat.direct.active
-                    ? { checked: showMovements, onChange: changeShowMovements }
-                    : undefined
-                }
-              />
-            </div>
-          </header>
+        {chat.roomSlug && chat.session ? (
+          <div className="flex min-w-0 items-center gap-1">
+            <h1 className="sr-only">{t("app.title")}</h1>
+            <button
+              type="button"
+              onClick={() => void chat.leaveRoom()}
+              aria-label={t("room.leave")}
+              className="shrink-0 rounded-md p-2 hover:bg-neutral-800"
+            >
+              <ArrowLeft aria-hidden="true" className="h-5 w-5" />
+            </button>
+            <RoomSwitcher
+              rooms={rooms}
+              slug={chat.roomSlug}
+              name={currentRoom?.name ?? chat.roomSlug}
+              disabled={chat.status !== "connected"}
+              onSelect={(room) => void handleSelect(room)}
+            />
+          </div>
+        ) : (
+          <h1 className="text-2xl font-bold">{t("app.title")}</h1>
+        )}
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          {chat.roomSlug && chat.session && (
+            <ProfileButton
+              nickname={chat.session.nickname}
+              avatar={chat.session.avatar}
+              onClick={() => setProfileOpen(true)}
+            />
+          )}
+          <MainMenu
+            onInfo={() => setInfoOpen(true)}
+            movements={
+              chat.roomSlug && chat.session && !chat.direct.active
+                ? { checked: showMovements, onChange: changeShowMovements }
+                : undefined
+            }
+          />
         </div>
-      </div>
+      </HeaderFrame>
 
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-(--page-gutter)">
         <main className="flex flex-1 flex-col gap-4">
@@ -377,6 +375,7 @@ export function App({
               retryAfterSeconds={chat.retryAfterSeconds}
               onSend={chat.sendMessage}
               onReact={chat.react}
+              onReport={chat.reportMessage}
               onAnnounce={chat.sendAnnouncement}
               direct={chat.direct}
               idleDeadline={chat.idleDeadline}
@@ -389,6 +388,7 @@ export function App({
                 onRetry={retry}
                 onSelect={(room) => void handleSelect(room)}
               />
+              <LegalLinks />
             </div>
           )}
         </main>
@@ -421,6 +421,7 @@ export function App({
             onSignIn={(email, password) => void handleSignIn(email, password)}
             onModeChange={clearDialogErrors}
             onCancel={handleCancel}
+            termsVersion={termsVersion}
           />
         )}
       </div>

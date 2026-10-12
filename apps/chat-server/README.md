@@ -9,6 +9,7 @@ The realtime backend end-users connect to. Built with Express + Socket.IO, backe
 - `GET /health` — liveness check.
 - `GET /rooms` — cached public room list (mirrors Payload's `/api/public-rooms`, but only `id`, `name`, `slug`, `maxMembers`, `slowModeSeconds` and `description`). Limited to `ROOMS_RATE_LIMIT_PER_MINUTE` requests (default 60) per minute per client IP: over that it answers `429 { "error": "rate_limited" }` with a `Retry-After` header, and every answer carries a `RateLimit` header with the remaining allowance. Counted per server process, like the per-IP connection cap, and the client IP follows `TRUST_PROXY_HOPS`.
 - `POST /moderator/login` — moderator sign-in (see Moderators). Limited to 10 requests per 15 minutes per client IP.
+- `GET /legal` — the terms of use and the privacy policy, as written in the admin (**Terms and privacy**): `{ version, contactEmail, locales: { en: { terms, privacy }, ... } }`, where each document is `{ title, updated, sections: [{ heading, paragraphs, items }] }`. Only languages that have both documents complete are included. Served from the cached copy (`Cache-Control: public, max-age=60`) with the same rate limit as `/rooms`; `404 { "error": "not_available" }` until the admin has them (run the seed). `version` is the admin's "terms version": the web app asks guests to accept again when it changes. The text is synced from Payload with the other caches (`startLegalSync`).
 - All HTTP answers carry the standard security headers (Helmet). The Socket.IO endpoint is served by the same HTTP server but is not an Express route, so it does not get them.
 
 ## Local setup
@@ -120,6 +121,7 @@ A reload is a new connection, which would normally be a new guest (new `guestId`
 | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | Rooms, bans, moderator accounts, the settings                                 | Payload (Postgres): the source of truth, edited in the admin                                                                | never (it is the data)                            |
 | Copies of the rooms, bans and moderators                                      | Redis `chatter:public-rooms`, `chatter:bans`, `chatter:moderators`, refreshed every `SYNC_INTERVAL_MS`                      | Redis is emptied; the next sync refills them      |
+| The terms and the privacy policy (copy)                                       | Redis `chatter:legal` (no expiry), refreshed every `SYNC_INTERVAL_MS`                                                       | Redis is emptied; the next sync refills it        |
 | A room's recent messages (with reactions)                                     | Redis list `chatter:history:<room>`, newest `ROOM_HISTORY_SIZE`, expiring `ROOM_HISTORY_TTL_SECONDS` after the last message | the time-to-live runs out                         |
 | The latest announcement and each moderator's wait                             | Redis `chatter:announcement`, `chatter:announce-cooldown:<account>`                                                         | it expires or is replaced                         |
 | Proof for resuming an identity                                                | Redis `chatter:resume:<guest id>` (a hash of the secret)                                                                    | it expires                                        |
@@ -155,6 +157,16 @@ A guest in a room can react to one of its messages with an emoji, as in Teams: t
 - Reactions live in the message's history entry (one atomic Redis script rewrites it), so they are served with the history to guests who join later and expire with it. Only messages still in the history can be reacted to. Direct messages have no history, so their reactions are passed on and not kept (`dm:react`, below).
 - The nickname is the one the guest had when they reacted.
 
+## Reports
+
+A guest can report a message in their room; enough reports hide it for everybody until a moderator has looked at it.
+
+- `message:report` `{ messageId, reason }` (client to server). `reason` is one of `spam`, `harassment`, `sexual`, `illegal`, `other` (the default). Ack: `{ ok: true, hidden }` (`hidden` says whether this report hid the message), or `{ ok: false, error }` with `not_in_room`, `invalid_report` (a reason that is not offered, or a missing or too long message id), `message_not_found` (no longer in the history, or already a placeholder), `own_message`, `rate_limited` (more than 5 reports a minute, with `retryAfterMs`) or `unavailable`.
+- `message:hidden` `{ roomSlug, id }` (server to room) says that a message is now hidden. Clients turn it into a placeholder. In the history it comes back as `{ id, roomSlug, sentAt, hidden: true }`, with no text and no sender, like a ban placeholder.
+- Reports are counted by the reporter's address hash (the same salted hash bans use), kept in the message's own history entry (one atomic Redis script, `REPORT_SCRIPT`). One address counts once however many identities it makes, and people who share an address can still report each other, but count as one. At `REPORT_HIDE_THRESHOLD` different addresses (default 3) the message is replaced by the placeholder. A moderator's report hides it at once.
+- The first report of a message also makes a document in the admin's `reports` collection with the text, the nickname, the sender's address hash and the reasons; later reports raise `reporterCount` (the service account writes it). The admin keeps it because the room's history is gone after `ROOM_HISTORY_TTL_SECONDS`. A super-admin judges it in the admin panel (and can copy `senderHash` into Bans). Reports are deleted `REPORT_RETENTION_DAYS` after they were made (default 90; the chat-server removes them every few hours).
+- Reporting does not hide a message from anybody else before the threshold. Direct messages cannot be reported: they are not stored on the server, so there would be nothing to judge; a guest can block the sender instead.
+
 ## Bans reach the chat
 
 Bans are checked when a guest connects, and again after every ban sync (every `SYNC_INTERVAL_MS`, default 30 seconds), so a ban takes effect on guests who are already connected and on what they said:
@@ -186,3 +198,11 @@ The one exception is `src/history.redis.test.ts`, which runs the history's Lua s
 ## Status
 
 Handshake guest auth, ban check, a per-IP connection cap, room join/leave with an optional `maxMembers` limit (a room with no limit set is unlimited), presence, rate-limited messaging, inactivity disconnects, message history and ban enforcement for connected guests are implemented. Joins to limited rooms are serialized per room within one process, so simultaneous joins can't exceed `maxMembers`. Not yet implemented: capacity enforcement across multiple server nodes (that needs a Redis-side counter).
+
+## Load check
+
+`npm run loadtest -- --url http://localhost:4000 --clients 270 --ramp 60 --duration 40` (from the repo root; `--help` lists the options) opens that many guests (`load-<id>-<n>`) against a server, deals them out over its rooms as far as each holds, has each join and write a message every `--message-every` seconds, and prints how long connecting, joining and the round trip of a message took (the sender's own message coming back from the room), how fast `/health` answered, and what was refused and why. It also says how late this machine's own timers were, so a slow test machine is not mistaken for a slow server.
+
+- The per-address cap (`MAX_CONNECTIONS_PER_IP`) sees every guest of the script as one address, so against a server that has it set only that many get in and the rest are reported as `connect: too_many_connections`. That is a test of the cap; for a test of the machine, raise it for the run (`100000`) and put it back after.
+- Rooms have a capacity and the sample rooms hold 280 together; `room_full` means there were more guests than seats. Rooms have a slow mode too (`DEFAULT_SLOW_MODE_SECONDS`, 10 by default), so a message every less than that many seconds is refused as `send: rate_limited`.
+- To load the production machine, do it from a quiet moment (an UptimeRobot alert is possible), raise the cap in `deploy/chat-server.env` first (`COMPOSE up -d chat-server`), and watch `docker stats` and `COMPOSE logs chat-server` on the machine meanwhile. Results on a developer laptop (270 guests, no cap, Redis and Payload on the same machine): connecting and joining under 20 ms at worst, a message back in 4 ms at the 95th percentile, nothing refused.

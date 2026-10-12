@@ -72,7 +72,38 @@
   "person": {
     "actions": "Aktionen für {name}",
     "message": "{name} schreiben",
-    "openChat": "Privaten Chat öffnen"
+    "openChat": "Privaten Chat öffnen",
+    "report": "Nachricht melden"
+  },
+  "report": {
+    "title": "Diese Nachricht melden",
+    "intro": "{name} hat diese Nachricht geschrieben. Wenn sie gegen die Regeln verstößt, sag uns warum. Sie wird sofort für dich ausgeblendet und für alle, sobald genug Personen sie gemeldet haben. Danach prüft ein Moderator sie.",
+    "reasonLabel": "Warum meldest du sie?",
+    "reasons": {
+      "spam": "Spam",
+      "harassment": "Belästigung oder Hass",
+      "sexual": "Sexuelle Inhalte",
+      "illegal": "Etwas Illegales",
+      "other": "Etwas anderes"
+    },
+    "send": "Melden",
+    "cancel": "Abbrechen"
+  },
+  "legal": {
+    "nav": "Bedingungen und Datenschutz",
+    "terms": "Nutzungsbedingungen",
+    "privacy": "Datenschutzerklärung",
+    "breadcrumb": "Du bist hier",
+    "loading": "Wird geladen…",
+    "unavailable": "Der Text konnte gerade nicht geladen werden. Versuche es gleich noch einmal oder schreibe an {email}.",
+    "retry": "Erneut versuchen"
+  },
+  "terms": {
+    "accept": "Ich bin 18 Jahre oder älter und akzeptiere die {terms} und die {privacy}.",
+    "accepted": "Wenn du fortfährst, bestätigst du, dass du 18 Jahre oder älter bist und die {terms} und die {privacy} akzeptierst.",
+    "acceptRequired": "Um fortzufahren, musst du mindestens 18 Jahre alt sein und die Bedingungen akzeptieren.",
+    "termsLink": "Nutzungsbedingungen",
+    "privacyLink": "Datenschutzerklärung"
   },
   "reactions": {
     "add": "Reaktion hinzufügen",
@@ -137,6 +168,7 @@
     "send": "Senden",
     "reconnecting": "Verbindung unterbrochen. Verbinde erneut…",
     "bannedMessage": "Dieser Nutzer wurde gesperrt",
+    "hiddenMessage": "Nachricht nach Meldung ausgeblendet",
     "moderatorBadge": "Moderator",
     "leftTag": "Hat den Raum verlassen",
     "scrollToEnd": "Zu den neuesten Nachrichten scrollen",
@@ -209,7 +241,9 @@
     "recipient_blocked": "Du hast diese Person blockiert. Hebe die Blockierung auf, um ihr zu schreiben.",
     "blocked_by_recipient": "Diese Person hat dich blockiert, deine Nachricht konnte nicht gesendet werden.",
     "invalid_reaction": "Diese Reaktion konnte nicht hinzugefügt werden.",
-    "message_not_found": "Auf diese Nachricht kann nicht mehr reagiert werden.",
+    "message_not_found": "Diese Nachricht ist nicht mehr verfügbar.",
+    "own_message": "Du kannst deine eigene Nachricht nicht melden.",
+    "invalid_report": "Die Meldung konnte nicht gesendet werden.",
     "announce_wait": "Du kannst in {seconds} s wieder eine Ankündigung senden.",
     "forbidden": "Nur Moderatoren können Ankündigungen senden.",
     "invalid_nickname": "Dieser Spitzname ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",

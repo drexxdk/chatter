@@ -23,6 +23,8 @@ const {
   getHistory,
   redactMessagesFrom,
   toggleReaction,
+  reportMessage,
+  recordReport,
   getModeratorNames,
   getModerators,
   saveAnnouncement,
@@ -40,6 +42,8 @@ const {
   getHistory: vi.fn(),
   redactMessagesFrom: vi.fn(),
   toggleReaction: vi.fn(),
+  reportMessage: vi.fn(),
+  recordReport: vi.fn(),
   getModeratorNames: vi.fn(),
   getModerators: vi.fn(),
   saveAnnouncement: vi.fn(),
@@ -77,7 +81,9 @@ vi.mock("./history.js", () => ({
   getHistory,
   redactMessagesFrom,
   toggleReaction,
+  reportMessage,
 }));
+vi.mock("./reports.js", () => ({ recordReport }));
 // In-memory adapter standing in for Redis. fetchSockets is delayed because the real adapter does a
 // network round trip there, which is what lets simultaneous joins interleave.
 vi.mock("@socket.io/redis-adapter", async () => {
@@ -222,6 +228,21 @@ beforeAll(async () => {
   ({ io: ioServer, port } = await startServer());
 });
 
+// What the history says after a report: counted, not hidden yet.
+const reported = (changes: Record<string, unknown> = {}) => ({
+  ok: true,
+  report: {
+    count: 1,
+    hidden: false,
+    added: true,
+    text: "rude words",
+    nickname: "Mallory",
+    guestId: "guest-m",
+    ipHash: "hash-m",
+    ...changes,
+  },
+});
+
 afterAll(async () => {
   await Promise.all(
     [ioServer, ...extraServers.splice(0)].map((server) => server.close()),
@@ -238,6 +259,8 @@ beforeEach(() => {
   getHistory.mockReset().mockResolvedValue([]);
   redactMessagesFrom.mockReset().mockResolvedValue([]);
   toggleReaction.mockReset().mockResolvedValue({ ok: true, reactions: [] });
+  reportMessage.mockReset().mockResolvedValue(reported());
+  recordReport.mockReset();
   getModeratorNames.mockReset().mockResolvedValue([]);
   // The accounts the tokens in these tests belong to (see tokenFor).
   getModerators.mockReset().mockResolvedValue([
@@ -755,6 +778,210 @@ describe("reactions", () => {
     alice.emit("room:join", { slug: "general" });
     await joined;
     alice.emit("reaction:toggle", { messageId: "m1", emoji: "👍" });
+
+    expect(
+      (await emit(alice, "message:send", { text: "still alive" })).ok,
+    ).toBe(true);
+  });
+});
+
+describe("reports", () => {
+  const SECRET = "a-secret-that-is-long-enough-for-tests";
+
+  it("rejects reporting outside a room", async () => {
+    const alice = await connectGuest("Alice");
+
+    expect(await emit(alice, "message:report", { messageId: "m1" })).toEqual({
+      ok: false,
+      error: "not_in_room",
+    });
+    expect(reportMessage).not.toHaveBeenCalled();
+  });
+
+  it("counts the report against the guest's address and keeps what was reported", async () => {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    expect(
+      await emit(alice, "message:report", {
+        messageId: "m1",
+        reason: "harassment",
+      }),
+    ).toEqual({ ok: true, hidden: false });
+
+    expect(reportMessage).toHaveBeenCalledWith(
+      "general",
+      "m1",
+      {
+        guestId: expect.any(String),
+        ipHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      },
+      { hideAt: 3, hideNow: false },
+    );
+    expect(recordReport).toHaveBeenCalledWith({
+      messageId: "m1",
+      roomSlug: "general",
+      text: "rude words",
+      nickname: "Mallory",
+      guestId: "guest-m",
+      senderHash: "hash-m",
+      reporterCount: 1,
+      hidden: false,
+      reason: "harassment",
+    });
+  });
+
+  it("takes 'other' as the reason when none is given", async () => {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    await emit(alice, "message:report", { messageId: "m1" });
+
+    expect(recordReport).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "other" }),
+    );
+  });
+
+  it("tells the whole room when the message is hidden, and nobody else", async () => {
+    reportMessage.mockResolvedValue(reported({ hidden: true, count: 3 }));
+    const alice = await connectGuest("Alice");
+    const bob = await connectGuest("Bob");
+    const carol = await connectGuest("Carol");
+    await emit(alice, "room:join", { slug: "general" });
+    await emit(bob, "room:join", { slug: "general" });
+    await emit(carol, "room:join", { slug: "random" });
+    const elsewhere = vi.fn();
+    carol.on("message:hidden", elsewhere);
+    const bobSees = waitFor(bob, "message:hidden");
+    const aliceSees = waitFor(alice, "message:hidden");
+
+    expect(await emit(bob, "message:report", { messageId: "m1" })).toEqual({
+      ok: true,
+      hidden: true,
+    });
+
+    expect(await bobSees).toEqual({ roomSlug: "general", id: "m1" });
+    expect(await aliceSees).toEqual({ roomSlug: "general", id: "m1" });
+    expect(elsewhere).not.toHaveBeenCalled();
+    expect(recordReport).toHaveBeenCalledWith(
+      expect.objectContaining({ hidden: true, reporterCount: 3 }),
+    );
+  });
+
+  it("does not announce anything while the message is still visible", async () => {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+    const hidden = vi.fn();
+    alice.on("message:hidden", hidden);
+
+    await emit(alice, "message:report", { messageId: "m1" });
+    await emit(alice, "message:send", { text: "later" });
+
+    expect(hidden).not.toHaveBeenCalled();
+  });
+
+  it("does not save a report the same address already made", async () => {
+    reportMessage.mockResolvedValue(reported({ added: false }));
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    expect(await emit(alice, "message:report", { messageId: "m1" })).toEqual({
+      ok: true,
+      hidden: false,
+    });
+    expect(recordReport).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a reason that is not offered", { messageId: "m1", reason: "boring" }],
+    ["no message", { reason: "spam" }],
+    ["a message id that is too long", { messageId: "m".repeat(65) }],
+    ["no payload", undefined],
+  ])("rejects %s", async (_label, payload) => {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    expect(await emit(alice, "message:report", payload)).toEqual({
+      ok: false,
+      error: "invalid_report",
+    });
+    expect(reportMessage).not.toHaveBeenCalled();
+  });
+
+  it("says when the message is not in the history, or is the guest's own", async () => {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    reportMessage.mockResolvedValue({ ok: false, reason: "not_found" });
+    expect(await emit(alice, "message:report", { messageId: "m1" })).toEqual({
+      ok: false,
+      error: "message_not_found",
+    });
+
+    reportMessage.mockResolvedValue({ ok: false, reason: "own" });
+    expect(await emit(alice, "message:report", { messageId: "m1" })).toEqual({
+      ok: false,
+      error: "own_message",
+    });
+    expect(recordReport).not.toHaveBeenCalled();
+  });
+
+  it("reports a Redis failure as unavailable", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    reportMessage.mockRejectedValue(new Error("redis down"));
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    expect(await emit(alice, "message:report", { messageId: "m1" })).toEqual({
+      ok: false,
+      error: "unavailable",
+    });
+  });
+
+  it("allows 5 reports a minute, then says how long to wait", async () => {
+    const alice = await connectGuest("Alice");
+    await emit(alice, "room:join", { slug: "general" });
+
+    for (let i = 0; i < 5; i++) {
+      expect(
+        (await emit(alice, "message:report", { messageId: `m${i}` })).ok,
+      ).toBe(true);
+    }
+
+    const refused = await emit(alice, "message:report", { messageId: "m9" });
+
+    expect(refused).toMatchObject({ ok: false, error: "rate_limited" });
+    expect(refused.retryAfterMs).toBeGreaterThan(0);
+    expect(refused.retryAfterMs).toBeLessThanOrEqual(60_000);
+    expect(reportMessage).toHaveBeenCalledTimes(5);
+  });
+
+  it("lets a moderator hide a message at once", async () => {
+    const { port } = await startServer({ authTokenSecret: SECRET });
+    const token = signToken(
+      { sub: 7, name: "Ada Mod", role: "moderator" } as never,
+      { secret: SECRET, ttlMs: 3_600_000, now: Date.now() },
+    );
+    const { socket } = await connect({ token }, port);
+    if (!socket) throw new Error("sign-in failed");
+    await emit(socket, "room:join", { slug: "general" });
+
+    await emit(socket, "message:report", { messageId: "m1" });
+
+    expect(reportMessage).toHaveBeenCalledWith(
+      "general",
+      "m1",
+      expect.anything(),
+      { hideAt: 3, hideNow: true },
+    );
+  });
+
+  it("survives events sent without an ack callback", async () => {
+    const alice = await connectGuest("Alice");
+    const joined = waitFor<Presence>(alice, "room:presence");
+    alice.emit("room:join", { slug: "general" });
+    await joined;
+    alice.emit("message:report", { messageId: "m1" });
 
     expect(
       (await emit(alice, "message:send", { text: "still alive" })).ok,

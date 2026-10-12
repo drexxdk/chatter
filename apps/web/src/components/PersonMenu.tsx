@@ -1,5 +1,5 @@
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-import { Ban, Ellipsis, Mail, MessageSquare } from "lucide-react";
+import { Ban, Ellipsis, Flag, Mail, MessageSquare } from "lucide-react";
 import type { Ref } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -29,11 +29,14 @@ export function PersonMenu({
   menu,
   buttonRef,
   onChosen,
+  onReport,
 }: {
   menu: PersonMenuOptions;
   buttonRef?: Ref<HTMLButtonElement>;
   // After something was chosen, for a bar that was held open.
   onChosen: () => void;
+  // Reports the message the menu belongs to; absent where messages cannot be reported.
+  onReport?: () => void;
 }) {
   const { t } = useTranslation();
   const [button, setButton] = useSharedRef(buttonRef);
@@ -96,6 +99,21 @@ export function PersonMenu({
               {blocked
                 ? t("dm.unblock", { name: partner.nickname })
                 : t("dm.block", { name: partner.nickname })}
+            </button>
+          </MenuItem>
+        )}
+        {onReport && (
+          <MenuItem>
+            <button
+              type="button"
+              onClick={() => {
+                onReport();
+                onChosen();
+              }}
+              className={item}
+            >
+              <Flag aria-hidden="true" className="h-4 w-4" />
+              {t("person.report")}
             </button>
           </MenuItem>
         )}

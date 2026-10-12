@@ -5,6 +5,7 @@ import helmet from "helmet";
 import { z } from "zod";
 
 import { env } from "./env.js";
+import { getCachedLegal } from "./legal.js";
 import { rememberModerator } from "./names.js";
 import { loginAccount } from "./payloadClient.js";
 import { chatRoleFor } from "./roles.js";
@@ -81,6 +82,25 @@ export function createApp(
           memberCount: counts.get(room.slug) ?? 0,
         })),
       );
+    },
+  );
+
+  // The terms and the privacy policy, as the admin last published them (see legal.ts). Not there until they have been
+  // written, and the web client then says so.
+  app.get(
+    "/legal",
+    limiter(
+      options.roomsRateLimit ?? {
+        max: env.ROOMS_RATE_LIMIT_PER_MINUTE,
+        windowMs: ROOMS_RATE_LIMIT_WINDOW_MS,
+      },
+    ),
+    async (_req, res) => {
+      const legal = await getCachedLegal();
+
+      if (!legal) return res.status(404).json({ error: "not_available" });
+
+      res.set("Cache-Control", "public, max-age=60").json(legal);
     },
   );
 

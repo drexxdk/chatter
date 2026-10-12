@@ -39,6 +39,8 @@ export interface ChatMessage {
   seq?: number;
   // The author was banned: the text and name are gone and only a placeholder is shown.
   banned?: boolean;
+  // With `banned`: it is a placeholder because the message was reported, not because the author was banned.
+  hidden?: boolean;
 }
 
 export type ChatStatus = "idle" | "connecting" | "connected" | "reconnecting";
@@ -70,6 +72,17 @@ export interface Announcement {
 export type ActionResult =
   { ok: true } | { ok: false; error: string; retryAfterSeconds?: number };
 export type AnnounceResult = ActionResult;
+
+// Why a message can be reported; the chat-server accepts exactly these.
+export const REPORT_REASONS = [
+  "spam",
+  "harassment",
+  "sexual",
+  "illegal",
+  "other",
+] as const;
+
+export type ReportReason = (typeof REPORT_REASONS)[number];
 
 export type Ack =
   | { ok: true; history?: unknown; profile?: unknown }

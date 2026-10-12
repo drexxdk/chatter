@@ -72,6 +72,8 @@ const ERROR_CODES = [
   "invalid_profile",
   "invalid_reaction",
   "message_not_found",
+  "own_message",
+  "invalid_report",
   "nickname_taken",
   "user_not_found",
   "invalid_recipient",

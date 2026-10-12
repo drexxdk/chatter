@@ -20,7 +20,8 @@
     "build": "npm run build --workspaces --if-present",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "audit": "audit-ci --config audit-ci.jsonc"
+    "audit": "audit-ci --config audit-ci.jsonc",
+    "loadtest": "npm run loadtest --workspace apps/chat-server --"
   },
   "devDependencies": {
     "audit-ci": "^7.1.0",

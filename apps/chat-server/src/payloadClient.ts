@@ -150,3 +150,152 @@ export async function fetchModerators(): Promise<Moderator[]> {
     name: doc.displayName || null,
   }));
 }
+
+// One field of the terms in every language, as Payload returns it with `locale=all`: `{ en: ..., da: ..., de: ... }`. A
+// language that has not been written has nothing (or null) under its code.
+const perLanguage = <T extends z.ZodType>(value: T) =>
+  z.record(z.string(), value.nullish());
+
+const legalDocumentSchema = z
+  .object({
+    title: perLanguage(z.string()),
+    updated: perLanguage(z.string()),
+    sections: perLanguage(
+      z.array(
+        z.object({
+          heading: z.string(),
+          paragraphs: z.string().nullish(),
+          items: z.string().nullish(),
+        }),
+      ),
+    ),
+  })
+  .partial()
+  .nullish();
+
+// Everything optional: the global exists in Payload before anybody has written it.
+const legalGlobalSchema = z.object({
+  termsVersion: z.string().nullish(),
+  contactEmail: z.string().nullish(),
+  terms: legalDocumentSchema,
+  privacy: legalDocumentSchema,
+});
+
+export type LegalGlobal = z.infer<typeof legalGlobalSchema>;
+
+// The published terms of use and privacy policy, in all languages.
+export async function fetchLegal(): Promise<LegalGlobal> {
+  return payloadFetch(
+    "/api/globals/legal?locale=all&depth=0",
+    legalGlobalSchema,
+  );
+}
+
+export const REPORT_REASONS = [
+  "spam",
+  "harassment",
+  "sexual",
+  "illegal",
+  "other",
+] as const;
+
+export type ReportReason = (typeof REPORT_REASONS)[number];
+
+// What the admin keeps of a reported message, so it can be judged after the room's history has expired.
+export interface ReportRecord {
+  messageId: string;
+  roomSlug: string;
+  text: string;
+  nickname: string;
+  guestId: string;
+  // The sender's salted address hash: a super-admin can copy it into Bans. Empty for a moderator's message.
+  senderHash: string;
+  reporterCount: number;
+  hidden: boolean;
+  reason: ReportReason;
+}
+
+const reportDocSchema = z.object({
+  id: z.number(),
+  reasons: z.array(z.string()).nullish(),
+  status: z.string().nullish(),
+});
+
+async function payloadSend(
+  method: "POST" | "PATCH" | "DELETE",
+  path: string,
+  body?: unknown,
+): Promise<unknown> {
+  const res = await fetch(`${env.PAYLOAD_URL}${path}`, {
+    method,
+    headers: {
+      Authorization: AUTH_HEADER,
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+
+  if (!res.ok) {
+    throw new Error(
+      `Payload request failed: ${res.status} ${res.statusText} (${method} ${path.split("?")[0]})`,
+    );
+  }
+
+  return res.json();
+}
+
+// One report document per message: the first report makes it, later ones raise the count and add the reason. The
+// text and the sender are kept as they were when the message was first reported.
+export async function saveReport(record: ReportRecord): Promise<void> {
+  const find = async () => {
+    const data = await payloadFetch(
+      `/api/reports?where[messageId][equals]=${encodeURIComponent(record.messageId)}&limit=1&depth=0`,
+      z.object({ docs: z.array(reportDocSchema) }),
+    );
+    return data.docs[0];
+  };
+
+  const update = (doc: z.infer<typeof reportDocSchema>) =>
+    payloadSend("PATCH", `/api/reports/${doc.id}`, {
+      reporterCount: record.reporterCount,
+      reasons: [...new Set([...(doc.reasons ?? []), record.reason])],
+      // A report already dealt with keeps its status.
+      ...(record.hidden && (doc.status ?? "open") === "open"
+        ? { status: "hidden" }
+        : {}),
+    });
+
+  const existing = await find();
+
+  if (existing) {
+    await update(existing);
+    return;
+  }
+
+  try {
+    await payloadSend("POST", "/api/reports", {
+      messageId: record.messageId,
+      roomSlug: record.roomSlug,
+      text: record.text,
+      nickname: record.nickname,
+      guestId: record.guestId,
+      senderHash: record.senderHash,
+      reporterCount: record.reporterCount,
+      reasons: [record.reason],
+      status: record.hidden ? "hidden" : "open",
+    });
+  } catch (error) {
+    // Two first reports at once: the other one made the document, so this one joins it.
+    const created = await find();
+    if (!created) throw error;
+    await update(created);
+  }
+}
+
+// Removes the reports made before the cutoff, with the messages they kept.
+export async function deleteReportsBefore(cutoff: Date): Promise<void> {
+  await payloadSend(
+    "DELETE",
+    `/api/reports?where[createdAt][less_than]=${encodeURIComponent(cutoff.toISOString())}`,
+  );
+}

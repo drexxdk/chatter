@@ -72,7 +72,38 @@
   "person": {
     "actions": "Handlinger for {name}",
     "message": "Skriv til {name}",
-    "openChat": "Åbn privat chat"
+    "openChat": "Åbn privat chat",
+    "report": "Anmeld besked"
+  },
+  "report": {
+    "title": "Anmeld denne besked",
+    "intro": "{name} skrev denne besked. Hvis den bryder reglerne, så fortæl os hvorfor. Den skjules med det samme for dig, og for alle, når nok personer har anmeldt den. Derefter ser en moderator på den.",
+    "reasonLabel": "Hvorfor anmelder du den?",
+    "reasons": {
+      "spam": "Spam",
+      "harassment": "Chikane eller hadefuldt indhold",
+      "sexual": "Seksuelt indhold",
+      "illegal": "Noget ulovligt",
+      "other": "Noget andet"
+    },
+    "send": "Anmeld",
+    "cancel": "Annuller"
+  },
+  "legal": {
+    "nav": "Vilkår og privatliv",
+    "terms": "Brugsvilkår",
+    "privacy": "Privatlivspolitik",
+    "breadcrumb": "Du er her",
+    "loading": "Indlæser…",
+    "unavailable": "Teksten kunne ikke indlæses lige nu. Prøv igen om lidt, eller skriv til {email}.",
+    "retry": "Prøv igen"
+  },
+  "terms": {
+    "accept": "Jeg er 18 år eller derover og accepterer {terms} og {privacy}.",
+    "accepted": "Ved at fortsætte bekræfter du, at du er 18 år eller derover, og accepterer {terms} og {privacy}.",
+    "acceptRequired": "For at fortsætte skal du være 18 år eller derover og acceptere vilkårene.",
+    "termsLink": "brugsvilkårene",
+    "privacyLink": "privatlivspolitikken"
   },
   "reactions": {
     "add": "Tilføj reaktion",
@@ -137,6 +168,7 @@
     "send": "Send",
     "reconnecting": "Forbindelsen blev afbrudt. Forbinder igen…",
     "bannedMessage": "Denne bruger blev udelukket",
+    "hiddenMessage": "Besked skjult efter anmeldelse",
     "moderatorBadge": "Moderator",
     "leftTag": "Forlod rummet",
     "scrollToEnd": "Rul til de nyeste beskeder",
@@ -209,7 +241,9 @@
     "recipient_blocked": "Du har blokeret denne person. Fjern blokeringen for at skrive til vedkommende.",
     "blocked_by_recipient": "Denne person har blokeret dig, så din besked kunne ikke sendes.",
     "invalid_reaction": "Reaktionen kunne ikke tilføjes.",
-    "message_not_found": "Du kan ikke længere reagere på den besked.",
+    "message_not_found": "Den besked er ikke længere tilgængelig.",
+    "own_message": "Du kan ikke anmelde din egen besked.",
+    "invalid_report": "Anmeldelsen kunne ikke sendes.",
     "announce_wait": "Du kan sende en ny meddelelse om {seconds} sek.",
     "forbidden": "Kun moderatorer kan sende meddelelser.",
     "invalid_nickname": "Det kaldenavn er ikke tilladt. Brug 2–24 bogstaver, tal, mellemrum eller _ . -",

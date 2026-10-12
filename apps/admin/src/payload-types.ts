@@ -70,6 +70,7 @@ export interface Config {
     admins: Admin;
     'public-rooms': PublicRoom;
     bans: Ban;
+    reports: Report;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -80,6 +81,7 @@ export interface Config {
     admins: AdminsSelect<false> | AdminsSelect<true>;
     'public-rooms': PublicRoomsSelect<false> | PublicRoomsSelect<true>;
     bans: BansSelect<false> | BansSelect<true>;
+    reports: ReportsSelect<false> | ReportsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -88,10 +90,14 @@ export interface Config {
   db: {
     defaultIDType: number;
   };
-  fallbackLocale: null;
-  globals: {};
-  globalsSelect: {};
-  locale: null;
+  fallbackLocale: ('false' | 'none' | 'null') | false | null | ('en' | 'da' | 'de') | ('en' | 'da' | 'de')[];
+  globals: {
+    legal: Legal;
+  };
+  globalsSelect: {
+    legal: LegalSelect<false> | LegalSelect<true>;
+  };
+  locale: 'en' | 'da' | 'de';
   widgets: {
     collections: CollectionsWidget;
   };
@@ -190,6 +196,35 @@ export interface Ban {
   createdAt: string;
 }
 /**
+ * Messages reported by guests. A message is hidden for everybody once enough different people report it. Deleted automatically after the retention period.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "reports".
+ */
+export interface Report {
+  id: number;
+  status: 'open' | 'hidden' | 'dismissed' | 'actioned';
+  messageId: string;
+  roomSlug: string;
+  /**
+   * The message as it was written.
+   */
+  text: string;
+  nickname: string;
+  guestId?: string | null;
+  /**
+   * The sender's salted address hash. Copy it into Bans to ban them. Empty for a moderator's message.
+   */
+  senderHash?: string | null;
+  /**
+   * How many different addresses reported it.
+   */
+  reporterCount: number;
+  reasons?: ('spam' | 'harassment' | 'sexual' | 'illegal' | 'other')[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -224,6 +259,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'bans';
         value: number | Ban;
+      } | null)
+    | ({
+        relationTo: 'reports';
+        value: number | Report;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -322,6 +361,23 @@ export interface BansSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "reports_select".
+ */
+export interface ReportsSelect<T extends boolean = true> {
+  status?: T;
+  messageId?: T;
+  roomSlug?: T;
+  text?: T;
+  nickname?: T;
+  guestId?: T;
+  senderHash?: T;
+  reporterCount?: T;
+  reasons?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv_select".
  */
 export interface PayloadKvSelect<T extends boolean = true> {
@@ -359,6 +415,102 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "legal".
+ */
+export interface Legal {
+  id: number;
+  /**
+   * Change this (a date works well) when the documents change in a way that matters: everybody is then asked to accept them again before they chat. Leave it alone for typo fixes.
+   */
+  termsVersion: string;
+  /**
+   * The address named in both documents, for questions, reports and requests. It replaces {contact} in the text.
+   */
+  contactEmail: string;
+  terms: {
+    title: string;
+    /**
+     * The date of this version as shown at the top, for example "Version of 12 October 2026".
+     */
+    updated: string;
+    sections: {
+      heading: string;
+      /**
+       * Separate paragraphs with a blank line. Write {contact} where the contact address should appear.
+       */
+      paragraphs?: string | null;
+      /**
+       * A list after the paragraphs: one item per line.
+       */
+      items?: string | null;
+      id?: string | null;
+    }[];
+  };
+  privacy: {
+    title: string;
+    /**
+     * The date of this version as shown at the top, for example "Version of 12 October 2026".
+     */
+    updated: string;
+    sections: {
+      heading: string;
+      /**
+       * Separate paragraphs with a blank line. Write {contact} where the contact address should appear.
+       */
+      paragraphs?: string | null;
+      /**
+       * A list after the paragraphs: one item per line.
+       */
+      items?: string | null;
+      id?: string | null;
+    }[];
+  };
+  _status?: ('draft' | 'published') | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "legal_select".
+ */
+export interface LegalSelect<T extends boolean = true> {
+  termsVersion?: T;
+  contactEmail?: T;
+  terms?:
+    | T
+    | {
+        title?: T;
+        updated?: T;
+        sections?:
+          | T
+          | {
+              heading?: T;
+              paragraphs?: T;
+              items?: T;
+              id?: T;
+            };
+      };
+  privacy?:
+    | T
+    | {
+        title?: T;
+        updated?: T;
+        sections?:
+          | T
+          | {
+              heading?: T;
+              paragraphs?: T;
+              items?: T;
+              id?: T;
+            };
+      };
+  _status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

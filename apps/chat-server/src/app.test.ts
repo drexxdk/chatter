@@ -4,8 +4,10 @@ import http from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getCachedPublicRooms = vi.hoisted(() => vi.fn());
+const getCachedLegal = vi.hoisted(() => vi.fn());
 
 vi.mock("./rooms.js", () => ({ getCachedPublicRooms }));
+vi.mock("./legal.js", () => ({ getCachedLegal }));
 
 import { createApp } from "./app.js";
 
@@ -79,6 +81,59 @@ describe("routes", () => {
     );
     // The header always names the configured origin, so a browser on any other site refuses the answer.
     expect(other.headers.get("access-control-allow-origin")).toBe(
+      "http://localhost:5173",
+    );
+  });
+});
+
+describe("the terms and privacy policy", () => {
+  const LEGAL = {
+    version: "2026-10-12",
+    contactEmail: "contact@example.com",
+    locales: {
+      en: {
+        terms: { title: "Terms of use", updated: "v1", sections: [] },
+        privacy: { title: "Privacy policy", updated: "v1", sections: [] },
+      },
+    },
+  };
+
+  it("serves what the admin last published, to be cached for a minute", async () => {
+    getCachedLegal.mockResolvedValue(LEGAL);
+    const get = await start();
+    const res = await get("/legal");
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(LEGAL);
+    expect(res.headers.get("cache-control")).toBe("public, max-age=60");
+  });
+
+  it("says there is nothing yet when it has not been written", async () => {
+    getCachedLegal.mockResolvedValue(undefined);
+    const get = await start();
+    const res = await get("/legal");
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "not_available" });
+  });
+
+  it("is limited like the room list", async () => {
+    getCachedLegal.mockResolvedValue(LEGAL);
+    const get = await start({ roomsRateLimit: { max: 2, windowMs: 60_000 } });
+
+    expect((await get("/legal")).status).toBe(200);
+    expect((await get("/legal")).status).toBe(200);
+    const refused = await get("/legal");
+    expect(refused.status).toBe(429);
+    expect(await refused.json()).toEqual({ error: "rate_limited" });
+  });
+
+  it("allows only the configured web origin", async () => {
+    getCachedLegal.mockResolvedValue(LEGAL);
+    const get = await start();
+    const res = await get("/legal", { Origin: "https://evil.example.com" });
+
+    expect(res.headers.get("access-control-allow-origin")).toBe(
       "http://localhost:5173",
     );
   });

@@ -87,6 +87,14 @@ export const envSchema = z.object({
   ROOM_HISTORY_TTL_SECONDS: setting(
     wholeNumber("from 1 to 604800", 1, 604_800, defaultOf(3600)).default(3600),
   ),
+  // How many different addresses must report a message before it is hidden for everybody until a moderator has seen it.
+  REPORT_HIDE_THRESHOLD: setting(
+    wholeNumber("from 1 to 50", 1, 50, defaultOf(3)).default(3),
+  ),
+  // Reports (with the text that was reported) are deleted from the admin after this many days.
+  REPORT_RETENTION_DAYS: setting(
+    wholeNumber("from 1 to 3650", 1, 3650, defaultOf(90)).default(90),
+  ),
   // How often one address may fetch the room list per minute.
   ROOMS_RATE_LIMIT_PER_MINUTE: setting(positive(defaultOf(60)).default(60)),
   SOCKET_ADAPTER_KEY: setting(z.string().default("socket.io")),

@@ -306,7 +306,7 @@ describe("when reacting fails", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "That message is no longer available to react to.",
+      "That message is no longer available.",
     );
   });
 

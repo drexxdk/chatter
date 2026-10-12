@@ -35,7 +35,8 @@ export function MainMenu({
   onInfo,
   movements,
 }: {
-  onInfo: () => void;
+  // Absent where there is no chat to explain, as on the pages of the terms.
+  onInfo?: () => void;
   // Only in a room's own chat, where there is a log that can show who came and went.
   movements?: { checked: boolean; onChange: (checked: boolean) => void };
 }) {
@@ -57,12 +58,14 @@ export function MainMenu({
           <MenuItems
             className={`${HEADER_DROPDOWN} w-64 -translate-x-full space-y-1 ${MENU_SURFACE}`}
           >
-            <MenuItem>
-              <button type="button" onClick={onInfo} className={item}>
-                <Info aria-hidden="true" className="h-5 w-5 shrink-0" />
-                {t("info.button")}
-              </button>
-            </MenuItem>
+            {onInfo && (
+              <MenuItem>
+                <button type="button" onClick={onInfo} className={item}>
+                  <Info aria-hidden="true" className="h-5 w-5 shrink-0" />
+                  {t("info.button")}
+                </button>
+              </MenuItem>
+            )}
 
             {movements && (
               <MenuItem>

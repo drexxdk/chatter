@@ -78,7 +78,13 @@ async function startJoin(page: Page, roomName: string, nickname: string) {
   await page.goto("/");
   await page.getByRole("button", { name: `Join ${roomName}` }).click();
   await page.getByRole("textbox", { name: "Nickname" }).fill(nickname);
+  await acceptTerms(page);
   await page.getByRole("button", { name: "Continue" }).click();
+}
+
+// A new browser is asked to say it is 18 or older and accepts the terms.
+async function acceptTerms(page: Page) {
+  await page.getByRole("checkbox", { name: /18 or older/ }).check();
 }
 
 async function enterRoom(page: Page, roomName: string, nickname: string) {
@@ -444,6 +450,57 @@ test("a banned guest is turned away until the ban is lifted", async ({
   ).toBeVisible();
 });
 
+test("a guest has to say they are 18 or older and accept the terms, which can be read, and is only asked once", async ({
+  browser,
+}) => {
+  const page = await newGuest(browser);
+  await page.goto("/");
+  await page.getByRole("button", { name: `Join ${LOUNGE.name}` }).click();
+  await page.getByRole("textbox", { name: "Nickname" }).fill("Alice");
+
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(
+    page.getByText(
+      "To continue you need to be 18 or older and accept the terms.",
+    ),
+  ).toBeVisible();
+
+  // The terms open in a tab of their own, so that what was typed is not lost.
+  const opened = page.waitForEvent("popup");
+  await page
+    .getByRole("dialog")
+    .getByRole("link", { name: "terms of use" })
+    .click();
+  const terms = await opened;
+  await expect(
+    terms.getByRole("heading", { level: 1, name: "Terms of use" }),
+  ).toBeVisible();
+  // The page keeps the site's header and shows where it is.
+  await expect(terms.getByRole("banner")).toContainText("Chatter");
+  await expect(
+    terms.getByRole("navigation", { name: "You are here" }),
+  ).toBeVisible();
+  await terms.getByRole("link", { name: "Privacy policy" }).click();
+  await expect(
+    terms.getByRole("heading", { level: 1, name: "Privacy policy" }),
+  ).toBeVisible();
+  await terms.close();
+
+  await acceptTerms(page);
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(
+    page.getByRole("heading", { name: LOUNGE.name, level: 2 }),
+  ).toBeVisible();
+
+  // The browser remembers it: the next time the dialog only reminds.
+  await page.goto("/");
+  await page.getByRole("button", { name: `Join ${LOUNGE.name}` }).click();
+  await expect(page.getByRole("dialog")).toContainText(
+    "By continuing you confirm that you are 18 or older",
+  );
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+});
+
 test("a moderator signs in, and guests see their messages stand out", async ({
   browser,
 }) => {
@@ -574,6 +631,122 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
     await alice.getByRole("button", { name: "Dismiss" }).click();
     await expect(announcementOn(alice)).toHaveCount(0);
     await expect(announcementOn(bob)).toBeVisible();
+  } finally {
+    await payload.remove("admins", accountId);
+  }
+});
+
+// Who reports from the "…" button of somebody's message.
+async function reportFrom(
+  page: Page,
+  author: string,
+  words: string,
+  reason: string,
+) {
+  await page
+    .getByRole("log")
+    .getByRole("listitem")
+    .filter({ hasText: words })
+    .getByRole("button", { name: `Actions for ${author}` })
+    .click();
+  await page.getByRole("menuitem", { name: "Report message" }).click();
+  const dialog = page.getByRole("dialog", { name: "Report this message" });
+  await dialog.getByRole("radio", { name: reason }).check();
+  await dialog.getByRole("button", { name: "Report" }).click();
+  await expect(dialog).toHaveCount(0);
+}
+
+test("a guest reports a message: it is hidden for them, and the admin keeps it to be judged", async ({
+  browser,
+}) => {
+  const words = `Buy my stuff ${Date.now()}`;
+  const alice = await newGuest(browser);
+  const bob = await newGuest(browser);
+  await enterRoom(alice, LOUNGE.name, "Alice");
+  await enterRoom(bob, LOUNGE.name, "Bob");
+  await send(alice, words);
+  await expect(bob.getByRole("log").getByText(words)).toBeVisible();
+
+  await reportFrom(bob, "Alice", words, "Spam");
+
+  // One report is not enough to hide it for the others, but the reporter does not see it again.
+  await expect(bob.getByRole("log").getByText(words)).toHaveCount(0);
+  await expect(
+    bob.getByRole("log").getByText("Message hidden after being reported"),
+  ).toBeVisible();
+  await expect(alice.getByRole("log").getByText(words)).toBeVisible();
+
+  await expect
+    .poll(async () => (await payload.findReports(words)).length)
+    .toBe(1);
+  const [report] = await payload.findReports(words);
+  expect(report).toMatchObject({
+    status: "open",
+    nickname: "Alice",
+    reporterCount: 1,
+    reasons: ["spam"],
+  });
+  expect(report.senderHash).toMatch(/^[0-9a-f]{64}$/);
+  await payload.remove("reports", report.id);
+});
+
+test("a moderator's report hides a message for everybody at once", async ({
+  browser,
+}) => {
+  const unique = String(Date.now()).slice(-6);
+  const name = `E2E Mod ${unique}`;
+  const words = `Something nasty ${unique}`;
+  const email = `${E2E.moderatorEmailPrefix}${unique}@chatter.test`;
+  const password = crypto.randomUUID();
+  const accountId = await payload.createModerator(email, password, name);
+
+  try {
+    const alice = await newGuest(browser);
+    const bob = await newGuest(browser);
+    await enterRoom(alice, LOUNGE.name, "Alice");
+    await enterRoom(bob, LOUNGE.name, "Bob");
+
+    const moderator = await newGuest(browser);
+    await moderator.goto("/");
+    await moderator
+      .getByRole("button", { name: `Join ${LOUNGE.name}` })
+      .click();
+    await moderator
+      .getByRole("button", { name: "Sign in as moderator" })
+      .click();
+    await moderator.getByRole("textbox", { name: "Email" }).fill(email);
+    await moderator.getByLabel("Password").fill(password);
+    await moderator.getByRole("button", { name: "Sign in" }).click();
+    await expect(
+      moderator.getByRole("button", { name: `Your profile: ${name}` }),
+    ).toBeVisible();
+
+    await send(alice, words);
+    await expect(moderator.getByRole("log").getByText(words)).toBeVisible();
+
+    await reportFrom(moderator, "Alice", words, "Harassment or hate");
+
+    for (const page of [alice, bob, moderator]) {
+      await expect(page.getByRole("log").getByText(words)).toHaveCount(0);
+      await expect(
+        page.getByRole("log").getByText("Message hidden after being reported"),
+      ).toBeVisible();
+    }
+
+    // A guest who joins afterwards is not shown it either.
+    const carol = await newGuest(browser);
+    await enterRoom(carol, LOUNGE.name, "Carol");
+    await expect(carol.getByRole("log").getByText(words)).toHaveCount(0);
+    await expect(
+      carol.getByRole("log").getByText("Message hidden after being reported"),
+    ).toBeVisible();
+
+    await expect
+      .poll(async () => (await payload.findReports(words)).length)
+      .toBe(1);
+    const [report] = await payload.findReports(words);
+    expect(report).toMatchObject({ status: "hidden", reasons: ["harassment"] });
+    await payload.remove("reports", report.id);
   } finally {
     await payload.remove("admins", accountId);
   }
@@ -725,6 +898,7 @@ test("a guest's chosen avatar is shown to others, and a conversation says when t
   await bob.getByRole("button", { name: `Join ${LOUNGE.name}` }).click();
   await bob.getByRole("radio", { name: "Female" }).check({ force: true });
   await bob.getByRole("textbox", { name: "Nickname" }).fill("Bea");
+  await acceptTerms(bob);
   await bob.getByRole("button", { name: "Continue" }).click();
   await expect(
     bob.getByRole("button", { name: "Your profile: Bea" }),

@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchBans, fetchPublicRooms } from "./payloadClient.js";
+import {
+  deleteReportsBefore,
+  fetchBans,
+  fetchLegal,
+  fetchPublicRooms,
+  saveReport,
+} from "./payloadClient.js";
 
 function respondWith(body: unknown, init: ResponseInit = { status: 200 }) {
   const fetchMock = vi.fn(async () => Response.json(body, init));
@@ -193,5 +199,205 @@ describe("fetchBans", () => {
     expect(message).toMatch(/docs\.0\.expiresAt/);
     expect(message).not.toContain(ban.identifierHash);
     expect(message).not.toContain("next tuesday");
+  });
+});
+
+describe("saveReport", () => {
+  const record = {
+    messageId: "m-1",
+    roomSlug: "general",
+    text: "rude words",
+    nickname: "Mallory",
+    guestId: "guest-m",
+    senderHash: "b".repeat(64),
+    reporterCount: 1,
+    hidden: false,
+    reason: "spam" as const,
+  };
+
+  // Answers each call in turn: a lookup, then whatever the test sends back for the write.
+  function script(...answers: Response[]) {
+    const fetchMock = vi.fn(async () => answers.shift() ?? Response.json({}));
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  const sent = (fetchMock: ReturnType<typeof script>, call: number) => {
+    const [url, init] = fetchMock.mock.calls[call] as unknown as [
+      string,
+      RequestInit,
+    ];
+    return {
+      url,
+      method: init.method,
+      body: init.body ? JSON.parse(String(init.body)) : undefined,
+    };
+  };
+
+  it("makes the report when the message has none yet", async () => {
+    const fetchMock = script(Response.json({ docs: [] }), Response.json({}));
+
+    await saveReport(record);
+
+    expect(sent(fetchMock, 0).url).toBe(
+      "http://localhost:3000/api/reports?where[messageId][equals]=m-1&limit=1&depth=0",
+    );
+    expect(sent(fetchMock, 1)).toEqual({
+      url: "http://localhost:3000/api/reports",
+      method: "POST",
+      body: {
+        messageId: "m-1",
+        roomSlug: "general",
+        text: "rude words",
+        nickname: "Mallory",
+        guestId: "guest-m",
+        senderHash: "b".repeat(64),
+        reporterCount: 1,
+        reasons: ["spam"],
+        status: "open",
+      },
+    });
+  });
+
+  it("makes a report that is already hidden as hidden", async () => {
+    const fetchMock = script(Response.json({ docs: [] }), Response.json({}));
+
+    await saveReport({ ...record, hidden: true, reporterCount: 3 });
+
+    expect(sent(fetchMock, 1).body).toMatchObject({
+      status: "hidden",
+      reporterCount: 3,
+    });
+  });
+
+  it("adds to the report that exists: the count and the reason, never the text", async () => {
+    const fetchMock = script(
+      Response.json({
+        docs: [{ id: 5, reasons: ["harassment"], status: "open" }],
+      }),
+      Response.json({}),
+    );
+
+    await saveReport({ ...record, reporterCount: 2 });
+
+    expect(sent(fetchMock, 1)).toEqual({
+      url: "http://localhost:3000/api/reports/5",
+      method: "PATCH",
+      body: { reporterCount: 2, reasons: ["harassment", "spam"] },
+    });
+  });
+
+  it("hides an open report once the message is hidden, and leaves a judged one alone", async () => {
+    const open = script(
+      Response.json({ docs: [{ id: 5, reasons: ["spam"], status: "open" }] }),
+      Response.json({}),
+    );
+    await saveReport({ ...record, hidden: true });
+    expect(sent(open, 1).body).toMatchObject({ status: "hidden" });
+
+    const judged = script(
+      Response.json({
+        docs: [{ id: 5, reasons: ["spam"], status: "dismissed" }],
+      }),
+      Response.json({}),
+    );
+    await saveReport({ ...record, hidden: true });
+    expect(sent(judged, 1).body).not.toHaveProperty("status");
+  });
+
+  it("joins the report another first report made at the same moment", async () => {
+    const fetchMock = script(
+      Response.json({ docs: [] }),
+      Response.json({ errors: [] }, { status: 400 }),
+      Response.json({ docs: [{ id: 9, reasons: ["spam"], status: "open" }] }),
+      Response.json({}),
+    );
+
+    await saveReport(record);
+
+    expect(sent(fetchMock, 3).url).toBe("http://localhost:3000/api/reports/9");
+  });
+
+  it("fails when Payload refuses the report and there is none to join", async () => {
+    script(
+      Response.json({ docs: [] }),
+      Response.json({}, { status: 403 }),
+      Response.json({ docs: [] }),
+    );
+
+    await expect(saveReport(record)).rejects.toThrow(/403/);
+  });
+});
+
+describe("deleteReportsBefore", () => {
+  it("deletes the reports made before the cutoff", async () => {
+    const fetchMock = respondWith({ docs: [], errors: [] });
+
+    await deleteReportsBefore(new Date("2026-07-01T00:00:00.000Z"));
+
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(url).toBe(
+      "http://localhost:3000/api/reports?where[createdAt][less_than]=2026-07-01T00%3A00%3A00.000Z",
+    );
+    expect(init.method).toBe("DELETE");
+  });
+
+  it("fails when Payload refuses", async () => {
+    respondWith({}, { status: 403 });
+
+    await expect(deleteReportsBefore(new Date())).rejects.toThrow(/403/);
+  });
+});
+
+describe("fetchLegal", () => {
+  it("asks for every language of the published global", async () => {
+    const fetchMock = respondWith({ termsVersion: "v1", terms: {} });
+
+    await fetchLegal();
+
+    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe(
+      "http://localhost:3000/api/globals/legal?locale=all&depth=0",
+    );
+  });
+
+  it("reads the text per language", async () => {
+    respondWith({
+      termsVersion: "v1",
+      contactEmail: "a@example.com",
+      terms: {
+        title: { en: "Terms", da: null },
+        updated: { en: "v1" },
+        sections: { en: [{ heading: "H", paragraphs: "P", items: null }] },
+      },
+      privacy: null,
+    });
+
+    expect(await fetchLegal()).toMatchObject({
+      termsVersion: "v1",
+      terms: { title: { en: "Terms" } },
+    });
+  });
+
+  it("accepts a global nobody has written yet", async () => {
+    respondWith({ id: 1 });
+
+    expect(await fetchLegal()).toEqual({});
+  });
+
+  it("rejects a section without a heading and names the field", async () => {
+    respondWith({ terms: { sections: { en: [{ paragraphs: "P" }] } } });
+
+    await expect(fetchLegal()).rejects.toThrow(
+      /terms\.sections\.en\.0\.heading/,
+    );
+  });
+
+  it("fails when Payload refuses", async () => {
+    respondWith({}, { status: 500 });
+
+    await expect(fetchLegal()).rejects.toThrow(/500/);
   });
 });

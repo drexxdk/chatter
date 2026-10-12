@@ -1,4 +1,5 @@
 import { CHAT_SERVER_URL } from "./config";
+import { parseLegal, type LegalContent } from "./legal";
 
 export interface Room {
   id: number;
@@ -21,6 +22,21 @@ export async function fetchRooms(signal?: AbortSignal): Promise<Room[]> {
   }
 
   return (await response.json()) as Room[];
+}
+
+// The terms of use and the privacy policy; nothing when the admin has not published them yet or the server has no copy.
+export async function fetchLegal(signal?: AbortSignal): Promise<LegalContent> {
+  const response = await fetch(`${CHAT_SERVER_URL}/legal`, { signal });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load the terms: ${response.status}`);
+  }
+
+  const legal = parseLegal(await response.json());
+
+  if (!legal) throw new Error("The terms are not in the shape expected");
+
+  return legal;
 }
 
 export interface ModeratorSession {
