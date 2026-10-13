@@ -1,4 +1,4 @@
-import { Pencil, Save, X } from "lucide-react";
+import { DoorOpen, Pencil, Save, X } from "lucide-react";
 import { useState, type ReactNode, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -84,6 +84,7 @@ function ProfileBody({
   onDelete: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
+  const { t } = useTranslation();
 
   if (editing) {
     return (
@@ -110,6 +111,20 @@ function ProfileBody({
           onDelete={onDelete}
           separated
         />
+      )}
+      {/* An account has its own way out in its section. */}
+      {!account && (
+        <div
+          className={
+            profile.role === "moderator"
+              ? undefined
+              : "border-t border-neutral-800 pt-4"
+          }
+        >
+          <Button icon={DoorOpen} onClick={onSignOut}>
+            {t("account.signOut")}
+          </Button>
+        </div>
       )}
     </div>
   );

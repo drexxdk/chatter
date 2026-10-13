@@ -80,9 +80,106 @@ describe("keeping your place", () => {
 
       act(() => window.history.forward());
 
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("heading", { name: "General", level: 2 });
       expect(server.latest.emittedEvents("room:join")).toHaveLength(2);
       expect(path()).toBe("/rooms/general");
+    });
+  });
+
+  describe("the lobby", () => {
+    it("still shows who the guest is in the header after they leave a room, and no login", async () => {
+      const { user } = setup();
+      await joinRoom(user);
+      await screen.findByRole("button", { name: "Your profile: Alice" });
+
+      await user.click(screen.getByRole("button", { name: "Leave room" }));
+
+      await screen.findByRole("heading", { name: "Public rooms" });
+      expect(
+        screen.getByRole("button", { name: "Your profile: Alice" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Login" })).toBeNull();
+    });
+
+    it("opens the profile of the guest from there", async () => {
+      const { user } = setup();
+      await joinRoom(user);
+      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await user.click(screen.getByRole("button", { name: "Leave room" }));
+      await screen.findByRole("heading", { name: "Public rooms" });
+
+      await user.click(
+        screen.getByRole("button", { name: "Your profile: Alice" }),
+      );
+
+      const dialog = within(
+        await screen.findByRole("dialog", { name: "Your profile" }),
+      );
+      expect(dialog.getByText("Alice")).toBeInTheDocument();
+      expect(
+        dialog.getByRole("button", { name: "Edit profile" }),
+      ).toBeInTheDocument();
+    });
+
+    it("connects the guest this tab already was when the page is reloaded there, without joining a room", async () => {
+      save({ nickname: "Alice", guestIds: ["guest-me"] });
+      const { server } = setup();
+
+      await screen.findByRole("button", { name: "Your profile: Alice" });
+
+      expect(server.createSocket).toHaveBeenCalledTimes(1);
+      expect(server.latest.emittedEvents("room:join")).toEqual([]);
+      expect(path()).toBe("/");
+      expect(
+        await screen.findByRole("heading", { name: "Public rooms" }),
+      ).toBeInTheDocument();
+    });
+
+    it("joins a room afterwards without asking who they are", async () => {
+      save({ nickname: "Alice", guestIds: ["guest-me"] });
+      const { user, server } = setup();
+      await screen.findByRole("button", { name: "Your profile: Alice" });
+
+      await user.click(
+        await screen.findByRole("button", { name: "Join Music" }),
+      );
+
+      await waitFor(() =>
+        expect(server.latest.emittedEvents("room:join")).toEqual([
+          { slug: "music" },
+        ]),
+      );
+      expect(screen.queryByLabelText("Nickname")).toBeNull();
+      expect(server.createSocket).toHaveBeenCalledTimes(1);
+    });
+
+    it("connects only once the rooms have been asked for, so that the page's first moments do not cut the connection off", async () => {
+      save({ nickname: "Alice", guestIds: ["guest-me"] });
+      let release: () => void = () => {};
+      stubRooms(
+        () =>
+          new Promise((resolve) => {
+            release = () => resolve({ ok: true, json: async () => ROOMS });
+          }),
+      );
+      const { server } = setup();
+
+      expect(server.createSocket).not.toHaveBeenCalled();
+      release();
+
+      await screen.findByRole("button", { name: "Your profile: Alice" });
+      expect(server.createSocket).toHaveBeenCalledTimes(1);
+    });
+
+    it("is a plain lobby when nothing was saved", async () => {
+      const { server } = setup();
+
+      await screen.findByRole("heading", { name: "Public rooms" });
+
+      expect(server.createSocket).not.toHaveBeenCalled();
+      expect(
+        screen.queryByRole("button", { name: /^Your profile:/ }),
+      ).toBeNull();
     });
   });
 
@@ -225,21 +322,18 @@ describe("keeping your place", () => {
         expect(server.createSocket).toHaveBeenCalledWith("Alice");
       });
 
-      it("does not carry it into a guest who signs in afresh", async () => {
+      it("is presented in the lobby too, so that joining a room afterwards is as the same guest", async () => {
         save({ nickname: "Alice", resume });
         const { user, server } = setup();
 
-        await joinRoom(user, "General", "Bob");
-        await screen.findByRole("button", { name: "Your profile: Bob" });
-
-        expect(server.createSocket).toHaveBeenCalledWith(
-          "Bob",
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          anyPicture,
+        await screen.findByRole("button", { name: "Your profile: Alice" });
+        await user.click(
+          await screen.findByRole("button", { name: "Join General" }),
         );
+        await screen.findByRole("heading", { name: "General", level: 2 });
+
+        expect(server.createSocket).toHaveBeenCalledTimes(1);
+        expect(server.createSocket.mock.calls[0]).toContainEqual(resume);
       });
 
       it("is forgotten with everything else when the connection ends for good", async () => {
@@ -379,15 +473,6 @@ describe("keeping your place", () => {
 
       await waitFor(() => expect(path()).toBe("/"));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    });
-
-    it("stays in the lobby, without connecting, when the address is the lobby", async () => {
-      save({ nickname: "Alice" });
-      const { server } = setup();
-
-      await screen.findByRole("heading", { name: "Public rooms" });
-
-      expect(server.createSocket).not.toHaveBeenCalled();
     });
 
     it("waits for the rooms before deciding, and joins once they are known", async () => {

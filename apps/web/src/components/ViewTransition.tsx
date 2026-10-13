@@ -107,17 +107,23 @@ function Slide({
 }
 
 // Swaps one view of a page for another with a fade and a slide, the old one still in view as the new one arrives. Not
-// when the page first opens, and without the slide for somebody who asked their system for less motion.
+// when the page first opens, and without the slide for somebody who asked their system for less motion. While it is
+// held, nothing is shown (the page does not yet know which view it is to open with); the view that then appears is the
+// page's first, so it does not slide in either.
 export function ViewTransition({
   viewKey,
   direction,
+  hold = false,
   children,
 }: {
   // What the view is; a new one is a new view.
   viewKey: string;
   direction: 1 | -1;
+  hold?: boolean;
   children: ReactNode;
 }) {
+  if (hold) return <div className="flex flex-1 flex-col" />;
+
   return (
     <LazyMotion features={domAnimation}>
       <MotionConfig reducedMotion="user">

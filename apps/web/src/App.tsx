@@ -49,6 +49,7 @@ import {
   rememberProfile,
   saveDirect,
   saveSession,
+  type SavedSession,
 } from "./session";
 import { useKept } from "./useKept";
 import { usePageTitle } from "./usePageTitle";
@@ -71,6 +72,12 @@ export function App({
   const termsVersion =
     legalState.status === "ready" ? legalState.legal.version : null;
   const [pendingRoom, setPendingRoom] = useState<Room | null>(null);
+  // Whether it is known who this tab is: not while the saved guest is being brought back, so that the header does not show
+  // a login for a moment to somebody who is signed in. A page that starts in a room shows nothing of the lobby until then.
+  const [settled, setSettled] = useState(
+    () => slugFromPath(window.location.pathname) === null && !loadSession(),
+  );
+  const startedInRoom = useRef(slugFromPath(window.location.pathname) !== null);
   // The room the dialog asks for a nickname for stays for it to fade out.
   const shownRoom = useKept(pendingRoom);
   const [signInError, setSignInError] = useState<string | null>(null);
@@ -149,6 +156,32 @@ export function App({
     return false;
   }
 
+  // Brings back the connection of the guest (or account) this tab already was, from what was saved when they joined.
+  // What was saved no longer works when it fails, so it is not tried again.
+  async function reconnect(saved: SavedSession): Promise<boolean> {
+    const direct = loadDirect();
+    const connected = await chat.connect(saved.nickname, {
+      token: saved.token,
+      avatar: saved.avatar,
+      picture: saved.picture,
+      age: saved.age,
+      previousGuestIds: saved.guestIds,
+      resume: saved.resume,
+      threads: direct.threads,
+      blockedIds: direct.blockedIds,
+      openGuestId: direct.openGuestId,
+    });
+
+    if (!connected) {
+      clearSession();
+      if (saved.token) await forgetAccountIfExpired(saved.token);
+      return false;
+    }
+
+    saveSession({ ...saved, guestIds: chat.guestIds(), ...resumeDetails() });
+    return true;
+  }
+
   function signOut() {
     clearAccount();
     setAccount(null);
@@ -179,19 +212,18 @@ export function App({
     setAccountOpen(false);
   }
 
-  // Who the profile dialog shows: in a room the connection's, in the lobby the account's.
-  const profile: ProfileSubject | null =
-    chat.roomSlug && chat.session
-      ? chat.session
-      : account
-        ? {
-            role: "member",
-            nickname: account.nickname,
-            avatar: account.avatar,
-            picture: account.picture,
-            age: account.age,
-          }
-        : null;
+  // Who the profile dialog shows: whoever is connected, in a room or not, and otherwise the account's.
+  const profile: ProfileSubject | null = chat.session
+    ? chat.session
+    : account
+      ? {
+          role: "member",
+          nickname: account.nickname,
+          avatar: account.avatar,
+          picture: account.picture,
+          age: account.age,
+        }
+      : null;
 
   // While connected the chat connection makes the change (and the copy of the account here follows it, below); with
   // none, the account itself is changed on the server.
@@ -429,21 +461,42 @@ export function App({
   ]);
 
   // Arriving at a room's address (a reload, a link): wait for the rooms, then join as the guest this tab already was,
-  // or ask who they are.
+  // or ask who they are. Arriving at the lobby, the guest this tab already was is connected again, as they were when
+  // they left a room, so that they are not somebody else for having reloaded there.
   const restored = useRef(false);
   // No dependency list on purpose: it runs after every render until the rooms have arrived, then once for good.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (restored.current || roomsState.status !== "ready") return;
-    restored.current = true;
+    if (restored.current) return;
 
     const slug = slugFromPath(window.location.pathname);
-    if (!slug) return;
+
+    if (!slug) {
+      // Not before the rooms have been asked for: a connection made in the first moments of the page is closed again by
+      // React's remount in development, and the connection hook then waits for it for good.
+      if (roomsState.status === "loading") return;
+
+      restored.current = true;
+      const saved = loadSession();
+      if (saved) void reconnect(saved).finally(() => setSettled(true));
+      else setSettled(true);
+      return;
+    }
+
+    if (roomsState.status === "error") {
+      // The room cannot be looked for; the lobby says so.
+      setSettled(true);
+      return;
+    }
+
+    if (roomsState.status !== "ready") return;
+    restored.current = true;
 
     const room = roomsState.rooms.find((candidate) => candidate.slug === slug);
 
     if (!room) {
       window.history.replaceState(null, "", LOBBY_PATH);
+      setSettled(true);
       return;
     }
 
@@ -451,36 +504,16 @@ export function App({
 
     if (!saved) {
       setPendingRoom(room);
+      setSettled(true);
       return;
     }
 
     void (async () => {
-      const direct = loadDirect();
-      const connected = await chat.connect(saved.nickname, {
-        token: saved.token,
-        avatar: saved.avatar,
-        picture: saved.picture,
-        age: saved.age,
-        previousGuestIds: saved.guestIds,
-        resume: saved.resume,
-        threads: direct.threads,
-        blockedIds: direct.blockedIds,
-        openGuestId: direct.openGuestId,
-      });
-
-      if (!connected) {
-        // Whatever was saved no longer works, so it must not be tried again.
-        clearSession();
-        if (saved.token) await forgetAccountIfExpired(saved.token);
+      if (!(await reconnect(saved))) {
         setPendingRoom(room);
+        setSettled(true);
         return;
       }
-
-      saveSession({
-        ...saved,
-        guestIds: chat.guestIds(),
-        ...resumeDetails(),
-      });
 
       const joined = await chat.joinRoom(room.slug);
 
@@ -489,6 +522,8 @@ export function App({
         if (joined.error === NAME_TAKEN) setPendingRoom(room);
         else window.history.replaceState(null, "", LOBBY_PATH);
       }
+
+      setSettled(true);
     })();
   });
 
@@ -541,10 +576,18 @@ export function App({
                 />
               </div>
             ) : (
-              <h1 className="text-2xl font-bold">{t("app.title")}</h1>
+              <h1
+                className={
+                  settled || !startedInRoom.current
+                    ? "text-2xl font-bold"
+                    : "sr-only"
+                }
+              >
+                {t("app.title")}
+              </h1>
             )}
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-              {chat.roomSlug && chat.session ? (
+              {!settled ? null : chat.session ? (
                 <ProfileButton
                   nickname={chat.session.nickname}
                   avatar={chat.session.avatar}
@@ -580,6 +623,7 @@ export function App({
             chat.roomSlug && chat.session ? `room:${chat.roomSlug}` : "lobby"
           }
           direction={chat.roomSlug && chat.session ? 1 : -1}
+          hold={!settled && startedInRoom.current}
         >
           {chat.roomSlug && chat.session ? (
             <ChatRoom

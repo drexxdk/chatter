@@ -155,6 +155,32 @@ describe("signing in from the lobby", () => {
     await user.click(dialog.getByRole("button", { name: "Edit profile" }));
     expect(dialog.getByRole("group", { name: "Avatar" })).toBeInTheDocument();
   });
+
+  it("lets a guest sign out from their profile: the saved identity goes, the connection ends, and the lobby is the lobby of somebody who is not here", async () => {
+    stubBackend({ providers: ["google"] });
+    const { user, server } = setup();
+    await joinRoom(user);
+    await user.click(
+      await screen.findByRole("button", { name: "Your profile: Alice" }),
+    );
+    expect(loadSession()).not.toBeNull();
+
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Sign out",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Public rooms" }),
+    ).toBeInTheDocument();
+    expect(loadSession()).toBeNull();
+    expect(server.latest.disconnected).toBe(true);
+    expect(
+      await screen.findByRole("button", { name: "Login" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Your profile:/ })).toBeNull();
+  });
 });
 
 describe("somebody signed in", () => {

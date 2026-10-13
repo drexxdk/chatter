@@ -71,9 +71,13 @@ export function AccountOptions({
             key={provider}
             href={authStartUrl(provider, returnPath)}
             icon={providerIcon(provider)}
+            // The words are for those who cannot see the logo; the button shows the name.
+            aria-label={t("account.continueWith", {
+              provider: providerName(provider),
+            })}
             className="text-sm focus-visible:outline-2 focus-visible:outline-indigo-400"
           >
-            {t("account.continueWith", { provider: providerName(provider) })}
+            {providerName(provider)}
           </ButtonLink>
         ))}
       </div>
