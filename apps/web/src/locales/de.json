@@ -214,7 +214,6 @@
     "none": "Noch keine Direktnachrichten.",
     "unread": "{count, plural, one {# ungelesene Nachricht} other {# ungelesene Nachrichten}}",
     "titleCount": "{count, plural, one {(# Nachricht)} other {(# Nachrichten)}}",
-    "titleNew": "Neue Nachricht",
     "title": "Direktnachricht an {name}",
     "back": "Zurück zum Raum",
     "empty": "Noch keine Nachrichten. Sag Hallo!",

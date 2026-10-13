@@ -214,7 +214,6 @@
     "none": "No direct messages yet.",
     "unread": "{count, plural, one {# unread message} other {# unread messages}}",
     "titleCount": "{count, plural, one {(# message)} other {(# messages)}}",
-    "titleNew": "New message",
     "title": "Direct message with {name}",
     "back": "Back to the room",
     "empty": "No messages yet. Say hello!",

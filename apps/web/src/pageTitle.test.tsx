@@ -4,21 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "./i18n";
 import { usePageTitle } from "./usePageTitle";
 
-let focused = true;
-
-const setFocus = (value: boolean) => {
-  focused = value;
-  act(() => {
-    window.dispatchEvent(new Event(value ? "focus" : "blur"));
-  });
-};
-
 const iconOf = () => document.querySelector('link[rel="icon"]');
 
 beforeEach(() => {
-  focused = true;
-  vi.spyOn(document, "hasFocus").mockImplementation(() => focused);
-  vi.useFakeTimers();
   document.head.insertAdjacentHTML(
     "beforeend",
     '<link rel="icon" href="/favicon.svg" />',
@@ -26,8 +14,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.useRealTimers();
-  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   iconOf()?.remove();
 });
 
@@ -66,37 +53,31 @@ describe("the title of the page", () => {
     expect(iconOf()?.getAttribute("href")).toBe("/favicon.svg");
   });
 
-  it("does not blink while somebody is looking at the page", () => {
-    renderHook(() => usePageTitle("Dating", 2));
+  it("badges the icon of the app with the number, and takes the badge off when all is read", () => {
+    const setAppBadge = vi.fn(async () => {});
+    const clearAppBadge = vi.fn(async () => {});
+    vi.stubGlobal("navigator", { ...navigator, setAppBadge, clearAppBadge });
 
-    act(() => void vi.advanceTimersByTime(5000));
+    const { rerender } = renderHook(
+      ({ unread }) => usePageTitle("Dating", unread),
+      { initialProps: { unread: 3 } },
+    );
+    expect(setAppBadge).toHaveBeenLastCalledWith(3);
 
-    expect(document.title).toBe("(2 messages) Dating \u2013 Chatter");
+    rerender({ unread: 4 });
+    expect(setAppBadge).toHaveBeenLastCalledWith(4);
+
+    rerender({ unread: 0 });
+    expect(clearAppBadge).toHaveBeenCalledTimes(1);
   });
 
-  it("blinks to a line about a new message while nobody is looking, and stops when they come back", () => {
-    focused = false;
-    renderHook(() => usePageTitle("Dating", 2));
+  it("is fine in a browser that has no badges", () => {
+    const { rerender } = renderHook(
+      ({ unread }) => usePageTitle("Dating", unread),
+      { initialProps: { unread: 1 } },
+    );
 
-    expect(document.title).toBe("(2 messages) Dating \u2013 Chatter");
-    act(() => void vi.advanceTimersByTime(1000));
-    expect(document.title).toBe("\u{1F4AC} New message");
-    act(() => void vi.advanceTimersByTime(1000));
-    expect(document.title).toBe("(2 messages) Dating \u2013 Chatter");
-    act(() => void vi.advanceTimersByTime(1000));
-    expect(document.title).toBe("\u{1F4AC} New message");
-
-    setFocus(true);
-    act(() => void vi.advanceTimersByTime(5000));
-
-    expect(document.title).toBe("(2 messages) Dating \u2013 Chatter");
-  });
-
-  it("does not blink with nothing to see", () => {
-    focused = false;
-    renderHook(() => usePageTitle("Dating", 0));
-
-    act(() => void vi.advanceTimersByTime(3000));
+    rerender({ unread: 0 });
 
     expect(document.title).toBe("Dating \u2013 Chatter");
   });
