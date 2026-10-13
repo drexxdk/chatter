@@ -94,6 +94,24 @@ export function AvatarIcon({
   );
 }
 
+// The gender as its symbol and its name, for where it is said in words (the profile).
+export function GenderLabel({ avatar }: { avatar: Avatar }) {
+  const { t } = useTranslation();
+  const kind = parseAvatar(avatar);
+  const Icon = LOOKS[kind].icon;
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Icon
+        aria-hidden="true"
+        className={`h-4 w-4 shrink-0 ${LOOKS[kind].markClassName}`}
+        strokeWidth={2.25}
+      />
+      {t(`avatar.${kind}`)}
+    </span>
+  );
+}
+
 // The symbol of the avatar on its own, small, for beside a name when the avatar itself is a picture. Nothing for
 // somebody with no picture (their avatar is the symbol already), or for the plain avatar, which says nothing.
 export function GenderMark({

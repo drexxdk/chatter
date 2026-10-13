@@ -37,6 +37,7 @@ function stubBackend(
     providers?: string[];
     me?: () => Answer;
     remove?: () => Answer;
+    update?: (changes: Record<string, unknown>) => Answer;
   } = {},
 ) {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
@@ -54,6 +55,15 @@ function stubBackend(
     }
     if (path === "/me" && method === "DELETE") {
       return answer(options.remove?.() ?? { body: { ok: true } });
+    }
+    if (path === "/me" && method === "PATCH") {
+      const changes = JSON.parse(String(init?.body)) as Record<string, unknown>;
+
+      return answer(
+        options.update?.(changes) ?? {
+          body: { profile: { ...accountSession().profile, ...changes } },
+        },
+      );
     }
 
     return Response.json({}, { status: 404 });
@@ -141,7 +151,8 @@ describe("signing in from the lobby", () => {
     expect(
       dialog.getByText(/keep your name, avatar and age/),
     ).toBeInTheDocument();
-    // A guest chooses a picture too, like an account.
+    // A guest chooses a picture too, like an account, once they ask to change their profile.
+    await user.click(dialog.getByRole("button", { name: "Edit profile" }));
     expect(dialog.getByRole("group", { name: "Avatar" })).toBeInTheDocument();
   });
 });
@@ -211,12 +222,16 @@ describe("somebody signed in", () => {
     );
 
     const dialog = within(await screen.findByRole("dialog"));
-    expect(dialog.getByText("Signed in with Google.")).toBeInTheDocument();
+    expect(dialog.getByText("Google")).toBeInTheDocument();
+    expect(dialog.getByText("Signed in with")).toBeInTheDocument();
+    expect(dialog.getByText("alice_w")).toBeInTheDocument();
+    expect(dialog.getByText("Not specified")).toBeInTheDocument();
     expect(
       dialog.getByRole("button", { name: "Sign out" }),
     ).toBeInTheDocument();
     expect(dialog.queryByRole("link", { name: /Continue with/ })).toBeNull();
     // The profile can still be changed, like a guest's: the name the chat shows, and the picture.
+    await user.click(dialog.getByRole("button", { name: "Edit profile" }));
     expect(dialog.getByLabelText(/Display name/)).toHaveValue("Alice");
     expect(dialog.getByRole("group", { name: "Avatar" })).toBeInTheDocument();
   });
@@ -233,6 +248,7 @@ describe("somebody signed in", () => {
     );
     const dialog = within(await screen.findByRole("dialog"));
 
+    await user.click(dialog.getByRole("button", { name: "Edit profile" }));
     await user.click(dialog.getByRole("radio", { name: "Avatar 3" }));
     const chosen = (
       dialog.getByRole("radio", { name: "Avatar 3" }) as HTMLInputElement
@@ -258,14 +274,98 @@ describe("somebody signed in", () => {
     );
     const dialog = within(await screen.findByRole("dialog"));
 
+    await user.click(dialog.getByRole("button", { name: "Edit profile" }));
     await user.clear(dialog.getByLabelText(/Display name/));
     await user.type(dialog.getByLabelText(/Display name/), "Alicia");
     await user.click(dialog.getByRole("button", { name: "Save" }));
 
     expect(
-      await screen.findByRole("button", { name: "Your profile: Alicia" }),
+      await screen.findByRole("button", {
+        name: "Your profile: Alicia",
+        hidden: true,
+      }),
     ).toBeInTheDocument();
     expect(loadAccount()?.nickname).toBe("Alicia");
+  });
+
+  describe("from the lobby", () => {
+    async function openProfileInLobby(
+      user: ReturnType<typeof userEvent.setup>,
+    ) {
+      await user.click(
+        await screen.findByRole("button", { name: "Your profile: Alice" }),
+      );
+
+      return within(
+        await screen.findByRole("dialog", { name: "Your profile" }),
+      );
+    }
+
+    it("shows the same profile as in a room", async () => {
+      stubBackend();
+      const { user } = setup();
+
+      const dialog = await openProfileInLobby(user);
+
+      expect(dialog.getByText("Female")).toBeInTheDocument();
+      expect(dialog.getByText("Not given")).toBeInTheDocument();
+      expect(dialog.getByText("Google")).toBeInTheDocument();
+      expect(
+        dialog.getByRole("button", { name: "Edit profile" }),
+      ).toBeInTheDocument();
+    });
+
+    it("changes the account on the server with the token, and shows the change", async () => {
+      const fetchMock = stubBackend();
+      const { user } = setup();
+      const dialog = await openProfileInLobby(user);
+
+      await user.click(dialog.getByRole("button", { name: "Edit profile" }));
+      await user.clear(dialog.getByLabelText(/Display name/));
+      await user.type(dialog.getByLabelText(/Display name/), "Alicia");
+      await user.type(dialog.getByLabelText("Age"), "29");
+      await user.click(dialog.getByRole("button", { name: "Save" }));
+
+      expect(await dialog.findByText("29 years old")).toBeInTheDocument();
+      const [, init] = callsTo(fetchMock, "/me").find(
+        ([, request]) => request?.method === "PATCH",
+      ) as [string, RequestInit];
+      expect(init.headers).toMatchObject({
+        Authorization: "Bearer member-abc",
+      });
+      expect(JSON.parse(String(init.body))).toEqual({
+        nickname: "Alicia",
+        age: 29,
+      });
+      expect(
+        await screen.findByRole("button", {
+          name: "Your profile: Alicia",
+          hidden: true,
+        }),
+      ).toBeInTheDocument();
+      expect(loadAccount()).toMatchObject({ nickname: "Alicia", age: 29 });
+    });
+
+    it("says why the server refused, and keeps the form", async () => {
+      stubBackend({
+        update: () => ({
+          status: 409,
+          body: { error: "reserved_nickname" },
+        }),
+      });
+      const { user } = setup();
+      const dialog = await openProfileInLobby(user);
+
+      await user.click(dialog.getByRole("button", { name: "Edit profile" }));
+      await user.clear(dialog.getByLabelText(/Display name/));
+      await user.type(dialog.getByLabelText(/Display name/), "Taken");
+      await user.click(dialog.getByRole("button", { name: "Save" }));
+
+      expect(await dialog.findByRole("alert")).toHaveTextContent(
+        "That nickname is reserved. Pick another one.",
+      );
+      expect(loadAccount()?.nickname).toBe("Alice");
+    });
   });
 
   describe("signing out", () => {

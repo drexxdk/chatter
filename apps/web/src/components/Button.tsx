@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ComponentType, ReactNode } from "react";
 
 const button = cva("", {
   variants: {
@@ -21,16 +21,47 @@ const button = cva("", {
 });
 
 type ButtonProps = Omit<ComponentProps<"button">, "className"> &
-  VariantProps<typeof button> & { className?: string };
+  VariantProps<typeof button> & { className?: string; icon?: IconComponent };
+
+// An icon (a Lucide one or a logo) in front of the text, the same size and gap wherever a button has one.
+export type IconComponent = ComponentType<{
+  className?: string;
+  "aria-hidden"?: "true";
+}>;
+
+const withIcon = "inline-flex items-center justify-center gap-1.5";
+
+function Content({
+  icon: Icon,
+  children,
+}: {
+  icon?: IconComponent;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      {Icon && <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />}
+      {children}
+    </>
+  );
+}
 
 export function Button({
   variant,
   className,
   type = "button",
+  icon,
+  children,
   ...props
 }: ButtonProps) {
   return (
-    <button {...props} type={type} className={button({ variant, className })} />
+    <button
+      {...props}
+      type={type}
+      className={button({ variant, className: [icon && withIcon, className] })}
+    >
+      <Content icon={icon}>{children}</Content>
+    </button>
   );
 }
 
@@ -38,8 +69,17 @@ export function Button({
 export function ButtonLink({
   variant,
   className,
+  icon,
+  children,
   ...props
 }: Omit<ComponentProps<"a">, "className"> &
-  VariantProps<typeof button> & { className?: string }) {
-  return <a {...props} className={button({ variant, className })} />;
+  VariantProps<typeof button> & { className?: string; icon?: IconComponent }) {
+  return (
+    <a
+      {...props}
+      className={button({ variant, className: [icon && withIcon, className] })}
+    >
+      <Content icon={icon}>{children}</Content>
+    </a>
+  );
 }

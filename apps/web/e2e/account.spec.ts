@@ -101,7 +101,8 @@ test("a guest connects a provider and stays who they are, the names are theirs, 
   // Back in the same room, as the same person, now with an account.
   await inRoom(page);
   await page.getByRole("button", { name: `Your profile: ${chatName}` }).click();
-  await expect(page.getByText("Signed in with Dev sign-in.")).toBeVisible();
+  await expect(page.getByText("Signed in with", { exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("Dev sign-in")).toBeVisible();
 
   const [account] = await accountsNamed(handle);
   expect(account).toMatchObject({
@@ -197,4 +198,50 @@ test("somebody makes an account from the lobby, chooses who they are, and can de
   const guest = await newPage(browser);
   await joinAsGuest(guest, chatName);
   await inRoom(guest);
+});
+
+test("an account is edited from the lobby, where it is only shown until it is asked to change", async ({
+  browser,
+}) => {
+  const chatName = displayName("Cleo");
+  const renamed = displayName("Cleo2");
+  const handle = username("Cleo");
+  const page = await newPage(browser);
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Login", exact: true }).click();
+  await signInWithProvider(page, "cleo");
+  await page.getByLabel("Username").fill(handle);
+  await page.getByLabel("Display name").fill(chatName);
+  await page.getByRole("checkbox", { name: /18 or older/ }).check();
+  await page.getByRole("button", { name: "Create account" }).click();
+
+  // No chat connection yet: the lobby's profile shows who they are, and changes the account itself.
+  await page.getByRole("button", { name: `Your profile: ${chatName}` }).click();
+  const dialog = page.getByRole("dialog", { name: "Your profile" });
+  await expect(dialog.getByText("Dev sign-in")).toBeVisible();
+  await expect(dialog.getByText("Not given")).toBeVisible();
+  await expect(dialog.getByLabel("Display name")).toHaveCount(0);
+
+  await dialog.getByRole("button", { name: "Edit profile" }).click();
+  await dialog.getByLabel("Display name").fill(renamed);
+  await dialog.getByLabel("Age").fill("33");
+  await dialog
+    .getByRole("radio", { name: "Male", exact: true })
+    .check({ force: true });
+  await dialog.getByRole("button", { name: "Save" }).click();
+
+  await expect(dialog.getByText("33 years old")).toBeVisible();
+  await expect(dialog.getByText("Male", { exact: true })).toBeVisible();
+  expect(await accountsNamed(handle)).toEqual([
+    expect.objectContaining({ displayName: renamed, age: 33, avatar: "male" }),
+  ]);
+
+  // Joining a room afterwards is as the new name.
+  await dialog.getByRole("button", { name: "Close" }).click();
+  await page.getByRole("button", { name: `Join ${ROOM.name}` }).click();
+  await inRoom(page);
+  await expect(
+    page.getByRole("button", { name: `Your profile: ${renamed}` }),
+  ).toBeVisible();
 });

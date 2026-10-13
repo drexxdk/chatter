@@ -1,3 +1,4 @@
+import { ArrowRight, LogIn, X } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -151,10 +152,15 @@ export function NicknameDialog({
         <ErrorAlert code={error} />
 
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onCancel}>
+          <Button variant="ghost" icon={X} onClick={onCancel}>
             {t("nickname.cancel")}
           </Button>
-          <Button type="submit" variant="primary" disabled={busy}>
+          <Button
+            type="submit"
+            variant="primary"
+            icon={moderator ? LogIn : ArrowRight}
+            disabled={busy}
+          >
             {moderator
               ? signingIn
                 ? t("nickname.signingIn")

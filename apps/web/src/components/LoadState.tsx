@@ -1,6 +1,8 @@
-import { Notice } from "./Notice";
-import { Button } from "./Button";
+import { RotateCw } from "lucide-react";
 import type { ReactNode } from "react";
+
+import { Button } from "./Button";
+import { Notice } from "./Notice";
 
 export function Loading({ children }: { children: ReactNode }) {
   return <p role="status">{children}</p>;
@@ -21,7 +23,9 @@ export function LoadError({
       <Notice role="alert" tone="error">
         {message}
       </Notice>
-      <Button onClick={onRetry}>{retryLabel}</Button>
+      <Button icon={RotateCw} onClick={onRetry}>
+        {retryLabel}
+      </Button>
     </div>
   );
 }

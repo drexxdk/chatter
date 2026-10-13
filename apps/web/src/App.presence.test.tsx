@@ -586,6 +586,9 @@ describe("avatars", () => {
       await user.click(
         screen.getByRole("button", { name: "Your profile: Alice" }),
       );
+      await user.click(
+        await screen.findByRole("button", { name: "Edit profile" }),
+      );
       await user.click(await screen.findByRole("radio", { name: "Avatar 4" }));
       const chosen = (
         screen.getByRole("radio", { name: "Avatar 4" }) as HTMLInputElement

@@ -3,11 +3,12 @@ import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 
 import { parseAge } from "./age.js";
-import { parseAvatar, parsePicture } from "./avatars.js";
+import { avatarSchema, parseAvatar, parsePicture } from "./avatars.js";
 import { env } from "./env.js";
 import { validateNickname, validateUsername } from "./identity.js";
 import { log } from "./log.js";
 import { claimMemberName, isMemberName, releaseMemberName } from "./members.js";
+import { saveMemberProfile } from "./memberProfile.js";
 import {
   getModeratorNames,
   isReservedNickname,
@@ -387,6 +388,98 @@ export function createAccountsRouter(options: {
       expiresAt: Date.now() + MEMBER_TOKEN_TTL_MS,
     });
   });
+
+  // Changes who the account is shown as, from the page of the lobby where there is no chat connection to do it with: the
+  // display name, the picture, the avatar and the age, each only when it is in the body (an age of null takes it back).
+  // Everything is checked before anything is saved.
+  router.patch(
+    "/me",
+    limiter,
+    express.json({ limit: "4kb" }),
+    async (req, res) => {
+      const user = await memberOf(req, res);
+      if (!user) return;
+
+      const fields: Record<string, unknown> =
+        typeof req.body === "object" && req.body !== null
+          ? (req.body as Record<string, unknown>)
+          : {};
+      let { displayName: nickname, avatar, picture, age } = user;
+
+      try {
+        if ("nickname" in fields) {
+          const valid = validateNickname(fields.nickname);
+
+          if (!valid)
+            return res.status(400).json({ error: "invalid_nickname" });
+
+          if (
+            valid !== user.displayName &&
+            (isReservedNickname(valid, await getModeratorNames()) ||
+              (await isMemberName(valid, user.id)))
+          ) {
+            return res.status(409).json({ error: "reserved_nickname" });
+          }
+
+          nickname = valid;
+        }
+
+        if ("avatar" in fields) {
+          const parsed = avatarSchema.safeParse(fields.avatar);
+
+          if (!parsed.success) {
+            return res.status(400).json({ error: "invalid_profile" });
+          }
+
+          avatar = parsed.data;
+        }
+
+        if ("picture" in fields) {
+          picture = parsePicture(fields.picture);
+
+          if (!picture)
+            return res.status(400).json({ error: "invalid_profile" });
+        }
+
+        if ("age" in fields) {
+          age = fields.age === null ? undefined : parseAge(fields.age);
+
+          if (fields.age !== null && age === undefined) {
+            return res.status(400).json({ error: "invalid_profile" });
+          }
+        }
+
+        const failure = await saveMemberProfile(
+          user.id,
+          user.nickname,
+          user.displayName,
+          { nickname, avatar, picture, age },
+        );
+
+        if (failure) {
+          return res
+            .status(failure === "reserved_nickname" ? 409 : 503)
+            .json({ error: failure });
+        }
+
+        res.json({
+          profile: profileOf({
+            ...user,
+            displayName: nickname,
+            avatar,
+            picture,
+            age,
+          }),
+        });
+      } catch (error) {
+        log.error(
+          "Failed to change the profile",
+          error instanceof Error ? error.message : "unknown error",
+        );
+        res.status(503).json({ error: "unavailable" });
+      }
+    },
+  );
 
   // Deletes the account: the entry in the admin goes, the nickname is free again, and whatever is connected as it is cut
   // off. What was said in a room is not theirs to take back (it is gone from the history within the hour).

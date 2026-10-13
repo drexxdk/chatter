@@ -8,6 +8,7 @@ import {
   fetchAccount,
   SignInError,
   signInModerator,
+  updateAccountProfile,
   type Room,
 } from "./api";
 import {
@@ -19,6 +20,7 @@ import {
 } from "./account";
 import { PLAIN_AVATAR, type Avatar } from "./chat/avatar";
 import type { CreateSocket } from "./chat/socket";
+import type { ActionResult } from "./chat/types";
 import { useChat } from "./chat/useChat";
 import { AccountButton, AccountDialog } from "./components/AccountDialog";
 import { AnnouncementBanner } from "./components/AnnouncementBanner";
@@ -31,12 +33,13 @@ import { MainMenu } from "./components/MainMenu";
 import { NicknameDialog } from "./components/NicknameDialog";
 import { PageFrame } from "./components/PageFrame";
 import { ProfileButton } from "./components/ProfileButton";
-import { ProfileDialog } from "./components/ProfileDialog";
+import { ProfileDialog, type ProfileSubject } from "./components/ProfileDialog";
 import { RoomSwitcher } from "./components/RoomSwitcher";
 import { SideDrawer } from "./components/SideDrawer";
 import { LOBBY_PATH, roomPath, slugFromPath } from "./place";
 import { useLegal } from "./legal/useLegal";
 import { loadShowMovements, saveShowMovements } from "./preferences";
+import type { ProfileChanges } from "./profile";
 import {
   clearSession,
   loadDirect,
@@ -156,6 +159,53 @@ export function App({
     signOut();
     // The server cut the connection off when the account went; that is not an error to show.
     chat.clearError();
+  }
+
+  function closeProfile() {
+    setProfileOpen(false);
+    setAccountOpen(false);
+  }
+
+  // Who the profile dialog shows: in a room the connection's, in the lobby the account's.
+  const profile: ProfileSubject | null =
+    chat.roomSlug && chat.session
+      ? chat.session
+      : account
+        ? {
+            role: "member",
+            nickname: account.nickname,
+            avatar: account.avatar,
+            picture: account.picture,
+            age: account.age,
+          }
+        : null;
+
+  // While connected the chat connection makes the change (and the copy of the account here follows it, below); with
+  // none, the account itself is changed on the server.
+  async function saveProfile(changes: ProfileChanges): Promise<ActionResult> {
+    if (chat.session) return chat.updateProfile(changes);
+    if (!account) return { ok: false, error: "forbidden" };
+
+    try {
+      const saved = await updateAccountProfile(account.token, changes);
+      const { age: _age, picture: _picture, ...rest } = account;
+      const next: Account = {
+        ...rest,
+        nickname: saved.nickname,
+        ...(saved.picture ? { picture: saved.picture } : {}),
+        avatar: saved.avatar,
+        ...(saved.age === undefined ? {} : { age: saved.age }),
+      };
+
+      saveAccount(next);
+      setAccount(next);
+      return { ok: true };
+    } catch (cause) {
+      return {
+        ok: false,
+        error: cause instanceof AccountError ? cause.code : "connection",
+      };
+    }
   }
 
   async function handleNickname(
@@ -554,12 +604,12 @@ export function App({
         <InfoPanel slowModeSeconds={currentRoom?.slowModeSeconds} />
       </SideDrawer>
 
-      {chat.session && (
+      {profile && (
         <ProfileDialog
-          open={profileOpen}
-          onClose={() => setProfileOpen(false)}
-          session={chat.session}
-          onSave={chat.updateProfile}
+          open={profileOpen || accountOpen}
+          onClose={closeProfile}
+          profile={profile}
+          onSave={saveProfile}
           account={account}
           returnPath={chat.roomSlug ? roomPath(chat.roomSlug) : LOBBY_PATH}
           onSignOut={signOut}
@@ -567,13 +617,7 @@ export function App({
         />
       )}
 
-      <AccountDialog
-        open={accountOpen}
-        onClose={() => setAccountOpen(false)}
-        account={account}
-        onSignOut={signOut}
-        onDelete={deleteMyAccount}
-      />
+      {!account && <AccountDialog open={accountOpen} onClose={closeProfile} />}
 
       {pendingRoom && (
         <NicknameDialog

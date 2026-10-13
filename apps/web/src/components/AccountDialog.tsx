@@ -1,10 +1,8 @@
+import { LogIn } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { Account } from "../account";
-import { PLAIN_AVATAR } from "../chat/avatar";
-import { AccountSection } from "./AccountSection";
-import { useAuthProviders } from "./AccountOptions";
-import { AvatarIcon } from "./Avatar";
+import { AccountOptions, useAuthProviders } from "./AccountOptions";
 import { Button } from "./Button";
 import { Modal } from "./Modal";
 import { ProfileButton } from "./ProfileButton";
@@ -35,48 +33,25 @@ export function AccountButton({
   if (providers.length === 0) return null;
 
   return (
-    <Button variant="ghost" onClick={onClick}>
+    <Button variant="ghost" icon={LogIn} onClick={onClick}>
       {t("account.open")}
     </Button>
   );
 }
 
-// The account outside a room, where there is no profile to change: who is signed in and how to sign out, or the
-// providers to sign in with.
+// The way to sign in with a provider, for a guest outside a room; somebody signed in has their profile instead.
 export function AccountDialog({
   open,
   onClose,
-  account,
-  onSignOut,
-  onDelete,
 }: {
   open: boolean;
   onClose: () => void;
-  account: Account | null;
-  onSignOut: () => void;
-  onDelete: () => Promise<void>;
 }) {
   const { t } = useTranslation();
 
   return (
     <Modal open={open} onClose={onClose} title={t("account.title")} closable>
-      <div className="space-y-3">
-        {account && (
-          <p className="flex items-center gap-2 font-bold">
-            <AvatarIcon
-              avatar={account.avatar ?? PLAIN_AVATAR}
-              picture={account.picture}
-            />
-            {account.nickname}
-          </p>
-        )}
-        <AccountSection
-          account={account}
-          returnPath="/"
-          onSignOut={onSignOut}
-          onDelete={onDelete}
-        />
-      </div>
+      <AccountOptions returnPath="/" intro={t("account.intro")} />
     </Modal>
   );
 }

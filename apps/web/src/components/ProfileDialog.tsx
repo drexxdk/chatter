@@ -1,14 +1,16 @@
-import { useState, type SubmitEvent } from "react";
+import { Pencil, Save, X } from "lucide-react";
+import { useState, type ReactNode, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { Account } from "../account";
 import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
 import { randomPicture } from "../chat/picture";
-import type { ActionResult, Session } from "../chat/useChat";
-import type { Account } from "../account";
+import type { ActionResult, Session } from "../chat/types";
 import { normalizeNickname } from "../nickname";
 import { MAX_AGE, MIN_AGE, readAge, type ProfileChanges } from "../profile";
+import { ProviderLabel } from "./AccountOptions";
 import { AccountSection } from "./AccountSection";
-import { AvatarIcon } from "./Avatar";
+import { AvatarIcon, GenderLabel } from "./Avatar";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Modal } from "./Modal";
@@ -19,12 +21,19 @@ import {
   VisibleNote,
 } from "./ProfileFields";
 
-// What the guest says about themselves, in a modal on top of the chat. A guest can change all of it; a moderator's name
-// belongs to their account, so theirs is only shown.
+// Who somebody is shown as: a guest or an account in a room, or an account in the lobby.
+export type ProfileSubject = Pick<
+  Session,
+  "role" | "nickname" | "avatar" | "picture" | "age"
+>;
+
+// Who you are, in a modal on top of the page, the same in the lobby and in a room: what is shown of you, who you are
+// signed in through, and a button that turns it into a form to change it. A moderator's name belongs to their account,
+// so theirs is only shown.
 export function ProfileDialog({
   open,
   onClose,
-  session,
+  profile,
   onSave,
   account,
   returnPath,
@@ -33,7 +42,7 @@ export function ProfileDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  session: Session;
+  profile: ProfileSubject;
   onSave: (changes: ProfileChanges) => Promise<ActionResult>;
   // Who is signed in, or null for a guest, who can make an account by connecting a provider.
   account: Account | null;
@@ -46,55 +55,154 @@ export function ProfileDialog({
 
   return (
     <Modal open={open} onClose={onClose} title={t("profile.title")} closable>
-      {session.role === "moderator" ? (
-        <div className="space-y-3">
-          <p className="flex items-center gap-2 font-bold text-green-400">
-            <AvatarIcon
-              avatar={session.avatar ?? PLAIN_AVATAR}
-              picture={session.picture}
-            />
-            {session.nickname}
-          </p>
-          <p className="text-sm text-neutral-300">
-            {t("profile.moderatorNote")}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <ProfileForm session={session} onSave={onSave} onClose={onClose} />
-          <AccountSection
-            account={account}
-            returnPath={returnPath}
-            onSignOut={onSignOut}
-            onDelete={onDelete}
-            separated
-          />
-        </div>
-      )}
+      <ProfileBody
+        profile={profile}
+        onSave={onSave}
+        account={account}
+        returnPath={returnPath}
+        onSignOut={onSignOut}
+        onDelete={onDelete}
+      />
     </Modal>
   );
 }
 
-// Starts from who the guest is when the modal opens; it is only mounted while the modal is open.
-function ProfileForm({
-  session,
+// Starts as the profile and goes back to it; it is only mounted while the modal is open.
+function ProfileBody({
+  profile,
   onSave,
-  onClose,
+  account,
+  returnPath,
+  onSignOut,
+  onDelete,
 }: {
-  session: Session;
+  profile: ProfileSubject;
   onSave: (changes: ProfileChanges) => Promise<ActionResult>;
-  onClose: () => void;
+  account: Account | null;
+  returnPath: string;
+  onSignOut: () => void;
+  onDelete: () => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <ProfileForm
+        profile={profile}
+        onSave={onSave}
+        onDone={() => setEditing(false)}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <ProfileSummary
+        profile={profile}
+        account={account}
+        onEdit={() => setEditing(true)}
+      />
+      {profile.role !== "moderator" && (
+        <AccountSection
+          account={account}
+          returnPath={returnPath}
+          onSignOut={onSignOut}
+          onDelete={onDelete}
+          separated
+        />
+      )}
+    </div>
+  );
+}
+
+function Detail({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <dt className="text-neutral-400">{label}</dt>
+      <dd>{children}</dd>
+    </>
+  );
+}
+
+function ProfileSummary({
+  profile,
+  account,
+  onEdit,
+}: {
+  profile: ProfileSubject;
+  account: Account | null;
+  onEdit: () => void;
+}) {
+  const { t } = useTranslation();
+  const moderator = profile.role === "moderator";
+  const username = profile.role === "member" ? account?.username : undefined;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <AvatarIcon
+          avatar={profile.avatar ?? PLAIN_AVATAR}
+          picture={profile.picture}
+          large
+        />
+        <p
+          className={`min-w-0 text-lg font-bold wrap-break-word ${moderator ? "text-green-400" : ""}`}
+        >
+          {profile.nickname}
+        </p>
+      </div>
+
+      {moderator ? (
+        <p className="text-sm text-neutral-300">{t("profile.moderatorNote")}</p>
+      ) : (
+        <>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+            {username && (
+              <Detail label={t("account.register.username")}>{username}</Detail>
+            )}
+            <Detail label={t("profile.gender")}>
+              <GenderLabel avatar={profile.avatar ?? PLAIN_AVATAR} />
+            </Detail>
+            <Detail label={t("profile.age")}>
+              {profile.age === undefined
+                ? t("profile.notGiven")
+                : t("profile.years", { count: profile.age })}
+            </Detail>
+            {account && (
+              <Detail label={t("profile.signedInWith")}>
+                <ProviderLabel provider={account.provider} />
+              </Detail>
+            )}
+          </dl>
+          <VisibleNote />
+          <Button icon={Pencil} onClick={onEdit}>
+            {t("profile.edit")}
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ProfileForm({
+  profile,
+  onSave,
+  onDone,
+}: {
+  profile: ProfileSubject;
+  onSave: (changes: ProfileChanges) => Promise<ActionResult>;
+  onDone: () => void;
 }) {
   const { t } = useTranslation();
   // An account's name is a display name; a guest's is a nickname.
-  const account = session.role === "member";
-  const [name, setName] = useState(session.nickname);
+  const account = profile.role === "member";
+  const [name, setName] = useState(profile.nickname);
   const [picture, setPicture] = useState(
-    () => session.picture ?? randomPicture(),
+    () => profile.picture ?? randomPicture(),
   );
-  const [avatar, setAvatar] = useState<Avatar>(session.avatar ?? PLAIN_AVATAR);
+  const [avatar, setAvatar] = useState<Avatar>(profile.avatar ?? PLAIN_AVATAR);
   const [ageText, setAgeText] = useState(
-    session.age === undefined ? "" : String(session.age),
+    profile.age === undefined ? "" : String(profile.age),
   );
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -110,19 +218,19 @@ function ProfileForm({
     if (!nickname || !age.ok) return;
 
     const changes: ProfileChanges = {
-      ...(nickname === session.nickname ? {} : { nickname }),
-      ...(picture !== session.picture ? { picture } : {}),
-      ...(avatar === (session.avatar ?? PLAIN_AVATAR) ? {} : { avatar }),
-      ...(age.age === session.age ? {} : { age: age.age ?? null }),
+      ...(nickname === profile.nickname ? {} : { nickname }),
+      ...(picture !== profile.picture ? { picture } : {}),
+      ...(avatar === (profile.avatar ?? PLAIN_AVATAR) ? {} : { avatar }),
+      ...(age.age === profile.age ? {} : { age: age.age ?? null }),
     };
 
-    if (Object.keys(changes).length === 0) return onClose();
+    if (Object.keys(changes).length === 0) return onDone();
 
     setSaving(true);
     const result = await onSave(changes);
     setSaving(false);
 
-    if (result.ok) onClose();
+    if (result.ok) onDone();
     else setFailure(result);
   }
 
@@ -168,10 +276,10 @@ function ProfileForm({
       />
 
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={onClose}>
+        <Button variant="ghost" icon={X} onClick={onDone}>
           {t("nickname.cancel")}
         </Button>
-        <Button type="submit" variant="primary" disabled={saving}>
+        <Button type="submit" variant="primary" icon={Save} disabled={saving}>
           {saving ? t("profile.saving") : t("profile.save")}
         </Button>
       </div>

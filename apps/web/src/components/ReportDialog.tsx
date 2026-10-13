@@ -1,3 +1,4 @@
+import { Flag, X } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -73,10 +74,10 @@ export function ReportDialog({
           />
         )}
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onCancel}>
+          <Button variant="ghost" icon={X} onClick={onCancel}>
             {t("report.cancel")}
           </Button>
-          <Button variant="primary" type="submit" disabled={busy}>
+          <Button variant="primary" icon={Flag} type="submit" disabled={busy}>
             {t("report.send")}
           </Button>
         </div>

@@ -698,6 +698,115 @@ describe("the account's own data", () => {
     ).toBe(401);
   });
 
+  describe("changed on request", () => {
+    const patch = (token: string | undefined, body: unknown) =>
+      fetch(`${base}/me`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(body),
+      });
+
+    it("changes what is in the body and keeps the rest", async () => {
+      await start();
+      const token = await signedIn();
+
+      const res = await patch(token, {
+        nickname: "Alicia",
+        avatar: "female",
+        age: 30,
+      });
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        profile: {
+          nickname: "Alicia",
+          username: "alice",
+          picture: PICTURE,
+          avatar: "female",
+          age: 30,
+        },
+      });
+      expect(accounts.users.get(1)).toMatchObject({
+        displayName: "Alicia",
+        displayNameKey: "alicia",
+        avatar: "female",
+        age: 30,
+      });
+      expect(accounts.names.has("alicia")).toBe(true);
+      expect(accounts.names.has("alice")).toBe(true);
+
+      const again = await patch(token, {
+        picture: "pixel-art:xyz98765",
+        age: null,
+      });
+
+      expect(await again.json()).toEqual({
+        profile: {
+          nickname: "Alicia",
+          username: "alice",
+          picture: "pixel-art:xyz98765",
+          avatar: "female",
+        },
+      });
+    });
+
+    it("lets the account keep or re-case its own name", async () => {
+      await start();
+      const token = await signedIn();
+
+      expect((await patch(token, { nickname: "ALICE" })).status).toBe(200);
+      expect(accounts.users.get(1)).toMatchObject({ displayName: "ALICE" });
+    });
+
+    it.each([
+      ["a name that is not valid", { nickname: "a" }, 400, "invalid_nickname"],
+      ["a staff name", { nickname: "Ada Mod" }, 409, "reserved_nickname"],
+      [
+        "an avatar that is not one",
+        { avatar: "robot" },
+        400,
+        "invalid_profile",
+      ],
+      [
+        "a picture that is not one",
+        { picture: "robot:abc" },
+        400,
+        "invalid_profile",
+      ],
+      ["an age that is not one", { age: 3 }, 400, "invalid_profile"],
+    ])("refuses %s", async (_name, body, status, error) => {
+      await start();
+      const token = await signedIn();
+
+      const res = await patch(token, body);
+
+      expect(res.status).toBe(status);
+      expect(await res.json()).toEqual({ error });
+      expect(accounts.users.get(1)).toMatchObject({ displayName: "Alice" });
+    });
+
+    it("refuses a name another account has", async () => {
+      await start();
+      const token = await signedIn();
+      const ticket = (await signInAs("bob")).get("ticket");
+      await post("/auth/register", { ticket, ...details("bob", "Bobby") });
+
+      const res = await patch(token, { nickname: "bobby" });
+
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: "reserved_nickname" });
+    });
+
+    it("refuses without a session", async () => {
+      await start();
+
+      expect((await patch(undefined, { age: 30 })).status).toBe(401);
+    });
+  });
+
   it("is limited, like the other routes of an account", async () => {
     await start({ authRateLimit: { max: 2, windowMs: 60_000 } });
 

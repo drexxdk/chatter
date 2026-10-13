@@ -2,7 +2,7 @@ import { parseAvatar, type Avatar } from "./chat/avatar";
 import { parsePicture } from "./chat/picture";
 import { CHAT_SERVER_URL } from "./config";
 import { parseLegal, type LegalContent } from "./legal";
-import { parseAge } from "./profile";
+import { parseAge, type ProfileChanges } from "./profile";
 
 export interface Room {
   id: number;
@@ -189,16 +189,33 @@ const ACCOUNT_ERRORS = new Set([
   "unavailable",
 ]);
 
+function parseAccountProfile(value: unknown): AccountSession["profile"] {
+  const profile = (value ?? {}) as Record<string, unknown>;
+  const age = parseAge(profile.age);
+
+  if (typeof profile.nickname !== "string")
+    throw new AccountError("connection");
+
+  return {
+    nickname: profile.nickname,
+    ...(typeof profile.username === "string" && profile.username
+      ? { username: profile.username }
+      : {}),
+    ...(parsePicture(profile.picture) === undefined
+      ? {}
+      : { picture: parsePicture(profile.picture) }),
+    avatar: parseAvatar(profile.avatar),
+    ...(age === undefined ? {} : { age }),
+  };
+}
+
 function parseAccountSession(body: unknown): AccountSession {
   const fields = (body ?? {}) as Record<string, unknown>;
-  const profile = (fields.profile ?? {}) as Record<string, unknown>;
-  const age = parseAge(profile.age);
 
   if (
     typeof fields.token !== "string" ||
     typeof fields.provider !== "string" ||
-    typeof fields.expiresAt !== "number" ||
-    typeof profile.nickname !== "string"
+    typeof fields.expiresAt !== "number"
   ) {
     throw new AccountError("connection");
   }
@@ -207,17 +224,7 @@ function parseAccountSession(body: unknown): AccountSession {
     token: fields.token,
     provider: fields.provider,
     expiresAt: fields.expiresAt,
-    profile: {
-      nickname: profile.nickname,
-      ...(typeof profile.username === "string" && profile.username
-        ? { username: profile.username }
-        : {}),
-      ...(parsePicture(profile.picture) === undefined
-        ? {}
-        : { picture: parsePicture(profile.picture) }),
-      avatar: parseAvatar(profile.avatar),
-      ...(age === undefined ? {} : { age }),
-    },
+    profile: parseAccountProfile(fields.profile),
   };
 }
 
@@ -280,4 +287,19 @@ export async function fetchAccount(token: string): Promise<AccountSession> {
 
 export async function deleteAccount(token: string): Promise<void> {
   await accountRequest("/me", { method: "DELETE", headers: bearer(token) });
+}
+
+// Changes who the account is shown as, outside a room (inside one the chat connection does it). Answers with who they
+// are now.
+export async function updateAccountProfile(
+  token: string,
+  changes: ProfileChanges,
+): Promise<AccountSession["profile"]> {
+  const body = (await accountRequest("/me", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...bearer(token) },
+    body: JSON.stringify(changes),
+  })) as { profile?: unknown } | null;
+
+  return parseAccountProfile(body?.profile);
 }

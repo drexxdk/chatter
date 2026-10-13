@@ -36,7 +36,8 @@ import {
   validateNickname,
 } from "./identity.js";
 import { MAX_MESSAGE_LENGTH } from "./limits.js";
-import { claimMemberName, isMemberName, releaseMemberName } from "./members.js";
+import { isMemberName } from "./members.js";
+import { saveMemberProfile } from "./memberProfile.js";
 import {
   getModerators,
   getModeratorNames,
@@ -46,9 +47,7 @@ import {
 import { isReactionEmoji } from "./reactions.js";
 import {
   fetchUser,
-  isTaken,
   REPORT_REASONS,
-  updateUser,
   type ReportReason,
 } from "./payloadClient.js";
 import { recordReport } from "./reports.js";
@@ -243,50 +242,6 @@ export function directMessageWaitMs(
 // The picture, for putting beside the avatar wherever one is sent: nothing when there is none.
 const pictureOf = (data: { picture?: string }) =>
   data.picture === undefined ? {} : { picture: data.picture };
-
-// Keeps a member's profile in their account, and the name in the list of names that are taken. The name here is the
-// display name; the username stays what it was and keeps its own claim. Undefined when it worked, otherwise the error
-// to answer with.
-async function saveMemberProfile(
-  memberId: number,
-  username: string,
-  oldNickname: string,
-  profile: {
-    nickname: string;
-    avatar: Avatar;
-    picture: string | undefined;
-    age: number | undefined;
-  },
-): Promise<string | undefined> {
-  try {
-    await updateUser(memberId, {
-      displayName: profile.nickname,
-      displayNameKey: normalizeName(profile.nickname),
-      ...(profile.picture === undefined ? {} : { picture: profile.picture }),
-      avatar: profile.avatar,
-      age: profile.age ?? null,
-    });
-  } catch (error) {
-    if (isTaken(error, "displayNameKey")) return "reserved_nickname";
-
-    log.error(
-      "Failed to save a profile",
-      error instanceof Error ? error.message : "unknown error",
-    );
-    return "unavailable";
-  }
-
-  if (normalizeName(profile.nickname) !== normalizeName(oldNickname)) {
-    // The list is a copy; the account is what counts, so a failure here only waits for the next sync.
-    await claimMemberName(memberId, profile.nickname).catch(() => undefined);
-
-    if (normalizeName(oldNickname) !== normalizeName(username)) {
-      await releaseMemberName(memberId, oldNickname).catch(() => undefined);
-    }
-  }
-
-  return undefined;
-}
 
 export function createSocketServer(
   httpServer: HttpServer,

@@ -1,8 +1,9 @@
+import { DoorOpen, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Account } from "../account";
-import { AccountOptions, providerName } from "./AccountOptions";
+import { AccountOptions } from "./AccountOptions";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Notice } from "./Notice";
@@ -54,12 +55,6 @@ export function AccountSection({
 
   return (
     <section aria-label={t("account.title")} className={`space-y-3 ${line}`}>
-      <p className="text-sm text-neutral-300">
-        {t("account.signedInWith", {
-          provider: providerName(account.provider),
-        })}
-      </p>
-
       {confirming ? (
         <div className="space-y-2">
           <Notice tone="warning">{t("account.deleteWarning")}</Notice>
@@ -67,6 +62,7 @@ export function AccountSection({
           <div className="flex gap-2">
             <Button
               variant="primary"
+              icon={Trash2}
               disabled={deleting}
               onClick={() => void confirmDelete()}
             >
@@ -74,6 +70,7 @@ export function AccountSection({
             </Button>
             <Button
               variant="ghost"
+              icon={X}
               disabled={deleting}
               onClick={() => setConfirming(false)}
             >
@@ -83,8 +80,14 @@ export function AccountSection({
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <Button onClick={onSignOut}>{t("account.signOut")}</Button>
-          <Button variant="ghost" onClick={() => setConfirming(true)}>
+          <Button icon={DoorOpen} onClick={onSignOut}>
+            {t("account.signOut")}
+          </Button>
+          <Button
+            variant="ghost"
+            icon={Trash2}
+            onClick={() => setConfirming(true)}
+          >
             {t("account.delete")}
           </Button>
         </div>

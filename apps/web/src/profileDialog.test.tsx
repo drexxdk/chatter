@@ -33,10 +33,20 @@ async function enter(
   return { user, server };
 }
 
-const openProfile = async (user: ReturnType<typeof userEvent.setup>) => {
+// The profile opens as what is shown of the guest; `edit` goes on to the form that changes it.
+const openProfile = async (
+  user: ReturnType<typeof userEvent.setup>,
+  { edit = true }: { edit?: boolean } = {},
+) => {
   await user.click(screen.getByRole("button", { name: /^Your profile:/ }));
+  const dialog = within(
+    await screen.findByRole("dialog", { name: "Your profile" }),
+  );
 
-  return within(await screen.findByRole("dialog", { name: "Your profile" }));
+  if (edit)
+    await user.click(dialog.getByRole("button", { name: "Edit profile" }));
+
+  return dialog;
 };
 
 describe("saying who you are when joining", () => {
@@ -120,17 +130,32 @@ describe("the profile button", () => {
     expect(button.querySelector("[data-picture]")).not.toHaveAttribute("title");
   });
 
-  it("opens a modal with who the guest is", async () => {
+  it("opens a modal with who the guest is, and the form only when asked", async () => {
     const { user } = await enter(makeFakeServer(), {
       age: "31",
       avatar: "Transgender",
     });
 
-    const dialog = await openProfile(user);
+    const dialog = await openProfile(user, { edit: false });
+
+    expect(dialog.getByText("Alice")).toBeInTheDocument();
+    expect(dialog.getByText("Transgender")).toBeInTheDocument();
+    expect(dialog.getByText("31 years old")).toBeInTheDocument();
+    expect(dialog.queryByLabelText("Nickname")).toBeNull();
+
+    await user.click(dialog.getByRole("button", { name: "Edit profile" }));
 
     expect(dialog.getByLabelText("Nickname")).toHaveValue("Alice");
     expect(dialog.getByRole("radio", { name: "Transgender" })).toBeChecked();
     expect(dialog.getByLabelText("Age")).toHaveValue("31");
+  });
+
+  it("says when no age was given", async () => {
+    const { user } = await enter();
+
+    const dialog = await openProfile(user, { edit: false });
+
+    expect(dialog.getByText("Not given")).toBeInTheDocument();
   });
 
   it("changes what was changed, tells the server only that, and shows the new name", async () => {
@@ -149,9 +174,15 @@ describe("the profile button", () => {
       ]),
     );
     expect(
-      await screen.findByRole("button", { name: "Your profile: Alicia" }),
+      await screen.findByRole("button", {
+        name: "Your profile: Alicia",
+        hidden: true,
+      }),
     ).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // Back to the profile, which now says who they are.
+    expect(await dialog.findByText("29 years old")).toBeInTheDocument();
+    expect(dialog.getByText("Female")).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "Edit profile" })).toBeVisible();
     expect(
       JSON.parse(sessionStorage.getItem("chatter.session")!),
     ).toMatchObject({ nickname: "Alicia", avatar: "female", age: 29 });
@@ -180,7 +211,9 @@ describe("the profile button", () => {
 
     await user.click(dialog.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      await dialog.findByRole("button", { name: "Edit profile" }),
+    ).toBeInTheDocument();
     expect(server.latest.emittedEvents("profile:update")).toEqual([]);
   });
 
@@ -239,14 +272,17 @@ describe("the profile button", () => {
     );
   });
 
-  it("closes without changing anything", async () => {
+  it("goes back to the profile without changing anything", async () => {
     const { user, server } = await enter();
     const dialog = await openProfile(user);
 
     await user.type(dialog.getByLabelText("Age"), "33");
     await user.click(dialog.getByRole("button", { name: "Cancel" }));
 
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      await dialog.findByRole("button", { name: "Edit profile" }),
+    ).toBeInTheDocument();
+    expect(dialog.getByText("Not given")).toBeInTheDocument();
     expect(server.latest.emittedEvents("profile:update")).toEqual([]);
   });
 });
@@ -314,8 +350,7 @@ describe("a moderator's profile", () => {
         returnPath="/"
         onSignOut={() => {}}
         onDelete={async () => {}}
-        session={{
-          guestId: "g",
+        profile={{
           nickname: "Ada Mod",
           role: "moderator",
           avatar: "other",
@@ -329,6 +364,7 @@ describe("a moderator's profile", () => {
     expect(
       dialog.getByText(/Your name comes from your account/),
     ).toBeInTheDocument();
+    expect(dialog.queryByRole("button", { name: "Edit profile" })).toBeNull();
     expect(dialog.queryByRole("button", { name: "Save" })).toBeNull();
     expect(dialog.queryByLabelText("Nickname")).toBeNull();
   });

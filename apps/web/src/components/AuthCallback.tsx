@@ -1,3 +1,4 @@
+import { ArrowLeft, UserPlus, X } from "lucide-react";
 import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -151,7 +152,7 @@ export function AuthCallback({
       {view.status === "error" && (
         <div className="space-y-3">
           <ErrorAlert code={view.code} />
-          <ButtonLink href={returnPath} className="inline-block text-sm">
+          <ButtonLink href={returnPath} icon={ArrowLeft} className="text-sm">
             {t("account.back")}
           </ButtonLink>
         </div>
@@ -307,6 +308,7 @@ function RegisterForm({
       <div className="flex justify-end gap-2">
         <Button
           variant="ghost"
+          icon={X}
           onClick={() => {
             // Nothing was made: the browser goes back as it was, without an account.
             navigate(returnPath);
@@ -314,7 +316,7 @@ function RegisterForm({
         >
           {t("nickname.cancel")}
         </Button>
-        <Button type="submit" variant="primary" disabled={busy}>
+        <Button type="submit" variant="primary" icon={UserPlus} disabled={busy}>
           {busy
             ? t("account.register.submitting")
             : t("account.register.submit")}
