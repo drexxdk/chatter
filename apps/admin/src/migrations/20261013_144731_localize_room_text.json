@@ -74,12 +74,8 @@
           "name": "admins_sessions_parent_id_fk",
           "tableFrom": "admins_sessions",
           "tableTo": "admins",
-          "columnsFrom": [
-            "_parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["_parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -427,12 +423,8 @@
           "name": "public_rooms_locales_parent_id_fk",
           "tableFrom": "public_rooms_locales",
           "tableTo": "public_rooms",
-          "columnsFrom": [
-            "_parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["_parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -607,12 +599,8 @@
           "name": "reports_reasons_parent_fk",
           "tableFrom": "reports_reasons",
           "tableTo": "reports",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1261,12 +1249,8 @@
           "name": "payload_locked_documents_rels_parent_fk",
           "tableFrom": "payload_locked_documents_rels",
           "tableTo": "payload_locked_documents",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1274,12 +1258,8 @@
           "name": "payload_locked_documents_rels_admins_fk",
           "tableFrom": "payload_locked_documents_rels",
           "tableTo": "admins",
-          "columnsFrom": [
-            "admins_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["admins_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1287,12 +1267,8 @@
           "name": "payload_locked_documents_rels_public_rooms_fk",
           "tableFrom": "payload_locked_documents_rels",
           "tableTo": "public_rooms",
-          "columnsFrom": [
-            "public_rooms_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["public_rooms_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1300,12 +1276,8 @@
           "name": "payload_locked_documents_rels_bans_fk",
           "tableFrom": "payload_locked_documents_rels",
           "tableTo": "bans",
-          "columnsFrom": [
-            "bans_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bans_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1313,12 +1285,8 @@
           "name": "payload_locked_documents_rels_reports_fk",
           "tableFrom": "payload_locked_documents_rels",
           "tableTo": "reports",
-          "columnsFrom": [
-            "reports_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["reports_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1326,12 +1294,8 @@
           "name": "payload_locked_documents_rels_users_fk",
           "tableFrom": "payload_locked_documents_rels",
           "tableTo": "users",
-          "columnsFrom": [
-            "users_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["users_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1535,12 +1499,8 @@
           "name": "payload_preferences_rels_parent_fk",
           "tableFrom": "payload_preferences_rels",
           "tableTo": "payload_preferences",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1548,12 +1508,8 @@
           "name": "payload_preferences_rels_admins_fk",
           "tableFrom": "payload_preferences_rels",
           "tableTo": "admins",
-          "columnsFrom": [
-            "admins_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["admins_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1740,12 +1696,8 @@
           "name": "legal_terms_sections_parent_id_fk",
           "tableFrom": "legal_terms_sections",
           "tableTo": "legal",
-          "columnsFrom": [
-            "_parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["_parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1856,12 +1808,8 @@
           "name": "legal_privacy_sections_parent_id_fk",
           "tableFrom": "legal_privacy_sections",
           "tableTo": "legal",
-          "columnsFrom": [
-            "_parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["_parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2015,12 +1963,8 @@
           "name": "legal_locales_parent_id_fk",
           "tableFrom": "legal_locales",
           "tableTo": "legal",
-          "columnsFrom": [
-            "_parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["_parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2137,12 +2081,8 @@
           "name": "_legal_v_version_terms_sections_parent_id_fk",
           "tableFrom": "_legal_v_version_terms_sections",
           "tableTo": "_legal_v",
-          "columnsFrom": [
-            "_parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["_parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2259,12 +2199,8 @@
           "name": "_legal_v_version_privacy_sections_parent_id_fk",
           "tableFrom": "_legal_v_version_privacy_sections",
           "tableTo": "_legal_v",
-          "columnsFrom": [
-            "_parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["_parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2526,12 +2462,8 @@
           "name": "_legal_v_locales_parent_id_fk",
           "tableFrom": "_legal_v_locales",
           "tableTo": "_legal_v",
-          "columnsFrom": [
-            "_parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["_parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2547,76 +2479,42 @@
     "public._locales": {
       "name": "_locales",
       "schema": "public",
-      "values": [
-        "en",
-        "da",
-        "de"
-      ]
+      "values": ["en", "da", "de"]
     },
     "public.enum_admins_role": {
       "name": "enum_admins_role",
       "schema": "public",
-      "values": [
-        "super-admin",
-        "moderator",
-        "service"
-      ]
+      "values": ["super-admin", "moderator", "service"]
     },
     "public.enum_reports_reasons": {
       "name": "enum_reports_reasons",
       "schema": "public",
-      "values": [
-        "spam",
-        "harassment",
-        "sexual",
-        "illegal",
-        "other"
-      ]
+      "values": ["spam", "harassment", "sexual", "illegal", "other"]
     },
     "public.enum_reports_status": {
       "name": "enum_reports_status",
       "schema": "public",
-      "values": [
-        "open",
-        "hidden",
-        "dismissed",
-        "actioned"
-      ]
+      "values": ["open", "hidden", "dismissed", "actioned"]
     },
     "public.enum_users_avatar": {
       "name": "enum_users_avatar",
       "schema": "public",
-      "values": [
-        "male",
-        "female",
-        "trans",
-        "other"
-      ]
+      "values": ["male", "female", "trans", "other"]
     },
     "public.enum_legal_status": {
       "name": "enum_legal_status",
       "schema": "public",
-      "values": [
-        "draft",
-        "published"
-      ]
+      "values": ["draft", "published"]
     },
     "public.enum__legal_v_version_status": {
       "name": "enum__legal_v_version_status",
       "schema": "public",
-      "values": [
-        "draft",
-        "published"
-      ]
+      "values": ["draft", "published"]
     },
     "public.enum__legal_v_published_locale": {
       "name": "enum__legal_v_published_locale",
       "schema": "public",
-      "values": [
-        "en",
-        "da",
-        "de"
-      ]
+      "values": ["en", "da", "de"]
     }
   },
   "schemas": {},
