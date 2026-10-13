@@ -431,6 +431,9 @@ describe("accounts", () => {
     email: "a@example.com",
     nickname: "Alice",
     nicknameKey: "alice",
+    displayName: "Alice Wonder",
+    displayNameKey: "alicewonder",
+    picture: "lorelei:abc12345",
     avatar: "female",
     age: 30,
     lastLoginAt: "2026-10-13T10:00:00.000Z",
@@ -448,12 +451,36 @@ describe("accounts", () => {
       email: "a@example.com",
       nickname: "Alice",
       nicknameKey: "alice",
+      displayName: "Alice Wonder",
+      displayNameKey: "alicewonder",
+      picture: "lorelei:abc12345",
       avatar: "female",
       age: 30,
     });
     expect(calls(fetchMock)[0]?.[0]).toBe(
       "http://localhost:3000/api/users?where[identity][equals]=google%3Ag1&limit=1&depth=0",
     );
+  });
+
+  it("shows an account made before display names and pictures by its username, with no picture", async () => {
+    respondWith({
+      ...user,
+      displayName: null,
+      displayNameKey: null,
+      picture: null,
+    });
+
+    expect(await fetchUser(5)).toMatchObject({
+      displayName: "Alice",
+      displayNameKey: "alice",
+      picture: undefined,
+    });
+  });
+
+  it("drops a picture that is not one of the known styles", async () => {
+    respondWith({ ...user, picture: "robot:abc12345" });
+
+    expect((await fetchUser(5))?.picture).toBeUndefined();
   });
 
   it("finds nobody for an identity that has no account", async () => {
@@ -488,6 +515,9 @@ describe("accounts", () => {
       email: "a@example.com",
       nickname: "Alice",
       nicknameKey: "alice",
+      displayName: "Alice Wonder",
+      displayNameKey: "alicewonder",
+      picture: "lorelei:abc12345",
       avatar: "female",
       age: 30,
     });
@@ -499,6 +529,7 @@ describe("accounts", () => {
     expect(JSON.parse(init.body as string)).toMatchObject({
       identity: "google:g1",
       nicknameKey: "alice",
+      displayNameKey: "alicewonder",
       emailVerified: false,
     });
   });
@@ -514,6 +545,9 @@ describe("accounts", () => {
       providerUserId: "g1",
       nickname: "Alice",
       nicknameKey: "alice",
+      displayName: "Alice",
+      displayNameKey: "alice",
+      picture: "thumbs:abc12345",
       avatar: "other",
     }).catch((caught: unknown) => caught);
 
@@ -528,13 +562,13 @@ describe("accounts", () => {
   it("changes an account, with a null age taking the age back", async () => {
     const fetchMock = respondWith({ doc: { ...user, age: null } });
 
-    await updateUser(5, { nickname: "Al", age: null });
+    await updateUser(5, { displayName: "Al", age: null });
 
     const [url, init] = calls(fetchMock)[0] as [string, RequestInit];
     expect(url).toBe("http://localhost:3000/api/users/5");
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(init.body as string)).toEqual({
-      nickname: "Al",
+      displayName: "Al",
       age: null,
     });
   });
@@ -553,20 +587,20 @@ describe("accounts", () => {
       .fn()
       .mockResolvedValueOnce(
         Response.json({
-          docs: [{ id: 1, nicknameKey: "a" }],
+          docs: [{ id: 1, nicknameKey: "a", displayNameKey: "aa" }],
           hasNextPage: true,
         }),
       )
       .mockResolvedValueOnce(
         Response.json({
-          docs: [{ id: 2, nicknameKey: "b" }],
+          docs: [{ id: 2, nicknameKey: "b", displayNameKey: null }],
           hasNextPage: false,
         }),
       );
     vi.stubGlobal("fetch", fetchMock);
 
     expect(await fetchUserNames()).toEqual([
-      { id: 1, nicknameKey: "a" },
+      { id: 1, nicknameKey: "a", displayNameKey: "aa" },
       { id: 2, nicknameKey: "b" },
     ]);
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain("page=2");

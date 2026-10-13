@@ -110,6 +110,7 @@ export function DirectChat({
               nickname={first.fromNickname}
               role={first.fromRole}
               avatar={first.fromAvatar}
+              picture={first.fromPicture}
               messages={messages.map((message) => ({
                 id: message.id,
                 text: message.text,

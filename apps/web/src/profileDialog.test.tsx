@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
 import { ProfileDialog } from "./components/ProfileDialog";
+import { anyPicture } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
 const ROOMS = [{ id: 1, name: "General", slug: "general", maxMembers: 100 }];
@@ -51,6 +52,7 @@ describe("saying who you are when joining", () => {
       "female",
       undefined,
       27,
+      anyPicture,
     );
     expect(
       JSON.parse(sessionStorage.getItem("chatter.session")!),
@@ -60,7 +62,14 @@ describe("saying who you are when joining", () => {
   it("does not need an age", async () => {
     const { server } = await enter();
 
-    expect(server.createSocket).toHaveBeenCalledWith("Alice");
+    expect(server.createSocket).toHaveBeenCalledWith(
+      "Alice",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      anyPicture,
+    );
   });
 
   it.each(["12", "17", "100"])("does not join with the age %s", async (age) => {
@@ -102,12 +111,13 @@ describe("saying who you are when joining", () => {
 });
 
 describe("the profile button", () => {
-  it("is the guest's avatar, without a tooltip that names it", async () => {
+  it("is the guest's picture, without a tooltip that names it", async () => {
     await enter();
 
     const button = screen.getByRole("button", { name: "Your profile: Alice" });
 
-    expect(button.querySelector("[data-avatar]")).not.toHaveAttribute("title");
+    expect(button.querySelector("[data-picture]")).not.toBeNull();
+    expect(button.querySelector("[data-picture]")).not.toHaveAttribute("title");
   });
 
   it("opens a modal with who the guest is", async () => {

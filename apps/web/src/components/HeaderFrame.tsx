@@ -14,7 +14,7 @@ export function HeaderFrame({
   return (
     <div
       style={roomVars(roomSlug)}
-      className="sticky top-0 z-30 bg-[var(--room-tint,var(--color-neutral-950))] pb-2"
+      className="sticky top-0 z-30 bg-[var(--room-tint,var(--color-neutral-950))]"
     >
       <div className="border-b border-[var(--room-border,var(--color-neutral-800))]">
         <header className="relative mx-auto flex h-14 max-w-4xl items-center justify-between gap-3 px-(--page-gutter)">

@@ -1,8 +1,18 @@
 import { isRecord } from "../isRecord";
 import type { Avatar } from "./avatar";
 import { parseAvatar, PLAIN_AVATAR } from "./avatar";
+import { parsePicture } from "./picture";
 import { parseReactions, type Reaction } from "./reactions";
 import type { Role } from "./types";
+
+// The picture as a field to spread in, for the places that keep one only when there is one.
+const withPicture = <Key extends string>(key: Key, value: unknown) => {
+  const picture = parsePicture(value);
+
+  return picture === undefined
+    ? {}
+    : ({ [key]: picture } as Record<Key, string>);
+};
 
 // A message as the server sends it; once its author was banned the text is gone and only a placeholder is shown.
 export interface DirectMessage {
@@ -11,9 +21,11 @@ export interface DirectMessage {
   fromNickname: string;
   fromRole: Role;
   fromAvatar: Avatar;
+  fromPicture?: string;
   toGuestId: string;
   toNickname: string;
   toAvatar: Avatar;
+  toPicture?: string;
   text: string;
   sentAt: string;
   banned?: boolean;
@@ -41,6 +53,7 @@ export interface Partner {
   nickname: string;
   role: Role;
   avatar: Avatar;
+  picture?: string;
 }
 
 export interface DirectThread extends Partner {
@@ -81,9 +94,11 @@ export function parseDirectMessage(value: unknown): DirectMessage | undefined {
     fromNickname,
     fromRole: value.fromRole === "moderator" ? "moderator" : "guest",
     fromAvatar: parseAvatar(value.fromAvatar),
+    ...withPicture("fromPicture", value.fromPicture),
     toGuestId,
     toNickname,
     toAvatar: parseAvatar(value.toAvatar),
+    ...withPicture("toPicture", value.toPicture),
     text,
     sentAt,
   };
@@ -135,6 +150,7 @@ export function parsePartner(value: unknown): Partner | undefined {
     nickname,
     role: value.role === "moderator" ? "moderator" : "guest",
     avatar: parseAvatar(value.avatar),
+    ...withPicture("picture", value.picture),
   };
 }
 
@@ -260,13 +276,14 @@ export function applyPresence(
   return changed ? next : threads;
 }
 
-// Somebody changed their name or avatar: the conversations with them carry the new ones from now on.
+// Somebody changed their name, avatar or picture: the conversations with them carry the new ones from now on.
 export function refreshPartners(
   threads: DirectThread[],
   members: {
     guestId: string;
     nickname: string;
     avatar?: Avatar;
+    picture?: string;
   }[],
 ): DirectThread[] {
   let changed = false;
@@ -276,17 +293,26 @@ export function refreshPartners(
       (candidate) => candidate.guestId === thread.guestId,
     );
     const avatar = member?.avatar ?? PLAIN_AVATAR;
+    const picture = parsePicture(member?.picture);
 
     if (
       !member ||
-      (member.nickname === thread.nickname && avatar === thread.avatar)
+      (member.nickname === thread.nickname &&
+        avatar === thread.avatar &&
+        picture === thread.picture)
     ) {
       return thread;
     }
 
     changed = true;
+    const { picture: _old, ...rest } = thread;
 
-    return { ...thread, nickname: member.nickname, avatar };
+    return {
+      ...rest,
+      nickname: member.nickname,
+      avatar,
+      ...(picture === undefined ? {} : { picture }),
+    };
   });
 
   return changed ? next : threads;
@@ -501,6 +527,7 @@ export function parseThreads(value: unknown): DirectThread[] {
       nickname,
       role: raw.role === "moderator" ? "moderator" : "guest",
       avatar: parseAvatar(raw.avatar),
+      ...withPicture("picture", raw.picture),
       entries: entries
         .flatMap((entry) => {
           const parsed = parseEntry(entry);

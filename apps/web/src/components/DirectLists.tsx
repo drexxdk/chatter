@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { DirectThread, Partner } from "../chat/direct";
 import { PLAIN_AVATAR } from "../chat/avatar";
 import type { Member } from "../chat/useChat";
-import { AvatarIcon } from "./Avatar";
+import { AvatarIcon, GenderMark } from "./Avatar";
 import { Button } from "./Button";
 
 const nameClass = (role: Partner["role"]) =>
@@ -77,9 +77,10 @@ export function PeopleList({
           <li key={member.guestId}>
             {member.guestId === selfGuestId ? (
               <span className="flex items-center gap-2 px-2 py-1">
-                <AvatarIcon avatar={avatar} small />
+                <AvatarIcon avatar={avatar} picture={member.picture} small />
                 <span>
                   <span className={nameClass(role)}>{member.nickname}</span>
+                  <GenderMark avatar={avatar} picture={member.picture} />
                   <span className="ml-1 text-neutral-500">
                     ({t("room.you")})
                   </span>
@@ -96,12 +97,14 @@ export function PeopleList({
                     nickname: member.nickname,
                     role,
                     avatar,
+                    ...(member.picture ? { picture: member.picture } : {}),
                   })
                 }
                 className="flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-neutral-800 disabled:opacity-50 disabled:hover:bg-transparent"
               >
-                <AvatarIcon avatar={avatar} small />
+                <AvatarIcon avatar={avatar} picture={member.picture} small />
                 <span className={nameClass(role)}>{member.nickname}</span>
+                <GenderMark avatar={avatar} picture={member.picture} />
                 <AgeBadge age={member.age} />
                 {blockedIds.includes(member.guestId) && <BlockedTag />}
                 {blockedByIds.includes(member.guestId) && <BlockedByTag />}
@@ -151,6 +154,7 @@ export function ThreadList({
                 nickname: thread.nickname,
                 role: thread.role,
                 avatar: thread.avatar,
+                ...(thread.picture ? { picture: thread.picture } : {}),
               })
             }
             className={
@@ -160,10 +164,15 @@ export function ThreadList({
             }
           >
             <span className="flex min-w-0 items-center gap-2">
-              <AvatarIcon avatar={thread.avatar} small />
+              <AvatarIcon
+                avatar={thread.avatar}
+                picture={thread.picture}
+                small
+              />
               <span className={`truncate ${nameClass(thread.role) ?? ""}`}>
                 {thread.nickname}
               </span>
+              <GenderMark avatar={thread.avatar} picture={thread.picture} />
               {blockedIds.includes(thread.guestId) && <BlockedTag />}
               {thread.blockedBy && !blockedIds.includes(thread.guestId) && (
                 <BlockedByTag />

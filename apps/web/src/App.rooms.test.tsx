@@ -9,6 +9,7 @@ import {
   at,
   message,
   fillBox,
+  anyPicture,
 } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
@@ -144,7 +145,14 @@ describe("joining a room", () => {
     expect(
       await screen.findByRole("button", { name: "Your profile: Alice" }),
     ).toBeInTheDocument();
-    expect(server.createSocket).toHaveBeenCalledWith("Alice");
+    expect(server.createSocket).toHaveBeenCalledWith(
+      "Alice",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      anyPicture,
+    );
     expect(server.latest.emittedEvents("room:join")).toEqual([
       { slug: "general" },
     ]);
@@ -332,7 +340,7 @@ describe("inside a room", () => {
     expect(
       screen.getByText('<img src=x onerror="alert(1)">'),
     ).toBeInTheDocument();
-    expect(document.querySelector("img")).toBeNull();
+    expect(document.querySelector("img[src='x']")).toBeNull();
   });
 
   it("sends a trimmed message and clears the input", async () => {

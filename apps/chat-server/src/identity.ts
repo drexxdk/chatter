@@ -1,14 +1,27 @@
 import crypto from "crypto";
 
 import { env } from "./env.js";
-import { NICKNAME_PATTERN } from "./limits.js";
+import { NICKNAME_PATTERN, USERNAME_PATTERN } from "./limits.js";
 
-// Returns the trimmed nickname, or null if it's missing or not allowed.
+// Trimmed, with every run of spaces made one.
+export function tidyName(raw: string): string {
+  return raw.trim().replace(/ {2,}/g, " ");
+}
+
+// Returns the tidied nickname (a guest's name, or an account's display name), or null if it's missing or not allowed.
 export function validateNickname(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
 
-  const nickname = raw.trim();
+  const nickname = tidyName(raw);
   return NICKNAME_PATTERN.test(nickname) ? nickname : null;
+}
+
+// An account's username: a nickname without spaces. Null if it's missing or not allowed.
+export function validateUsername(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+
+  const username = raw.trim();
+  return USERNAME_PATTERN.test(username) ? username : null;
 }
 
 // Salted so the ban list in Payload never contains raw IP addresses.

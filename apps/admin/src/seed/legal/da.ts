@@ -21,7 +21,7 @@ export const da: LegalTexts = {
       {
         heading: 'Konti',
         paragraphs: [
-          'Du kan bruge Chatter som gæst eller oprette en konto ved at forbinde en Google-, Facebook- eller Discord-konto. En konto gemmer dit kaldenavn, din avatar og din alder, så du kan komme tilbage som den samme person fra en hvilken som helst browser, og kaldenavnet er kun dit.',
+          'Du kan bruge Chatter som gæst eller oprette en konto ved at forbinde en Google-, Facebook- eller Discord-konto. En konto gemmer dit brugernavn, dit visningsnavn, din avatar og din alder, så du kan komme tilbage som den samme person fra en hvilken som helst browser, og begge navne er kun dine.',
           'Du er ansvarlig for det, der gøres under din konto. Du kan slette den når som helst fra din profil. Vi kan fjerne en konto eller et kaldenavn, der bryder disse vilkår, eller som ser ud til at tilhøre personalet eller en anden.',
         ],
       },
@@ -92,7 +92,7 @@ export const da: LegalTexts = {
           'Selve din IP-adresse, mens du er forbundet. Den kan også optræde i serverens tekniske logfiler (for eksempel ved forbindelsesfejl). Logfilerne roteres automatisk og bruges kun til at holde tjenesten kørende.',
           'Anmeldelser. Når en besked anmeldes, gemmer vi en kopi (teksten, kaldenavnet, hashværdien af afsenderens adresse og de angivne grunde) i højst 90 dage, så den kan gennemgås.',
           'Kun for moderatorer: e-mailadresse, visningsnavn og en adgangskode, der gemmes i forvansket form.',
-          'Konti. Opretter du en konto, gemmer vi, hvilken tjeneste du brugte (Google, Facebook eller Discord), dit id dér, den e-mailadresse, tjenesten giver os (hvis den giver en), dit kaldenavn, din avatar og din alder og hvornår du sidst loggede ind. E-mailadressen vises ikke for nogen og bruges kun til at kontakte dig om din konto. Vi modtager aldrig din adgangskode hos tjenesten.',
+          'Konti. Opretter du en konto, gemmer vi, hvilken tjeneste du brugte (Google, Facebook eller Discord), dit id dér, den e-mailadresse, tjenesten giver os (hvis den giver en), dit brugernavn, dit visningsnavn, din avatar og din alder og hvornår du sidst loggede ind. E-mailadressen vises ikke for nogen og bruges kun til at kontakte dig om din konto. Vi modtager aldrig din adgangskode hos tjenesten.',
         ],
       },
       {

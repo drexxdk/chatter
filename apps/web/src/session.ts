@@ -2,6 +2,7 @@
 // it is per tab (two windows can be two different guests) and gone when the tab is closed.
 import { AVATARS, PLAIN_AVATAR, type Avatar } from "./chat/avatar";
 import { parseThreads, type DirectThread } from "./chat/direct";
+import { parsePicture } from "./chat/picture";
 import type { Resume } from "./chat/socket";
 import { parseAge } from "./profile";
 
@@ -17,6 +18,8 @@ export interface SavedSession {
   token?: string;
   // Only when the guest chose one.
   avatar?: Avatar;
+  // The picture the guest chose (see chat/picture.ts).
+  picture?: string;
   // Only when the guest said how old they are.
   age?: number;
   // The ids the server gave this guest on earlier connections. A reload is a new connection with a new id, and these
@@ -45,10 +48,8 @@ export function loadSession(): SavedSession | null {
 
     if (typeof value !== "object" || value === null) return null;
 
-    const { nickname, token, avatar, age, guestIds, resume } = value as Record<
-      string,
-      unknown
-    >;
+    const { nickname, token, avatar, picture, age, guestIds, resume } =
+      value as Record<string, unknown>;
 
     if (typeof nickname !== "string" || !nickname) return null;
     if (token !== undefined && typeof token !== "string") return null;
@@ -66,6 +67,9 @@ export function loadSession(): SavedSession | null {
       ...(AVATARS.find((known) => known === avatar)
         ? { avatar: avatar as Avatar }
         : {}),
+      ...(parsePicture(picture) === undefined
+        ? {}
+        : { picture: parsePicture(picture) }),
       ...(parseAge(age) === undefined ? {} : { age: parseAge(age) }),
       ...(ids.length > 0 ? { guestIds: ids.slice(-MAX_GUEST_IDS) } : {}),
       ...(resumable ? { resume: resumable } : {}),
@@ -113,13 +117,14 @@ export function rememberConnection(update: {
 export function rememberProfile(profile: {
   nickname: string;
   avatar?: Avatar;
+  picture?: string;
   age?: number;
 }): void {
   const saved = loadSession();
 
   if (!saved || saved.token) return;
 
-  const { avatar: _avatar, age: _age, ...rest } = saved;
+  const { avatar: _avatar, picture: _picture, age: _age, ...rest } = saved;
 
   saveSession({
     ...rest,
@@ -127,6 +132,7 @@ export function rememberProfile(profile: {
     ...(profile.avatar && profile.avatar !== PLAIN_AVATAR
       ? { avatar: profile.avatar }
       : {}),
+    ...(profile.picture ? { picture: profile.picture } : {}),
     ...(profile.age === undefined ? {} : { age: profile.age }),
   });
 }

@@ -1,7 +1,15 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ROOMS, stubRooms, setup, joinRoom, at, message } from "./test/app";
+import {
+  ROOMS,
+  stubRooms,
+  setup,
+  joinRoom,
+  at,
+  message,
+  anyPicture,
+} from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
 beforeEach(() => {
@@ -224,7 +232,14 @@ describe("keeping your place", () => {
         await joinRoom(user, "General", "Bob");
         await screen.findByRole("button", { name: "Your profile: Bob" });
 
-        expect(server.createSocket).toHaveBeenCalledWith("Bob");
+        expect(server.createSocket).toHaveBeenCalledWith(
+          "Bob",
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          anyPicture,
+        );
       });
 
       it("is forgotten with everything else when the connection ends for good", async () => {
@@ -478,6 +493,7 @@ describe("keeping your place", () => {
 
       expect(JSON.parse(sessionStorage.getItem(SAVED) ?? "null")).toEqual({
         nickname: "Alice",
+        picture: anyPicture,
         guestIds: ["guest-me"],
         resume: { guestId: "guest-me", secret: "secret-1" },
       });

@@ -13,3 +13,24 @@ export function parseAvatar(value: unknown): Avatar {
   const result = avatarSchema.safeParse(value);
   return result.success ? result.data : "other";
 }
+
+// The picture an account chooses to be shown by: a DiceBear style and the seed it draws from ("lorelei:k3j9x2ab"). The
+// client draws it; the server only keeps the two words and checks they are ones it knows. Must match
+// apps/web/src/chat/picture.ts (a test checks it).
+export const PICTURE_STYLES = [
+  "lorelei",
+  "pixel-art",
+  "critters",
+  "thumbs",
+] as const;
+
+export const PICTURE_PATTERN =
+  /^(lorelei|pixel-art|critters|thumbs):[a-z0-9]{6,16}$/;
+
+export const pictureSchema = z.string().regex(PICTURE_PATTERN);
+
+// Undefined for anything that is not a picture, so it is shown without one rather than turning somebody away.
+export function parsePicture(value: unknown): string | undefined {
+  const result = pictureSchema.safeParse(value);
+  return result.success ? result.data : undefined;
+}

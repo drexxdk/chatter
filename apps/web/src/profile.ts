@@ -29,6 +29,8 @@ export function readAge(
 export interface ProfileChanges {
   nickname?: string;
   avatar?: import("./chat/avatar").Avatar;
+  // Only an account has one.
+  picture?: string;
   // null takes the age back.
   age?: number | null;
 }

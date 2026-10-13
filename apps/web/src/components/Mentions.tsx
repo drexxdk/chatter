@@ -37,7 +37,12 @@ function Card({ person }: { person: Member }) {
 
   return (
     <span className="flex items-center gap-2">
-      <AvatarIcon avatar={avatar} small titled={false} />
+      <AvatarIcon
+        avatar={avatar}
+        picture={person.picture}
+        small
+        titled={false}
+      />
       <span className="min-w-0">
         <span
           className={clsx(

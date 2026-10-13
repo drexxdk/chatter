@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { AVATARS, type Avatar } from "../chat/avatar";
 import type { DirectThread, Partner } from "../chat/direct";
 import { isTouchScreen } from "../touch";
-import { AvatarIcon } from "./Avatar";
+import { AvatarIcon, GenderMark } from "./Avatar";
 import { Button } from "./Button";
 import { composerButton } from "./composerControls";
 import { BlockedByTag, BlockedTag, ThreadSection } from "./DirectLists";
@@ -88,7 +88,7 @@ export function RecipientPicker({
         className={`${composerButton} relative w-28 shrink-0 gap-1.5 px-2 text-left sm:w-40`}
       >
         {value ? (
-          <AvatarIcon avatar={value.avatar} small />
+          <AvatarIcon avatar={value.avatar} picture={value.picture} small />
         ) : (
           <Users aria-hidden="true" className="h-4 w-4 shrink-0" />
         )}
@@ -183,7 +183,11 @@ export function RecipientPicker({
                         onClick={() => choose(person.guestId)}
                         className={`${row(value?.guestId === person.guestId)} min-w-0 flex-1 disabled:opacity-60 disabled:hover:bg-transparent`}
                       >
-                        <AvatarIcon avatar={person.avatar} small />
+                        <AvatarIcon
+                          avatar={person.avatar}
+                          picture={person.picture}
+                          small
+                        />
                         <span
                           className={
                             person.role === "moderator"
@@ -193,6 +197,10 @@ export function RecipientPicker({
                         >
                           {person.nickname}
                         </span>
+                        <GenderMark
+                          avatar={person.avatar}
+                          picture={person.picture}
+                        />
                         {blocked && <BlockedTag />}
                         {blockedBy && <BlockedByTag />}
                       </button>

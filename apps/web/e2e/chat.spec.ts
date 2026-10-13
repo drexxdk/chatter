@@ -492,13 +492,17 @@ test("a guest has to say they are 18 or older and accept the terms, which can be
     page.getByRole("heading", { name: LOUNGE.name, level: 2 }),
   ).toBeVisible();
 
-  // The browser remembers it: the next time the dialog only reminds.
+  // The browser remembers it: the next time the box is already ticked.
   await page.goto("/");
   await page.getByRole("button", { name: `Join ${LOUNGE.name}` }).click();
-  await expect(page.getByRole("dialog")).toContainText(
-    "By continuing you confirm that you are 18 or older",
-  );
-  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await expect(
+    page.getByRole("checkbox", { name: /18 or older/ }),
+  ).toBeChecked();
+  await page.getByRole("textbox", { name: "Nickname" }).fill("Alice");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(
+    page.getByRole("heading", { name: LOUNGE.name, level: 2 }),
+  ).toBeVisible();
 });
 
 test("a moderator signs in, and guests see their messages stand out", async ({

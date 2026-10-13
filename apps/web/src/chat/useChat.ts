@@ -29,6 +29,7 @@ import { loadNotifyDirect, saveNotifyDirect } from "../preferences";
 import { MAX_GUEST_IDS } from "../session";
 import { parseAge, type ProfileChanges } from "../profile";
 import { parseAvatar, PLAIN_AVATAR, type Avatar } from "./avatar";
+import { parsePicture } from "./picture";
 import {
   applyHidden,
   applyRedaction,
@@ -103,6 +104,7 @@ export function useChat(
   const tokenRef = useRef<string | null>(null);
   // What the guest chose to be shown as; sent again when the connection is restored.
   const avatarRef = useRef<Avatar | null>(null);
+  const pictureRef = useRef<string | null>(null);
   const ageRef = useRef<number | null>(null);
   // Lets a new connection (a dropped one restored, or a reloaded page) be the same guest as the one before it.
   const resumeRef = useRef<Resume | null>(null);
@@ -223,15 +225,17 @@ export function useChat(
     (nickname: string, onDrop: DropHandler): Promise<string | null> => {
       const token = tokenRef.current;
       const avatar = avatarRef.current;
+      const picture = pictureRef.current;
       const age = ageRef.current;
       const resume = resumeRef.current;
       // Trailing arguments that are not needed are left off, so a plain guest's call is just the nickname.
-      const args: [string, string?, Avatar?, Resume?, number?] = [
+      const args: [string, string?, Avatar?, Resume?, number?, string?] = [
         nickname,
         token ?? undefined,
         avatar ?? undefined,
         resume ?? undefined,
         age ?? undefined,
+        picture ?? undefined,
       ];
       while (args.length > 1 && args[args.length - 1] === undefined) args.pop();
       const socket = createSocket(...args);
@@ -325,12 +329,14 @@ export function useChat(
                 open &&
                 now &&
                 (now.nickname !== open.nickname ||
-                  (now.avatar ?? PLAIN_AVATAR) !== open.avatar)
+                  (now.avatar ?? PLAIN_AVATAR) !== open.avatar ||
+                  parsePicture(now.picture) !== open.picture)
               ) {
                 partnerRef.current = {
                   ...open,
                   nickname: now.nickname,
                   avatar: now.avatar ?? PLAIN_AVATAR,
+                  picture: parsePicture(now.picture),
                 };
                 setPartner(partnerRef.current);
               }
@@ -376,12 +382,16 @@ export function useChat(
                 nickname: message.toNickname,
                 role: known?.role ?? "guest",
                 avatar: message.toAvatar,
+                ...(message.toPicture ? { picture: message.toPicture } : {}),
               }
             : {
                 guestId: message.fromGuestId,
                 nickname: message.fromNickname,
                 role: message.fromRole,
                 avatar: message.fromAvatar,
+                ...(message.fromPicture
+                  ? { picture: message.fromPicture }
+                  : {}),
               };
           const viewing = partnerRef.current?.guestId === other.guestId;
 
@@ -618,7 +628,14 @@ export function useChat(
       nickname: string,
       options: ConnectOptions = {},
     ): Promise<boolean> => {
-      const { token, avatar, age, previousGuestIds = [], resume } = options;
+      const {
+        token,
+        avatar,
+        picture,
+        age,
+        previousGuestIds = [],
+        resume,
+      } = options;
 
       cancelReconnect();
       closeSocket();
@@ -638,6 +655,7 @@ export function useChat(
             nickname: open.nickname,
             role: open.role,
             avatar: open.avatar,
+            ...(open.picture ? { picture: open.picture } : {}),
           }
         : null;
       restoredPartnerRef.current = open ? open.guestId : null;
@@ -646,6 +664,7 @@ export function useChat(
       nicknameRef.current = nickname;
       tokenRef.current = token ?? null;
       avatarRef.current = avatar ?? null;
+      pictureRef.current = picture ?? null;
       ageRef.current = age ?? null;
 
       const failure = await openSocket(nickname, handleDrop);
@@ -885,6 +904,7 @@ export function useChat(
                 nickname: thread.nickname,
                 role: thread.role,
                 avatar: thread.avatar,
+                ...(thread.picture ? { picture: thread.picture } : {}),
               }
             : member
               ? {
@@ -892,6 +912,7 @@ export function useChat(
                   nickname: member.nickname,
                   role: member.role ?? "guest",
                   avatar: member.avatar ?? PLAIN_AVATAR,
+                  ...(member.picture ? { picture: member.picture } : {}),
                 }
               : undefined;
 
@@ -949,13 +970,15 @@ export function useChat(
           ? profile.nickname
           : (nicknameRef.current ?? "");
       const avatar = parseAvatar(profile.avatar);
+      const picture = parsePicture(profile.picture);
       const age = parseAge(profile.age);
 
       nicknameRef.current = nickname;
+      pictureRef.current = picture ?? null;
       avatarRef.current = avatar === PLAIN_AVATAR ? null : avatar;
       ageRef.current = age ?? null;
       setSession((current) =>
-        current ? { ...current, nickname, avatar, age } : current,
+        current ? { ...current, nickname, avatar, picture, age } : current,
       );
 
       return { ok: true };

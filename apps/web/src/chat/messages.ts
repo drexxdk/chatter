@@ -1,5 +1,6 @@
 import { isRecord } from "../isRecord";
 import { parseAvatar } from "./avatar";
+import { parsePicture } from "./picture";
 import { parseReactions, sameReactions } from "./reactions";
 import type { Announcement, ChatMessage } from "./types";
 
@@ -65,6 +66,9 @@ export function parseMessage(value: unknown): ChatMessage | undefined {
     sentAt,
     role: value.role === "moderator" ? "moderator" : "guest",
     avatar: parseAvatar(value.avatar),
+    ...(parsePicture(value.picture) === undefined
+      ? {}
+      : { picture: parsePicture(value.picture) }),
     ...(reactions.length > 0 ? { reactions } : {}),
   };
 }

@@ -104,7 +104,7 @@ describe("direct messages", () => {
       expect(
         log("Bob").getByText("<img src=x onerror=alert(1)>"),
       ).toBeInTheDocument();
-      expect(document.querySelector("img")).toBeNull();
+      expect(document.querySelector("img[src='x']")).toBeNull();
     });
 
     it("shows a moderator's words in green and bold, with the label", async () => {

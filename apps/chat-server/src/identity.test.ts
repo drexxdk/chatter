@@ -1,12 +1,47 @@
 import { describe, expect, it } from "vitest";
 
-import { getClientIp, hashIdentifier, validateNickname } from "./identity.js";
+import {
+  getClientIp,
+  hashIdentifier,
+  tidyName,
+  validateNickname,
+  validateUsername,
+} from "./identity.js";
+
+describe("tidyName", () => {
+  it("trims, and makes every run of spaces one", () => {
+    expect(tidyName("  Alice    Wonder  Land ")).toBe("Alice Wonder Land");
+    expect(tidyName("Alice")).toBe("Alice");
+  });
+});
+
+describe("validateUsername", () => {
+  it("accepts a name without spaces, and trims it", () => {
+    expect(validateUsername(" alice_w ")).toBe("alice_w");
+    expect(validateUsername("Jens.Ørsted-2")).toBe("Jens.Ørsted-2");
+  });
+
+  it.each([
+    ["a space inside", "alice w"],
+    ["missing", undefined],
+    ["non-string", 42],
+    ["too short", "a"],
+    ["too long", "x".repeat(25)],
+    ["markup", "<b>"],
+  ])("rejects %s", (_label, value) => {
+    expect(validateUsername(value)).toBeNull();
+  });
+});
 
 describe("validateNickname", () => {
   it("accepts and trims valid nicknames", () => {
     expect(validateNickname("  Alice  ")).toBe("Alice");
     expect(validateNickname("Jens_Ørsted-2.0")).toBe("Jens_Ørsted-2.0");
     expect(validateNickname("山田 太郎")).toBe("山田 太郎");
+  });
+
+  it("makes a run of spaces one", () => {
+    expect(validateNickname("Alice    Wonder")).toBe("Alice Wonder");
   });
 
   it.each([

@@ -112,7 +112,7 @@ export class PayloadApi {
     await this.request(`${collection}/${id}`, { method: "DELETE" });
   }
 
-  // The accounts whose nickname (without case, spaces and punctuation) has `part` in it.
+  // The accounts whose username (without case and punctuation) has `part` in it.
   async findUsers(part: string) {
     const { docs } = await this.request(
       `users?limit=100&where[nicknameKey][like]=${encodeURIComponent(part)}`,
@@ -121,6 +121,8 @@ export class PayloadApi {
     return (docs ?? []) as unknown as {
       id: number;
       nickname: string;
+      displayName?: string;
+      picture?: string;
       provider: string;
       email?: string;
       avatar: string;

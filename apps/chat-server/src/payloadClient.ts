@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { parseAge } from "./age.js";
-import { parseAvatar, type Avatar } from "./avatars.js";
+import { parseAvatar, parsePicture, type Avatar } from "./avatars.js";
 import { env } from "./env.js";
 
 // Payload's API-key auth header format is "<collection-slug> API-Key <key>".
@@ -323,20 +323,31 @@ export async function deleteReportsBefore(cutoff: Date): Promise<void> {
   );
 }
 
-// A person with an account (the `users` collection). Only the chat-server writes them.
-const userSchema = z.object({
-  id: z.number(),
-  provider: z.string(),
-  providerUserId: z.string(),
-  email: z.string().nullish(),
-  nickname: z.string().min(1),
-  nicknameKey: z.string().min(1),
-  avatar: z.string().nullish().transform(parseAvatar),
-  age: z
-    .number()
-    .nullish()
-    .transform((age) => parseAge(age)),
-});
+// A person with an account (the `users` collection). Only the chat-server writes them. `nickname` is the username (no
+// spaces, never shown in the chat); `displayName` is what the chat shows, and is the username for an account made before
+// display names existed.
+const userSchema = z
+  .object({
+    id: z.number(),
+    provider: z.string(),
+    providerUserId: z.string(),
+    email: z.string().nullish(),
+    nickname: z.string().min(1),
+    nicknameKey: z.string().min(1),
+    displayName: z.string().nullish(),
+    displayNameKey: z.string().nullish(),
+    picture: z.string().nullish().transform(parsePicture),
+    avatar: z.string().nullish().transform(parseAvatar),
+    age: z
+      .number()
+      .nullish()
+      .transform((age) => parseAge(age)),
+  })
+  .transform((user) => ({
+    ...user,
+    displayName: user.displayName || user.nickname,
+    displayNameKey: user.displayNameKey || user.nicknameKey,
+  }));
 
 export type UserRecord = z.infer<typeof userSchema>;
 
@@ -347,13 +358,17 @@ export interface NewUser {
   emailVerified?: boolean;
   nickname: string;
   nicknameKey: string;
+  displayName: string;
+  displayNameKey: string;
+  picture: string;
   avatar: Avatar;
   age?: number;
 }
 
 export interface UserChanges {
-  nickname?: string;
-  nicknameKey?: string;
+  displayName?: string;
+  displayNameKey?: string;
+  picture?: string;
   avatar?: Avatar;
   // null takes the age back.
   age?: number | null;
@@ -411,6 +426,9 @@ export async function createUser(user: NewUser): Promise<UserRecord> {
       emailVerified: user.emailVerified ?? false,
       nickname: user.nickname,
       nicknameKey: user.nicknameKey,
+      displayName: user.displayName,
+      displayNameKey: user.displayNameKey,
+      picture: user.picture,
       avatar: user.avatar,
       age: user.age,
       lastLoginAt: new Date().toISOString(),
@@ -433,22 +451,36 @@ export async function deleteUser(id: number): Promise<void> {
   await payloadSend("DELETE", `/api/users/${id}`);
 }
 
-// Every account's id and normalized nickname, for the list of names a guest may not take.
+// Every account's id and normalized names (the username's and the display name's), for the list of names nobody else
+// may take.
 export async function fetchUserNames(): Promise<
-  { id: number; nicknameKey: string }[]
+  { id: number; nicknameKey: string; displayNameKey?: string }[]
 > {
-  const names: { id: number; nicknameKey: string }[] = [];
+  const names: { id: number; nicknameKey: string; displayNameKey?: string }[] =
+    [];
 
   for (let page = 1; ; page++) {
     const data = await payloadFetch(
-      `/api/users?limit=1000&page=${page}&depth=0&select[nicknameKey]=true`,
+      `/api/users?limit=1000&page=${page}&depth=0&select[nicknameKey]=true&select[displayNameKey]=true`,
       z.object({
-        docs: z.array(z.object({ id: z.number(), nicknameKey: z.string() })),
+        docs: z.array(
+          z.object({
+            id: z.number(),
+            nicknameKey: z.string(),
+            displayNameKey: z.string().nullish(),
+          }),
+        ),
         hasNextPage: z.boolean(),
       }),
     );
 
-    names.push(...data.docs);
+    names.push(
+      ...data.docs.map(({ id, nicknameKey, displayNameKey }) => ({
+        id,
+        nicknameKey,
+        ...(displayNameKey ? { displayNameKey } : {}),
+      })),
+    );
     if (!data.hasNextPage) return names;
   }
 }

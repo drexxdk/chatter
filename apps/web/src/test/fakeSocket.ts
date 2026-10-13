@@ -57,6 +57,8 @@ export class FakeSocket implements ChatSocket {
     readonly resumeSecret?: string,
     // What the guest said about their age when connecting.
     readonly age?: number,
+    // The picture the guest chose when connecting.
+    readonly picture?: string,
   ) {
     this.role = !token
       ? "guest"
@@ -66,6 +68,7 @@ export class FakeSocket implements ChatSocket {
     this.profile = {
       nickname,
       avatar: token ? "other" : avatar,
+      ...(picture && !token ? { picture } : {}),
       ...(age === undefined ? {} : { age }),
     };
     queueMicrotask(() => {
@@ -77,6 +80,7 @@ export class FakeSocket implements ChatSocket {
           nickname,
           role: this.role,
           avatar: token ? "other" : avatar,
+          ...(picture && !token ? { picture } : {}),
           ...(age === undefined ? {} : { age }),
           resumeSecret: this.resumeSecret,
         });
@@ -110,6 +114,9 @@ export class FakeSocket implements ChatSocket {
               nickname: this.profile.nickname,
               role: this.role,
               avatar: this.token ? "other" : this.profile.avatar,
+              ...(this.profile.picture
+                ? { picture: this.profile.picture }
+                : {}),
               ...(this.profile.age === undefined
                 ? {}
                 : { age: this.profile.age }),
@@ -168,7 +175,7 @@ export function makeFakeServer(
   const upcomingHandshakeErrors: string[] = [];
 
   const createSocket = vi.fn<CreateSocket>(
-    (nickname, token, avatar, resume, age) => {
+    (nickname, token, avatar, resume, age, picture) => {
       // A real server honours a resume with the right secret; the fake always accepts it unless told otherwise.
       const guestId =
         (options.refuseResume ? undefined : resume?.guestId) ??
@@ -182,6 +189,7 @@ export function makeFakeServer(
         avatar,
         options.withoutSecret ? undefined : `secret-${sockets.length + 1}`,
         age,
+        picture,
       );
       Object.assign(socket.acks, acks);
       socket.others = options.others ?? [];

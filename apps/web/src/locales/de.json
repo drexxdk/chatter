@@ -191,11 +191,16 @@
     "send": "Ankündigen"
   },
   "avatar": {
-    "legend": "Avatar",
+    "legend": "Geschlecht (optional)",
     "male": "Männlich",
     "female": "Weiblich",
     "trans": "Transgender",
     "other": "Nicht angegeben"
+  },
+  "picture": {
+    "legend": "Avatar",
+    "option": "Avatar {number}",
+    "shuffle": "Andere Avatare zeigen"
   },
   "dm": {
     "left": "{name} hat den Raum verlassen.",
@@ -236,8 +241,8 @@
   },
   "account": {
     "title": "Konto",
-    "open": "Konto",
-    "intro": "Verbinde ein Konto, um Spitzname, Avatar und Alter zu behalten und den Spitznamen für dich allein zu haben.",
+    "open": "Login",
+    "intro": "Verbinde ein Konto, um Namen, Avatar und Alter zu behalten und den Namen für dich allein zu haben.",
     "orContinue": "Oder mit einem Konto fortfahren:",
     "continueWith": "Weiter mit {provider}",
     "signedInWith": "Angemeldet mit {provider}.",
@@ -249,7 +254,11 @@
     "back": "Zurück zu Chatter",
     "register": {
       "title": "Dein Konto erstellen",
-      "intro": "{provider} hat bestätigt, wer du bist. Wähle, wie du im Chat angezeigt wirst.",
+      "intro": "{provider} hat bestätigt, wer du bist. Wähle einen Benutzernamen, den Namen im Chat und einen Avatar.",
+      "username": "Benutzername",
+      "usernameHint": "2–24 Buchstaben, Ziffern oder _ . - (keine Leerzeichen). Er gehört nur dir und wird im Chat nicht angezeigt.",
+      "displayName": "Anzeigename",
+      "displayNameHint": "2–24 Buchstaben, Ziffern, Leerzeichen oder _ . - Wird im Chat angezeigt.",
       "submit": "Konto erstellen",
       "submitting": "Konto wird erstellt…"
     }
@@ -270,6 +279,8 @@
     "invalid_nickname": "Dieser Spitzname ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",
     "banned": "Du wurdest aus diesem Chat gesperrt.",
     "reserved_nickname": "Dieser Spitzname ist reserviert. Wähle einen anderen.",
+    "invalid_username": "Dieser Benutzername ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern oder _ . - ohne Leerzeichen.",
+    "reserved_username": "Dieser Benutzername ist vergeben oder reserviert. Wähle einen anderen.",
     "nickname_taken": "Jemand in diesem Raum hat diesen Spitznamen schon. Wähle einen anderen.",
     "invalid_profile": "Dieses Profil ist nicht erlaubt. Das Alter muss zwischen {min} und {max} liegen.",
     "profile_rate_limited": "Du hast dein Profil zu oft geändert. Du kannst es in {seconds} s wieder ändern.",

@@ -60,6 +60,8 @@ const ERROR_CODES = [
   "connection_lost",
   "too_many_connections",
   "reserved_nickname",
+  "invalid_username",
+  "reserved_username",
   "invalid_token",
   "invalid_credentials",
   "not_a_moderator",

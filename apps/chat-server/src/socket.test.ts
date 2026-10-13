@@ -3827,8 +3827,11 @@ describe("members", () => {
     id: 5,
     provider: "google",
     providerUserId: "g5",
-    nickname: "Alice",
-    nicknameKey: "alice",
+    nickname: "alicea",
+    nicknameKey: "alicea",
+    displayName: "Alice",
+    displayNameKey: "alice",
+    picture: "lorelei:abc12345",
     avatar: "female",
     age: 30,
   };
@@ -3863,8 +3866,16 @@ describe("members", () => {
       nickname: "Alice",
       role: "member",
       avatar: "female",
+      picture: "lorelei:abc12345",
       age: 30,
     });
+  });
+
+  it("shows the name the chat is to show, not the username", async () => {
+    const { session } = await member();
+
+    expect(session.nickname).toBe("Alice");
+    expect(JSON.stringify(session)).not.toContain("alicea");
   });
 
   it("gives an account the same guest id every time, which nobody else gets", async () => {
@@ -3970,6 +3981,58 @@ describe("members", () => {
     );
   });
 
+  it("sends the picture with what an account says, and shows it to the room", async () => {
+    const { socket, port } = await member();
+    const bob = await connect({ nickname: "Bob" }, port);
+    await emit(bob.socket!, "room:join", { slug: "general" });
+    await emit(socket, "room:join", { slug: "general" });
+    const heard = waitFor<{ picture?: string; nickname: string }>(
+      bob.socket!,
+      "message:new",
+    );
+
+    await emit(socket, "message:send", { text: "hello" });
+
+    expect(await heard).toMatchObject({
+      nickname: "Alice",
+      picture: "lorelei:abc12345",
+    });
+    expect(recordMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ picture: "lorelei:abc12345" }),
+    );
+  });
+
+  it("sends the picture a guest chose with what they say, and keeps it with the stored copy", async () => {
+    const { socket } = await connect({
+      nickname: "Bob",
+      picture: "critters:abc12345",
+    });
+    await emit(socket!, "room:join", { slug: "general" });
+    const heard = waitFor<{ picture?: string }>(socket!, "message:new");
+
+    await emit(socket!, "message:send", { text: "hello" });
+
+    expect((await heard).picture).toBe("critters:abc12345");
+    expect(recordMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ picture: "critters:abc12345" }),
+    );
+  });
+
+  it.each([
+    ["none", undefined],
+    ["a style that is not offered", "robot:abc12345"],
+    ["something else", 42],
+  ])("gives a guest no picture when they send %s", async (_name, picture) => {
+    const { session, socket } = await connect({ nickname: "Bob", picture });
+    await emit(socket!, "room:join", { slug: "general" });
+    const heard = waitFor<Record<string, unknown>>(socket!, "message:new");
+
+    await emit(socket!, "message:send", { text: "hello" });
+
+    expect("picture" in ((await session) ?? {})).toBe(false);
+    expect("picture" in (await heard)).toBe(false);
+  });
+
   it("disconnects an account that a ban names, and replaces its messages", async () => {
     const { io, socket } = await member();
     await emit(socket, "room:join", { slug: "general" });
@@ -4031,16 +4094,89 @@ describe("members", () => {
 
       expect(ack).toEqual({
         ok: true,
-        profile: { nickname: "Alicia", avatar: "trans" },
+        profile: {
+          nickname: "Alicia",
+          avatar: "trans",
+          picture: "lorelei:abc12345",
+        },
       });
       expect(updateUser).toHaveBeenCalledWith(5, {
-        nickname: "Alicia",
-        nicknameKey: "alicia",
+        displayName: "Alicia",
+        displayNameKey: "alicia",
+        picture: "lorelei:abc12345",
         avatar: "trans",
         age: null,
       });
       expect(claimMemberName).toHaveBeenCalledWith(5, "Alicia");
       expect(releaseMemberName).toHaveBeenCalledWith(5, "Alice");
+    });
+
+    it("does not give up the username when the display name is changed to something else", async () => {
+      fetchUser.mockResolvedValue({
+        ...account,
+        displayName: "Alicea",
+        displayNameKey: "alicea",
+      });
+      const { socket } = await member();
+
+      await emit(socket, "profile:update", { nickname: "Alicia" });
+
+      expect(claimMemberName).toHaveBeenCalledWith(5, "Alicia");
+      expect(releaseMemberName).not.toHaveBeenCalled();
+    });
+
+    it("changes the picture, which the others are told", async () => {
+      const { socket } = await member();
+
+      const ack = await emit(socket, "profile:update", {
+        picture: "thumbs:zzzz9999",
+      });
+
+      expect(ack).toMatchObject({
+        ok: true,
+        profile: { picture: "thumbs:zzzz9999" },
+      });
+      expect(updateUser).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({ picture: "thumbs:zzzz9999" }),
+      );
+    });
+
+    it.each(["robot:abc12345", "lorelei:../x", "lorelei:", 42, null])(
+      "refuses %j as a picture",
+      async (picture) => {
+        const { socket } = await member();
+
+        expect(await emit(socket, "profile:update", { picture })).toEqual({
+          ok: false,
+          error: "invalid_profile",
+        });
+        expect(updateUser).not.toHaveBeenCalled();
+      },
+    );
+
+    it("lets a guest change the picture too, which is kept nowhere but on the connection", async () => {
+      const { socket } = await connect({ nickname: "Bob" });
+
+      expect(
+        await emit(socket!, "profile:update", { picture: "lorelei:abc12345" }),
+      ).toEqual({
+        ok: true,
+        profile: {
+          nickname: "Bob",
+          avatar: "other",
+          picture: "lorelei:abc12345",
+        },
+      });
+      expect(updateUser).not.toHaveBeenCalled();
+    });
+
+    it("refuses a guest a picture that is not one", async () => {
+      const { socket } = await connect({ nickname: "Bob" });
+
+      expect(
+        await emit(socket!, "profile:update", { picture: "robot:abc12345" }),
+      ).toEqual({ ok: false, error: "invalid_profile" });
     });
 
     it("does not touch the list of names when only the avatar changes", async () => {
@@ -4078,7 +4214,7 @@ describe("members", () => {
         "a nickname that was taken just now",
         () =>
           updateUser.mockRejectedValue(
-            new PayloadError("x", 400, "nicknameKey"),
+            new PayloadError("x", 400, "displayNameKey"),
           ),
         "reserved_nickname",
       ],

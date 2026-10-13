@@ -191,11 +191,16 @@
     "send": "Announce"
   },
   "avatar": {
-    "legend": "Avatar",
+    "legend": "Gender (optional)",
     "male": "Male",
     "female": "Female",
     "trans": "Transgender",
     "other": "Not specified"
+  },
+  "picture": {
+    "legend": "Avatar",
+    "option": "Avatar {number}",
+    "shuffle": "Show other avatars"
   },
   "dm": {
     "left": "{name} left the room.",
@@ -236,8 +241,8 @@
   },
   "account": {
     "title": "Account",
-    "open": "Account",
-    "intro": "Connect an account to keep your nickname, avatar and age, and to have the nickname to yourself.",
+    "open": "Login",
+    "intro": "Connect an account to keep your name, avatar and age, and to have the name to yourself.",
     "orContinue": "Or continue with an account:",
     "continueWith": "Continue with {provider}",
     "signedInWith": "Signed in with {provider}.",
@@ -249,7 +254,11 @@
     "back": "Back to Chatter",
     "register": {
       "title": "Create your account",
-      "intro": "{provider} has confirmed who you are. Choose how you are shown in the chat.",
+      "intro": "{provider} has confirmed who you are. Choose a username, the name shown in the chat, and an avatar.",
+      "username": "Username",
+      "usernameHint": "2–24 letters, numbers, or _ . - (no spaces). It is yours alone and is not shown in the chat.",
+      "displayName": "Display name",
+      "displayNameHint": "2–24 letters, numbers, spaces, or _ . - Shown in the chat.",
       "submit": "Create account",
       "submitting": "Creating the account…"
     }
@@ -270,6 +279,8 @@
     "invalid_nickname": "That nickname isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",
     "banned": "You are banned from this chat.",
     "reserved_nickname": "That nickname is reserved. Pick another one.",
+    "invalid_username": "That username isn't allowed. Use 2–24 letters, numbers, or _ . - without spaces.",
+    "reserved_username": "That username is taken or reserved. Pick another one.",
     "nickname_taken": "Somebody in this room already has that nickname. Pick another one.",
     "invalid_profile": "That profile isn't allowed. The age must be between {min} and {max}.",
     "profile_rate_limited": "You have changed your profile too often. You can change it again in {seconds} s.",

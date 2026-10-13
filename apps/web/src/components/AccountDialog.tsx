@@ -26,6 +26,7 @@ export function AccountButton({
       <ProfileButton
         nickname={account.nickname}
         avatar={account.avatar}
+        picture={account.picture}
         onClick={onClick}
       />
     );
@@ -62,7 +63,10 @@ export function AccountDialog({
       <div className="space-y-3">
         {account && (
           <p className="flex items-center gap-2 font-bold">
-            <AvatarIcon avatar={account.avatar ?? PLAIN_AVATAR} />
+            <AvatarIcon
+              avatar={account.avatar ?? PLAIN_AVATAR}
+              picture={account.picture}
+            />
             {account.nickname}
           </p>
         )}

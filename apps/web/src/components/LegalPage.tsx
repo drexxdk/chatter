@@ -68,7 +68,7 @@ export function LegalPage({ page }: { page: LegalPageName }) {
         <MainMenu />
       </HeaderFrame>
 
-      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-(--page-gutter) pb-8">
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-(--page-gutter) pt-4 pb-8">
         <nav aria-label={t("legal.breadcrumb")} className="text-sm">
           <ol className="flex flex-wrap items-center gap-1 text-neutral-400">
             <li>

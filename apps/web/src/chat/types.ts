@@ -10,6 +10,8 @@ export interface Session {
   nickname: string;
   role?: Role;
   avatar?: Avatar;
+  // Only an account has one (see picture.ts).
+  picture?: string;
   // Only when the guest said how old they are.
   age?: number;
   resumeSecret?: string;
@@ -20,6 +22,7 @@ export interface Member {
   nickname: string;
   role?: Role;
   avatar?: Avatar;
+  picture?: string;
   age?: number;
 }
 
@@ -33,6 +36,7 @@ export interface ChatMessage {
   // Who the server says sent it; absent means an ordinary guest.
   role?: Role;
   avatar?: Avatar;
+  picture?: string;
   // Who reacted with what; absent while nobody has.
   reactions?: Reaction[];
   // The guest's place in what arrived live (see roomEvents.ts); not sent by the server.
@@ -49,6 +53,7 @@ export interface ConnectOptions {
   // A moderator's signed token, in place of a nickname.
   token?: string;
   avatar?: Avatar;
+  picture?: string;
   age?: number;
   // The ids this guest had on earlier connections (before a reload), so what they wrote is still theirs.
   previousGuestIds?: string[];

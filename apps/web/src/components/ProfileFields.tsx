@@ -1,9 +1,73 @@
+import { useState } from "react";
+import { Shuffle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AVATARS, type Avatar } from "../chat/avatar";
+import { randomPictures } from "../chat/picture";
 import { MAX_AGE, MIN_AGE } from "../profile";
 import { AvatarIcon } from "./Avatar";
+import { Button } from "./Button";
 import { Field } from "./Field";
+
+const PICTURE_CHOICES = 8;
+
+// The picture to be shown by, as one choice among a few made at random; the one now chosen stays first, and the button
+// brings new ones. There is always one chosen, so what is asked for here is never left out. `name` keeps two groups on
+// a page apart.
+export function PicturePicker({
+  value,
+  onChange,
+  name = "picture",
+}: {
+  value: string;
+  onChange: (picture: string) => void;
+  name?: string;
+}) {
+  const { t } = useTranslation();
+  const [options, setOptions] = useState(() => [
+    value,
+    ...randomPictures(PICTURE_CHOICES - 1),
+  ]);
+  const shown = options.includes(value) ? options : [value, ...options];
+
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium">{t("picture.legend")}</legend>
+      <div className="grid grid-cols-4 gap-2">
+        {shown.map((option, index) => (
+          <label
+            key={option}
+            className={`flex cursor-pointer items-center justify-center rounded-md border p-1.5 focus-within:ring-2 focus-within:ring-indigo-400 ${
+              value === option
+                ? "border-indigo-400 bg-indigo-500/10"
+                : "border-neutral-700 hover:bg-neutral-800"
+            }`}
+          >
+            <input
+              type="radio"
+              name={name}
+              value={option}
+              checked={value === option}
+              onChange={() => onChange(option)}
+              aria-label={t("picture.option", { number: index + 1 })}
+              className="sr-only"
+            />
+            <AvatarIcon avatar="other" picture={option} large />
+          </label>
+        ))}
+      </div>
+      <Button
+        variant="inline"
+        onClick={() =>
+          setOptions([value, ...randomPictures(PICTURE_CHOICES - 1)])
+        }
+      >
+        <Shuffle aria-hidden="true" className="mr-1 inline h-4 w-4" />
+        {t("picture.shuffle")}
+      </Button>
+    </fieldset>
+  );
+}
 
 // How the guest wants to be shown, as one choice among the avatars. `name` keeps two groups on a page apart.
 export function AvatarPicker({
@@ -55,6 +119,8 @@ export function NameAndAge({
   nickname,
   onNicknameChange,
   invalidNickname,
+  nicknameLabel,
+  nicknameHint,
   age,
   onAgeChange,
   invalidAge,
@@ -66,6 +132,9 @@ export function NameAndAge({
   nickname: string;
   onNicknameChange: (value: string) => void;
   invalidNickname: boolean;
+  // For an account's display name, which is not called a nickname.
+  nicknameLabel?: string;
+  nicknameHint?: string;
   age: string;
   onAgeChange: (value: string) => void;
   invalidAge: boolean;
@@ -79,8 +148,8 @@ export function NameAndAge({
       <div className="min-w-0 flex-1">
         <Field
           id={nicknameId}
-          label={t("nickname.label")}
-          hint={t("nickname.hint")}
+          label={nicknameLabel ?? t("nickname.label")}
+          hint={nicknameHint ?? t("nickname.hint")}
           required
           autoFocus={autoFocus}
           autoComplete={autoComplete}

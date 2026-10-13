@@ -18,10 +18,14 @@ const ROOM = {
 const payload = new PayloadApi();
 let roomId = 0;
 
-// Nicknames and provider users that are only these tests': unique for each run, and swept (see payload.ts) if a run
-// is cut short.
+// Each of these goes through a sign-in, a form and several browsers.
+test.setTimeout(60_000);
+
+// Names and provider users that are only these tests': unique for each run, and swept (see payload.ts) if a run is cut
+// short. The username has no spaces and starts with what the sweep looks for; the display name is what the chat shows.
 const RUN = Date.now().toString(36);
-const nickname = (who: string) => `E2EAcc ${who} ${RUN}`;
+const displayName = (who: string) => `E2EAcc ${who} ${RUN}`;
+const username = (who: string) => `E2EAcc${who}${RUN}`;
 const providerUser = (who: string) => `e2eacc-${who}-${RUN}`;
 
 test.beforeAll(async () => {
@@ -64,7 +68,7 @@ async function joinAsGuest(page: Page, name: string) {
   await page.getByRole("button", { name: "Continue" }).click();
 }
 
-// The accounts of this run with this nickname; the tests leave their accounts until the end.
+// The accounts of this run with this username; the tests leave their accounts until the end.
 const accountsNamed = async (name: string) =>
   (await payload.findUsers(E2E.nicknamePrefix)).filter(
     (user) => user.nickname === name,
@@ -75,81 +79,110 @@ const inRoom = (page: Page) =>
     page.getByRole("heading", { name: ROOM.name, level: 2 }),
   ).toBeVisible();
 
-test("a guest connects a provider and stays who they are, the nickname is theirs, and they can sign in again elsewhere", async ({
+test("a guest connects a provider and stays who they are, the names are theirs, and they can sign in again elsewhere", async ({
   browser,
 }) => {
-  const name = nickname("Anna");
+  const chatName = displayName("Anna");
+  const handle = username("Anna");
   const page = await newPage(browser);
-  await joinAsGuest(page, name);
+  await joinAsGuest(page, chatName);
   await inRoom(page);
 
   // The profile in the header is where a guest makes an account.
-  await page.getByRole("button", { name: `Your profile: ${name}` }).click();
+  await page.getByRole("button", { name: `Your profile: ${chatName}` }).click();
   await signInWithProvider(page, "anna");
+
+  // The form starts from who the guest was: the name they had, and a username made from it.
+  await expect(page.getByLabel("Display name")).toHaveValue(chatName);
+  await expect(page.getByLabel("Username")).toHaveValue(handle);
+  await page.getByRole("checkbox", { name: /18 or older/ }).check();
+  await page.getByRole("button", { name: "Create account" }).click();
 
   // Back in the same room, as the same person, now with an account.
   await inRoom(page);
-  await page.getByRole("button", { name: `Your profile: ${name}` }).click();
+  await page.getByRole("button", { name: `Your profile: ${chatName}` }).click();
   await expect(page.getByText("Signed in with Dev sign-in.")).toBeVisible();
 
-  const [account] = await accountsNamed(name);
+  const [account] = await accountsNamed(handle);
   expect(account).toMatchObject({
-    nickname: name,
+    nickname: handle,
+    displayName: chatName,
     provider: "dev",
     email: `${providerUser("anna")}@dev.test`,
   });
-
-  // Nobody else can have the nickname now, not even a guest who types it.
-  const other = await newPage(browser);
-  await joinAsGuest(other, name);
-  await expect(other.getByRole("alert")).toContainText(
-    "That nickname is reserved",
+  expect(account?.picture).toMatch(
+    /^(lorelei|pixel-art|critters|thumbs):[a-z0-9]{10}$/,
   );
+
+  // Nobody else can have the name now, not even a guest who types it, or the username.
+  for (const taken of [chatName, handle]) {
+    const other = await newPage(browser);
+    await joinAsGuest(other, taken);
+    await expect(other.getByRole("alert")).toContainText(
+      "That nickname is reserved",
+    );
+  }
 
   // Another browser: the same provider account is the same account, and joins a room without being asked who it is.
   const elsewhere = await newPage(browser);
   await elsewhere.goto("/");
-  await elsewhere.getByRole("button", { name: "Account", exact: true }).click();
+  await elsewhere.getByRole("button", { name: "Login", exact: true }).click();
   await signInWithProvider(elsewhere, "anna");
   await expect(
-    elsewhere.getByRole("button", { name: `Your profile: ${name}` }),
+    elsewhere.getByRole("button", { name: `Your profile: ${chatName}` }),
   ).toBeVisible();
   await elsewhere.getByRole("button", { name: `Join ${ROOM.name}` }).click();
   await inRoom(elsewhere);
-  expect(await accountsNamed(name)).toHaveLength(1);
+  expect(await accountsNamed(handle)).toHaveLength(1);
 });
 
 test("somebody makes an account from the lobby, chooses who they are, and can delete it", async ({
   browser,
 }) => {
-  const name = nickname("Bea");
+  const chatName = displayName("Bea");
+  const handle = username("Bea");
   const page = await newPage(browser);
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Account", exact: true }).click();
+  await page.getByRole("button", { name: "Login", exact: true }).click();
   await signInWithProvider(page, "bea");
 
-  // Nobody has this provider account yet, so they choose a nickname, an avatar and accept the terms.
+  // Nobody has this provider account yet, so they choose a username, a name, an avatar and accept the terms.
   await expect(
     page.getByRole("heading", { name: "Create your account" }),
   ).toBeVisible();
-  await page.getByRole("textbox", { name: "Nickname" }).fill(name);
+
+  // A space cannot be typed into the username; extra spaces in the display name are taken out when it is sent.
+  const usernameBox = page.getByLabel("Username");
+  await usernameBox.fill(`${handle} x`);
+  await expect(usernameBox).toHaveValue(`${handle}x`);
+  await usernameBox.fill(handle);
+  await page.getByLabel("Display name").fill(`E2EAcc  Bea  ${RUN}`);
   await page.getByRole("radio", { name: "Female" }).check({ force: true });
+  await page.getByRole("radio", { name: "Avatar 2" }).check({ force: true });
+  const chosenPicture = await page
+    .getByRole("radio", { name: "Avatar 2" })
+    .inputValue();
   await page.getByRole("checkbox", { name: /18 or older/ }).check();
   await page.getByRole("button", { name: "Create account" }).click();
 
   // Back in the lobby, signed in, and a room needs no nickname.
   await expect(
-    page.getByRole("button", { name: `Your profile: ${name}` }),
+    page.getByRole("button", { name: `Your profile: ${chatName}` }),
   ).toBeVisible();
   await page.getByRole("button", { name: `Join ${ROOM.name}` }).click();
   await inRoom(page);
-  expect(await accountsNamed(name)).toEqual([
-    expect.objectContaining({ nickname: name, avatar: "female" }),
+  expect(await accountsNamed(handle)).toEqual([
+    expect.objectContaining({
+      nickname: handle,
+      displayName: chatName,
+      picture: chosenPicture,
+      avatar: "female",
+    }),
   ]);
 
-  // Deleting the account removes it, and the nickname is free for anybody again.
-  await page.getByRole("button", { name: `Your profile: ${name}` }).click();
+  // Deleting the account removes it, and both names are free for anybody again.
+  await page.getByRole("button", { name: `Your profile: ${chatName}` }).click();
   await page.getByRole("button", { name: "Delete my account" }).click();
   await page.getByRole("button", { name: "Yes, delete my account" }).click();
 
@@ -157,11 +190,11 @@ test("somebody makes an account from the lobby, chooses who they are, and can de
     page.getByRole("heading", { name: "Public rooms" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Account", exact: true }),
+    page.getByRole("button", { name: "Login", exact: true }),
   ).toBeVisible();
-  await expect.poll(async () => (await accountsNamed(name)).length).toBe(0);
+  await expect.poll(async () => (await accountsNamed(handle)).length).toBe(0);
 
   const guest = await newPage(browser);
-  await joinAsGuest(guest, name);
+  await joinAsGuest(guest, chatName);
   await inRoom(guest);
 });

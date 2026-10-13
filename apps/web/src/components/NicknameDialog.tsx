@@ -2,6 +2,7 @@ import { useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
+import { randomPicture } from "../chat/picture";
 import { normalizeNickname } from "../nickname";
 import { loadTermsAccepted, saveTermsAccepted } from "../preferences";
 import { readAge } from "../profile";
@@ -11,13 +12,23 @@ import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
 import { LegalSentence } from "./LegalLinks";
 import { Modal } from "./Modal";
-import { AvatarPicker, NameAndAge, VisibleNote } from "./ProfileFields";
+import {
+  AvatarPicker,
+  NameAndAge,
+  PicturePicker,
+  VisibleNote,
+} from "./ProfileFields";
 
 interface NicknameDialogProps {
   connecting: boolean;
   signingIn: boolean;
   error: string | null;
-  onSubmit: (nickname: string, avatar: Avatar, age?: number) => void;
+  onSubmit: (
+    nickname: string,
+    avatar: Avatar,
+    picture: string,
+    age?: number,
+  ) => void;
   onSignIn: (email: string, password: string) => void;
   // Called when the guest switches between the two forms, so an error about one is not shown on the other.
   onModeChange: () => void;
@@ -43,14 +54,16 @@ export function NicknameDialog({
   const [moderator, setModerator] = useState(false);
   const [value, setValue] = useState("");
   const [avatar, setAvatar] = useState<Avatar>(PLAIN_AVATAR);
+  // Somebody who does not choose gets one at random.
+  const [picture, setPicture] = useState(() => randomPicture());
   const [ageText, setAgeText] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [touched, setTouched] = useState(false);
-  // A browser that has accepted this version of the terms is only reminded of them; any other is asked.
+  // The box is ticked for a browser that has accepted this version of the terms; null until the guest touches it.
   const rememberedTerms = loadTermsAccepted(termsVersion);
-  const [termsTicked, setTermsTicked] = useState(false);
-  const termsAccepted = rememberedTerms || termsTicked;
+  const [termsChoice, setTermsChoice] = useState<boolean | null>(null);
+  const termsAccepted = termsChoice ?? rememberedTerms;
 
   const nickname = normalizeNickname(value);
   const age = readAge(ageText);
@@ -65,7 +78,7 @@ export function NicknameDialog({
       if (email && password) onSignIn(email.trim(), password);
     } else if (nickname && age.ok && termsAccepted) {
       if (!rememberedTerms) saveTermsAccepted(termsVersion);
-      onSubmit(nickname, avatar, age.age);
+      onSubmit(nickname, avatar, picture, age.age);
     }
   }
 
@@ -120,33 +133,32 @@ export function NicknameDialog({
               autoFocus
               autoComplete="nickname"
             />
+            <PicturePicker
+              value={picture}
+              onChange={setPicture}
+              name="nickname-picture"
+            />
             <AvatarPicker value={avatar} onChange={setAvatar} />
             <VisibleNote />
-            {rememberedTerms ? (
-              <p className="text-xs text-neutral-400">
-                <LegalSentence i18nKey="terms.accepted" />
-              </p>
-            ) : (
-              <div className="space-y-1">
-                <label className="flex items-start gap-2 rounded-md bg-neutral-950 p-3 text-sm text-neutral-300">
-                  <input
-                    type="checkbox"
-                    checked={termsTicked}
-                    onChange={(event) => setTermsTicked(event.target.checked)}
-                    aria-invalid={touched && !termsTicked}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-500"
-                  />
-                  <span>
-                    <LegalSentence i18nKey="terms.accept" />
-                  </span>
-                </label>
-                {touched && !termsTicked && (
-                  <p className="text-sm text-red-300">
-                    {t("terms.acceptRequired")}
-                  </p>
-                )}
-              </div>
-            )}
+            <div className="space-y-1">
+              <label className="flex items-start gap-2 rounded-md bg-neutral-950 p-3 text-sm text-neutral-300">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(event) => setTermsChoice(event.target.checked)}
+                  aria-invalid={touched && !termsAccepted}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-500"
+                />
+                <span>
+                  <LegalSentence i18nKey="terms.accept" />
+                </span>
+              </label>
+              {touched && !termsAccepted && (
+                <p className="text-sm text-red-300">
+                  {t("terms.acceptRequired")}
+                </p>
+              )}
+            </div>
           </>
         )}
 

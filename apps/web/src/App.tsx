@@ -11,6 +11,7 @@ import {
   type Room,
 } from "./api";
 import {
+  accountOf,
   clearAccount,
   loadAccount,
   saveAccount,
@@ -160,6 +161,7 @@ export function App({
   async function handleNickname(
     nickname: string,
     avatar: Avatar,
+    picture: string,
     age?: number,
   ) {
     if (!pendingRoom) return;
@@ -167,11 +169,13 @@ export function App({
     // The plain avatar is what the server gives anyone who sends none, so it is not sent or kept.
     const chosen = avatar === PLAIN_AVATAR ? undefined : avatar;
 
-    if (!(await chat.connect(nickname, { avatar: chosen, age }))) return;
+    if (!(await chat.connect(nickname, { avatar: chosen, picture, age })))
+      return;
 
     saveSession({
       nickname,
       ...(chosen ? { avatar: chosen } : {}),
+      picture,
       ...(age === undefined ? {} : { age }),
       guestIds: chat.guestIds(),
       ...resumeDetails(),
@@ -274,6 +278,7 @@ export function App({
       rememberProfile({
         nickname: chat.session.nickname,
         avatar: chat.session.avatar,
+        picture: chat.session.picture,
         age: chat.session.age,
       });
     }
@@ -291,16 +296,7 @@ export function App({
       .then((session) => {
         if (cancelled) return;
 
-        const renewed: Account = {
-          token: session.token,
-          provider: session.provider,
-          nickname: session.profile.nickname,
-          avatar: session.profile.avatar,
-          ...(session.profile.age === undefined
-            ? {}
-            : { age: session.profile.age }),
-          expiresAt: session.expiresAt,
-        };
+        const renewed = accountOf(session);
 
         saveAccount(renewed);
         setAccount(renewed);
@@ -332,15 +328,17 @@ export function App({
         !current ||
         (current.nickname === session.nickname &&
           current.avatar === session.avatar &&
+          current.picture === session.picture &&
           current.age === session.age)
       ) {
         return current;
       }
 
-      const { age: _age, ...rest } = current;
+      const { age: _age, picture: _picture, ...rest } = current;
       const next: Account = {
         ...rest,
         nickname: session.nickname,
+        ...(session.picture ? { picture: session.picture } : {}),
         ...(session.avatar ? { avatar: session.avatar } : {}),
         ...(session.age === undefined ? {} : { age: session.age }),
       };
@@ -398,6 +396,7 @@ export function App({
       const connected = await chat.connect(saved.nickname, {
         token: saved.token,
         avatar: saved.avatar,
+        picture: saved.picture,
         age: saved.age,
         previousGuestIds: saved.guestIds,
         resume: saved.resume,
@@ -484,6 +483,7 @@ export function App({
             <ProfileButton
               nickname={chat.session.nickname}
               avatar={chat.session.avatar}
+              picture={chat.session.picture}
               onClick={() => setProfileOpen(true)}
             />
           ) : (
@@ -503,7 +503,7 @@ export function App({
         </div>
       </HeaderFrame>
 
-      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-(--page-gutter)">
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-(--page-gutter) pt-4">
         <main className="flex flex-1 flex-col gap-4">
           {chat.announcement && (
             <AnnouncementBanner
@@ -579,8 +579,8 @@ export function App({
             connecting={chat.status === "connecting"}
             signingIn={signingIn}
             error={signInError ?? chat.error}
-            onSubmit={(nickname, avatar, age) =>
-              void handleNickname(nickname, avatar, age)
+            onSubmit={(nickname, avatar, picture, age) =>
+              void handleNickname(nickname, avatar, picture, age)
             }
             onSignIn={(email, password) => void handleSignIn(email, password)}
             onModeChange={clearDialogErrors}

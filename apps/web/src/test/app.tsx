@@ -1,10 +1,14 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Editor } from "@tiptap/core";
-import { vi } from "vitest";
+import { expect, vi } from "vitest";
 
 import { App } from "../App";
+import { PICTURE_PATTERN } from "../chat/picture";
 import { makeFakeServer } from "./fakeSocket";
+
+// What a guest who joined through the dialog connects with: a picture was chosen for them, at random.
+export const anyPicture = expect.stringMatching(PICTURE_PATTERN);
 
 export const ROOMS = [
   {

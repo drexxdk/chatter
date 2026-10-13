@@ -21,7 +21,7 @@ export const en: LegalTexts = {
       {
         heading: 'Accounts',
         paragraphs: [
-          'You can use Chatter as a guest, or make an account by connecting a Google, Facebook or Discord account. An account keeps your nickname, avatar and age, so you can come back as the same person from any browser, and the nickname is yours alone.',
+          'You can use Chatter as a guest, or make an account by connecting a Google, Facebook or Discord account. An account keeps your username, display name, avatar and age, so you can come back as the same person from any browser, and both names are yours alone.',
           'You are responsible for what is done under your account. You can delete it at any time from your profile. We may remove an account or a nickname that breaks these terms or that looks like it belongs to staff or to somebody else.',
         ],
       },
@@ -92,7 +92,7 @@ export const en: LegalTexts = {
           'Your IP address itself, while you are connected. It may also appear in the server’s technical logs (for example in connection errors). The logs are rotated automatically and used only to keep the service running.',
           'Reports. When a message is reported we keep a copy (the text, the nickname, the hash of the sender’s address and the reasons given) for at most 90 days, so that it can be reviewed.',
           'Moderators only: email address, display name and a password that is stored in a scrambled form.',
-          'Accounts. If you make an account we keep which service you used (Google, Facebook or Discord), your id there, the email address the service gives us (if it gives one), your nickname, avatar and age, and when you last signed in. The email address is not shown to anybody and is only used to contact you about your account. We never receive your password at the service.',
+          'Accounts. If you make an account we keep which service you used (Google, Facebook or Discord), your id there, the email address the service gives us (if it gives one), your username, display name, avatar picture and age, and when you last signed in. The email address is not shown to anybody and is only used to contact you about your account. We never receive your password at the service.',
         ],
       },
       {

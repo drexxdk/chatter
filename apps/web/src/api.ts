@@ -1,4 +1,5 @@
 import { parseAvatar, type Avatar } from "./chat/avatar";
+import { parsePicture } from "./chat/picture";
 import { CHAT_SERVER_URL } from "./config";
 import { parseLegal, type LegalContent } from "./legal";
 import { parseAge } from "./profile";
@@ -143,7 +144,14 @@ export const authStartUrl = (provider: string, returnPath: string) =>
 export interface AccountSession {
   token: string;
   provider: string;
-  profile: { nickname: string; avatar: Avatar; age?: number };
+  // `nickname` is the name the chat shows; `username` is the handle that is theirs alone.
+  profile: {
+    nickname: string;
+    username?: string;
+    picture?: string;
+    avatar: Avatar;
+    age?: number;
+  };
   expiresAt: number;
 }
 
@@ -159,6 +167,8 @@ const ACCOUNT_ERRORS = new Set([
   "invalid_token",
   "invalid_nickname",
   "reserved_nickname",
+  "invalid_username",
+  "reserved_username",
   "invalid_profile",
   "unavailable",
 ]);
@@ -183,6 +193,12 @@ function parseAccountSession(body: unknown): AccountSession {
     expiresAt: fields.expiresAt,
     profile: {
       nickname: profile.nickname,
+      ...(typeof profile.username === "string" && profile.username
+        ? { username: profile.username }
+        : {}),
+      ...(parsePicture(profile.picture) === undefined
+        ? {}
+        : { picture: parsePicture(profile.picture) }),
       avatar: parseAvatar(profile.avatar),
       ...(age === undefined ? {} : { age }),
     },
@@ -220,10 +236,13 @@ async function accountRequest(
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-// Makes the account for somebody a provider has vouched for (the ticket), with who they want to be shown as.
+// Makes the account for somebody a provider has vouched for (the ticket), with who they want to be shown as: a
+// username of their own, the name the chat shows, and a picture.
 export async function registerAccount(input: {
   ticket: string;
+  username: string;
   nickname: string;
+  picture: string;
   avatar: Avatar;
   age?: number;
 }): Promise<AccountSession> {

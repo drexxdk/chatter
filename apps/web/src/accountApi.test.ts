@@ -13,8 +13,22 @@ import {
 const SESSION = {
   token: "member-token",
   provider: "google",
-  profile: { nickname: "Alice", avatar: "female", age: 30 },
+  profile: {
+    nickname: "Alice Wonder",
+    username: "alice_w",
+    picture: "lorelei:abc12345",
+    avatar: "female",
+    age: 30,
+  },
   expiresAt: 1_800_000_000_000,
+};
+
+// What an account is made with besides the ticket.
+const WHO = {
+  username: "alice_w",
+  nickname: "Alice Wonder",
+  picture: "lorelei:abc12345",
+  avatar: "other" as const,
 };
 
 function respondWith(body: unknown, init: ResponseInit = { status: 200 }) {
@@ -70,7 +84,7 @@ describe("making an account", () => {
 
     const session = await registerAccount({
       ticket: "the-ticket",
-      nickname: "Alice",
+      ...WHO,
       avatar: "female",
       age: 30,
     });
@@ -80,33 +94,37 @@ describe("making an account", () => {
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({
       ticket: "the-ticket",
-      nickname: "Alice",
+      username: "alice_w",
+      nickname: "Alice Wonder",
+      picture: "lorelei:abc12345",
       avatar: "female",
       age: 30,
     });
     expect(session).toEqual(SESSION);
   });
 
-  it("makes an unknown avatar the plain one and leaves out an age that is not one", async () => {
+  it("makes an unknown avatar the plain one, drops a picture that is not one, and leaves out an age that is not one", async () => {
     respondWith({
       ...SESSION,
-      profile: { nickname: "Alice", avatar: "robot", age: 7 },
+      profile: {
+        nickname: "Alice",
+        picture: "robot:abc12345",
+        avatar: "robot",
+        age: 7,
+      },
     });
 
-    expect(
-      (
-        await registerAccount({
-          ticket: "t",
-          nickname: "Alice",
-          avatar: "other",
-        })
-      ).profile,
-    ).toEqual({ nickname: "Alice", avatar: "other" });
+    expect((await registerAccount({ ticket: "t", ...WHO })).profile).toEqual({
+      nickname: "Alice",
+      avatar: "other",
+    });
   });
 
   it.each([
     [400, "invalid_nickname"],
     [409, "reserved_nickname"],
+    [400, "invalid_username"],
+    [409, "reserved_username"],
     [401, "invalid_ticket"],
     [400, "invalid_profile"],
     [503, "unavailable"],
@@ -114,7 +132,7 @@ describe("making an account", () => {
     respondWith({ error }, { status });
 
     await expect(
-      registerAccount({ ticket: "t", nickname: "A", avatar: "other" }),
+      registerAccount({ ticket: "t", ...WHO }),
     ).rejects.toMatchObject({ code: error });
   });
 
@@ -133,7 +151,7 @@ describe("making an account", () => {
     arrange();
 
     await expect(
-      registerAccount({ ticket: "t", nickname: "A", avatar: "other" }),
+      registerAccount({ ticket: "t", ...WHO }),
     ).rejects.toMatchObject({ code: "connection" });
   });
 
@@ -141,7 +159,7 @@ describe("making an account", () => {
     respondWith({ error: "rate_limited" }, { status: 429 });
 
     await expect(
-      registerAccount({ ticket: "t", nickname: "A", avatar: "other" }),
+      registerAccount({ ticket: "t", ...WHO }),
     ).rejects.toMatchObject({ code: "too_many_attempts" });
   });
 });

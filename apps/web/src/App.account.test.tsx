@@ -11,6 +11,8 @@ const ACCOUNT = {
   token: "member-abc",
   provider: "google",
   nickname: "Alice",
+  username: "alice_w",
+  picture: "lorelei:abc12345",
   avatar: "female" as const,
   expiresAt: Date.now() + 30 * 86_400_000,
 };
@@ -18,7 +20,12 @@ const ACCOUNT = {
 const accountSession = (token = "member-abc") => ({
   token,
   provider: "google",
-  profile: { nickname: "Alice", avatar: "female" },
+  profile: {
+    nickname: "Alice",
+    username: "alice_w",
+    picture: "lorelei:abc12345",
+    avatar: "female",
+  },
   expiresAt: ACCOUNT.expiresAt,
 });
 
@@ -71,7 +78,7 @@ describe("signing in from the lobby", () => {
     stubBackend({ providers: ["google"] });
     const { user } = setup();
 
-    await user.click(await screen.findByRole("button", { name: "Account" }));
+    await user.click(await screen.findByRole("button", { name: "Login" }));
 
     const dialog = within(await screen.findByRole("dialog"));
     expect(
@@ -93,7 +100,7 @@ describe("signing in from the lobby", () => {
       expect(callsTo(fetchMock, "/auth/providers")).not.toHaveLength(0),
     );
 
-    expect(screen.queryByRole("button", { name: "Account" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Login" })).toBeNull();
   });
 
   it("is offered to a guest who is asked for a nickname, with the room to come back to", async () => {
@@ -132,8 +139,10 @@ describe("signing in from the lobby", () => {
       expect.stringContaining("return=%2Frooms%2Fgeneral"),
     );
     expect(
-      dialog.getByText(/keep your nickname, avatar and age/),
+      dialog.getByText(/keep your name, avatar and age/),
     ).toBeInTheDocument();
+    // A guest chooses a picture too, like an account.
+    expect(dialog.getByRole("group", { name: "Avatar" })).toBeInTheDocument();
   });
 });
 
@@ -149,7 +158,7 @@ describe("somebody signed in", () => {
     expect(
       await screen.findByRole("button", { name: "Your profile: Alice" }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Account" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Login" })).toBeNull();
   });
 
   it("joins a room without being asked for a nickname, as the account", async () => {
@@ -207,8 +216,35 @@ describe("somebody signed in", () => {
       dialog.getByRole("button", { name: "Sign out" }),
     ).toBeInTheDocument();
     expect(dialog.queryByRole("link", { name: /Continue with/ })).toBeNull();
-    // The profile can still be changed, like a guest's.
-    expect(dialog.getByLabelText(/Nickname/)).toHaveValue("Alice");
+    // The profile can still be changed, like a guest's: the name the chat shows, and the picture.
+    expect(dialog.getByLabelText(/Display name/)).toHaveValue("Alice");
+    expect(dialog.getByRole("group", { name: "Avatar" })).toBeInTheDocument();
+  });
+
+  it("can change the picture they are shown by", async () => {
+    stubBackend();
+    const server = makeFakeServer();
+    const { user } = setup(server);
+    await user.click(
+      await screen.findByRole("button", { name: "Join General" }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Your profile: Alice" }),
+    );
+    const dialog = within(await screen.findByRole("dialog"));
+
+    await user.click(dialog.getByRole("radio", { name: "Avatar 3" }));
+    const chosen = (
+      dialog.getByRole("radio", { name: "Avatar 3" }) as HTMLInputElement
+    ).value;
+    await user.click(dialog.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(server.latest?.emittedEvents("profile:update")).toEqual([
+        { picture: chosen },
+      ]),
+    );
+    expect(loadAccount()?.picture).toBe(chosen);
   });
 
   it("keeps the changes to their profile in the account of this browser too", async () => {
@@ -222,8 +258,8 @@ describe("somebody signed in", () => {
     );
     const dialog = within(await screen.findByRole("dialog"));
 
-    await user.clear(dialog.getByLabelText(/Nickname/));
-    await user.type(dialog.getByLabelText(/Nickname/), "Alicia");
+    await user.clear(dialog.getByLabelText(/Display name/));
+    await user.type(dialog.getByLabelText(/Display name/), "Alicia");
     await user.click(dialog.getByRole("button", { name: "Save" }));
 
     expect(
@@ -255,7 +291,7 @@ describe("somebody signed in", () => {
       expect(loadAccount()).toBeNull();
       expect(loadSession()).toBeNull();
       expect(
-        await screen.findByRole("button", { name: "Account" }),
+        await screen.findByRole("button", { name: "Login" }),
       ).toBeInTheDocument();
     });
 
@@ -273,7 +309,7 @@ describe("somebody signed in", () => {
       );
 
       expect(
-        await screen.findByRole("button", { name: "Account" }),
+        await screen.findByRole("button", { name: "Login" }),
       ).toBeInTheDocument();
       expect(loadAccount()).toBeNull();
     });

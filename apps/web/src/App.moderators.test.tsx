@@ -492,7 +492,7 @@ describe("announcements", () => {
           "<img src=x onerror=alert(1)>",
         ),
       ).toBeInTheDocument();
-      expect(document.querySelector("img")).toBeNull();
+      expect(document.querySelector("img[src='x']")).toBeNull();
     });
 
     it.each([

@@ -28,7 +28,14 @@ the last backup instead (`deploy/restore.md`) after rolling the images back.
 ## Change a setting or rotate a secret
 
 1. Edit the file in `deploy/` (`chat-server.env`, `admin.env`, `stack.env`). They are `chmod 600`.
-2. `COMPOSE up -d <service>` recreates the service with the new value.
+2. `COMPOSE up -d --force-recreate <service>` recreates the service with the new value (plain `up -d` leaves a running
+   container alone when only the env file changed).
+
+For `chat-server.env` there is a shortcut from your own machine: edit the copy in `deploy/` there (not committed), then
+`npm run env:push`. It adds or replaces each setting that has a value in your copy, backs the old file up as
+`chat-server.env.bak`, recreates the chat-server and prints `/auth/providers`. It never prints values, refuses an
+`.example.` value, and never wipes `PAYLOAD_SERVICE_API_KEY`, `BAN_HASH_SALT` or `AUTH_TOKEN_SECRET` with an empty one.
+Settings missing from your copy are left alone; `-- --restart` recreates even when nothing changed.
 
 Notes per secret:
 

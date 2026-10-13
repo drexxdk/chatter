@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
-import { saveAccount } from "../account";
+import { accountOf, saveAccount } from "../account";
 import {
   AccountError,
   fetchAccount,
@@ -9,8 +9,9 @@ import {
   type AccountSession,
 } from "../api";
 import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
+import { randomPicture } from "../chat/picture";
 import { useLegal } from "../legal/useLegal";
-import { normalizeNickname } from "../nickname";
+import { normalizeNickname, normalizeUsername, tidyName } from "../nickname";
 import { slugFromPath } from "../place";
 import { loadTermsAccepted, saveTermsAccepted } from "../preferences";
 import { readAge } from "../profile";
@@ -18,10 +19,16 @@ import { clearSession, loadSession, saveSession } from "../session";
 import { providerName } from "./AccountOptions";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
+import { Field } from "./Field";
 import { HeaderFrame } from "./HeaderFrame";
 import { LegalSentence } from "./LegalLinks";
 import { MainMenu } from "./MainMenu";
-import { AvatarPicker, NameAndAge, VisibleNote } from "./ProfileFields";
+import {
+  AvatarPicker,
+  NameAndAge,
+  PicturePicker,
+  VisibleNote,
+} from "./ProfileFields";
 
 export type CallbackOutcome =
   | { kind: "error"; code: string }
@@ -80,16 +87,9 @@ function finish(
   returnPath: string,
   navigate: (path: string) => void,
 ) {
-  const { token, provider, profile, expiresAt } = session;
+  const { token, profile } = session;
 
-  saveAccount({
-    token,
-    provider,
-    nickname: profile.nickname,
-    avatar: profile.avatar,
-    ...(profile.age === undefined ? {} : { age: profile.age }),
-    expiresAt,
-  });
+  saveAccount(accountOf(session));
   // The guest this tab was is the account now; a room's address brings it back in as the account.
   clearSession();
   if (slugFromPath(returnPath)) {
@@ -120,6 +120,11 @@ export function AuthCallback({
       : { status: "working" },
   );
   const started = useRef(false);
+  // A guest who connects a provider starts from who they were; the form asks for what an account needs besides.
+  const [guest] = useState(() => {
+    const saved = loadSession();
+    return saved && !saved.token ? saved : undefined;
+  });
 
   useEffect(() => {
     if (started.current) return;
@@ -136,33 +141,7 @@ export function AuthCallback({
         );
     }
 
-    if (outcome.kind === "ticket") {
-      const guest = loadSession();
-
-      // A guest who connects a provider keeps who they are: the account is made with the nickname, the avatar and the
-      // age they had, so that they stay in the room as the same person.
-      if (guest && !guest.token) {
-        registerAccount({
-          ticket: outcome.ticket,
-          nickname: guest.nickname,
-          avatar: guest.avatar ?? PLAIN_AVATAR,
-          age: guest.age,
-        })
-          .then((session) => finish(session, returnPath, navigate))
-          .catch((error: unknown) => {
-            const code = codeOf(error);
-
-            // The nickname cannot be kept (somebody has it): another one can be chosen.
-            if (code === "reserved_nickname" || code === "invalid_nickname") {
-              setView({ status: "form", error: code });
-            } else {
-              setView({ status: "error", code });
-            }
-          });
-      } else {
-        setView({ status: "form" });
-      }
-    }
+    if (outcome.kind === "ticket") setView({ status: "form" });
   }, [outcome, returnPath, navigate]);
 
   return (
@@ -174,7 +153,7 @@ export function AuthCallback({
         <MainMenu />
       </HeaderFrame>
 
-      <main className="mx-auto w-full max-w-md flex-1 space-y-4 px-(--page-gutter) pb-8">
+      <main className="mx-auto w-full max-w-md flex-1 space-y-4 px-(--page-gutter) pt-4 pb-8">
         {view.status === "working" && (
           <p role="status">{t("account.working")}</p>
         )}
@@ -195,7 +174,8 @@ export function AuthCallback({
           <RegisterForm
             ticket={outcome.ticket}
             provider={outcome.provider}
-            suggested={outcome.name}
+            suggested={guest?.nickname ?? outcome.name}
+            guest={guest}
             returnPath={returnPath}
             navigate={navigate}
             initialError={view.error}
@@ -206,11 +186,13 @@ export function AuthCallback({
   );
 }
 
-// For somebody the provider has vouched for and who has no account yet: who they want to be, and the terms.
+// For somebody the provider has vouched for and who has no account yet: a username of their own, the name the chat
+// shows, an avatar, and the terms.
 function RegisterForm({
   ticket,
   provider,
   suggested,
+  guest,
   returnPath,
   navigate,
   initialError,
@@ -218,6 +200,8 @@ function RegisterForm({
   ticket: string;
   provider: string;
   suggested?: string;
+  // Who this tab was as a guest, whose avatar and age carry over.
+  guest?: { avatar?: Avatar; age?: number };
   returnPath: string;
   navigate: (path: string) => void;
   initialError?: string;
@@ -226,39 +210,52 @@ function RegisterForm({
   const legal = useLegal();
   const termsVersion =
     legal.state.status === "ready" ? legal.state.legal.version : null;
-  const [value, setValue] = useState(
-    suggested && normalizeNickname(suggested) ? suggested : "",
+  const [displayName, setDisplayName] = useState(
+    suggested && normalizeNickname(suggested) ? tidyName(suggested) : "",
   );
-  const [avatar, setAvatar] = useState<Avatar>(PLAIN_AVATAR);
-  const [ageText, setAgeText] = useState("");
-  const [termsTicked, setTermsTicked] = useState(false);
+  // The provider's name for them, without the spaces, to start from; it is only a suggestion and is never shown.
+  const [username, setUsername] = useState(
+    suggested && normalizeUsername(suggested.replace(/\s/g, ""))
+      ? suggested.replace(/\s/g, "")
+      : "",
+  );
+  // Somebody who does not choose gets one at random.
+  const [picture, setPicture] = useState(() => randomPicture());
+  const [avatar, setAvatar] = useState<Avatar>(guest?.avatar ?? PLAIN_AVATAR);
+  const [ageText, setAgeText] = useState(
+    guest?.age === undefined ? "" : String(guest.age),
+  );
+  const rememberedTerms = loadTermsAccepted(termsVersion);
+  const [termsChoice, setTermsChoice] = useState<boolean | null>(null);
+  const termsAccepted = termsChoice ?? rememberedTerms;
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(initialError ?? null);
 
-  const nickname = normalizeNickname(value);
+  const usernameOk = normalizeUsername(username);
+  const nickname = normalizeNickname(displayName);
   const age = readAge(ageText);
-  const remembered = loadTermsAccepted(termsVersion);
-  const termsAccepted = remembered || termsTicked;
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
     setTouched(true);
     setError(null);
 
-    if (!nickname || !age.ok || !termsAccepted) return;
+    if (!usernameOk || !nickname || !age.ok || !termsAccepted) return;
 
     setBusy(true);
 
     try {
       const session = await registerAccount({
         ticket,
+        username: usernameOk,
         nickname,
+        picture,
         avatar,
         age: age.age,
       });
 
-      if (!remembered) saveTermsAccepted(termsVersion);
+      if (!rememberedTerms) saveTermsAccepted(termsVersion);
       finish(session, returnPath, navigate);
     } catch (cause) {
       setError(codeOf(cause));
@@ -275,17 +272,36 @@ function RegisterForm({
         </p>
       </div>
 
+      <Field
+        id="register-username"
+        label={t("account.register.username")}
+        hint={t("account.register.usernameHint")}
+        required
+        autoFocus
+        autoComplete="username"
+        maxLength={24}
+        value={username}
+        // A username has no spaces, so they are not let in.
+        onChange={(event) => setUsername(event.target.value.replace(/\s/g, ""))}
+        invalid={touched && !usernameOk}
+      />
       <NameAndAge
         nicknameId="register-nickname"
         ageId="register-age"
-        nickname={value}
-        onNicknameChange={setValue}
+        nickname={displayName}
+        onNicknameChange={setDisplayName}
         invalidNickname={touched && !nickname}
+        nicknameLabel={t("account.register.displayName")}
+        nicknameHint={t("account.register.displayNameHint")}
         age={ageText}
         onAgeChange={setAgeText}
         invalidAge={touched && !age.ok}
-        autoFocus
-        autoComplete="nickname"
+        autoComplete="name"
+      />
+      <PicturePicker
+        value={picture}
+        onChange={setPicture}
+        name="register-picture"
       />
       <AvatarPicker
         value={avatar}
@@ -294,29 +310,23 @@ function RegisterForm({
       />
       <VisibleNote />
 
-      {remembered ? (
-        <p className="text-xs text-neutral-400">
-          <LegalSentence i18nKey="terms.accepted" />
-        </p>
-      ) : (
-        <div className="space-y-1">
-          <label className="flex items-start gap-2 rounded-md bg-neutral-950 p-3 text-sm text-neutral-300">
-            <input
-              type="checkbox"
-              checked={termsTicked}
-              onChange={(event) => setTermsTicked(event.target.checked)}
-              aria-invalid={touched && !termsTicked}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-500"
-            />
-            <span>
-              <LegalSentence i18nKey="terms.accept" />
-            </span>
-          </label>
-          {touched && !termsTicked && (
-            <p className="text-sm text-red-300">{t("terms.acceptRequired")}</p>
-          )}
-        </div>
-      )}
+      <div className="space-y-1">
+        <label className="flex items-start gap-2 rounded-md bg-neutral-950 p-3 text-sm text-neutral-300">
+          <input
+            type="checkbox"
+            checked={termsAccepted}
+            onChange={(event) => setTermsChoice(event.target.checked)}
+            aria-invalid={touched && !termsAccepted}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-500"
+          />
+          <span>
+            <LegalSentence i18nKey="terms.accept" />
+          </span>
+        </label>
+        {touched && !termsAccepted && (
+          <p className="text-sm text-red-300">{t("terms.acceptRequired")}</p>
+        )}
+      </div>
 
       <ErrorAlert code={error} />
 

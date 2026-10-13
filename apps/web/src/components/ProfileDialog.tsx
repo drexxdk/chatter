@@ -2,6 +2,7 @@ import { useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
+import { randomPicture } from "../chat/picture";
 import type { ActionResult, Session } from "../chat/useChat";
 import type { Account } from "../account";
 import { normalizeNickname } from "../nickname";
@@ -11,7 +12,12 @@ import { AvatarIcon } from "./Avatar";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Modal } from "./Modal";
-import { AvatarPicker, NameAndAge, VisibleNote } from "./ProfileFields";
+import {
+  AvatarPicker,
+  NameAndAge,
+  PicturePicker,
+  VisibleNote,
+} from "./ProfileFields";
 
 // What the guest says about themselves, in a modal on top of the chat. A guest can change all of it; a moderator's name
 // belongs to their account, so theirs is only shown.
@@ -43,7 +49,10 @@ export function ProfileDialog({
       {session.role === "moderator" ? (
         <div className="space-y-3">
           <p className="flex items-center gap-2 font-bold text-green-400">
-            <AvatarIcon avatar={session.avatar ?? PLAIN_AVATAR} />
+            <AvatarIcon
+              avatar={session.avatar ?? PLAIN_AVATAR}
+              picture={session.picture}
+            />
             {session.nickname}
           </p>
           <p className="text-sm text-neutral-300">
@@ -77,7 +86,12 @@ function ProfileForm({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  // An account's name is a display name; a guest's is a nickname.
+  const account = session.role === "member";
   const [name, setName] = useState(session.nickname);
+  const [picture, setPicture] = useState(
+    () => session.picture ?? randomPicture(),
+  );
   const [avatar, setAvatar] = useState<Avatar>(session.avatar ?? PLAIN_AVATAR);
   const [ageText, setAgeText] = useState(
     session.age === undefined ? "" : String(session.age),
@@ -97,6 +111,7 @@ function ProfileForm({
 
     const changes: ProfileChanges = {
       ...(nickname === session.nickname ? {} : { nickname }),
+      ...(picture !== session.picture ? { picture } : {}),
       ...(avatar === (session.avatar ?? PLAIN_AVATAR) ? {} : { avatar }),
       ...(age.age === session.age ? {} : { age: age.age ?? null }),
     };
@@ -119,12 +134,21 @@ function ProfileForm({
         nickname={name}
         onNicknameChange={setName}
         invalidNickname={touched && !nickname}
+        nicknameLabel={account ? t("account.register.displayName") : undefined}
+        nicknameHint={
+          account ? t("account.register.displayNameHint") : undefined
+        }
         age={ageText}
         onAgeChange={setAgeText}
         invalidAge={touched && !age.ok}
         autoComplete="off"
       />
 
+      <PicturePicker
+        value={picture}
+        onChange={setPicture}
+        name="profile-picture"
+      />
       <AvatarPicker value={avatar} onChange={setAvatar} name="profile-avatar" />
       <VisibleNote />
 

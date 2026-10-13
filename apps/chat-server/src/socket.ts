@@ -4,7 +4,12 @@ import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
 
 import { parseAge } from "./age.js";
-import { avatarSchema, parseAvatar, type Avatar } from "./avatars.js";
+import {
+  avatarSchema,
+  parseAvatar,
+  parsePicture,
+  type Avatar,
+} from "./avatars.js";
 import { isBanned } from "./bans.js";
 import {
   claimAnnouncementSlot,
@@ -91,12 +96,16 @@ interface SocketData {
   nickname: string;
   role: ChatRole;
   avatar: Avatar;
+  // The picture somebody chose ("lorelei:k3j9x2ab"), which the client draws. A moderator has none.
+  picture?: string;
   // Only when the guest said how old they are.
   age?: number;
   // The Payload account behind a signed-in moderator; others have none.
   accountId?: number;
   // The account of a member (the `users` collection), whose profile is kept there.
   memberId?: number;
+  // A member's username, which their display name must not be taken for.
+  username?: string;
   ipHash: string;
   // What a ban names to reach this connection's messages and reports: the address hash of a guest, the account's hash
   // for a member (so the ban follows the account to any address).
@@ -231,22 +240,34 @@ export function directMessageWaitMs(
   return Math.max(flood, waitMs);
 }
 
-// Keeps a member's profile in their account, and the nickname in the list of names that are taken. Undefined when it
-// worked, otherwise the error to answer with.
+// The picture, for putting beside the avatar wherever one is sent: nothing when there is none.
+const pictureOf = (data: { picture?: string }) =>
+  data.picture === undefined ? {} : { picture: data.picture };
+
+// Keeps a member's profile in their account, and the name in the list of names that are taken. The name here is the
+// display name; the username stays what it was and keeps its own claim. Undefined when it worked, otherwise the error
+// to answer with.
 async function saveMemberProfile(
   memberId: number,
+  username: string,
   oldNickname: string,
-  profile: { nickname: string; avatar: Avatar; age: number | undefined },
+  profile: {
+    nickname: string;
+    avatar: Avatar;
+    picture: string | undefined;
+    age: number | undefined;
+  },
 ): Promise<string | undefined> {
   try {
     await updateUser(memberId, {
-      nickname: profile.nickname,
-      nicknameKey: normalizeName(profile.nickname),
+      displayName: profile.nickname,
+      displayNameKey: normalizeName(profile.nickname),
+      ...(profile.picture === undefined ? {} : { picture: profile.picture }),
       avatar: profile.avatar,
       age: profile.age ?? null,
     });
   } catch (error) {
-    if (isTaken(error, "nicknameKey")) return "reserved_nickname";
+    if (isTaken(error, "displayNameKey")) return "reserved_nickname";
 
     log.error(
       "Failed to save a profile",
@@ -258,7 +279,10 @@ async function saveMemberProfile(
   if (normalizeName(profile.nickname) !== normalizeName(oldNickname)) {
     // The list is a copy; the account is what counts, so a failure here only waits for the next sync.
     await claimMemberName(memberId, profile.nickname).catch(() => undefined);
-    await releaseMemberName(memberId, oldNickname).catch(() => undefined);
+
+    if (normalizeName(oldNickname) !== normalizeName(username)) {
+      await releaseMemberName(memberId, oldNickname).catch(() => undefined);
+    }
   }
 
   return undefined;
@@ -314,6 +338,7 @@ export function createSocketServer(
         nickname: (member.data as SocketData).nickname,
         role: (member.data as SocketData).role,
         avatar: (member.data as SocketData).avatar,
+        ...pictureOf(member.data as SocketData),
         ...((member.data as SocketData).age === undefined
           ? {}
           : { age: (member.data as SocketData).age }),
@@ -420,7 +445,9 @@ export function createSocketServer(
     let role: ChatRole = "guest";
     let accountId: number | undefined;
     let memberId: number | undefined;
+    let username: string | undefined;
     let avatar: Avatar = "other";
+    let picture: string | undefined;
     let age: number | undefined;
 
     if (auth.token !== undefined) {
@@ -437,8 +464,10 @@ export function createSocketServer(
 
           if (!user) return next(new Error("invalid_token"));
 
-          nickname = user.nickname;
+          nickname = user.displayName;
+          username = user.nickname;
           avatar = user.avatar;
+          picture = user.picture;
           age = user.age;
           memberId = user.id;
           role = "member";
@@ -488,6 +517,7 @@ export function createSocketServer(
       }
 
       avatar = parseAvatar(auth.avatar);
+      picture = parsePicture(auth.picture);
       age = parseAge(auth.age);
     }
 
@@ -574,9 +604,11 @@ export function createSocketServer(
       nickname,
       role,
       avatar,
+      picture,
       age,
       accountId,
       memberId,
+      username,
       ipHash,
       identityHash,
       recentMessageTimes: [],
@@ -622,6 +654,7 @@ export function createSocketServer(
       nickname: data.nickname,
       role: data.role,
       avatar: data.avatar,
+      ...pictureOf(data),
       ...(data.age === undefined ? {} : { age: data.age }),
       resumeSecret: resumeSecrets.get(socket),
     });
@@ -788,9 +821,13 @@ export function createSocketServer(
         fromNickname: data.nickname,
         fromRole: data.role,
         fromAvatar: data.avatar,
+        ...(data.picture === undefined ? {} : { fromPicture: data.picture }),
         toGuestId,
         toNickname: recipientData.nickname,
         toAvatar: recipientData.avatar,
+        ...(recipientData.picture === undefined
+          ? {}
+          : { toPicture: recipientData.picture }),
         text,
         sentAt: new Date(now).toISOString(),
       };
@@ -900,6 +937,7 @@ export function createSocketServer(
             nickname: data.nickname,
             role: data.role,
             avatar: data.avatar,
+            ...pictureOf(data),
           });
         }
       } catch (error) {
@@ -976,6 +1014,7 @@ export function createSocketServer(
 
       let nickname = data.nickname;
       let avatar = data.avatar;
+      let picture = data.picture;
       let age = data.age;
 
       if ("nickname" in fields) {
@@ -1010,6 +1049,15 @@ export function createSocketServer(
         avatar = parsed.data;
       }
 
+      // Anybody may choose a picture; one that is not one is refused, as an avatar is.
+      if ("picture" in fields) {
+        const parsed = parsePicture(fields.picture);
+
+        if (!parsed) return reply({ ok: false, error: "invalid_profile" });
+
+        picture = parsed;
+      }
+
       if ("age" in fields) {
         age = fields.age === null ? undefined : parseAge(fields.age);
 
@@ -1022,6 +1070,7 @@ export function createSocketServer(
       const apply = () => {
         data.nickname = nickname;
         data.avatar = avatar;
+        data.picture = picture;
         data.age = age;
         data.profileChangeTimes.push(now);
       };
@@ -1030,10 +1079,12 @@ export function createSocketServer(
         if (data.memberId !== undefined) {
           const failure = await saveMemberProfile(
             data.memberId,
+            data.username ?? "",
             data.nickname,
             {
               nickname,
               avatar,
+              picture,
               age,
             },
           );
@@ -1061,7 +1112,12 @@ export function createSocketServer(
 
       reply({
         ok: true,
-        profile: { nickname, avatar, ...(age === undefined ? {} : { age }) },
+        profile: {
+          nickname,
+          avatar,
+          ...(picture === undefined ? {} : { picture }),
+          ...(age === undefined ? {} : { age }),
+        },
       });
 
       if (data.roomSlug) await emitPresence(data.roomSlug);
@@ -1186,6 +1242,7 @@ export function createSocketServer(
         nickname: data.nickname,
         role: data.role,
         avatar: data.avatar,
+        ...pictureOf(data),
         text,
         sentAt: new Date(now).toISOString(),
       };

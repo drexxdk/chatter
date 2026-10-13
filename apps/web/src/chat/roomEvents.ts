@@ -154,6 +154,7 @@ export function withDirect(
         nickname: thread.nickname,
         role: thread.role,
         avatar: thread.avatar,
+        ...(thread.picture ? { picture: thread.picture } : {}),
       };
 
       return thread.entries.flatMap((entry): TimelineItem[] =>

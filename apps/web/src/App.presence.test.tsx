@@ -1,8 +1,15 @@
-import { act, screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { stubRooms, setup, joinRoom, message, at } from "./test/app";
+import {
+  stubRooms,
+  setup,
+  joinRoom,
+  message,
+  at,
+  anyPicture,
+} from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
 beforeEach(() => {
@@ -519,7 +526,9 @@ describe("avatars", () => {
     await user.click(
       await screen.findByRole("button", { name: "Join General" }),
     );
-    return within(await screen.findByRole("group", { name: "Avatar" }));
+    return within(
+      await screen.findByRole("group", { name: "Gender (optional)" }),
+    );
   }
 
   async function submitAs(
@@ -532,6 +541,64 @@ describe("avatars", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("button", { name: "Your profile: Alice" });
   }
+
+  describe("choosing a picture", () => {
+    const pictures = () =>
+      screen.getAllByRole("radio", {
+        name: /^Avatar \d$/,
+      }) as HTMLInputElement[];
+
+    it("is offered with one picked at random already, so a picture is always chosen", async () => {
+      const { user } = setup();
+      await openDialog(user);
+
+      expect(pictures()).toHaveLength(8);
+      expect(pictures().filter((option) => option.checked)).toHaveLength(1);
+    });
+
+    it("joins with the one that was chosen, shows it in the header, and keeps it for a reload", async () => {
+      const { user, server } = setup();
+      await openDialog(user);
+      await user.click(screen.getByRole("radio", { name: "Avatar 3" }));
+      const chosen = (
+        screen.getByRole("radio", { name: "Avatar 3" }) as HTMLInputElement
+      ).value;
+      await user.type(screen.getByLabelText("Nickname"), "Alice");
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+
+      const profile = await screen.findByRole("button", {
+        name: "Your profile: Alice",
+      });
+
+      expect(server.createSocket.mock.calls[0]?.[5]).toBe(chosen);
+      expect(
+        profile.querySelector(`[data-picture='${chosen}']`),
+      ).not.toBeNull();
+      expect(JSON.parse(sessionStorage.getItem(SAVED) ?? "null")).toMatchObject(
+        { picture: chosen },
+      );
+    });
+
+    it("can be changed from the profile, and the server is told", async () => {
+      const { user, server } = setup();
+      await submitAs(user);
+
+      await user.click(
+        screen.getByRole("button", { name: "Your profile: Alice" }),
+      );
+      await user.click(await screen.findByRole("radio", { name: "Avatar 4" }));
+      const chosen = (
+        screen.getByRole("radio", { name: "Avatar 4" }) as HTMLInputElement
+      ).value;
+      await user.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() =>
+        expect(server.latest.emittedEvents("profile:update")).toEqual([
+          { picture: chosen },
+        ]),
+      );
+    });
+  });
 
   describe("choosing one", () => {
     it("offers four, with the plain one chosen unless the guest says otherwise", async () => {
@@ -555,6 +622,9 @@ describe("avatars", () => {
         "Alice",
         undefined,
         "female",
+        undefined,
+        undefined,
+        anyPicture,
       );
     });
 
@@ -563,7 +633,14 @@ describe("avatars", () => {
 
       await submitAs(user);
 
-      expect(server.createSocket).toHaveBeenCalledWith("Alice");
+      expect(server.createSocket).toHaveBeenCalledWith(
+        "Alice",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        anyPicture,
+      );
     });
 
     it("is not offered to a moderator, whose name and look come from their account", async () => {
@@ -575,7 +652,7 @@ describe("avatars", () => {
       );
 
       expect(
-        screen.queryByRole("group", { name: "Avatar" }),
+        screen.queryByRole("group", { name: "Gender (optional)" }),
       ).not.toBeInTheDocument();
     });
 
@@ -592,6 +669,8 @@ describe("avatars", () => {
         undefined,
         "trans",
         { guestId: "guest-me", secret: "secret-1" },
+        undefined,
+        anyPicture,
       );
     });
 
@@ -650,6 +729,84 @@ describe("avatars", () => {
       ]);
 
       expect(log().getAllByTitle("Not specified")).toHaveLength(2);
+    });
+
+    it("shows an account's picture where a guest has the symbol, with the symbol beside the name", async () => {
+      await enterWith([
+        message({
+          avatar: "female",
+          picture: "lorelei:abc12345",
+          text: "from an account",
+        }),
+      ]);
+
+      const row = screen.getByText("from an account").closest("li");
+
+      expect(
+        row?.querySelector("[data-picture='lorelei:abc12345']"),
+      ).not.toBeNull();
+      expect(row?.querySelector("img")).toHaveAttribute(
+        "src",
+        expect.stringContaining("lorelei"),
+      );
+      // The symbol is by the name now, not in the avatar's place.
+      expect(row?.querySelector("[data-avatar]")).toBeNull();
+      expect(within(row as HTMLElement).getByTitle("Female")).toHaveAttribute(
+        "data-gender",
+        "female",
+      );
+    });
+
+    it("has no symbol beside the name of an account that did not say, and ignores a picture it does not know", async () => {
+      await enterWith([
+        message({
+          id: "a",
+          avatar: "other",
+          picture: "lorelei:abc12345",
+          text: "plain account",
+        }),
+        message({
+          id: "b",
+          guestId: "guest-carol",
+          nickname: "Carol",
+          avatar: "male",
+          picture: "robot:abc12345",
+          text: "odd picture",
+        }),
+      ]);
+
+      const plain = screen.getByText("plain account").closest("li");
+      const odd = screen.getByText("odd picture").closest("li");
+
+      expect(plain?.querySelector("[data-gender]")).toBeNull();
+      expect(odd?.querySelector("[data-picture]")).toBeNull();
+      expect(within(odd as HTMLElement).getByTitle("Male")).toBeInTheDocument();
+    });
+
+    it("shows the picture of everybody who has one in the list of people", async () => {
+      const { server } = await enterWith([]);
+
+      act(() =>
+        server.latest.serverEmit("room:presence", {
+          roomSlug: "general",
+          members: [
+            { guestId: "guest-me", nickname: "Alice", avatar: "female" },
+            {
+              guestId: "guest-bob",
+              nickname: "Bob",
+              avatar: "male",
+              picture: "critters:zz99zz99",
+            },
+          ],
+        }),
+      );
+
+      const people = screen.getByRole("list", { name: "People in this room" });
+
+      expect(
+        people.querySelector("[data-picture='critters:zz99zz99']"),
+      ).not.toBeNull();
+      expect(within(people).getByTitle("Female")).toBeInTheDocument();
     });
 
     it("does not show an avatar next to the guest's own messages", async () => {

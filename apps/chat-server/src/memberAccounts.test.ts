@@ -98,6 +98,10 @@ vi.mock("./payloadClient.js", async (importOriginal) => {
         throw new original.PayloadError("taken", 400, "nicknameKey");
       }
 
+      if (taken.some((user) => user.displayNameKey === data.displayNameKey)) {
+        throw new original.PayloadError("taken", 400, "displayNameKey");
+      }
+
       if (taken.some((user) => identityOf(user) === identityOf(data))) {
         throw new original.PayloadError("taken", 400, "identity");
       }
@@ -124,6 +128,13 @@ const { safeReturnPath } = await import("./accounts.js");
 const servers: http.Server[] = [];
 const onAccountRemoved = vi.fn();
 let base = "";
+// What an account needs to be made besides the ticket: a username, the name the chat shows, and a picture.
+const PICTURE = "lorelei:abc12345";
+const details = (username = "alice", nickname = "Alice") => ({
+  username,
+  nickname,
+  picture: PICTURE,
+});
 
 async function start(options: Parameters<typeof createApp>[0] = {}) {
   const server = http.createServer(
@@ -310,13 +321,15 @@ describe("signing in for the first time", () => {
     expect(accounts.users.size).toBe(0);
   });
 
-  it("makes the account with the nickname, the avatar and the age, and signs it in", async () => {
+  it("makes the account with the username, the display name, the picture, the avatar and the age, and signs it in", async () => {
     await start();
     const ticket = (await signInAs("alice")).get("ticket");
 
     const res = await post("/auth/register", {
       ticket,
-      nickname: " Alice ",
+      username: " alice_w ",
+      nickname: "  Alice    Wonder ",
+      picture: PICTURE,
       avatar: "female",
       age: 30,
     });
@@ -328,7 +341,9 @@ describe("signing in for the first time", () => {
 
     expect(res.status).toBe(200);
     expect(body.profile).toEqual({
-      nickname: "Alice",
+      nickname: "Alice Wonder",
+      username: "alice_w",
+      picture: PICTURE,
       avatar: "female",
       age: 30,
     });
@@ -338,14 +353,18 @@ describe("signing in for the first time", () => {
         provider: "dev",
         providerUserId: "dev-alice",
         email: "alice@dev.test",
-        nickname: "Alice",
-        nicknameKey: "alice",
+        nickname: "alice_w",
+        nicknameKey: "alicew",
+        displayName: "Alice Wonder",
+        displayNameKey: "alicewonder",
+        picture: PICTURE,
         avatar: "female",
         age: 30,
       }),
     ]);
-    // The nickname is theirs from now on.
-    expect(accounts.names.get("alice")).toBe(1);
+    // Both names are theirs from now on.
+    expect(accounts.names.get("alicew")).toBe(1);
+    expect(accounts.names.get("alicewonder")).toBe(1);
 
     const me = await get("/me", { Authorization: `Bearer ${body.token}` });
     expect(me.status).toBe(200);
@@ -355,19 +374,24 @@ describe("signing in for the first time", () => {
     await start();
     const ticket = (await signInAs("bob")).get("ticket");
 
-    const res = await post("/auth/register", { ticket, nickname: "Bob" });
+    const res = await post("/auth/register", {
+      ticket,
+      ...details("bob", "Bob"),
+    });
 
     expect(((await res.json()) as { profile: unknown }).profile).toEqual({
       nickname: "Bob",
+      username: "bob",
+      picture: PICTURE,
       avatar: "other",
     });
   });
 
-  it("signs in the same person again with a token, without asking for a nickname", async () => {
+  it("signs in the same person again with a token, without asking for a name", async () => {
     await start();
     await post("/auth/register", {
       ticket: (await signInAs("alice")).get("ticket"),
-      nickname: "Alice",
+      ...details(),
     });
 
     const outcome = await signInAs("alice");
@@ -381,8 +405,11 @@ describe("signing in for the first time", () => {
     await start();
     const ticket = (await signInAs("alice")).get("ticket");
 
-    const first = await post("/auth/register", { ticket, nickname: "Alice" });
-    const second = await post("/auth/register", { ticket, nickname: "Alicia" });
+    const first = await post("/auth/register", { ticket, ...details() });
+    const second = await post("/auth/register", {
+      ticket,
+      ...details("alicia", "Alicia"),
+    });
 
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
@@ -440,7 +467,12 @@ describe("a sign-in that does not go through", () => {
 describe("making the account", () => {
   async function register(body: Record<string, unknown>, who = "alice") {
     const ticket = (await signInAs(who)).get("ticket");
-    return post("/auth/register", { ticket, ...body });
+    // Left out is how a test says it wants the field gone.
+    const made = {
+      ...details(who, who[0]!.toUpperCase() + who.slice(1)),
+      ...body,
+    };
+    return post("/auth/register", { ticket, ...made });
   }
 
   it("refuses a ticket that was not signed here", async () => {
@@ -448,7 +480,7 @@ describe("making the account", () => {
 
     const res = await post("/auth/register", {
       ticket: "eyJ9.abc",
-      nickname: "Alice",
+      ...details(),
     });
 
     expect(res.status).toBe(401);
@@ -462,13 +494,16 @@ describe("making the account", () => {
       { secret: testEnv.AUTH_TOKEN_SECRET, ttlMs: 60_000 },
     );
 
-    const res = await post("/auth/register", { ticket: token, nickname: "Al" });
+    const res = await post("/auth/register", {
+      ticket: token,
+      ...details("al", "Al"),
+    });
 
     expect(res.status).toBe(401);
   });
 
   it.each(["", "A", "a".repeat(40), "bad<name>", 42, null])(
-    "refuses the nickname %j",
+    "refuses the display name %j",
     async (nickname) => {
       await start();
 
@@ -480,16 +515,44 @@ describe("making the account", () => {
     },
   );
 
+  it.each(["", "A", "a".repeat(40), "has space", "bad<name>", 42, null])(
+    "refuses the username %j",
+    async (username) => {
+      await start();
+
+      const res = await register({ username });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "invalid_username" });
+      expect(accounts.users.size).toBe(0);
+    },
+  );
+
+  it.each([
+    ["none", undefined],
+    ["a style that is not offered", "robot:abc12345"],
+    ["a seed that is not one", "lorelei:../etc"],
+    ["something else", 42],
+  ])("refuses %s as the picture", async (_name, picture) => {
+    await start();
+
+    const res = await register({ picture });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "invalid_profile" });
+    expect(accounts.users.size).toBe(0);
+  });
+
   it.each([17, 100, 20.5, "30", true])("refuses the age %j", async (age) => {
     await start();
 
-    const res = await register({ nickname: "Alice", age });
+    const res = await register({ age });
 
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "invalid_profile" });
   });
 
-  it("refuses a name that is a moderator's, or that claims to be staff", async () => {
+  it("refuses a display name that is a moderator's, or that claims to be staff", async () => {
     await start();
 
     for (const nickname of ["Ada Mod", "ada_mod", "Support Team"]) {
@@ -500,17 +563,31 @@ describe("making the account", () => {
     }
   });
 
-  it("refuses a nickname that another account has, however it is written", async () => {
+  it("refuses a username that is a moderator's, or that claims to be staff", async () => {
     await start();
-    await register({ nickname: "Alice" });
 
-    const res = await register({ nickname: "a.l.i.c.e" }, "carol");
+    for (const username of ["Ada_Mod", "ada.mod", "Support_Team"]) {
+      const res = await register({ username });
 
-    expect(res.status).toBe(409);
-    expect(await res.json()).toEqual({ error: "reserved_nickname" });
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: "reserved_username" });
+    }
   });
 
-  it("answers 409 too when the nickname was taken between the check and the account", async () => {
+  it("refuses a name that another account has, as a username or a display name, however it is written", async () => {
+    await start();
+    await register({});
+
+    const asUsername = await register({ username: "a.l.i.c.e" }, "carol");
+    const asDisplayName = await register({ nickname: "A L I C E" }, "dave");
+
+    expect(asUsername.status).toBe(409);
+    expect(await asUsername.json()).toEqual({ error: "reserved_username" });
+    expect(asDisplayName.status).toBe(409);
+    expect(await asDisplayName.json()).toEqual({ error: "reserved_nickname" });
+  });
+
+  it("answers 409 too when a name was taken between the check and the account", async () => {
     await start();
     accounts.users.set(99, {
       id: 99,
@@ -518,11 +595,16 @@ describe("making the account", () => {
       providerUserId: "other",
       nickname: "Zed",
       nicknameKey: "zed",
+      displayNameKey: "zedd",
     });
 
-    const res = await register({ nickname: "Zed" });
+    const asUsername = await register({ username: "Zed" });
+    const asDisplayName = await register({ nickname: "Zedd" }, "erin");
 
-    expect(res.status).toBe(409);
+    expect(asUsername.status).toBe(409);
+    expect(await asUsername.json()).toEqual({ error: "reserved_username" });
+    expect(asDisplayName.status).toBe(409);
+    expect(await asDisplayName.json()).toEqual({ error: "reserved_nickname" });
   });
 });
 
@@ -531,7 +613,7 @@ describe("the account's own data", () => {
     const ticket = (await signInAs("alice")).get("ticket");
     const res = await post("/auth/register", {
       ticket,
-      nickname: "Alice",
+      ...details(),
       avatar: "trans",
     });
 
@@ -552,7 +634,12 @@ describe("the account's own data", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(body.profile).toEqual({ nickname: "Alice", avatar: "trans" });
+    expect(body.profile).toEqual({
+      nickname: "Alice",
+      username: "alice",
+      picture: PICTURE,
+      avatar: "trans",
+    });
     expect(body.provider).toBe("dev");
     expect(body.token).toBeTruthy();
     expect(body.expiresAt).toBeGreaterThan(Date.now() + 29 * 86_400_000);

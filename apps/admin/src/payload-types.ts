@@ -248,11 +248,26 @@ export interface User {
    */
   email?: string | null;
   emailVerified?: boolean | null;
+  /**
+   * The username: no spaces, never shown in the chat.
+   */
   nickname: string;
   /**
-   * The nickname without case, spaces and punctuation: what makes it taken. Kept up to date by the chat-server.
+   * The username without case and punctuation: what makes it taken. Kept up to date by the chat-server.
    */
   nicknameKey: string;
+  /**
+   * The name the chat shows. Empty for an account made before display names, which then shows the username.
+   */
+  displayName?: string | null;
+  /**
+   * The display name without case, spaces and punctuation: what makes it taken. Kept up to date by the chat-server.
+   */
+  displayNameKey?: string | null;
+  /**
+   * The picture the account is shown by: a style and a seed, like lorelei:k3j9x2ab. Drawn by the web client.
+   */
+  picture?: string | null;
   avatar: 'male' | 'female' | 'trans' | 'other';
   age?: number | null;
   lastLoginAt?: string | null;
@@ -427,6 +442,9 @@ export interface UsersSelect<T extends boolean = true> {
   emailVerified?: T;
   nickname?: T;
   nicknameKey?: T;
+  displayName?: T;
+  displayNameKey?: T;
+  picture?: T;
   avatar?: T;
   age?: T;
   lastLoginAt?: T;

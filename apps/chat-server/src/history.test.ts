@@ -167,6 +167,18 @@ describe("getHistory", () => {
     ]);
   });
 
+  it("keeps the author's picture, and shows a message whose picture it does not know without one", async () => {
+    redis.lrange.mockResolvedValue([
+      JSON.stringify({ ...stored(1), picture: "lorelei:abc12345" }),
+      JSON.stringify({ ...stored(2), picture: "robot:abc12345" }),
+    ]);
+
+    expect(await getHistory("general")).toEqual([
+      { ...message(1), picture: "lorelei:abc12345" },
+      message(2),
+    ]);
+  });
+
   // An avatar is decoration, so one that is missing (an older version) or not known still shows the message.
   it.each([
     ["without one", undefined],

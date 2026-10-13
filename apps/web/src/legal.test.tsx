@@ -365,17 +365,29 @@ describe("joining as a guest", () => {
     expect(loadTermsAccepted("v2")).toBe(false);
   });
 
-  it("only reminds a browser that has accepted this version already", async () => {
+  it("shows the box ticked for a browser that has accepted this version already", async () => {
     saveTermsAccepted("v1");
     const { user } = await openNicknameDialog();
 
-    expect(screen.queryByRole("checkbox")).toBeNull();
-    expect(
-      screen.getByText(/By continuing you confirm that you are 18 or older/),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toBeChecked();
 
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("button", { name: "Your profile: Alice" });
+  });
+
+  it("does not let that browser in once it unticks the box", async () => {
+    saveTermsAccepted("v1");
+    const { user, server } = await openNicknameDialog();
+
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(
+      await screen.findByText(
+        "To continue you need to be 18 or older and accept the terms.",
+      ),
+    ).toBeInTheDocument();
+    expect(server.sockets).toHaveLength(0);
   });
 
   it("asks again when the terms have changed since", async () => {
@@ -390,7 +402,7 @@ describe("joining as a guest", () => {
     saveTermsAccepted("an-older-version");
     await openNicknameDialog();
 
-    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.getByRole("checkbox")).toBeChecked();
   });
 
   it("is worded in the guest's language", async () => {

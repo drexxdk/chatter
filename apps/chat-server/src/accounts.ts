@@ -3,9 +3,9 @@ import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 
 import { parseAge } from "./age.js";
-import { parseAvatar } from "./avatars.js";
+import { parseAvatar, parsePicture } from "./avatars.js";
 import { env } from "./env.js";
-import { validateNickname } from "./identity.js";
+import { validateNickname, validateUsername } from "./identity.js";
 import { log } from "./log.js";
 import { claimMemberName, isMemberName, releaseMemberName } from "./members.js";
 import {
@@ -43,7 +43,10 @@ const MAX_RETURN_PATH_LENGTH = 200;
 
 const registerBodySchema = z.object({
   ticket: z.string().min(1).max(2000),
-  nickname: z.unknown(),
+  // The username (no spaces, kept private), and the name the chat shows.
+  username: z.unknown().optional(),
+  nickname: z.unknown().optional(),
+  picture: z.unknown().optional(),
   avatar: z.unknown().optional(),
   age: z.unknown().optional(),
 });
@@ -64,31 +67,38 @@ export function safeReturnPath(value: unknown): string {
   return value;
 }
 
+// What the browser is told about an account: `nickname` is the name the chat shows, `username` the handle that is theirs.
 export function profileOf(user: UserRecord) {
   return {
-    nickname: user.nickname,
+    nickname: user.displayName,
+    username: user.nickname,
+    ...(user.picture === undefined ? {} : { picture: user.picture }),
     avatar: user.avatar,
     ...(user.age === undefined ? {} : { age: user.age }),
   };
 }
 
-// The nicknames nobody may take: a moderator's, one that claims to be staff, and one an account has.
-async function nicknameRefusal(
-  raw: unknown,
-  exceptUserId?: number,
-): Promise<"invalid_nickname" | "reserved_nickname" | undefined> {
-  const nickname = validateNickname(raw);
-
-  if (!nickname) return "invalid_nickname";
+// The names nobody may take: a moderator's, one that claims to be staff, and one an account has. A name that is not
+// valid (null) is refused as such.
+async function nameRefusal(
+  name: string | null,
+): Promise<"invalid" | "reserved" | undefined> {
+  if (!name) return "invalid";
 
   if (
-    isReservedNickname(nickname, await getModeratorNames()) ||
-    (await isMemberName(nickname, exceptUserId))
+    isReservedNickname(name, await getModeratorNames()) ||
+    (await isMemberName(name))
   ) {
-    return "reserved_nickname";
+    return "reserved";
   }
 
   return undefined;
+}
+
+// Both names are the account's, so neither the chat nor another account can take them.
+async function claimNames(user: UserRecord): Promise<void> {
+  await claimMemberName(user.id, user.nickname).catch(() => undefined);
+  await claimMemberName(user.id, user.displayName).catch(() => undefined);
 }
 
 export function createAccountsRouter(options: {
@@ -230,8 +240,8 @@ export function createAccountsRouter(options: {
         await updateUser(user.id, {
           lastLoginAt: new Date().toISOString(),
         }).catch((error) => log.error("Failed to note the sign-in", error));
-        // A name the cache has lost is given back to its owner.
-        await claimMemberName(user.id, user.nickname).catch(() => undefined);
+        // The names the cache has lost are given back to their owner.
+        await claimNames(user);
 
         return back({ token: tokenFor(user) }, state.returnPath);
       }
@@ -293,15 +303,28 @@ export function createAccountsRouter(options: {
       }
 
       try {
-        const refusal = await nicknameRefusal(body.data.nickname);
+        const username = validateUsername(body.data.username);
+        const usernameRefusal = await nameRefusal(username);
 
-        if (refusal) {
+        if (usernameRefusal) {
           return res
-            .status(refusal === "invalid_nickname" ? 400 : 409)
-            .json({ error: refusal });
+            .status(usernameRefusal === "invalid" ? 400 : 409)
+            .json({ error: `${usernameRefusal}_username` });
         }
 
-        const nickname = validateNickname(body.data.nickname) as string;
+        const displayName = validateNickname(body.data.nickname);
+        const displayRefusal = await nameRefusal(displayName);
+
+        if (displayRefusal) {
+          return res
+            .status(displayRefusal === "invalid" ? 400 : 409)
+            .json({ error: `${displayRefusal}_nickname` });
+        }
+
+        const picture = parsePicture(body.data.picture);
+
+        if (!picture) return res.status(400).json({ error: "invalid_profile" });
+
         const identity = `${ticket.provider}:${ticket.providerUserId}`;
         let user: UserRecord | undefined;
 
@@ -311,13 +334,20 @@ export function createAccountsRouter(options: {
             providerUserId: ticket.providerUserId,
             email: ticket.email,
             emailVerified: ticket.emailVerified,
-            nickname,
-            nicknameKey: normalizeName(nickname),
+            nickname: username as string,
+            nicknameKey: normalizeName(username as string),
+            displayName: displayName as string,
+            displayNameKey: normalizeName(displayName as string),
+            picture,
             avatar: parseAvatar(body.data.avatar),
             age,
           });
         } catch (error) {
           if (isTaken(error, "nicknameKey")) {
+            return res.status(409).json({ error: "reserved_username" });
+          }
+
+          if (isTaken(error, "displayNameKey")) {
             return res.status(409).json({ error: "reserved_nickname" });
           }
 
@@ -328,7 +358,7 @@ export function createAccountsRouter(options: {
           if (!user) throw error;
         }
 
-        await claimMemberName(user.id, user.nickname).catch(() => undefined);
+        await claimNames(user);
 
         res.json({
           token: tokenFor(user),
@@ -367,6 +397,7 @@ export function createAccountsRouter(options: {
     try {
       await deleteUser(user.id);
       await releaseMemberName(user.id, user.nickname).catch(() => undefined);
+      await releaseMemberName(user.id, user.displayName).catch(() => undefined);
       await Promise.resolve(options.onAccountRemoved?.(user.id)).catch(
         (error) => log.error("Failed to cut off a deleted account", error),
       );

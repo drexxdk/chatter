@@ -9,7 +9,13 @@ import { loadSession, saveSession } from "./session";
 const SESSION = {
   token: "member-token",
   provider: "google",
-  profile: { nickname: "Alice", avatar: "female", age: 30 },
+  profile: {
+    nickname: "Alice",
+    username: "alice_w",
+    picture: "lorelei:abc12345",
+    avatar: "female",
+    age: 30,
+  },
   expiresAt: Date.now() + 30 * 86_400_000,
 };
 
@@ -151,6 +157,8 @@ describe("the page the providers send the browser back to", () => {
         token: "member-token",
         provider: "google",
         nickname: "Alice",
+        username: "alice_w",
+        picture: "lorelei:abc12345",
         avatar: "female",
         age: 30,
       });
@@ -189,10 +197,11 @@ describe("the page the providers send the browser back to", () => {
   });
 
   describe("for a guest who connects a provider", () => {
-    it("makes the account with the nickname, avatar and age they had, and goes on without asking anything", async () => {
+    it("starts from who they were, and asks for the rest", async () => {
       const navigate = vi.fn();
       const fetchMock = stubServer({ "POST /auth/register": registered });
-      saveSession({ nickname: "Alice", avatar: "female", age: 30 });
+      saveSession({ nickname: "Alice Guest", avatar: "female", age: 30 });
+      const user = userEvent.setup();
 
       render(
         <AuthCallback
@@ -201,44 +210,30 @@ describe("the page the providers send the browser back to", () => {
         />,
       );
 
+      expect(await screen.findByLabelText(/Display name/)).toHaveValue(
+        "Alice Guest",
+      );
+      expect(screen.getByLabelText(/Username/)).toHaveValue("AliceGuest");
+      expect(screen.getByLabelText("Age")).toHaveValue("30");
+      expect(screen.getByRole("radio", { name: "Female" })).toBeChecked();
+      expect(navigate).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole("button", { name: "Create account" }));
+
       await waitFor(() =>
         expect(navigate).toHaveBeenCalledWith("/rooms/general"),
       );
-      expect(bodyOfCall(fetchMock, "/auth/register")).toEqual({
+      expect(bodyOfCall(fetchMock, "/auth/register")).toMatchObject({
         ticket: "t1",
-        nickname: "Alice",
+        username: "AliceGuest",
+        nickname: "Alice Guest",
         avatar: "female",
         age: 30,
       });
-      expect(loadAccount()).toMatchObject({ nickname: "Alice" });
       expect(loadSession()).toEqual({
         nickname: "Alice",
         token: "member-token",
       });
-    });
-
-    it("lets them choose another nickname when theirs is somebody else's now", async () => {
-      const navigate = vi.fn();
-      stubServer({
-        "POST /auth/register": () => ({
-          status: 409,
-          body: { error: "reserved_nickname" },
-        }),
-      });
-      saveSession({ nickname: "Taken" });
-
-      render(
-        <AuthCallback
-          hash="#provider=google&ticket=t1&return=%2F"
-          navigate={navigate}
-        />,
-      );
-
-      expect(await screen.findByRole("alert")).toHaveTextContent(
-        "That nickname is reserved",
-      );
-      expect(screen.getByLabelText(/Nickname/)).toBeInTheDocument();
-      expect(navigate).not.toHaveBeenCalled();
     });
 
     it("says so when the ticket has run out", async () => {
@@ -249,12 +244,16 @@ describe("the page the providers send the browser back to", () => {
         }),
       });
       saveSession({ nickname: "Alice" });
+      const user = userEvent.setup();
 
       render(
         <AuthCallback
           hash="#provider=google&ticket=old&return=%2F"
           navigate={vi.fn()}
         />,
+      );
+      await user.click(
+        await screen.findByRole("button", { name: "Create account" }),
       );
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -263,7 +262,7 @@ describe("the page the providers send the browser back to", () => {
     });
   });
 
-  describe("for somebody new, who chooses a nickname", () => {
+  describe("for somebody new, who chooses who to be", () => {
     beforeEach(() => {
       localStorage.removeItem("chatter.terms");
     });
@@ -278,7 +277,12 @@ describe("the page the providers send the browser back to", () => {
       return { navigate, fetchMock, user: userEvent.setup() };
     };
 
-    it("is asked who they want to be, with the name from the provider to start from", async () => {
+    const pictures = () =>
+      screen.getAllByRole("radio", {
+        name: /^Avatar \d$/,
+      }) as HTMLInputElement[];
+
+    it("is asked for a username, a display name and an avatar, with the name from the provider to start from", async () => {
       open();
 
       expect(
@@ -287,21 +291,63 @@ describe("the page the providers send the browser back to", () => {
       expect(
         screen.getByText(/Google has confirmed who you are/),
       ).toBeInTheDocument();
-      expect(screen.getByLabelText(/Nickname/)).toHaveValue("Alice Provider");
+      expect(screen.getByLabelText(/Display name/)).toHaveValue(
+        "Alice Provider",
+      );
+      expect(screen.getByLabelText(/Username/)).toHaveValue("AliceProvider");
       expect(
         screen.getByRole("radio", { name: "Not specified" }),
       ).toBeChecked();
     });
 
+    it("has an avatar chosen already, at random, so that one is always there", async () => {
+      open();
+      await screen.findByLabelText(/Display name/);
+
+      const options = pictures();
+
+      expect(options).toHaveLength(8);
+      expect(options.filter((option) => option.checked)).toHaveLength(1);
+      expect(options[0]?.value).toMatch(
+        /^(lorelei|pixel-art|critters|thumbs):[a-z0-9]{10}$/,
+      );
+    });
+
+    it("brings other avatars to choose from, and keeps the chosen one", async () => {
+      const { user } = open();
+      await screen.findByLabelText(/Display name/);
+      const before = pictures().map((option) => option.value);
+      const chosen = before[0];
+
+      await user.click(
+        screen.getByRole("button", { name: "Show other avatars" }),
+      );
+
+      const after = pictures().map((option) => option.value);
+      expect(after[0]).toBe(chosen);
+      expect(after.slice(1)).not.toEqual(before.slice(1));
+      expect(pictures()[0]).toBeChecked();
+    });
+
     it("starts empty when the name from the provider is not one that is allowed", async () => {
       open("#provider=google&ticket=t1&name=%3Cscript%3E&return=%2F");
 
-      expect(await screen.findByLabelText(/Nickname/)).toHaveValue("");
+      expect(await screen.findByLabelText(/Display name/)).toHaveValue("");
+      expect(screen.getByLabelText(/Username/)).toHaveValue("");
+    });
+
+    it("does not let a space into the username", async () => {
+      const { user } = open("#provider=google&ticket=t1&return=%2F");
+      const username = await screen.findByLabelText(/Username/);
+
+      await user.type(username, "alice w x");
+
+      expect(username).toHaveValue("alicewx");
     });
 
     it("needs the terms accepted first, and says why", async () => {
       const { user, navigate } = open();
-      await screen.findByLabelText(/Nickname/);
+      await screen.findByLabelText(/Display name/);
 
       await user.click(screen.getByRole("button", { name: "Create account" }));
 
@@ -313,23 +359,31 @@ describe("the page the providers send the browser back to", () => {
       expect(navigate).not.toHaveBeenCalled();
     });
 
-    it("needs a valid nickname", async () => {
+    it("needs a valid username and a valid display name", async () => {
       const { user, navigate } = open("#provider=google&ticket=t1&return=%2F");
       await user.click(await screen.findByRole("checkbox"));
 
       await user.click(screen.getByRole("button", { name: "Create account" }));
 
-      expect(screen.getByLabelText(/Nickname/)).toBeInvalid();
+      expect(screen.getByLabelText(/Username/)).toBeInvalid();
+      expect(screen.getByLabelText(/Display name/)).toBeInvalid();
       expect(navigate).not.toHaveBeenCalled();
     });
 
-    it("makes the account with what they chose, remembers the terms, and goes on", async () => {
+    it("makes the account with what they chose, tidies the display name, remembers the terms, and goes on", async () => {
       const { user, navigate, fetchMock } = open();
-      const nickname = await screen.findByLabelText(/Nickname/);
-      await user.clear(nickname);
-      await user.type(nickname, "Alice");
+      const username = await screen.findByLabelText(/Username/);
+      await user.clear(username);
+      await user.type(username, "alice_w");
+      const displayName = screen.getByLabelText(/Display name/);
+      await user.clear(displayName);
+      await user.type(displayName, "  Alice    Wonder ");
       await user.type(screen.getByLabelText("Age"), "30");
       await user.click(screen.getByRole("radio", { name: "Female" }));
+      await user.click(screen.getByRole("radio", { name: "Avatar 2" }));
+      const chosen = (
+        screen.getByRole("radio", { name: "Avatar 2" }) as HTMLInputElement
+      ).value;
       await user.click(screen.getByRole("checkbox"));
 
       await user.click(screen.getByRole("button", { name: "Create account" }));
@@ -339,7 +393,9 @@ describe("the page the providers send the browser back to", () => {
       );
       expect(bodyOfCall(fetchMock, "/auth/register")).toEqual({
         ticket: "t1",
-        nickname: "Alice",
+        username: "alice_w",
+        nickname: "Alice Wonder",
+        picture: chosen,
         avatar: "female",
         age: 30,
       });
@@ -347,40 +403,44 @@ describe("the page the providers send the browser back to", () => {
       expect(localStorage.getItem("chatter.terms")).not.toBeNull();
     });
 
-    it("is told when the nickname is taken, and can choose another", async () => {
-      const navigate = vi.fn();
-      stubServer({
-        "POST /auth/register": () => ({
-          status: 409,
-          body: { error: "reserved_nickname" },
-        }),
-      });
-      render(
-        <AuthCallback
-          hash="#provider=google&ticket=t1&name=Alice&return=%2F"
-          navigate={navigate}
-        />,
-      );
-      const user = userEvent.setup();
-      await user.click(await screen.findByRole("checkbox"));
+    it.each([
+      ["reserved_username", "That username is taken or reserved"],
+      ["reserved_nickname", "That nickname is reserved"],
+      ["invalid_username", "That username isn't allowed"],
+    ])(
+      "is told when the server says %s, and can choose another",
+      async (code, text) => {
+        const navigate = vi.fn();
+        stubServer({
+          "POST /auth/register": () => ({ status: 409, body: { error: code } }),
+        });
+        render(
+          <AuthCallback
+            hash="#provider=google&ticket=t1&name=Alice&return=%2F"
+            navigate={navigate}
+          />,
+        );
+        const user = userEvent.setup();
+        await user.click(await screen.findByRole("checkbox"));
 
-      await user.click(screen.getByRole("button", { name: "Create account" }));
+        await user.click(
+          screen.getByRole("button", { name: "Create account" }),
+        );
 
-      expect(await screen.findByRole("alert")).toHaveTextContent(
-        "That nickname is reserved",
-      );
-      expect(
-        screen.getByRole("button", { name: "Create account" }),
-      ).toBeEnabled();
-      expect(navigate).not.toHaveBeenCalled();
-    });
+        expect(await screen.findByRole("alert")).toHaveTextContent(text);
+        expect(
+          screen.getByRole("button", { name: "Create account" }),
+        ).toBeEnabled();
+        expect(navigate).not.toHaveBeenCalled();
+      },
+    );
 
-    it("only reminds somebody who has accepted the terms already", async () => {
+    it("shows the terms box ticked for somebody who has accepted them already", async () => {
       localStorage.setItem("chatter.terms", "unknown");
       const { user, navigate } = open();
 
-      await screen.findByLabelText(/Nickname/);
-      expect(screen.queryByRole("checkbox")).toBeNull();
+      await screen.findByLabelText(/Display name/);
+      expect(screen.getByRole("checkbox")).toBeChecked();
 
       await user.click(screen.getByRole("button", { name: "Create account" }));
 

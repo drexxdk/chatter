@@ -7,7 +7,7 @@ import { splitGif } from "../chat/gifs";
 import type { Reaction } from "../chat/reactions";
 import type { Role } from "../chat/useChat";
 import { NAV_STOP_CLASS, navStop } from "../rowNavigation";
-import { AvatarIcon } from "./Avatar";
+import { AvatarIcon, GenderMark } from "./Avatar";
 import { BlockedTag } from "./DirectLists";
 import { GifImage } from "./GifImage";
 import { MessageEntry, type ReactionOptions } from "./MessageEntry";
@@ -34,6 +34,7 @@ export function MessageGroup({
   nickname,
   role,
   avatar,
+  picture,
   messages,
   blocked = false,
   gone = false,
@@ -51,6 +52,8 @@ export function MessageGroup({
   nickname: string;
   role: Role;
   avatar: Avatar;
+  // The picture of an account, shown where a guest has their avatar's symbol (which then goes beside the name).
+  picture?: string;
   messages: GroupMessage[];
   blocked?: boolean;
   // They have left the room; their messages stay, with a note and a dimmed avatar.
@@ -85,7 +88,7 @@ export function MessageGroup({
         }
       : undefined;
 
-  const picture = (url: string) =>
+  const gifBubble = (url: string) =>
     direct ? (
       <div className="rounded-2xl border border-dashed border-amber-400/60 bg-amber-400/10 p-1">
         <GifImage url={url} />
@@ -122,7 +125,7 @@ export function MessageGroup({
     const { text, gif } = splitGif(message.text);
 
     if (!gif) return words(message.text);
-    if (!text) return picture(gif);
+    if (!text) return gifBubble(gif);
 
     return (
       <div
@@ -132,7 +135,7 @@ export function MessageGroup({
         )}
       >
         {words(text)}
-        {picture(gif)}
+        {gifBubble(gif)}
       </div>
     );
   };
@@ -150,7 +153,7 @@ export function MessageGroup({
           onClick={clickPerson}
           className={clsx("flex shrink-0", clickPerson && "cursor-pointer")}
         >
-          <AvatarIcon avatar={avatar} dimmed={gone} />
+          <AvatarIcon avatar={avatar} picture={picture} dimmed={gone} />
         </span>
       )}
       <div
@@ -174,6 +177,9 @@ export function MessageGroup({
             >
               {direct ? direct.label : nickname}
             </span>
+          )}
+          {(!mine || direct) && (
+            <GenderMark avatar={avatar} picture={picture} />
           )}
           {blocked && <BlockedTag />}
           {!direct && moderator && (

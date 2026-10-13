@@ -101,6 +101,23 @@ describe("keeping the list right", () => {
     expect(await isMemberName("Gone")).toBe(false);
   });
 
+  it("keeps the display names too, for the same account", async () => {
+    vi.useFakeTimers();
+    fetchUserNames.mockResolvedValue([
+      { id: 1, nicknameKey: "alicea", displayNameKey: "alicewonder" },
+      { id: 2, nicknameKey: "bob" },
+    ]);
+
+    const timer = startMemberNamesSync();
+    await vi.advanceTimersByTimeAsync(0);
+    clearInterval(timer);
+
+    expect(await isMemberName("Alice Wonder")).toBe(true);
+    expect(await isMemberName("Alice Wonder", 1)).toBe(false);
+    expect(await isMemberName("alice_a")).toBe(true);
+    expect(await isMemberName("Bob")).toBe(true);
+  });
+
   it("empties it when there are no accounts", async () => {
     vi.useFakeTimers();
     await claimMemberName(9, "Gone");

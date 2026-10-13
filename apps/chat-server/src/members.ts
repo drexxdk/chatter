@@ -4,7 +4,8 @@ import { normalizeName } from "./names.js";
 import { fetchUserNames } from "./payloadClient.js";
 import { redis } from "./redis.js";
 
-// The nicknames of the accounts, which nobody else may take: a hash from the normalized name to the account's id, so a
+// The names of the accounts, which nobody else may take (an account's username and its display name): a hash from the
+// normalized name to the account's id, so a
 // guest's handshake is one Redis call and the owner of a name is not mistaken for somebody else. The chat-server is the
 // only one that makes or renames accounts, so it keeps the hash up to date itself; the sync only heals it (an account
 // removed in the admin, a Redis that was emptied).
@@ -57,7 +58,13 @@ async function syncMemberNames(): Promise<void> {
   for (let start = 0; start < names.length; start += 500) {
     const chunk = names
       .slice(start, start + 500)
-      .flatMap((name) => [name.nicknameKey, String(name.id)]);
+      .flatMap((name) => [
+        [name.nicknameKey, String(name.id)],
+        ...(name.displayNameKey
+          ? [[name.displayNameKey, String(name.id)]]
+          : []),
+      ])
+      .flat();
 
     await redis.hset(fresh, ...chunk);
   }

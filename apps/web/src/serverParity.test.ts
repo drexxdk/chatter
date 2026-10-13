@@ -4,16 +4,22 @@ import {
   MAX_AGE as SERVER_MAX_AGE,
   MIN_AGE as SERVER_MIN_AGE,
 } from "../../chat-server/src/age";
-import { AVATARS as SERVER_AVATARS } from "../../chat-server/src/avatars";
+import {
+  AVATARS as SERVER_AVATARS,
+  PICTURE_PATTERN as SERVER_PICTURE_PATTERN,
+  PICTURE_STYLES as SERVER_PICTURE_STYLES,
+} from "../../chat-server/src/avatars";
 import {
   MAX_MESSAGE_LENGTH as SERVER_MAX_MESSAGE_LENGTH,
   NICKNAME_PATTERN as SERVER_NICKNAME_PATTERN,
+  USERNAME_PATTERN as SERVER_USERNAME_PATTERN,
 } from "../../chat-server/src/limits";
 import { REACTION_EMOJIS as SERVER_REACTION_EMOJIS } from "../../chat-server/src/reactions";
 import { AVATARS } from "./chat/avatar";
 import { MAX_MESSAGE_LENGTH } from "./chat/limits";
+import { PICTURE_PATTERN, PICTURE_STYLES } from "./chat/picture";
 import { REACTION_EMOJIS } from "./chat/reactions";
-import { NICKNAME_PATTERN } from "./nickname";
+import { NICKNAME_PATTERN, USERNAME_PATTERN } from "./nickname";
 import { MAX_AGE, MIN_AGE } from "./profile";
 
 // What the client repeats from the server so as to answer before a round trip. The server decides; these only keep
@@ -26,6 +32,16 @@ describe("what the client mirrors from the chat-server", () => {
   it("allows the same nicknames", () => {
     expect(NICKNAME_PATTERN.source).toBe(SERVER_NICKNAME_PATTERN.source);
     expect(NICKNAME_PATTERN.flags).toBe(SERVER_NICKNAME_PATTERN.flags);
+  });
+
+  it("allows the same usernames", () => {
+    expect(USERNAME_PATTERN.source).toBe(SERVER_USERNAME_PATTERN.source);
+    expect(USERNAME_PATTERN.flags).toBe(SERVER_USERNAME_PATTERN.flags);
+  });
+
+  it("offers the same picture styles, and checks a picture the same way", () => {
+    expect([...PICTURE_STYLES]).toEqual([...SERVER_PICTURE_STYLES]);
+    expect(PICTURE_PATTERN.source).toBe(SERVER_PICTURE_PATTERN.source);
   });
 
   it("allows the same ages", () => {

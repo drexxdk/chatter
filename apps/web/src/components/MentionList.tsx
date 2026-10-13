@@ -44,7 +44,12 @@ export function MentionList({
             index === active ? "bg-neutral-800" : ""
           }`}
         >
-          <AvatarIcon avatar={person.avatar} small titled={false} />
+          <AvatarIcon
+            avatar={person.avatar}
+            picture={person.picture}
+            small
+            titled={false}
+          />
           <span className="truncate">{person.nickname}</span>
         </li>
       ))}

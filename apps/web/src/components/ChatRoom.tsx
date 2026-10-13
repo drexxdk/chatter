@@ -232,6 +232,7 @@ export function ChatRoom({
         nickname: member.nickname,
         role: member.role ?? "guest",
         avatar: member.avatar ?? PLAIN_AVATAR,
+        ...(member.picture ? { picture: member.picture } : {}),
       })),
     ...(replyTo && !replyPresent ? [replyTo] : []),
   ];
@@ -435,6 +436,7 @@ export function ChatRoom({
                         nickname={first.partner.nickname}
                         role={first.partner.role}
                         avatar={first.partner.avatar}
+                        picture={first.partner.picture}
                         blocked={direct.blockedIds.includes(
                           first.partner.guestId,
                         )}
@@ -506,6 +508,9 @@ export function ChatRoom({
                     nickname: first.message.nickname,
                     role: first.message.role ?? "guest",
                     avatar: first.message.avatar ?? PLAIN_AVATAR,
+                    ...(first.message.picture
+                      ? { picture: first.message.picture }
+                      : {}),
                   };
                   const mine = ownGuestIds.includes(author.guestId);
 
@@ -516,6 +521,7 @@ export function ChatRoom({
                       nickname={author.nickname}
                       role={author.role}
                       avatar={author.avatar}
+                      picture={author.picture}
                       blocked={direct.blockedIds.includes(author.guestId)}
                       gone={!mine && hasLeft(author.guestId)}
                       messages={entries.map(({ message }) => ({

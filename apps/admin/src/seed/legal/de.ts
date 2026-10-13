@@ -21,7 +21,7 @@ export const de: LegalTexts = {
       {
         heading: 'Konten',
         paragraphs: [
-          'Du kannst Chatter als Gast nutzen oder ein Konto anlegen, indem du ein Google-, Facebook- oder Discord-Konto verbindest. Ein Konto behält deinen Spitznamen, deinen Avatar und dein Alter, damit du aus jedem Browser als dieselbe Person zurückkommen kannst, und der Spitzname gehört dir allein.',
+          'Du kannst Chatter als Gast nutzen oder ein Konto anlegen, indem du ein Google-, Facebook- oder Discord-Konto verbindest. Ein Konto behält deinen Benutzernamen, deinen Anzeigenamen, deinen Avatar und dein Alter, damit du aus jedem Browser als dieselbe Person zurückkommen kannst, und beide Namen gehören dir allein.',
           'Du bist für das verantwortlich, was unter deinem Konto getan wird. Du kannst es jederzeit in deinem Profil löschen. Wir können ein Konto oder einen Spitznamen entfernen, der gegen diese Bedingungen verstößt oder so aussieht, als gehöre er zum Personal oder zu jemand anderem.',
         ],
       },
@@ -92,7 +92,7 @@ export const de: LegalTexts = {
           'Deine IP-Adresse selbst, solange du verbunden bist. Sie kann auch in den technischen Protokollen des Servers auftauchen (zum Beispiel bei Verbindungsfehlern). Die Protokolle werden automatisch rotiert und nur genutzt, um den Dienst am Laufen zu halten.',
           'Meldungen. Wird eine Nachricht gemeldet, bewahren wir eine Kopie auf (den Text, den Spitznamen, den Hashwert der Adresse des Absenders und die genannten Gründe), höchstens 90 Tage lang, damit sie geprüft werden kann.',
           'Nur für Moderatoren: E-Mail-Adresse, Anzeigename und ein Passwort, das in verfremdeter Form gespeichert wird.',
-          'Konten. Legst du ein Konto an, speichern wir, welchen Dienst du genutzt hast (Google, Facebook oder Discord), deine Kennung dort, die E-Mail-Adresse, die der Dienst uns gibt (falls er eine gibt), deinen Spitznamen, deinen Avatar und dein Alter und wann du dich zuletzt angemeldet hast. Die E-Mail-Adresse wird niemandem angezeigt und nur genutzt, um dich zu deinem Konto zu kontaktieren. Dein Passwort beim Dienst erhalten wir nie.',
+          'Konten. Legst du ein Konto an, speichern wir, welchen Dienst du genutzt hast (Google, Facebook oder Discord), deine Kennung dort, die E-Mail-Adresse, die der Dienst uns gibt (falls er eine gibt), deinen Benutzernamen, deinen Anzeigenamen, deinen Avatar und dein Alter und wann du dich zuletzt angemeldet hast. Die E-Mail-Adresse wird niemandem angezeigt und nur genutzt, um dich zu deinem Konto zu kontaktieren. Dein Passwort beim Dienst erhalten wir nie.',
         ],
       },
       {

@@ -2,7 +2,14 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { DEFAULT_RECONNECT_DELAYS_MS } from "./chat/useChat";
-import { stubRooms, setup, joinRoom, at, message } from "./test/app";
+import {
+  stubRooms,
+  setup,
+  joinRoom,
+  at,
+  message,
+  anyPicture,
+} from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
 beforeEach(() => {
@@ -53,6 +60,8 @@ describe("losing the connection", () => {
       undefined,
       undefined,
       { guestId: "guest-me", secret: "secret-1" },
+      undefined,
+      anyPicture,
     );
     expect(server.latest.emittedEvents("room:join")).toEqual([
       { slug: "general" },

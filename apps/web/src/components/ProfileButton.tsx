@@ -7,10 +7,12 @@ import { AvatarIcon } from "./Avatar";
 export function ProfileButton({
   nickname,
   avatar = PLAIN_AVATAR,
+  picture,
   onClick,
 }: {
   nickname: string;
   avatar?: Avatar;
+  picture?: string;
   onClick: () => void;
 }) {
   const { t } = useTranslation();
@@ -22,7 +24,7 @@ export function ProfileButton({
       aria-label={t("profile.open", { name: nickname })}
       className="flex min-w-0 items-center gap-2 rounded-md p-1.5 text-sm text-neutral-300 outline-none hover:bg-neutral-800 data-focus:outline-2 focus-visible:outline-2 focus-visible:outline-indigo-400"
     >
-      <AvatarIcon avatar={avatar} small titled={false} />
+      <AvatarIcon avatar={avatar} picture={picture} small titled={false} />
       <span aria-hidden="true" className="hidden max-w-32 truncate md:inline">
         {nickname}
       </span>

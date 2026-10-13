@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { avatarSchema } from "./avatars.js";
+import { avatarSchema, pictureSchema } from "./avatars.js";
 import { env } from "./env.js";
 import { redis } from "./redis.js";
 import { MAX_REACTION_KINDS, MAX_REACTORS_PER_EMOJI } from "./reactions.js";
@@ -32,6 +32,8 @@ const storedSchema = z.object({
   // Messages stored before roles existed were all from guests.
   role: chatRoleSchema.default("guest"),
   avatar: avatarSchema.catch("other"),
+  // Only an account's messages have one.
+  picture: pictureSchema.optional().catch(undefined),
   text: z.string(),
   // Absent until somebody reacts.
   reactions: reactionsSchema.optional(),

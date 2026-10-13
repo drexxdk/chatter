@@ -7,7 +7,7 @@ export const Users: CollectionConfig = {
   slug: 'users',
   admin: {
     useAsTitle: 'nickname',
-    defaultColumns: ['nickname', 'provider', 'email', 'lastLoginAt', 'createdAt'],
+    defaultColumns: ['nickname', 'displayName', 'provider', 'email', 'lastLoginAt', 'createdAt'],
     description:
       'People with an account. Created by the chat-server when somebody connects a provider. To remove somebody, delete the entry.',
   },
@@ -44,7 +44,12 @@ export const Users: CollectionConfig = {
       },
     },
     { name: 'emailVerified', type: 'checkbox', defaultValue: false, admin: { readOnly: true } },
-    { name: 'nickname', type: 'text', required: true },
+    {
+      name: 'nickname',
+      type: 'text',
+      required: true,
+      admin: { description: 'The username: no spaces, never shown in the chat.' },
+    },
     {
       name: 'nicknameKey',
       type: 'text',
@@ -53,7 +58,34 @@ export const Users: CollectionConfig = {
       admin: {
         readOnly: true,
         description:
-          'The nickname without case, spaces and punctuation: what makes it taken. Kept up to date by the chat-server.',
+          'The username without case and punctuation: what makes it taken. Kept up to date by the chat-server.',
+      },
+    },
+    {
+      name: 'displayName',
+      type: 'text',
+      admin: {
+        description:
+          'The name the chat shows. Empty for an account made before display names, which then shows the username.',
+      },
+    },
+    {
+      name: 'displayNameKey',
+      type: 'text',
+      unique: true,
+      admin: {
+        readOnly: true,
+        description:
+          'The display name without case, spaces and punctuation: what makes it taken. Kept up to date by the chat-server.',
+      },
+    },
+    {
+      name: 'picture',
+      type: 'text',
+      admin: {
+        readOnly: true,
+        description:
+          'The picture the account is shown by: a style and a seed, like lorelei:k3j9x2ab. Drawn by the web client.',
       },
     },
     {

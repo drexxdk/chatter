@@ -137,6 +137,18 @@ vi.mock("emoji-mart", () => ({
     return element;
   }),
 }));
+// Drawing an account's picture takes a library and the file of a style, which these tests have no use for: a picture is
+// stood in for by an address that names it, at once.
+vi.mock("../chat/pictureImage", () => {
+  const uriOf = (picture: string | undefined) =>
+    picture ? `data:image/svg+xml,${encodeURIComponent(picture)}` : undefined;
+
+  return {
+    drawPicture: vi.fn(async () => {}),
+    pictureUri: uriOf,
+    usePictureUri: uriOf,
+  };
+});
 // Loaded after the storage fallback above because i18n reads localStorage at import time.
 const { default: i18n } = await import("../i18n");
 const { saveTermsAccepted } = await import("../preferences");
