@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -128,7 +128,7 @@ describe("reporting a message", () => {
     expect(await screen.findByText(HIDDEN)).toBeInTheDocument();
     expect(screen.queryByText("rude words")).toBeNull();
     expect(screen.getByText("fine words")).toBeInTheDocument();
-    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("can be cancelled without sending anything", async () => {
@@ -137,7 +137,7 @@ describe("reporting a message", () => {
     const dialog = await openReport(user, "rude words");
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
-    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByText("rude words")).toBeInTheDocument();
     expect(server.latest.emittedEvents("message:report")).toEqual([]);
   });

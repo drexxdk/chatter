@@ -13,10 +13,13 @@ import { Modal } from "./Modal";
 
 // Asks why a message is being reported. The caller closes it once the report went through.
 export function ReportDialog({
+  open,
   nickname,
   onSubmit,
   onCancel,
 }: {
+  // Whether it is shown; it is left in the page while it fades out.
+  open: boolean;
   // Who wrote the message.
   nickname: string;
   onSubmit: (reason: ReportReason) => Promise<ActionResult>;
@@ -40,7 +43,7 @@ export function ReportDialog({
   }
 
   return (
-    <Modal onClose={onCancel} title={t("report.title")}>
+    <Modal open={open} onClose={onCancel} title={t("report.title")}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <p className="text-sm text-neutral-300">
           {t("report.intro", { name: nickname })}

@@ -322,7 +322,10 @@ test("a full room turns the next guest away", async ({ browser }) => {
   await enterRoom(alice, TINY.name, "Alice");
 
   await startJoin(bob, TINY.name, "Bob");
-  await expect(bob.getByRole("alert")).toHaveText("This room is full.");
+  // The dialog that was asking for a nickname is still fading out, with the same error in it.
+  await expect(bob.getByRole("main").getByRole("alert")).toHaveText(
+    "This room is full.",
+  );
   await expect(
     bob.getByRole("heading", { name: "Public rooms" }),
   ).toBeVisible();

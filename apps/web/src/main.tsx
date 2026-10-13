@@ -9,10 +9,12 @@ import "./i18n";
 import "./index.css";
 import { trackInputMode } from "./inputMode";
 import { isAboutPath, isAuthCallbackPath, legalPageFromPath } from "./place";
+import { publishScrollbarWidth } from "./scrollbarWidth";
 import { holdScrollWhilePopups } from "./scrollHold";
 import { keepStickyInView } from "./stickyFocus";
 
 trackInputMode();
+publishScrollbarWidth();
 holdScrollWhilePopups();
 keepStickyInView();
 

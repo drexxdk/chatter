@@ -36,6 +36,7 @@ import { ProfileButton } from "./components/ProfileButton";
 import { ProfileDialog, type ProfileSubject } from "./components/ProfileDialog";
 import { RoomSwitcher } from "./components/RoomSwitcher";
 import { SideDrawer } from "./components/SideDrawer";
+import { ViewTransition } from "./components/ViewTransition";
 import { LOBBY_PATH, roomPath, slugFromPath } from "./place";
 import { useLegal } from "./legal/useLegal";
 import { loadShowMovements, saveShowMovements } from "./preferences";
@@ -49,6 +50,7 @@ import {
   saveDirect,
   saveSession,
 } from "./session";
+import { useKept } from "./useKept";
 import { usePageTitle } from "./usePageTitle";
 
 // The server's answer when somebody else in the room already has the guest's nickname.
@@ -69,6 +71,8 @@ export function App({
   const termsVersion =
     legalState.status === "ready" ? legalState.legal.version : null;
   const [pendingRoom, setPendingRoom] = useState<Room | null>(null);
+  // The room the dialog asks for a nickname for stays for it to fade out.
+  const shownRoom = useKept(pendingRoom);
   const [signInError, setSignInError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -571,38 +575,45 @@ export function App({
             onDismiss={chat.dismissAnnouncement}
           />
         )}
-        {chat.roomSlug && chat.session ? (
-          <ChatRoom
-            key={chat.roomSlug}
-            roomName={currentRoom?.name ?? chat.roomSlug}
-            maxMembers={currentRoom?.maxMembers}
-            session={chat.session}
-            ownGuestIds={chat.ownGuestIds}
-            connected={chat.status === "connected"}
-            members={chat.members}
-            messages={chat.messages}
-            events={chat.roomEvents}
-            showMovements={showMovements}
-            error={chat.error}
-            retryAfterSeconds={chat.retryAfterSeconds}
-            onSend={chat.sendMessage}
-            onReact={chat.react}
-            onReport={chat.reportMessage}
-            onAnnounce={chat.sendAnnouncement}
-            direct={chat.direct}
-            idleDeadline={chat.idleDeadline}
-          />
-        ) : (
-          <div className="space-y-4">
-            {!pendingRoom && <ErrorAlert code={chat.error} />}
-            <Lobby
-              state={roomsState}
-              onRetry={retry}
-              onSelect={(room) => void handleSelect(room)}
+        <ViewTransition
+          viewKey={
+            chat.roomSlug && chat.session ? `room:${chat.roomSlug}` : "lobby"
+          }
+          direction={chat.roomSlug && chat.session ? 1 : -1}
+        >
+          {chat.roomSlug && chat.session ? (
+            <ChatRoom
+              key={chat.roomSlug}
+              roomName={currentRoom?.name ?? chat.roomSlug}
+              maxMembers={currentRoom?.maxMembers}
+              session={chat.session}
+              ownGuestIds={chat.ownGuestIds}
+              connected={chat.status === "connected"}
+              members={chat.members}
+              messages={chat.messages}
+              events={chat.roomEvents}
+              showMovements={showMovements}
+              error={chat.error}
+              retryAfterSeconds={chat.retryAfterSeconds}
+              onSend={chat.sendMessage}
+              onReact={chat.react}
+              onReport={chat.reportMessage}
+              onAnnounce={chat.sendAnnouncement}
+              direct={chat.direct}
+              idleDeadline={chat.idleDeadline}
             />
-            <LegalLinks />
-          </div>
-        )}
+          ) : (
+            <div className="space-y-4">
+              {!pendingRoom && <ErrorAlert code={chat.error} />}
+              <Lobby
+                state={roomsState}
+                onRetry={retry}
+                onSelect={(room) => void handleSelect(room)}
+              />
+              <LegalLinks />
+            </div>
+          )}
+        </ViewTransition>
       </PageFrame>
 
       <SideDrawer
@@ -628,8 +639,9 @@ export function App({
 
       {!account && <AccountDialog open={accountOpen} onClose={closeProfile} />}
 
-      {pendingRoom && (
+      {shownRoom && (
         <NicknameDialog
+          open={pendingRoom !== null}
           connecting={chat.status === "connecting"}
           signingIn={signingIn}
           error={signInError ?? chat.error}
@@ -640,7 +652,7 @@ export function App({
           onModeChange={clearDialogErrors}
           onCancel={handleCancel}
           termsVersion={termsVersion}
-          returnPath={roomPath(pendingRoom.slug)}
+          returnPath={roomPath(shownRoom.slug)}
         />
       )}
     </>

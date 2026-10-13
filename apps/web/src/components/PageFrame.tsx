@@ -35,7 +35,7 @@ export function PageFrame({
       </HeaderFrame>
 
       <main
-        className={`mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-(--page-gutter) pt-4 ${flush ? "" : "pb-8"}`}
+        className={`relative mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 overflow-x-clip px-(--page-gutter) pt-4 ${flush ? "" : "pb-8"}`}
       >
         {children}
       </main>

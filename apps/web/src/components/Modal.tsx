@@ -5,7 +5,7 @@ import {
   DialogTitle,
 } from "@headlessui/react";
 import { X } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "./Button";
@@ -66,8 +66,13 @@ export function Modal({
   closable?: boolean;
   children: ReactNode;
 }) {
+  // Headless UI only fades in what goes from closed to open, so one that is mounted open is opened a moment later.
+  const [entered, setEntered] = useState(false);
+
+  useEffect(() => setEntered(true), []);
+
   return (
-    <Dialog open={open} onClose={onClose} className="relative z-40">
+    <Dialog open={open && entered} onClose={onClose} className="relative z-40">
       <Backdrop />
       {/* Scrolls on its own when the content is taller than the screen, while the page behind stays put. */}
       <div className="fixed inset-0 overflow-y-auto p-4">

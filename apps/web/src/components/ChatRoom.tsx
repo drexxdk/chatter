@@ -30,6 +30,7 @@ import {
 } from "../chat/roomEvents";
 import { focusMessageBox } from "../focusMessageBox";
 import { NAV_STOP_CLASS, navStop, useRowNavigation } from "../rowNavigation";
+import { useKept } from "../useKept";
 import { DirectChat } from "./DirectChat";
 import { BlockedTag } from "./DirectLists";
 import { ComposerBar } from "./ComposerBar";
@@ -110,6 +111,7 @@ export function ChatRoom({
     id: string;
     nickname: string;
   } | null>(null);
+  const shownReport = useKept(reporting);
   const items = withDirect(
     timeline(messages, showMovements ? events : []),
     direct.threads,
@@ -701,12 +703,14 @@ export function ChatRoom({
           />
         </aside>
       </section>
-      {reporting && (
+      {shownReport && (
         <ReportDialog
-          nickname={reporting.nickname}
+          key={shownReport.id}
+          open={reporting !== null}
+          nickname={shownReport.nickname}
           onCancel={() => setReporting(null)}
           onSubmit={async (reason) => {
-            const result = await onReport(reporting.id, reason);
+            const result = await onReport(shownReport.id, reason);
             if (result.ok) setReporting(null);
             return result;
           }}

@@ -1,6 +1,10 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, configure } from "@testing-library/react";
+import { MotionGlobalConfig } from "motion/react";
 import { afterEach, expect, vi } from "vitest";
+
+// A view that fades and slides away would still be on the page when a test looks for what replaced it.
+MotionGlobalConfig.skipAnimations = true;
 
 // The default of one second is too short for findBy and waitFor when every test file runs at once on a busy machine.
 configure({ asyncUtilTimeout: 4000 });

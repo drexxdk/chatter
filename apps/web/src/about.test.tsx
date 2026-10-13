@@ -41,7 +41,16 @@ describe("the page about how the site is built", () => {
       expect(parts.getByRole("heading", { name })).toBeInTheDocument();
     }
     expect(screen.getByText("Playwright")).toBeInTheDocument();
-    for (const library of ["TipTap", "DiceBear", "Emoji Mart", "GIPHY"]) {
+    for (const library of [
+      "TipTap",
+      "DiceBear",
+      "Emoji Mart",
+      "GIPHY",
+      "Lucide",
+      "Headless UI",
+      "Floating UI",
+      "Motion",
+    ]) {
       expect(screen.getByText(library)).toBeInTheDocument();
     }
     expect(document.title).toBe("How Chatter is built \u2013 Chatter");

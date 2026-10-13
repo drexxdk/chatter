@@ -53,10 +53,13 @@ html {
 }
 
 /* A dialog hides the page's scrollbar for as long as it is on the page (Headless UI would show it again as soon as the
-   dialog starts to close). The gutter stays reserved, so Headless UI's padding to make up for the scrollbar is not wanted. */
+   dialog starts to close). Without the scrollbar the page has no gutter either, so it is given padding as wide as the
+   scrollbar was (see scrollbarWidth.ts): the page stays where it is, and the dialog, which then fills the window, has
+   its own scrollbar where the page's was. Headless UI's own padding is measured against the gutter and is not wanted. */
 html:has(#headlessui-portal-root [role="dialog"]) {
   overflow: hidden;
-  padding-right: 0 !important;
+  scrollbar-gutter: auto;
+  padding-right: var(--scrollbar-width, 0px) !important;
 }
 
 /* Headless UI draws an anchored dropdown in the page's corner for a frame before it has worked out where it goes (left
@@ -155,13 +158,16 @@ html[data-pointer] :focus-visible {
   --tw-outline-style: solid;
 }
 
-/* For whoever asked their system for less motion: the slide-outs, fades and toggles finish at once. Not zero, so that
-   the dialogs, which wait for the end of the transition, still see it end. */
+/* For whoever asked their system for less motion: nothing moves or scales and the toggles finish at once, but what fades
+   (a dialog opening or closing) still does, so that a change is not a flash. Not zero, so that the dialogs, which wait for
+   the end of the transition, still see it end. */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
   ::after {
-    transition-duration: 0.01ms !important;
+    transition-property:
+      opacity, color, background-color, border-color, outline-color,
+      text-decoration-color, fill, stroke, box-shadow !important;
     animation-duration: 0.01ms !important;
   }
 }

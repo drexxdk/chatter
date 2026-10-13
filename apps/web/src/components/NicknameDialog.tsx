@@ -21,6 +21,8 @@ import {
 import { TermsCheckbox } from "./TermsCheckbox";
 
 interface NicknameDialogProps {
+  // Whether it is shown; it is left in the page while it fades out.
+  open: boolean;
   connecting: boolean;
   signingIn: boolean;
   error: string | null;
@@ -41,6 +43,7 @@ interface NicknameDialogProps {
 }
 
 export function NicknameDialog({
+  open,
   connecting,
   signingIn,
   error,
@@ -92,6 +95,7 @@ export function NicknameDialog({
 
   return (
     <Modal
+      open={open}
       onClose={onCancel}
       title={moderator ? t("nickname.moderatorTitle") : t("nickname.title")}
     >
