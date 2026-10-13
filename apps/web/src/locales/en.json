@@ -103,6 +103,131 @@
     "unavailable": "The text could not be loaded right now. Try again in a moment, or write to {email}.",
     "retry": "Try again"
   },
+  "about": {
+    "link": "How it is built",
+    "title": "How Chatter is built",
+    "lead": "Chatter is a small, independent chat. This page shows what it runs on, where your data goes and how long it stays there, so that you can judge it for yourself.",
+    "partsTitle": "The parts",
+    "partsIntro": "What runs where, and what each part is for.",
+    "parts": {
+      "website": {
+        "name": "The website",
+        "tech": "Cloudflare Pages",
+        "text": "The page you are looking at: a static app built with React. It is served from Cloudflare's network and holds no data of its own."
+      },
+      "chat": {
+        "name": "The chat server",
+        "tech": "Node.js, Socket.IO",
+        "text": "Carries every message in real time over an encrypted connection. It checks names, limits and bans before anything is passed on."
+      },
+      "redis": {
+        "name": "Redis",
+        "tech": "In-memory store",
+        "text": "Keeps what is short-lived: the last messages of each room, the latest announcement and the proof that lets you come back as yourself after a dropped connection."
+      },
+      "admin": {
+        "name": "The admin",
+        "tech": "Payload CMS, Next.js",
+        "text": "Where moderators manage rooms, bans and reports, and where the terms and the privacy policy are written."
+      },
+      "postgres": {
+        "name": "The database",
+        "tech": "PostgreSQL",
+        "text": "Holds what has to last: accounts, rooms, bans, reports and the texts of the terms and the privacy policy."
+      },
+      "server": {
+        "name": "The server",
+        "tech": "Oracle Cloud, Frankfurt",
+        "text": "One small machine in Germany runs the chat server, the admin, the database and Redis in Docker. Caddy takes care of HTTPS and its certificates."
+      },
+      "backups": {
+        "name": "Backups",
+        "tech": "Cloudflare R2",
+        "text": "The database is copied every night, and the copies are kept for 30 days."
+      },
+      "monitoring": {
+        "name": "Monitoring",
+        "tech": "UptimeRobot",
+        "text": "Checks every few minutes that the website, the chat server and the admin answer. It sees no messages."
+      }
+    },
+    "journeyTitle": "The journey of a message",
+    "journey": {
+      "write": "You write a message. Your browser sends it over an encrypted WebSocket connection (TLS) to the chat server.",
+      "check": "The server checks the room, the length, the slow mode, the rate limits and whether you are banned.",
+      "keep": "The message is kept in Redis as one of the room's last 50, and is deleted an hour after the room's last message.",
+      "deliver": "It is sent to everyone in the room at once."
+    },
+    "journeyPrivate": "A private message skips the storing: it goes only to the two people in it, and the server does not keep it. Your browser keeps the open conversations in this tab, so that a reload does not lose them.",
+    "dataTitle": "What is kept, and for how long",
+    "dataIntro": "Only what the chat needs to work, and for as short a time as possible.",
+    "dataLabels": { "where": "Where", "howLong": "For how long" },
+    "data": {
+      "messages": {
+        "what": "Messages in a room, and their reactions",
+        "where": "Redis, the last 50 messages of each room",
+        "howLong": "Deleted an hour after the room's last message"
+      },
+      "private": {
+        "what": "Private messages",
+        "where": "Not on the server; only in the open tabs of the two people",
+        "howLong": "Until the tab is closed"
+      },
+      "guest": {
+        "what": "A guest's nickname, avatar and age",
+        "where": "In the server's memory while you are connected, and in this tab of your browser",
+        "howLong": "The server forgets them when the connection ends; the tab, when it is closed"
+      },
+      "account": {
+        "what": "An account: the sign-in provider and your id there, email, username, display name, picture, gender and age",
+        "where": "The database",
+        "howLong": "Until you delete the account in your profile"
+      },
+      "address": {
+        "what": "Your internet address",
+        "where": "Used while you are connected, to limit abuse; otherwise kept only as a salted hash (with messages and reports), so that a ban can find them",
+        "howLong": "The hash goes with the message, so an hour; with a report, 90 days"
+      },
+      "reports": {
+        "what": "A reported message, its sender's hash and the reasons",
+        "where": "The admin's database",
+        "howLong": "90 days"
+      },
+      "backups": {
+        "what": "A copy of the database",
+        "where": "Cloudflare R2",
+        "howLong": "30 days"
+      }
+    },
+    "safetyTitle": "Safety and privacy",
+    "safety": {
+      "limits": "Slow mode, rate limits and a cap per address stop floods and spam.",
+      "reports": "Anyone can report a message. When three different addresses have reported it, it is hidden for everybody until a moderator has looked at it.",
+      "bans": "Bans work on a salted hash of the address, so the address itself is not kept. Moderators are people with an account in the admin.",
+      "age": "You must be 18 or older. There is no way to check an age, so this rests on the terms and on moderation.",
+      "passwords": "Accounts have no password: you sign in with Google, Facebook or Discord, and Chatter receives your name and email, never your password. Moderators' passwords are stored hashed.",
+      "thirdParties": "The site has no advertising and no tracking scripts. Your browser talks to the site, to the chat server and, when you search for GIFs, to GIPHY. Avatars are drawn in your browser.",
+      "headers": "The site sends strict security headers: its Content-Security-Policy only lets it run its own scripts and load GIFs from GIPHY."
+    },
+    "buildTitle": "Building and deploying",
+    "build": "The code is open: anybody can read it. Every change is checked automatically before it goes live: formatting, types, hundreds of unit tests and browser tests that run the real chat server. Only a change that passes is built into images and put on the server by GitHub Actions.",
+    "source": "Read the code on GitHub",
+    "stackTitle": "Built with",
+    "stack": {
+      "web": "The website",
+      "server": "The chat server",
+      "admin": "The admin",
+      "hosting": "Hosting and operations",
+      "tests": "Tests"
+    },
+    "limitsTitle": "What to expect",
+    "limits": {
+      "hobby": "Chatter is run by one person on one small server. It is built to be reliable, but it is not a company: it can be down for a while, and no uptime is promised.",
+      "public": "What you write in a room is seen by everybody in it, and moderators can read it. Do not share anything you would not say in public.",
+      "law": "The terms of use and the privacy policy are the binding texts; this page explains the same things in plain words."
+    },
+    "contactLead": "Questions or worries? Write to"
+  },
   "terms": {
     "accept": "I am 18 or older and accept the {terms} and the {privacy}.",
     "accepted": "By continuing you confirm that you are 18 or older and accept the {terms} and the {privacy}.",

@@ -4,3 +4,6 @@ export const CHAT_SERVER_URL: string =
 // Named in the terms and the privacy policy, for questions, reports and requests.
 export const CONTACT_EMAIL: string =
   import.meta.env.VITE_CONTACT_EMAIL ?? "draxxdk@gmail.com";
+
+// The code the site runs on, which anybody can read.
+export const SOURCE_URL = "https://github.com/drexxdk/chatter";

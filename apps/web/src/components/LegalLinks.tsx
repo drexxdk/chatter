@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 
-import { PRIVACY_PATH, TERMS_PATH } from "../place";
+import { ABOUT_PATH, PRIVACY_PATH, TERMS_PATH } from "../place";
 
 export const LINK =
   "text-indigo-300 underline hover:text-indigo-200 focus-visible:outline-2 focus-visible:outline-indigo-400";
@@ -55,6 +55,9 @@ export function LegalLinks() {
       </a>
       <a href={PRIVACY_PATH} className={LINK}>
         {t("legal.privacy")}
+      </a>
+      <a href={ABOUT_PATH} className={LINK}>
+        {t("about.link")}
       </a>
     </nav>
   );

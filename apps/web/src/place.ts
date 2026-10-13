@@ -5,6 +5,12 @@ export const LOBBY_PATH = "/";
 export const TERMS_PATH = "/terms";
 export const PRIVACY_PATH = "/privacy";
 
+// How the site is built and where the data goes.
+export const ABOUT_PATH = "/about";
+
+export const isAboutPath = (pathname: string) =>
+  pathname.replace(/\/$/, "") === ABOUT_PATH;
+
 // Where a provider sends the browser back to, through the chat-server (see accounts.ts there).
 export const AUTH_CALLBACK_PATH = "/auth/callback";
 

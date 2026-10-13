@@ -103,6 +103,131 @@
     "unavailable": "Teksten kunne ikke indlæses lige nu. Prøv igen om lidt, eller skriv til {email}.",
     "retry": "Prøv igen"
   },
+  "about": {
+    "link": "Sådan er det bygget",
+    "title": "Sådan er Chatter bygget",
+    "lead": "Chatter er en lille, uafhængig chat. Her kan du se, hvad den kører på, hvor dine data havner, og hvor længe de bliver der, så du selv kan vurdere den.",
+    "partsTitle": "Delene",
+    "partsIntro": "Hvad der kører hvor, og hvad hver del er til.",
+    "parts": {
+      "website": {
+        "name": "Hjemmesiden",
+        "tech": "Cloudflare Pages",
+        "text": "Siden, du kigger på: en statisk app bygget med React. Den leveres fra Cloudflares netværk og har ingen data selv."
+      },
+      "chat": {
+        "name": "Chatserveren",
+        "tech": "Node.js, Socket.IO",
+        "text": "Sender hver besked videre i realtid over en krypteret forbindelse. Den tjekker navne, grænser og udelukkelser, før noget sendes videre."
+      },
+      "redis": {
+        "name": "Redis",
+        "tech": "Lager i hukommelsen",
+        "text": "Gemmer det kortlivede: rummenes seneste beskeder, den seneste meddelelse og beviset, der lader dig vende tilbage som dig selv efter en afbrudt forbindelse."
+      },
+      "admin": {
+        "name": "Administrationen",
+        "tech": "Payload CMS, Next.js",
+        "text": "Her styrer moderatorerne rum, udelukkelser og anmeldelser, og her skrives teksterne til vilkår og privatlivspolitik."
+      },
+      "postgres": {
+        "name": "Databasen",
+        "tech": "PostgreSQL",
+        "text": "Gemmer det, der skal holde: konti, rum, udelukkelser, anmeldelser og teksterne til vilkår og privatlivspolitik."
+      },
+      "server": {
+        "name": "Serveren",
+        "tech": "Oracle Cloud, Frankfurt",
+        "text": "Én lille maskine i Tyskland kører chatserveren, administrationen, databasen og Redis i Docker. Caddy tager sig af HTTPS og certifikaterne."
+      },
+      "backups": {
+        "name": "Sikkerhedskopier",
+        "tech": "Cloudflare R2",
+        "text": "Databasen kopieres hver nat, og kopierne gemmes i 30 dage."
+      },
+      "monitoring": {
+        "name": "Overvågning",
+        "tech": "UptimeRobot",
+        "text": "Tjekker med få minutters mellemrum, at hjemmesiden, chatserveren og administrationen svarer. Den ser ingen beskeder."
+      }
+    },
+    "journeyTitle": "En beskeds rejse",
+    "journey": {
+      "write": "Du skriver en besked. Din browser sender den over en krypteret WebSocket-forbindelse (TLS) til chatserveren.",
+      "check": "Serveren tjekker rummet, længden, den langsomme tilstand, hastighedsgrænserne og om du er udelukket.",
+      "keep": "Beskeden gemmes i Redis som en af rummets seneste 50 og slettes en time efter rummets sidste besked.",
+      "deliver": "Den sendes til alle i rummet på én gang."
+    },
+    "journeyPrivate": "En privat besked springer lagringen over: den går kun til de to personer i samtalen, og serveren gemmer den ikke. Din browser beholder de åbne samtaler i denne fane, så en genindlæsning ikke mister dem.",
+    "dataTitle": "Hvad der gemmes, og hvor længe",
+    "dataIntro": "Kun det, chatten skal bruge for at virke, og så kort tid som muligt.",
+    "dataLabels": { "where": "Hvor", "howLong": "Hvor længe" },
+    "data": {
+      "messages": {
+        "what": "Beskeder i et rum og deres reaktioner",
+        "where": "Redis, de seneste 50 beskeder i hvert rum",
+        "howLong": "Slettes en time efter rummets sidste besked"
+      },
+      "private": {
+        "what": "Private beskeder",
+        "where": "Ikke på serveren; kun i de to personers åbne faner",
+        "howLong": "Til fanen lukkes"
+      },
+      "guest": {
+        "what": "En gæsts kaldenavn, avatar og alder",
+        "where": "I serverens hukommelse, mens du er forbundet, og i denne fane i din browser",
+        "howLong": "Serveren glemmer dem, når forbindelsen slutter; fanen, når den lukkes"
+      },
+      "account": {
+        "what": "En konto: loginudbyderen og dit id dér, e-mail, brugernavn, visningsnavn, billede, køn og alder",
+        "where": "Databasen",
+        "howLong": "Til du sletter kontoen i din profil"
+      },
+      "address": {
+        "what": "Din internetadresse",
+        "where": "Bruges, mens du er forbundet, til at begrænse misbrug; ellers kun gemt som en saltet hash (sammen med beskeder og anmeldelser), så en udelukkelse kan finde dem",
+        "howLong": "Hashen følger beskeden, så en time; ved en anmeldelse 90 dage"
+      },
+      "reports": {
+        "what": "En anmeldt besked, afsenderens hash og begrundelserne",
+        "where": "Administrationens database",
+        "howLong": "90 dage"
+      },
+      "backups": {
+        "what": "En kopi af databasen",
+        "where": "Cloudflare R2",
+        "howLong": "30 dage"
+      }
+    },
+    "safetyTitle": "Sikkerhed og privatliv",
+    "safety": {
+      "limits": "Langsom tilstand, hastighedsgrænser og en grænse pr. adresse stopper oversvømmelser og spam.",
+      "reports": "Alle kan anmelde en besked. Når tre forskellige adresser har anmeldt den, skjules den for alle, indtil en moderator har set på den.",
+      "bans": "Udelukkelser bruger en saltet hash af adressen, så selve adressen ikke gemmes. Moderatorer er personer med en konto i administrationen.",
+      "age": "Du skal være 18 år eller derover. Der er ingen måde at kontrollere en alder på, så det hviler på vilkårene og på moderering.",
+      "passwords": "Konti har ingen adgangskode: du logger ind med Google, Facebook eller Discord, og Chatter modtager dit navn og din e-mail, aldrig din adgangskode. Moderatorers adgangskoder gemmes som hash.",
+      "thirdParties": "Siden har hverken reklamer eller sporingsscripts. Din browser taler med siden, med chatserveren og, når du søger efter GIF-billeder, med GIPHY. Avatarer tegnes i din browser.",
+      "headers": "Siden sender strenge sikkerhedshoveder: dens Content-Security-Policy tillader kun egne scripts og GIF-billeder fra GIPHY."
+    },
+    "buildTitle": "Bygning og udrulning",
+    "build": "Koden er åben: alle kan læse den. Hver ændring tjekkes automatisk, før den går i luften: formatering, typer, hundredvis af enhedstests og browsertests, der kører den rigtige chatserver. Kun en ændring, der består, bygges til billeder og lægges på serveren af GitHub Actions.",
+    "source": "Læs koden på GitHub",
+    "stackTitle": "Bygget med",
+    "stack": {
+      "web": "Hjemmesiden",
+      "server": "Chatserveren",
+      "admin": "Administrationen",
+      "hosting": "Drift og hosting",
+      "tests": "Tests"
+    },
+    "limitsTitle": "Hvad du kan forvente",
+    "limits": {
+      "hobby": "Chatter drives af én person på én lille server. Den er bygget til at være pålidelig, men er ikke en virksomhed: den kan være nede en tid, og der er ikke lovet nogen oppetid.",
+      "public": "Det, du skriver i et rum, ses af alle i det, og moderatorer kan læse det. Del ikke noget, du ikke ville sige offentligt.",
+      "law": "Vilkårene og privatlivspolitikken er de bindende tekster; denne side forklarer det samme i almindeligt sprog."
+    },
+    "contactLead": "Spørgsmål eller bekymringer? Skriv til"
+  },
   "terms": {
     "accept": "Jeg er 18 år eller derover og accepterer {terms} og {privacy}.",
     "accepted": "Ved at fortsætte bekræfter du, at du er 18 år eller derover, og accepterer {terms} og {privacy}.",

@@ -103,6 +103,131 @@
     "unavailable": "Der Text konnte gerade nicht geladen werden. Versuche es gleich noch einmal oder schreibe an {email}.",
     "retry": "Erneut versuchen"
   },
+  "about": {
+    "link": "So ist es gebaut",
+    "title": "So ist Chatter gebaut",
+    "lead": "Chatter ist ein kleiner, unabhängiger Chat. Diese Seite zeigt, worauf er läuft, wohin deine Daten gehen und wie lange sie dort bleiben, damit du ihn selbst beurteilen kannst.",
+    "partsTitle": "Die Bausteine",
+    "partsIntro": "Was wo läuft und wofür jeder Teil da ist.",
+    "parts": {
+      "website": {
+        "name": "Die Website",
+        "tech": "Cloudflare Pages",
+        "text": "Die Seite, die du gerade siehst: eine statische App, gebaut mit React. Sie wird aus dem Netzwerk von Cloudflare ausgeliefert und speichert selbst keine Daten."
+      },
+      "chat": {
+        "name": "Der Chat-Server",
+        "tech": "Node.js, Socket.IO",
+        "text": "Überträgt jede Nachricht in Echtzeit über eine verschlüsselte Verbindung. Er prüft Namen, Limits und Sperren, bevor etwas weitergegeben wird."
+      },
+      "redis": {
+        "name": "Redis",
+        "tech": "Speicher im Arbeitsspeicher",
+        "text": "Hält das Kurzlebige: die letzten Nachrichten jedes Raums, die neueste Ankündigung und den Nachweis, mit dem du nach einem Verbindungsabbruch wieder als du selbst hineinkommst."
+      },
+      "admin": {
+        "name": "Die Verwaltung",
+        "tech": "Payload CMS, Next.js",
+        "text": "Hier verwalten Moderatoren Räume, Sperren und Meldungen, und hier werden die Texte der Nutzungsbedingungen und der Datenschutzerklärung geschrieben."
+      },
+      "postgres": {
+        "name": "Die Datenbank",
+        "tech": "PostgreSQL",
+        "text": "Speichert, was bleiben muss: Konten, Räume, Sperren, Meldungen und die Texte der Nutzungsbedingungen und der Datenschutzerklärung."
+      },
+      "server": {
+        "name": "Der Server",
+        "tech": "Oracle Cloud, Frankfurt",
+        "text": "Ein kleiner Rechner in Deutschland betreibt Chat-Server, Verwaltung, Datenbank und Redis in Docker. Caddy kümmert sich um HTTPS und die Zertifikate."
+      },
+      "backups": {
+        "name": "Sicherungen",
+        "tech": "Cloudflare R2",
+        "text": "Die Datenbank wird jede Nacht kopiert, die Kopien werden 30 Tage aufbewahrt."
+      },
+      "monitoring": {
+        "name": "Überwachung",
+        "tech": "UptimeRobot",
+        "text": "Prüft alle paar Minuten, ob Website, Chat-Server und Verwaltung antworten. Nachrichten sieht sie nicht."
+      }
+    },
+    "journeyTitle": "Der Weg einer Nachricht",
+    "journey": {
+      "write": "Du schreibst eine Nachricht. Dein Browser schickt sie über eine verschlüsselte WebSocket-Verbindung (TLS) an den Chat-Server.",
+      "check": "Der Server prüft den Raum, die Länge, den langsamen Modus, die Ratenlimits und ob du gesperrt bist.",
+      "keep": "Die Nachricht wird in Redis als eine der letzten 50 des Raums gespeichert und eine Stunde nach der letzten Nachricht des Raums gelöscht.",
+      "deliver": "Sie wird an alle im Raum gleichzeitig gesendet."
+    },
+    "journeyPrivate": "Eine private Nachricht überspringt das Speichern: Sie geht nur an die beiden Personen im Gespräch, der Server behält sie nicht. Dein Browser behält die offenen Gespräche in diesem Tab, damit ein Neuladen sie nicht verliert.",
+    "dataTitle": "Was gespeichert wird und wie lange",
+    "dataIntro": "Nur das, was der Chat zum Funktionieren braucht, und so kurz wie möglich.",
+    "dataLabels": { "where": "Wo", "howLong": "Wie lange" },
+    "data": {
+      "messages": {
+        "what": "Nachrichten in einem Raum und ihre Reaktionen",
+        "where": "Redis, die letzten 50 Nachrichten jedes Raums",
+        "howLong": "Gelöscht eine Stunde nach der letzten Nachricht des Raums"
+      },
+      "private": {
+        "what": "Private Nachrichten",
+        "where": "Nicht auf dem Server; nur in den offenen Tabs der beiden Personen",
+        "howLong": "Bis der Tab geschlossen wird"
+      },
+      "guest": {
+        "what": "Spitzname, Avatar und Alter eines Gasts",
+        "where": "Im Speicher des Servers, solange du verbunden bist, und in diesem Tab deines Browsers",
+        "howLong": "Der Server vergisst sie, wenn die Verbindung endet; der Tab, wenn er geschlossen wird"
+      },
+      "account": {
+        "what": "Ein Konto: der Anmeldedienst und deine Kennung dort, E-Mail, Benutzername, Anzeigename, Bild, Geschlecht und Alter",
+        "where": "Die Datenbank",
+        "howLong": "Bis du das Konto in deinem Profil löschst"
+      },
+      "address": {
+        "what": "Deine Internetadresse",
+        "where": "Wird, solange du verbunden bist, zur Missbrauchsbegrenzung genutzt; sonst nur als gesalzener Hash gespeichert (bei Nachrichten und Meldungen), damit eine Sperre sie finden kann",
+        "howLong": "Der Hash gehört zur Nachricht, also eine Stunde; bei einer Meldung 90 Tage"
+      },
+      "reports": {
+        "what": "Eine gemeldete Nachricht, der Hash ihres Absenders und die Gründe",
+        "where": "Die Datenbank der Verwaltung",
+        "howLong": "90 Tage"
+      },
+      "backups": {
+        "what": "Eine Kopie der Datenbank",
+        "where": "Cloudflare R2",
+        "howLong": "30 Tage"
+      }
+    },
+    "safetyTitle": "Sicherheit und Datenschutz",
+    "safety": {
+      "limits": "Langsamer Modus, Ratenlimits und eine Obergrenze pro Adresse stoppen Fluten und Spam.",
+      "reports": "Jeder kann eine Nachricht melden. Haben drei verschiedene Adressen sie gemeldet, wird sie für alle ausgeblendet, bis ein Moderator sie angesehen hat.",
+      "bans": "Sperren arbeiten mit einem gesalzenen Hash der Adresse, die Adresse selbst wird nicht gespeichert. Moderatoren sind Personen mit einem Konto in der Verwaltung.",
+      "age": "Du musst mindestens 18 Jahre alt sein. Ein Alter lässt sich nicht prüfen, das beruht also auf den Bedingungen und auf Moderation.",
+      "passwords": "Konten haben kein Passwort: Du meldest dich mit Google, Facebook oder Discord an, und Chatter erhält deinen Namen und deine E-Mail, nie dein Passwort. Die Passwörter von Moderatoren werden als Hash gespeichert.",
+      "thirdParties": "Die Seite hat weder Werbung noch Tracking-Skripte. Dein Browser spricht mit der Seite, mit dem Chat-Server und, wenn du nach GIFs suchst, mit GIPHY. Avatare werden in deinem Browser gezeichnet.",
+      "headers": "Die Seite sendet strenge Sicherheits-Header: ihre Content-Security-Policy erlaubt nur eigene Skripte und GIFs von GIPHY."
+    },
+    "buildTitle": "Bauen und Ausliefern",
+    "build": "Der Code ist offen: Jeder kann ihn lesen. Jede Änderung wird automatisch geprüft, bevor sie live geht: Formatierung, Typen, Hunderte Unit-Tests und Browser-Tests, die den echten Chat-Server laufen lassen. Nur eine Änderung, die besteht, wird von GitHub Actions zu Images gebaut und auf den Server gebracht.",
+    "source": "Den Code auf GitHub lesen",
+    "stackTitle": "Gebaut mit",
+    "stack": {
+      "web": "Die Website",
+      "server": "Der Chat-Server",
+      "admin": "Die Verwaltung",
+      "hosting": "Hosting und Betrieb",
+      "tests": "Tests"
+    },
+    "limitsTitle": "Was du erwarten kannst",
+    "limits": {
+      "hobby": "Chatter wird von einer Person auf einem kleinen Server betrieben. Er ist auf Zuverlässigkeit gebaut, aber kein Unternehmen: Er kann eine Weile ausfallen, und eine Verfügbarkeit wird nicht versprochen.",
+      "public": "Was du in einem Raum schreibst, sehen alle darin, und Moderatoren können es lesen. Teile nichts, was du nicht öffentlich sagen würdest.",
+      "law": "Die Nutzungsbedingungen und die Datenschutzerklärung sind die verbindlichen Texte; diese Seite erklärt dasselbe in einfachen Worten."
+    },
+    "contactLead": "Fragen oder Bedenken? Schreib an"
+  },
   "terms": {
     "accept": "Ich bin 18 Jahre oder älter und akzeptiere die {terms} und die {privacy}.",
     "accepted": "Wenn du fortfährst, bestätigst du, dass du 18 Jahre oder älter bist und die {terms} und die {privacy} akzeptierst.",

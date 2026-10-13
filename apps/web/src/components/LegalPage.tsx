@@ -1,11 +1,10 @@
-import { ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { CONTACT_EMAIL } from "../config";
 import { legalIn, withContact, type LegalPageName } from "../legal";
 import { useLegal } from "../legal/useLegal";
-import { LOBBY_PATH } from "../place";
 import { usePageTitle } from "../usePageTitle";
+import { Breadcrumb } from "./Breadcrumb";
 import { LegalLinks, LINK } from "./LegalLinks";
 import { LoadError, Loading } from "./LoadState";
 import { PageFrame } from "./PageFrame";
@@ -49,21 +48,7 @@ export function LegalPage({ page }: { page: LegalPageName }) {
 
   return (
     <PageFrame>
-      <nav aria-label={t("legal.breadcrumb")} className="text-sm">
-        <ol className="flex flex-wrap items-center gap-1 text-neutral-400">
-          <li>
-            <a href={LOBBY_PATH} className={LINK}>
-              {t("app.title")}
-            </a>
-          </li>
-          <li aria-hidden="true">
-            <ChevronRight className="h-4 w-4" />
-          </li>
-          <li aria-current="page" className="text-neutral-200">
-            {title}
-          </li>
-        </ol>
-      </nav>
+      <Breadcrumb title={title} />
 
       <article className="space-y-6 text-neutral-200">
         <h1 className="text-2xl font-bold">{title}</h1>
