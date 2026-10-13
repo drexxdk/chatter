@@ -140,6 +140,7 @@ vi.mock("emoji-mart", () => ({
 // Loaded after the storage fallback above because i18n reads localStorage at import time.
 const { default: i18n } = await import("../i18n");
 const { saveTermsAccepted } = await import("../preferences");
+const { forgetAuthProviders } = await import("../api");
 
 // Most tests are about the chat, not about the terms: they start from a browser that has accepted them.
 saveTermsAccepted(null);
@@ -149,6 +150,8 @@ afterEach(async () => {
   vi.unstubAllGlobals();
   localStorage.clear();
   saveTermsAccepted(null);
+  // Every test's page asks the chat-server which providers it has.
+  forgetAuthProviders();
   sessionStorage.clear();
   // The address is part of what the app keeps, so every test starts at the lobby.
   window.history.replaceState(null, "", "/");

@@ -2,10 +2,24 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { SignInError, signInModerator, type Room } from "./api";
+import {
+  AccountError,
+  deleteAccount,
+  fetchAccount,
+  SignInError,
+  signInModerator,
+  type Room,
+} from "./api";
+import {
+  clearAccount,
+  loadAccount,
+  saveAccount,
+  type Account,
+} from "./account";
 import { PLAIN_AVATAR, type Avatar } from "./chat/avatar";
 import type { CreateSocket } from "./chat/socket";
 import { useChat } from "./chat/useChat";
+import { AccountButton, AccountDialog } from "./components/AccountDialog";
 import { AnnouncementBanner } from "./components/AnnouncementBanner";
 import { ChatRoom } from "./components/ChatRoom";
 import { ErrorAlert } from "./components/ErrorAlert";
@@ -54,6 +68,9 @@ export function App({
   const [signingIn, setSigningIn] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  // Who is signed in with a provider, kept in this browser; null for a guest.
+  const [account, setAccount] = useState<Account | null>(loadAccount);
   const [showMovements, setShowMovements] = useState(loadShowMovements);
 
   function changeShowMovements(show: boolean) {
@@ -77,9 +94,67 @@ export function App({
 
       // Somebody in that room has the guest's name: they are asked for another.
       if (!joined.ok && joined.error === NAME_TAKEN) setPendingRoom(room);
+    } else if (account) {
+      await joinAsMember(room, account);
     } else {
       setPendingRoom(room);
     }
+  }
+
+  // Somebody signed in has no name to ask for: the account says who they are.
+  async function joinAsMember(room: Room, member: Account) {
+    if (!(await chat.connect(member.nickname, { token: member.token }))) {
+      if (await forgetAccountIfExpired(member.token)) setPendingRoom(room);
+      return;
+    }
+
+    saveSession({
+      nickname: member.nickname,
+      token: member.token,
+      guestIds: chat.guestIds(),
+      ...resumeDetails(),
+    });
+    await chat.joinRoom(room.slug);
+  }
+
+  // A token the server does not accept is no use any more: the account is forgotten, and the person is a guest again.
+  async function forgetAccountIfExpired(token: string): Promise<boolean> {
+    try {
+      await fetchAccount(token);
+    } catch (cause) {
+      if (cause instanceof AccountError && cause.code === "invalid_token") {
+        clearAccount();
+        setAccount(null);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function signOut() {
+    clearAccount();
+    setAccount(null);
+    clearSession();
+    setProfileOpen(false);
+    setAccountOpen(false);
+    chat.disconnect();
+  }
+
+  async function deleteMyAccount() {
+    if (!account) return;
+
+    try {
+      await deleteAccount(account.token);
+    } catch (cause) {
+      throw cause instanceof AccountError
+        ? cause
+        : new AccountError("connection");
+    }
+
+    signOut();
+    // The server cut the connection off when the account went; that is not an error to show.
+    chat.clearError();
   }
 
   async function handleNickname(
@@ -204,6 +279,77 @@ export function App({
     }
   }, [chat.session]);
 
+  // The account is checked when the page opens: the token comes back renewed, and an account that is gone (or a token
+  // that ran out) is forgotten. Not reaching the server leaves everything as it was.
+  useEffect(() => {
+    const current = loadAccount();
+    if (!current) return;
+
+    let cancelled = false;
+
+    fetchAccount(current.token)
+      .then((session) => {
+        if (cancelled) return;
+
+        const renewed: Account = {
+          token: session.token,
+          provider: session.provider,
+          nickname: session.profile.nickname,
+          avatar: session.profile.avatar,
+          ...(session.profile.age === undefined
+            ? {}
+            : { age: session.profile.age }),
+          expiresAt: session.expiresAt,
+        };
+
+        saveAccount(renewed);
+        setAccount(renewed);
+      })
+      .catch((cause: unknown) => {
+        if (
+          !cancelled &&
+          cause instanceof AccountError &&
+          cause.code === "invalid_token"
+        ) {
+          clearAccount();
+          setAccount(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // What a signed-in person changes about themselves is kept in the account on the server; the copy in this browser
+  // follows, so the header and the next visit show the same.
+  useEffect(() => {
+    const session = chat.session;
+    if (session?.role !== "member") return;
+
+    setAccount((current) => {
+      if (
+        !current ||
+        (current.nickname === session.nickname &&
+          current.avatar === session.avatar &&
+          current.age === session.age)
+      ) {
+        return current;
+      }
+
+      const { age: _age, ...rest } = current;
+      const next: Account = {
+        ...rest,
+        nickname: session.nickname,
+        ...(session.avatar ? { avatar: session.avatar } : {}),
+        ...(session.age === undefined ? {} : { age: session.age }),
+      };
+
+      saveAccount(next);
+      return next;
+    });
+  }, [chat.session]);
+
   // Private conversations live only in the page, so what is open is kept for a reload. Not before there is a
   // connection: a reloaded page starts empty and must not overwrite what it is about to restore.
   useEffect(() => {
@@ -263,6 +409,7 @@ export function App({
       if (!connected) {
         // Whatever was saved no longer works, so it must not be tried again.
         clearSession();
+        if (saved.token) await forgetAccountIfExpired(saved.token);
         setPendingRoom(room);
         return;
       }
@@ -333,11 +480,16 @@ export function App({
           <h1 className="text-2xl font-bold">{t("app.title")}</h1>
         )}
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          {chat.roomSlug && chat.session && (
+          {chat.roomSlug && chat.session ? (
             <ProfileButton
               nickname={chat.session.nickname}
               avatar={chat.session.avatar}
               onClick={() => setProfileOpen(true)}
+            />
+          ) : (
+            <AccountButton
+              account={account}
+              onClick={() => setAccountOpen(true)}
             />
           )}
           <MainMenu
@@ -407,8 +559,20 @@ export function App({
             onClose={() => setProfileOpen(false)}
             session={chat.session}
             onSave={chat.updateProfile}
+            account={account}
+            returnPath={chat.roomSlug ? roomPath(chat.roomSlug) : LOBBY_PATH}
+            onSignOut={signOut}
+            onDelete={deleteMyAccount}
           />
         )}
+
+        <AccountDialog
+          open={accountOpen}
+          onClose={() => setAccountOpen(false)}
+          account={account}
+          onSignOut={signOut}
+          onDelete={deleteMyAccount}
+        />
 
         {pendingRoom && (
           <NicknameDialog
@@ -422,6 +586,7 @@ export function App({
             onModeChange={clearDialogErrors}
             onCancel={handleCancel}
             termsVersion={termsVersion}
+            returnPath={roomPath(pendingRoom.slug)}
           />
         )}
       </div>

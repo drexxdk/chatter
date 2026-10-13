@@ -9,16 +9,21 @@ import {
   createSocketServer,
   enforceBans,
   enforceModerators,
+  removeAccountConnections,
   roomOccupancy,
 } from "./socket.js";
 import { startPublicRoomsSync } from "./rooms.js";
 import { startBansSync } from "./bans.js";
 import { startLegalSync } from "./legal.js";
+import { startMemberNamesSync } from "./members.js";
 import { startModeratorsSync } from "./names.js";
 import { startReportsPrune } from "./reports.js";
 
 const httpServer = http.createServer(
-  createApp({ occupancy: () => roomOccupancy(io) }),
+  createApp({
+    occupancy: () => roomOccupancy(io),
+    onAccountRemoved: (userId) => removeAccountConnections(io, userId),
+  }),
 );
 const io = createSocketServer(httpServer);
 
@@ -28,6 +33,7 @@ const timers = [
   startBansSync((hashes) => enforceBans(io, hashes)),
   startReportsPrune(),
   startLegalSync(),
+  startMemberNamesSync(),
 ];
 
 const shutdown = createShutdown({

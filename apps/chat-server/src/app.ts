@@ -5,6 +5,8 @@ import helmet from "helmet";
 import { z } from "zod";
 
 import { env } from "./env.js";
+import { createAccountsRouter } from "./accounts.js";
+import { createDevOAuthRouter } from "./devOAuth.js";
 import { getCachedLegal } from "./legal.js";
 import { rememberModerator } from "./names.js";
 import { loginAccount } from "./payloadClient.js";
@@ -46,6 +48,10 @@ export function createApp(
     authTokenSecret?: string;
     // How many are in each room by its slug; the rooms are listed without a count when this is left out.
     occupancy?: () => Promise<Map<string, number>>;
+    // How often an address may use the sign-in with a provider and the account's own routes.
+    authRateLimit?: { max: number; windowMs: number };
+    // Called when an account has been deleted, so whatever is connected as it can be cut off.
+    onAccountRemoved?: (userId: number) => unknown;
   } = {},
 ): express.Express {
   const authTokenSecret = options.authTokenSecret ?? env.AUTH_TOKEN_SECRET;
@@ -170,6 +176,21 @@ export function createApp(
       });
     },
   );
+
+  // Accounts: signing in with a provider, making the account, and the account's own data (see accounts.ts).
+  app.use(
+    createAccountsRouter({
+      authTokenSecret: authTokenSecret ?? "",
+      rateLimit: options.authRateLimit,
+      listRateLimit: options.roomsRateLimit ?? {
+        max: env.ROOMS_RATE_LIMIT_PER_MINUTE,
+        windowMs: ROOMS_RATE_LIMIT_WINDOW_MS,
+      },
+      onAccountRemoved: options.onAccountRemoved,
+    }),
+  );
+
+  if (env.DEV_OAUTH) app.use(createDevOAuthRouter());
 
   // Answers body-parser's complaints (too large, not JSON) in the same JSON shape as everything else.
   app.use(

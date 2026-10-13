@@ -5,6 +5,12 @@ export const LOBBY_PATH = "/";
 export const TERMS_PATH = "/terms";
 export const PRIVACY_PATH = "/privacy";
 
+// Where a provider sends the browser back to, through the chat-server (see accounts.ts there).
+export const AUTH_CALLBACK_PATH = "/auth/callback";
+
+export const isAuthCallbackPath = (pathname: string) =>
+  pathname.replace(/\/$/, "") === AUTH_CALLBACK_PATH;
+
 // The terms or the privacy policy, when the address is theirs.
 export function legalPageFromPath(
   pathname: string,

@@ -1,7 +1,7 @@
 import type { LegalTexts } from './types'
 
 export const en: LegalTexts = {
-  updated: 'Version of 12 October 2026',
+  updated: 'Version of 13 October 2026',
   terms: {
     title: 'Terms of use',
     sections: [
@@ -16,6 +16,13 @@ export const en: LegalTexts = {
         heading: 'Who may use it',
         paragraphs: [
           'Chatter is only for people who are 18 or older. If you are younger, do not use it. We may remove anybody we think is younger than 18.',
+        ],
+      },
+      {
+        heading: 'Accounts',
+        paragraphs: [
+          'You can use Chatter as a guest, or make an account by connecting a Google, Facebook or Discord account. An account keeps your nickname, avatar and age, so you can come back as the same person from any browser, and the nickname is yours alone.',
+          'You are responsible for what is done under your account. You can delete it at any time from your profile. We may remove an account or a nickname that breaks these terms or that looks like it belongs to staff or to somebody else.',
         ],
       },
       {
@@ -43,7 +50,7 @@ export const en: LegalTexts = {
         heading: 'Reports and moderation',
         paragraphs: [
           'Anybody can report a message. When enough different people have reported it, it is hidden until it has been reviewed. Moderators and we can hide messages, disconnect people and ban them, without warning.',
-          'A ban applies to a network address, so it can also reach other people who use the same one. If you think a ban or a removal was wrong, write to {contact}. We decide whether to lift it.',
+          'A ban applies to a network address or, for an account, to the account, so a ban on an address can also reach other people who use the same one. If you think a ban or a removal was wrong, write to {contact}. We decide whether to lift it.',
         ],
       },
       {
@@ -85,12 +92,13 @@ export const en: LegalTexts = {
           'Your IP address itself, while you are connected. It may also appear in the server’s technical logs (for example in connection errors). The logs are rotated automatically and used only to keep the service running.',
           'Reports. When a message is reported we keep a copy (the text, the nickname, the hash of the sender’s address and the reasons given) for at most 90 days, so that it can be reviewed.',
           'Moderators only: email address, display name and a password that is stored in a scrambled form.',
+          'Accounts. If you make an account we keep which service you used (Google, Facebook or Discord), your id there, the email address the service gives us (if it gives one), your nickname, avatar and age, and when you last signed in. The email address is not shown to anybody and is only used to contact you about your account. We never receive your password at the service.',
         ],
       },
       {
         heading: 'What is stored in your browser',
         paragraphs: [
-          'There are no cookies, and no tracking or analytics. The browser’s local storage keeps your language, your display choices and that you accepted the terms. Its session storage keeps, for this tab only, your nickname, avatar and age, a secret that brings you back to the room after a reload, and your private conversations. That is deleted when you close the tab.',
+          'There are no cookies, and no tracking or analytics. The browser’s local storage keeps your language, your display choices, that you accepted the terms and, if you have an account, the key that keeps you signed in. Its session storage keeps, for this tab only, your nickname, avatar and age, a secret that brings you back to the room after a reload, and your private conversations. That is deleted when you close the tab.',
         ],
       },
       {
@@ -103,6 +111,7 @@ export const en: LegalTexts = {
         heading: 'Who else handles data',
         paragraphs: [
           'We use Cloudflare (the website’s files, and backups of the admin database, which holds moderator accounts and reports but no chat messages) and Oracle Cloud (the server, in Frankfurt, Germany). GIPHY is described above.',
+          'If you connect an account, Google, Facebook or Discord learn that you use Chatter, and what they tell us about you is described above. See their own privacy policies.',
           'We do not sell data and do not use it for advertising. We pass data to the authorities when the law requires it.',
         ],
       },
@@ -118,6 +127,7 @@ export const en: LegalTexts = {
           'Public messages and the address hash with them: about an hour.',
           'A ban: until it runs out or is lifted.',
           'A report: at most 90 days.',
+          'An account: until you delete it in your profile, or ask us to.',
           'Database backups: 30 days.',
           'Technical logs: until they are rotated out.',
           'What is in your browser: until you delete it or close the tab.',
@@ -126,7 +136,7 @@ export const en: LegalTexts = {
       {
         heading: 'Your rights',
         paragraphs: [
-          'You can ask to see, correct or delete your data, to limit how we use it, and to object to it. Write to {contact}. Because we keep only anonymous values, we may not be able to find your data unless you tell us when and where you were in the chat.',
+          'You can ask to see, correct or delete your data, to limit how we use it, and to object to it. If you have an account you can delete it yourself in your profile. Write to {contact}. Because we keep only anonymous values, we may not be able to find your data unless you tell us when and where you were in the chat.',
           'You can complain to the Danish Data Protection Agency (Datatilsynet, datatilsynet.dk) or to the authority in your own country.',
         ],
       },

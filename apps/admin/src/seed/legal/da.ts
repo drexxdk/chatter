@@ -1,7 +1,7 @@
 import type { LegalTexts } from './types'
 
 export const da: LegalTexts = {
-  updated: 'Version fra 12. oktober 2026',
+  updated: 'Version fra 13. oktober 2026',
   terms: {
     title: 'Brugsvilkår',
     sections: [
@@ -16,6 +16,13 @@ export const da: LegalTexts = {
         heading: 'Hvem må bruge den',
         paragraphs: [
           'Chatter er kun for personer på 18 år eller derover. Er du yngre, må du ikke bruge den. Vi kan fjerne enhver, vi tror er under 18.',
+        ],
+      },
+      {
+        heading: 'Konti',
+        paragraphs: [
+          'Du kan bruge Chatter som gæst eller oprette en konto ved at forbinde en Google-, Facebook- eller Discord-konto. En konto gemmer dit kaldenavn, din avatar og din alder, så du kan komme tilbage som den samme person fra en hvilken som helst browser, og kaldenavnet er kun dit.',
+          'Du er ansvarlig for det, der gøres under din konto. Du kan slette den når som helst fra din profil. Vi kan fjerne en konto eller et kaldenavn, der bryder disse vilkår, eller som ser ud til at tilhøre personalet eller en anden.',
         ],
       },
       {
@@ -43,7 +50,7 @@ export const da: LegalTexts = {
         heading: 'Anmeldelser og moderation',
         paragraphs: [
           'Alle kan anmelde en besked. Når nok forskellige personer har anmeldt den, skjules den, til den er blevet gennemgået. Moderatorer og vi kan skjule beskeder, afbryde forbindelsen og udelukke personer uden varsel.',
-          'En udelukkelse gælder en netværksadresse, så den kan også ramme andre, der bruger den samme. Mener du, at en udelukkelse eller fjernelse var forkert, så skriv til {contact}. Vi afgør, om den ophæves.',
+          'En udelukkelse gælder en netværksadresse eller, for en konto, kontoen, så en udelukkelse af en adresse kan også ramme andre, der bruger den samme. Mener du, at en udelukkelse eller fjernelse var forkert, så skriv til {contact}. Vi afgør, om den ophæves.',
         ],
       },
       {
@@ -85,12 +92,13 @@ export const da: LegalTexts = {
           'Selve din IP-adresse, mens du er forbundet. Den kan også optræde i serverens tekniske logfiler (for eksempel ved forbindelsesfejl). Logfilerne roteres automatisk og bruges kun til at holde tjenesten kørende.',
           'Anmeldelser. Når en besked anmeldes, gemmer vi en kopi (teksten, kaldenavnet, hashværdien af afsenderens adresse og de angivne grunde) i højst 90 dage, så den kan gennemgås.',
           'Kun for moderatorer: e-mailadresse, visningsnavn og en adgangskode, der gemmes i forvansket form.',
+          'Konti. Opretter du en konto, gemmer vi, hvilken tjeneste du brugte (Google, Facebook eller Discord), dit id dér, den e-mailadresse, tjenesten giver os (hvis den giver en), dit kaldenavn, din avatar og din alder og hvornår du sidst loggede ind. E-mailadressen vises ikke for nogen og bruges kun til at kontakte dig om din konto. Vi modtager aldrig din adgangskode hos tjenesten.',
         ],
       },
       {
         heading: 'Hvad der gemmes i din browser',
         paragraphs: [
-          'Der er ingen cookies og ingen sporing eller statistik. Browserens lokale lager gemmer dit sprog, dine visningsvalg og at du har accepteret vilkårene. Dens sessionslager gemmer, kun for denne fane, dit kaldenavn, din avatar og din alder, en hemmelighed, der bringer dig tilbage til rummet efter en genindlæsning, og dine private samtaler. Det slettes, når du lukker fanen.',
+          'Der er ingen cookies og ingen sporing eller statistik. Browserens lokale lager gemmer dit sprog, dine visningsvalg, at du har accepteret vilkårene og, hvis du har en konto, nøglen, der holder dig logget ind. Dens sessionslager gemmer, kun for denne fane, dit kaldenavn, din avatar og din alder, en hemmelighed, der bringer dig tilbage til rummet efter en genindlæsning, og dine private samtaler. Det slettes, når du lukker fanen.',
         ],
       },
       {
@@ -103,6 +111,7 @@ export const da: LegalTexts = {
         heading: 'Hvem andre behandler oplysninger',
         paragraphs: [
           'Vi bruger Cloudflare (hjemmesidens filer og sikkerhedskopier af administrationsdatabasen, som indeholder moderatorkonti og anmeldelser, men ingen chatbeskeder) og Oracle Cloud (serveren, i Frankfurt i Tyskland). GIPHY er beskrevet ovenfor.',
+          'Forbinder du en konto, ser Google, Facebook eller Discord, at du bruger Chatter, og det, de fortæller os om dig, er beskrevet ovenfor. Se deres egne privatlivspolitikker.',
           'Vi sælger ikke oplysninger og bruger dem ikke til reklamer. Vi videregiver oplysninger til myndighederne, når loven kræver det.',
         ],
       },
@@ -118,6 +127,7 @@ export const da: LegalTexts = {
           'Offentlige beskeder og adressens hashværdi sammen med dem: cirka en time.',
           'En udelukkelse: til den udløber eller ophæves.',
           'En anmeldelse: højst 90 dage.',
+          'En konto: til du sletter den i din profil eller beder os om det.',
           'Sikkerhedskopier af databasen: 30 dage.',
           'Tekniske logfiler: til de roteres væk.',
           'Det, der er i din browser: til du sletter det eller lukker fanen.',
@@ -126,7 +136,7 @@ export const da: LegalTexts = {
       {
         heading: 'Dine rettigheder',
         paragraphs: [
-          'Du kan bede om indsigt i, berigtigelse eller sletning af dine oplysninger, om at vi begrænser brugen af dem, og gøre indsigelse. Skriv til {contact}. Fordi vi kun gemmer anonyme værdier, kan vi muligvis ikke finde dine oplysninger, medmindre du fortæller os, hvornår og hvor du var i chatten.',
+          'Du kan bede om indsigt i, berigtigelse eller sletning af dine oplysninger, om at vi begrænser brugen af dem, og gøre indsigelse. Har du en konto, kan du selv slette den i din profil. Skriv til {contact}. Fordi vi kun gemmer anonyme værdier, kan vi muligvis ikke finde dine oplysninger, medmindre du fortæller os, hvornår og hvor du var i chatten.',
           'Du kan klage til Datatilsynet (datatilsynet.dk) eller til myndigheden i dit eget land.',
         ],
       },

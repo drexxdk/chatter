@@ -57,6 +57,38 @@ everybody; a moderator's report hides it at once. Each reported message is kept 
 - Where reports go to is the contact address in the terms (see "Terms and privacy" below): answer it, and delete a report from the
   admin panel earlier than the retention period when somebody asks for it.
 
+## Accounts (Google, Facebook, Discord)
+
+Guests can make an account by connecting one of the three; how it works is in the chat-server README, "Accounts". Each
+provider needs an app that only you can make, which gives an id and a secret. The address people are sent back to is the
+same form for all, with the chat-server's public address (`PUBLIC_API_URL`, for example
+`https://chatter-drexx-api.duckdns.org`): `<PUBLIC_API_URL>/auth/google/callback`, `/auth/facebook/callback` and
+`/auth/discord/callback`.
+
+1. **Google**: in the Google Cloud console, make a project, set up the OAuth consent screen (external; the app's privacy
+   policy is `<web address>/privacy`, and it must be published, not left in testing, for everybody to use it), then
+   Credentials > Create OAuth client ID > Web application with the redirect address above. The scopes are `openid`,
+   `email` and `profile`.
+2. **Facebook**: at developers.facebook.com make an app with the "Facebook Login" product, put the redirect address in
+   its valid OAuth redirect URIs, and add the privacy policy address. The permissions are `public_profile` and `email`
+   (both need no review), but the app has to be switched to live mode for people other than its own testers.
+3. **Discord**: in the Discord developer portal make an application, add the redirect address under OAuth2. The scopes
+   are `identify` and `email`.
+4. Put `PUBLIC_API_URL` and the pair of each provider you made in `deploy/chat-server.env` (see the example), then
+   `COMPOSE up -d chat-server`. Check `https://<API_HOST>/auth/providers`: it lists the ones that are on, and the website
+   shows their buttons by itself. Only a provider with both of its settings is on.
+
+People with an account are in the admin panel under **Users** (provider, email, nickname). To remove one, delete the entry:
+the nickname is free again within ten sync intervals at the latest, and anybody connected as it is cut off at their next
+sign-in. Guests who delete their own account from their profile do the same at once. To ban an account, copy the
+`senderHash` of one of its reported messages in **Reports** into **Bans**: for an account it is the hash of the account,
+so the ban follows it from any address.
+
+The terms and the privacy policy mention accounts (what is kept, at the services, deleting it). A database that was seeded
+before that needs the same words added in the admin under **Terms and privacy**, in all three languages, and a new
+**Terms version** so everybody accepts again; the text is in `apps/admin/src/seed/legal/` (the sections "Accounts" and
+the lines about accounts in the privacy policy).
+
 ## Terms and privacy
 
 The text of the terms of use and the privacy policy is in the admin panel under **Globals > Terms and privacy**, in
@@ -69,11 +101,11 @@ A language is shown only when both documents are complete in it; others see Engl
 - Change **Terms version** (any text, for example a date) only when the change matters: every guest is then asked to
   accept again. Fixing a typo does not need it.
 - The first time (a database that has never been seeded, such as production after this was deployed), wait for the
-  deploy to finish (the admin applies the migrations when it starts) and run `npm run seed:prod -- <the machine's
-address>` on your computer. It resets the checkout to `origin/main` and runs `bash deploy/seed.sh` on the machine over SSH as `deploy`
-  (`DEPLOY_USER` and `DEPLOY_SSH_KEY_FILE` change that). The seed adds the draft text that is in
-  `apps/admin/src/seed/legal/` and leaves everything that exists alone. Until then `/legal` answers 404 and the terms
-  pages say they cannot be loaded.
+  deploy to finish (the admin applies the migrations when it starts) and run `npm run seed:prod` on your computer. It
+  resets the checkout on the machine to `origin/main` and runs `bash deploy/seed.sh` there over SSH as `deploy`, to the
+  API's DuckDNS name (`DEPLOY_HOST`, `DEPLOY_USER` and `DEPLOY_SSH_KEY_FILE` change that). The seed adds the draft text
+  that is in `apps/admin/src/seed/legal/` and leaves everything that exists alone. Until then `/legal` answers 404 and
+  the terms pages say they cannot be loaded.
 - The draft is plain-language and not legal advice; have somebody who knows the law read it.
 
 ## Backups and restore

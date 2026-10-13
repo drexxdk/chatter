@@ -106,10 +106,25 @@ export class PayloadApi {
   }
 
   async remove(
-    collection: "public-rooms" | "bans" | "admins" | "reports",
+    collection: "public-rooms" | "bans" | "admins" | "reports" | "users",
     id: number,
   ) {
     await this.request(`${collection}/${id}`, { method: "DELETE" });
+  }
+
+  // The accounts whose nickname (without case, spaces and punctuation) has `part` in it.
+  async findUsers(part: string) {
+    const { docs } = await this.request(
+      `users?limit=100&where[nicknameKey][like]=${encodeURIComponent(part)}`,
+    );
+
+    return (docs ?? []) as unknown as {
+      id: number;
+      nickname: string;
+      provider: string;
+      email?: string;
+      avatar: string;
+    }[];
   }
 
   // What the admin kept of a reported message, found by the words in it.
@@ -155,8 +170,10 @@ export class PayloadApi {
     const reports = await this.request(
       `reports?limit=100&where[roomSlug][like]=${E2E.slugPrefix}`,
     );
+    const users = await this.findUsers(E2E.nicknamePrefix);
 
     await Promise.all([
+      ...users.map((user) => this.remove("users", user.id)),
       ...(rooms.docs ?? []).map((room) => this.remove("public-rooms", room.id)),
       ...(bans.docs ?? []).map((ban) => this.remove("bans", ban.id)),
       ...(reports.docs ?? []).map((report) =>

@@ -5,6 +5,7 @@ import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
 import { normalizeNickname } from "../nickname";
 import { loadTermsAccepted, saveTermsAccepted } from "../preferences";
 import { readAge } from "../profile";
+import { AccountOptions } from "./AccountOptions";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
@@ -23,6 +24,8 @@ interface NicknameDialogProps {
   onCancel: () => void;
   // The version of the terms the chat-server names now; null while it is not known.
   termsVersion: string | null;
+  // Where the browser comes back to after signing in with a provider: the room that was being joined.
+  returnPath: string;
 }
 
 export function NicknameDialog({
@@ -34,6 +37,7 @@ export function NicknameDialog({
   onModeChange,
   onCancel,
   termsVersion,
+  returnPath,
 }: NicknameDialogProps) {
   const { t } = useTranslation();
   const [moderator, setModerator] = useState(false);
@@ -163,12 +167,20 @@ export function NicknameDialog({
           </Button>
         </div>
 
-        <div className="flex justify-center border-t border-neutral-800 pt-3">
-          <Button variant="link" onClick={switchMode}>
-            {moderator
-              ? t("nickname.continueAsGuest")
-              : t("nickname.signInAsModerator")}
-          </Button>
+        <div className="space-y-3 border-t border-neutral-800 pt-3">
+          {!moderator && (
+            <AccountOptions
+              returnPath={returnPath}
+              intro={t("account.orContinue")}
+            />
+          )}
+          <div className="flex justify-center">
+            <Button variant="link" onClick={switchMode}>
+              {moderator
+                ? t("nickname.continueAsGuest")
+                : t("nickname.signInAsModerator")}
+            </Button>
+          </div>
         </div>
       </form>
     </Modal>

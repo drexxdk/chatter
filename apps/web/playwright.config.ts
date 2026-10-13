@@ -44,6 +44,9 @@ export default defineConfig({
         // Every test opens the lobby from the same address, which would pass the production limit.
         ROOMS_RATE_LIMIT_PER_MINUTE: "100000",
         WEB_ORIGIN: WEB_URL,
+        // The stand-in provider, so the sign-in with an account can be tried without Google, Facebook or Discord.
+        DEV_OAUTH: "true",
+        PUBLIC_API_URL: CHAT_SERVER_URL,
       },
     },
     {

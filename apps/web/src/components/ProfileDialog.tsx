@@ -3,8 +3,10 @@ import { useTranslation } from "react-i18next";
 
 import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
 import type { ActionResult, Session } from "../chat/useChat";
+import type { Account } from "../account";
 import { normalizeNickname } from "../nickname";
 import { MAX_AGE, MIN_AGE, readAge, type ProfileChanges } from "../profile";
+import { AccountSection } from "./AccountSection";
 import { AvatarIcon } from "./Avatar";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
@@ -18,11 +20,21 @@ export function ProfileDialog({
   onClose,
   session,
   onSave,
+  account,
+  returnPath,
+  onSignOut,
+  onDelete,
 }: {
   open: boolean;
   onClose: () => void;
   session: Session;
   onSave: (changes: ProfileChanges) => Promise<ActionResult>;
+  // Who is signed in, or null for a guest, who can make an account by connecting a provider.
+  account: Account | null;
+  // Where the browser comes back to after signing in with a provider.
+  returnPath: string;
+  onSignOut: () => void;
+  onDelete: () => Promise<void>;
 }) {
   const { t } = useTranslation();
 
@@ -39,7 +51,16 @@ export function ProfileDialog({
           </p>
         </div>
       ) : (
-        <ProfileForm session={session} onSave={onSave} onClose={onClose} />
+        <div className="space-y-4">
+          <ProfileForm session={session} onSave={onSave} onClose={onClose} />
+          <AccountSection
+            account={account}
+            returnPath={returnPath}
+            onSignOut={onSignOut}
+            onDelete={onDelete}
+            separated
+          />
+        </div>
       )}
     </Modal>
   );

@@ -9,7 +9,7 @@ const LOCALES = ['en', 'da', 'de'] as const
 const TEXTS: Record<(typeof LOCALES)[number], LegalTexts> = { en, da, de }
 
 // The version the first terms carry; people who accepted another one are asked again.
-export const SEED_TERMS_VERSION = '2026-10-12'
+export const SEED_TERMS_VERSION = '2026-10-13'
 export const SEED_CONTACT_EMAIL = 'draxxdk@gmail.com'
 
 // The admin edits paragraphs as one text with blank lines between them, and a list as one item to a line.

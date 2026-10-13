@@ -13,6 +13,8 @@ export const E2E = {
   defaultSlowModeSeconds: 1,
   // Marks data created by these tests so leftovers from a crashed run can be swept.
   slugPrefix: "e2e-",
+  // The nicknames of the accounts these tests make, as they are kept (no case, no spaces).
+  nicknamePrefix: "e2eacc",
   banReason: "e2e-test",
   moderatorEmailPrefix: "e2e-mod-",
 } as const;

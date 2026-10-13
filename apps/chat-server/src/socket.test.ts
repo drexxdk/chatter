@@ -32,6 +32,11 @@ const {
   claimAnnouncementSlot,
   rememberResume,
   verifyResume,
+  isMemberName,
+  claimMemberName,
+  releaseMemberName,
+  fetchUser,
+  updateUser,
 } = vi.hoisted(() => ({
   isBanned: vi.fn(),
   getCachedPublicRooms: vi.fn(),
@@ -51,9 +56,25 @@ const {
   claimAnnouncementSlot: vi.fn(),
   rememberResume: vi.fn(),
   verifyResume: vi.fn(),
+  isMemberName: vi.fn(),
+  claimMemberName: vi.fn(),
+  releaseMemberName: vi.fn(),
+  fetchUser: vi.fn(),
+  updateUser: vi.fn(),
 }));
 
 vi.mock("./redis.js", () => ({ pubClient: {}, subClient: {} }));
+vi.mock("./members.js", () => ({
+  isMemberName,
+  claimMemberName,
+  releaseMemberName,
+}));
+// Payload is mocked for the accounts; the rest of the client (the report reasons, the error type) is real.
+vi.mock("./payloadClient.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./payloadClient.js")>()),
+  fetchUser,
+  updateUser,
+}));
 vi.mock("./bans.js", () => ({ isBanned }));
 vi.mock("./rooms.js", () => ({ getCachedPublicRooms }));
 // The store is mocked, the secrets it hands out are real.
@@ -272,6 +293,11 @@ beforeEach(() => {
   claimAnnouncementSlot.mockReset().mockResolvedValue(0);
   rememberResume.mockReset().mockResolvedValue(undefined);
   verifyResume.mockReset().mockResolvedValue(false);
+  isMemberName.mockReset().mockResolvedValue(false);
+  claimMemberName.mockReset().mockResolvedValue(true);
+  releaseMemberName.mockReset().mockResolvedValue(undefined);
+  fetchUser.mockReset().mockResolvedValue(undefined);
+  updateUser.mockReset().mockResolvedValue(undefined);
 });
 
 afterEach(async () => {
@@ -3788,5 +3814,302 @@ describe("resuming an identity", () => {
       nickname: "Ada Mod",
       role: "moderator",
     });
+  });
+});
+
+const { hashMember, memberGuestId } = await import("./identity.js");
+const { removeAccountConnections } = await import("./socket.js");
+const { PayloadError } = await import("./payloadClient.js");
+
+describe("members", () => {
+  const SECRET = "a-secret-that-is-long-enough-for-tests";
+  const account = {
+    id: 5,
+    provider: "google",
+    providerUserId: "g5",
+    nickname: "Alice",
+    nicknameKey: "alice",
+    avatar: "female",
+    age: 30,
+  };
+  const memberToken = (id = 5, secret = SECRET) =>
+    signToken(
+      { sub: id, name: "Whatever", role: "member" },
+      { secret, ttlMs: 3_600_000 },
+    );
+
+  beforeEach(() => {
+    fetchUser.mockResolvedValue(account);
+  });
+
+  async function member(extra: Record<string, unknown> = {}) {
+    const { port, io } = await startServer({ authTokenSecret: SECRET });
+    const result = await connect({ token: memberToken(), ...extra }, port);
+    if (!result.socket || !result.session) {
+      throw new Error(`sign-in failed: ${result.error}`);
+    }
+
+    return { port, io, socket: result.socket, session: await result.session };
+  }
+
+  it("signs an account in as who it says it is, whatever the connection claims", async () => {
+    const { session } = await member({
+      nickname: "Mallory",
+      avatar: "male",
+      age: 99,
+    });
+
+    expect(session).toMatchObject({
+      nickname: "Alice",
+      role: "member",
+      avatar: "female",
+      age: 30,
+    });
+  });
+
+  it("gives an account the same guest id every time, which nobody else gets", async () => {
+    const { session } = await member();
+
+    expect(session.guestId).toBe(memberGuestId(5));
+    expect(session.guestId).toMatch(/^m-[0-9a-f]{32}$/);
+    expect(memberGuestId(6)).not.toBe(memberGuestId(5));
+  });
+
+  it("lets the newest connection of an account replace the older", async () => {
+    const { port, socket: first } = await member();
+    const kicked = waitFor<{ reason: string }>(first, "kicked");
+
+    const second = await connect({ token: memberToken() }, port);
+
+    expect(second.socket).toBeDefined();
+    expect(await kicked).toEqual({ reason: "replaced" });
+    expect((await second.session)?.guestId).toBe(memberGuestId(5));
+  });
+
+  it("shows the others that it is a member, like any other person", async () => {
+    const { socket, port } = await member();
+    const bob = await connect({ nickname: "Bob" }, port);
+    await emit(bob.socket!, "room:join", { slug: "general" });
+    const seen = waitFor<{ members: { nickname: string; role: string }[] }>(
+      bob.socket!,
+      "room:presence",
+      (presence) => presence.members.length === 2,
+    );
+
+    await emit(socket, "room:join", { slug: "general" });
+
+    expect((await seen).members.find((m) => m.nickname === "Alice")?.role).toBe(
+      "member",
+    );
+  });
+
+  it.each([
+    [
+      "an account that is gone",
+      () => fetchUser.mockResolvedValue(undefined),
+      "invalid_token",
+    ],
+    [
+      "Payload not answering",
+      () => fetchUser.mockRejectedValue(new Error("down")),
+      "unavailable",
+    ],
+  ])("turns a token away for %s", async (_label, arrange, error) => {
+    arrange();
+    const { port } = await startServer({ authTokenSecret: SECRET });
+
+    expect((await connect({ token: memberToken() }, port)).error).toBe(error);
+  });
+
+  it("turns a token away when the server cannot check it", async () => {
+    const { port } = await startServer({ authTokenSecret: "" });
+
+    expect((await connect({ token: memberToken() }, port)).error).toBe(
+      "invalid_token",
+    );
+  });
+
+  it("does not let an account announce, as a moderator can", async () => {
+    const { socket } = await member();
+
+    expect(
+      await emit(socket, "announce:send", { text: "Hello" }),
+    ).toMatchObject({
+      ok: false,
+      error: "forbidden",
+    });
+  });
+
+  it("turns a banned account away wherever it connects from, and not for its address alone", async () => {
+    isBanned.mockImplementation(async (hash: string) => hash === hashMember(5));
+    const { port } = await startServer({ authTokenSecret: SECRET });
+
+    expect((await connect({ token: memberToken() }, port)).error).toBe(
+      "banned",
+    );
+    expect(isBanned).toHaveBeenCalledWith(hashMember(5));
+  });
+
+  it("turns an account away when its address is banned too", async () => {
+    isBanned.mockImplementation(async (hash: string) => hash !== hashMember(5));
+    const { port } = await startServer({ authTokenSecret: SECRET });
+
+    expect((await connect({ token: memberToken() }, port)).error).toBe(
+      "banned",
+    );
+  });
+
+  it("keeps what an account says under the account's own hash, so a ban on it reaches the messages", async () => {
+    const { socket } = await member();
+    await emit(socket, "room:join", { slug: "general" });
+
+    await emit(socket, "message:send", { text: "hello" });
+
+    expect(recordMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ role: "member", ipHash: hashMember(5) }),
+    );
+  });
+
+  it("disconnects an account that a ban names, and replaces its messages", async () => {
+    const { io, socket } = await member();
+    await emit(socket, "room:join", { slug: "general" });
+    const kicked = waitFor<{ reason: string }>(socket, "kicked");
+
+    await enforceBans(io, [hashMember(5)]);
+
+    expect(await kicked).toEqual({ reason: "banned" });
+    expect(redactMessagesFrom).toHaveBeenCalledWith("general", [hashMember(5)]);
+  });
+
+  it("disconnects an account that has been deleted", async () => {
+    const { io, socket } = await member();
+    const kicked = waitFor<{ reason: string }>(socket, "kicked");
+
+    await removeAccountConnections(io, 5);
+
+    expect(await kicked).toEqual({ reason: "invalid_token" });
+  });
+
+  describe("a guest and the names of the accounts", () => {
+    it("cannot take a nickname that an account has", async () => {
+      isMemberName.mockResolvedValue(true);
+
+      expect((await connect({ nickname: "Alice" })).error).toBe(
+        "reserved_nickname",
+      );
+      expect(isMemberName).toHaveBeenCalledWith("Alice");
+    });
+
+    it("cannot rename themselves to one", async () => {
+      const { socket } = await connect({ nickname: "Bob" });
+      isMemberName.mockResolvedValue(true);
+
+      expect(
+        await emit(socket!, "profile:update", { nickname: "Alice" }),
+      ).toEqual({
+        ok: false,
+        error: "reserved_nickname",
+      });
+    });
+
+    it("can still be unreachable, and then nobody gets in, so a name is never given by mistake", async () => {
+      isMemberName.mockRejectedValue(new Error("redis down"));
+
+      expect((await connect({ nickname: "Bob" })).error).toBe("unavailable");
+    });
+  });
+
+  describe("changing the profile", () => {
+    it("is kept in the account, and the names that are taken are brought up to date", async () => {
+      const { socket } = await member();
+
+      const ack = await emit(socket, "profile:update", {
+        nickname: " Alicia ",
+        avatar: "trans",
+        age: null,
+      });
+
+      expect(ack).toEqual({
+        ok: true,
+        profile: { nickname: "Alicia", avatar: "trans" },
+      });
+      expect(updateUser).toHaveBeenCalledWith(5, {
+        nickname: "Alicia",
+        nicknameKey: "alicia",
+        avatar: "trans",
+        age: null,
+      });
+      expect(claimMemberName).toHaveBeenCalledWith(5, "Alicia");
+      expect(releaseMemberName).toHaveBeenCalledWith(5, "Alice");
+    });
+
+    it("does not touch the list of names when only the avatar changes", async () => {
+      const { socket } = await member();
+
+      await emit(socket, "profile:update", { avatar: "male" });
+
+      expect(updateUser).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({ avatar: "male", age: 30 }),
+      );
+      expect(claimMemberName).not.toHaveBeenCalled();
+    });
+
+    it("may change the spelling of their own nickname", async () => {
+      const { socket } = await member();
+      isMemberName.mockImplementation(
+        async (_name: string, except?: number) => except !== 5,
+      );
+
+      expect(
+        await emit(socket, "profile:update", { nickname: "ALICE" }),
+      ).toMatchObject({
+        ok: true,
+      });
+    });
+
+    it.each([
+      [
+        "a nickname another account has",
+        () => isMemberName.mockResolvedValue(true),
+        "reserved_nickname",
+      ],
+      [
+        "a nickname that was taken just now",
+        () =>
+          updateUser.mockRejectedValue(
+            new PayloadError("x", 400, "nicknameKey"),
+          ),
+        "reserved_nickname",
+      ],
+      [
+        "an account that cannot be saved",
+        () => updateUser.mockRejectedValue(new Error("down")),
+        "unavailable",
+      ],
+    ])(
+      "is refused for %s, and nothing changes",
+      async (_label, arrange, error) => {
+        const { socket } = await member();
+        arrange();
+
+        expect(
+          await emit(socket, "profile:update", { nickname: "Alicia" }),
+        ).toEqual({
+          ok: false,
+          error,
+        });
+
+        // Still shown as before.
+        updateUser.mockResolvedValue(undefined);
+        isMemberName.mockResolvedValue(false);
+        expect(
+          await emit(socket, "profile:update", { avatar: "male" }),
+        ).toMatchObject({
+          ok: true,
+          profile: { nickname: "Alice" },
+        });
+      },
+    );
   });
 });

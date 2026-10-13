@@ -3,6 +3,7 @@ import * as migration_20261004_073831_add_room_slow_mode from './20261004_073831
 import * as migration_20261004_081000_add_moderator_role from './20261004_081000_add_moderator_role'
 import * as migration_20261012_180801_add_reports from './20261012_180801_add_reports'
 import * as migration_20261012_190502_add_legal from './20261012_190502_add_legal'
+import * as migration_20261013_052004_add_users from './20261013_052004_add_users'
 
 export const migrations = [
   {
@@ -29,5 +30,10 @@ export const migrations = [
     up: migration_20261012_190502_add_legal.up,
     down: migration_20261012_190502_add_legal.down,
     name: '20261012_190502_add_legal',
+  },
+  {
+    up: migration_20261013_052004_add_users.up,
+    down: migration_20261013_052004_add_users.down,
+    name: '20261013_052004_add_users',
   },
 ]

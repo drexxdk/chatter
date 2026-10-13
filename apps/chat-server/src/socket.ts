@@ -23,8 +23,15 @@ import {
   takeAway,
   toggleReaction,
 } from "./history.js";
-import { hashIdentifier, getClientIp, validateNickname } from "./identity.js";
+import {
+  hashIdentifier,
+  getClientIp,
+  hashMember,
+  memberGuestId,
+  validateNickname,
+} from "./identity.js";
 import { MAX_MESSAGE_LENGTH } from "./limits.js";
+import { claimMemberName, isMemberName, releaseMemberName } from "./members.js";
 import {
   getModerators,
   getModeratorNames,
@@ -32,7 +39,13 @@ import {
   normalizeName,
 } from "./names.js";
 import { isReactionEmoji } from "./reactions.js";
-import { REPORT_REASONS, type ReportReason } from "./payloadClient.js";
+import {
+  fetchUser,
+  isTaken,
+  REPORT_REASONS,
+  updateUser,
+  type ReportReason,
+} from "./payloadClient.js";
 import { recordReport } from "./reports.js";
 import { pubClient, subClient } from "./redis.js";
 import { ROLE_RULES, type ChatRole } from "./roles.js";
@@ -80,9 +93,14 @@ interface SocketData {
   avatar: Avatar;
   // Only when the guest said how old they are.
   age?: number;
-  // The Payload account behind a signed-in role; guests have none.
+  // The Payload account behind a signed-in moderator; others have none.
   accountId?: number;
+  // The account of a member (the `users` collection), whose profile is kept there.
+  memberId?: number;
   ipHash: string;
+  // What a ban names to reach this connection's messages and reports: the address hash of a guest, the account's hash
+  // for a member (so the ban follows the account to any address).
+  identityHash: string;
   // Set when a ban removes the guest, so a message still being recorded at that moment is dropped.
   banned?: boolean;
   roomSlug?: string;
@@ -213,6 +231,39 @@ export function directMessageWaitMs(
   return Math.max(flood, waitMs);
 }
 
+// Keeps a member's profile in their account, and the nickname in the list of names that are taken. Undefined when it
+// worked, otherwise the error to answer with.
+async function saveMemberProfile(
+  memberId: number,
+  oldNickname: string,
+  profile: { nickname: string; avatar: Avatar; age: number | undefined },
+): Promise<string | undefined> {
+  try {
+    await updateUser(memberId, {
+      nickname: profile.nickname,
+      nicknameKey: normalizeName(profile.nickname),
+      avatar: profile.avatar,
+      age: profile.age ?? null,
+    });
+  } catch (error) {
+    if (isTaken(error, "nicknameKey")) return "reserved_nickname";
+
+    log.error(
+      "Failed to save a profile",
+      error instanceof Error ? error.message : "unknown error",
+    );
+    return "unavailable";
+  }
+
+  if (normalizeName(profile.nickname) !== normalizeName(oldNickname)) {
+    // The list is a copy; the account is what counts, so a failure here only waits for the next sync.
+    await claimMemberName(memberId, profile.nickname).catch(() => undefined);
+    await releaseMemberName(memberId, oldNickname).catch(() => undefined);
+  }
+
+  return undefined;
+}
+
 export function createSocketServer(
   httpServer: HttpServer,
   options: {
@@ -286,8 +337,8 @@ export function createSocketServer(
       nickname: data.nickname,
     };
 
-    await recordMovement({ ...movement, ipHash: data.ipHash }).catch((error) =>
-      log.error("Failed to remember who came or went", error),
+    await recordMovement({ ...movement, ipHash: data.identityHash }).catch(
+      (error) => log.error("Failed to remember who came or went", error),
     );
     io.to(roomKey(slug)).emit("room:event", movement);
   }
@@ -352,7 +403,10 @@ export function createSocketServer(
       return (
         other.guestId !== data.guestId &&
         normalizeName(other.nickname) === name &&
-        !(other.accountId !== undefined && other.accountId === data.accountId)
+        !(
+          other.accountId !== undefined && other.accountId === data.accountId
+        ) &&
+        !(other.memberId !== undefined && other.memberId === data.memberId)
       );
     });
   }
@@ -365,6 +419,9 @@ export function createSocketServer(
     let nickname: string | null;
     let role: ChatRole = "guest";
     let accountId: number | undefined;
+    let memberId: number | undefined;
+    let avatar: Avatar = "other";
+    let age: number | undefined;
 
     if (auth.token !== undefined) {
       const claims = authTokenSecret
@@ -373,26 +430,44 @@ export function createSocketServer(
 
       if (!claims) return next(new Error("invalid_token"));
 
-      // The token proves who signed in, not that they still may moderate: the account could have been removed since.
-      try {
-        const moderators = await getModerators();
+      if (claims.role === "member") {
+        // The token proves whose account it is; who they are shown as is what the account says now.
+        try {
+          const user = await fetchUser(claims.sub);
 
-        if (!moderators) {
-          log.error("Moderators have not been read from Payload yet");
+          if (!user) return next(new Error("invalid_token"));
+
+          nickname = user.nickname;
+          avatar = user.avatar;
+          age = user.age;
+          memberId = user.id;
+          role = "member";
+        } catch (error) {
+          log.error("Account check failed", error);
+          return next(new Error("unavailable"));
+        }
+      } else {
+        // The token proves who signed in, not that they still may moderate: the account could have been removed since.
+        try {
+          const moderators = await getModerators();
+
+          if (!moderators) {
+            log.error("Moderators have not been read from Payload yet");
+            return next(new Error("unavailable"));
+          }
+
+          if (!moderators.some((moderator) => moderator.id === claims.sub)) {
+            return next(new Error("invalid_token"));
+          }
+        } catch (error) {
+          log.error("Moderator check failed", error);
           return next(new Error("unavailable"));
         }
 
-        if (!moderators.some((moderator) => moderator.id === claims.sub)) {
-          return next(new Error("invalid_token"));
-        }
-      } catch (error) {
-        log.error("Moderator check failed", error);
-        return next(new Error("unavailable"));
+        nickname = claims.name;
+        role = claims.role;
+        accountId = claims.sub;
       }
-
-      nickname = claims.name;
-      role = claims.role;
-      accountId = claims.sub;
     } else {
       nickname = validateNickname(auth.nickname);
 
@@ -401,21 +476,32 @@ export function createSocketServer(
       }
 
       try {
-        if (isReservedNickname(nickname, await getModeratorNames())) {
+        if (
+          isReservedNickname(nickname, await getModeratorNames()) ||
+          (await isMemberName(nickname))
+        ) {
           return next(new Error("reserved_nickname"));
         }
       } catch (error) {
-        log.error("Moderator names unavailable", error);
+        log.error("Reserved names unavailable", error);
         return next(new Error("unavailable"));
       }
+
+      avatar = parseAvatar(auth.avatar);
+      age = parseAge(auth.age);
     }
 
     const ipHash = hashIdentifier(
       getClientIp(socket.handshake, trustedProxyHops),
     );
+    const identityHash = memberId === undefined ? ipHash : hashMember(memberId);
 
     try {
-      if (!ROLE_RULES[role].ignoresIpBans && (await isBanned(ipHash))) {
+      if (
+        !ROLE_RULES[role].ignoresIpBans &&
+        ((await isBanned(ipHash)) ||
+          (memberId !== undefined && (await isBanned(identityHash))))
+      ) {
         return next(new Error("banned"));
       }
     } catch (error) {
@@ -432,20 +518,27 @@ export function createSocketServer(
       typeof auth.resumeSecret === "string" ? auth.resumeSecret : "";
 
     try {
-      if (
-        claimedId &&
-        claimedSecret &&
-        (await verifyResume(claimedId, claimedSecret))
-      ) {
+      // An account always has the same guest id and its token proves it, so no secret is needed to take over; a guest
+      // needs the one the old connection was given.
+      const takenOver =
+        memberId !== undefined
+          ? memberGuestId(memberId)
+          : claimedId &&
+              claimedSecret &&
+              (await verifyResume(claimedId, claimedSecret))
+            ? claimedId
+            : undefined;
+
+      if (takenOver) {
         // The old connection may not have been noticed gone yet; the guest is only in the room once.
         for (const old of await io.fetchSockets()) {
-          if ((old.data as SocketData).guestId === claimedId) {
+          if ((old.data as SocketData).guestId === takenOver) {
             old.emit("kicked", { reason: "replaced" });
             old.disconnect(true);
           }
         }
 
-        guestId = claimedId;
+        guestId = takenOver;
       }
 
       // A new secret every time: one that was used is no use to anybody who saw it.
@@ -480,10 +573,12 @@ export function createSocketServer(
       guestId,
       nickname,
       role,
-      avatar: role === "guest" ? parseAvatar(auth.avatar) : "other",
-      age: role === "guest" ? parseAge(auth.age) : undefined,
+      avatar,
+      age,
       accountId,
+      memberId,
       ipHash,
+      identityHash,
       recentMessageTimes: [],
       profileChangeTimes: [],
       reactionTimes: [],
@@ -848,13 +943,13 @@ export function createSocketServer(
       if (was) await tellBlocked(guestId, "dm:unblocked");
     });
 
-    // A guest changes who they are shown as: the name, the avatar and the age, each only when it is in the payload (an
-    // age of null takes it back). Everything is checked before anything changes. A moderator's name belongs to their
-    // account, so they cannot.
+    // A guest or a member changes who they are shown as: the name, the avatar and the age, each only when it is in the
+    // payload (an age of null takes it back). Everything is checked before anything changes, and a member's change is
+    // kept in their account. A moderator's name belongs to their account, so they cannot.
     socket.on("profile:update", async (payload: unknown, ack?: Ack) => {
       const reply = ackOf(ack);
 
-      if (data.role !== "guest") {
+      if (data.role === "moderator") {
         return reply({ ok: false, error: "forbidden" });
       }
 
@@ -890,11 +985,14 @@ export function createSocketServer(
 
         if (valid !== data.nickname) {
           try {
-            if (isReservedNickname(valid, await getModeratorNames())) {
+            if (
+              isReservedNickname(valid, await getModeratorNames()) ||
+              (await isMemberName(valid, data.memberId))
+            ) {
               return reply({ ok: false, error: "reserved_nickname" });
             }
           } catch (error) {
-            log.error("Moderator names unavailable", error);
+            log.error("Reserved names unavailable", error);
             return reply({ ok: false, error: "unavailable" });
           }
         }
@@ -927,20 +1025,38 @@ export function createSocketServer(
         data.age = age;
         data.profileChangeTimes.push(now);
       };
+      // The change for good: a member's is kept in their account first, so what the others see is never ahead of it.
+      const commit = async (): Promise<string | undefined> => {
+        if (data.memberId !== undefined) {
+          const failure = await saveMemberProfile(
+            data.memberId,
+            data.nickname,
+            {
+              nickname,
+              avatar,
+              age,
+            },
+          );
+
+          if (failure) return failure;
+        }
+
+        apply();
+        return undefined;
+      };
 
       // A new name must not be one somebody else in the room has; checked and taken under the room's lock, so two
       // people choosing the same name at once cannot both get it.
       if (slug && normalizeName(nickname) !== normalizeName(data.nickname)) {
-        const taken = await withRoomLock(slug, async () => {
-          if (await nameInUse(slug, data, nickname)) return true;
+        const failure = await withRoomLock(slug, async () =>
+          (await nameInUse(slug, data, nickname)) ? "nickname_taken" : commit(),
+        );
 
-          apply();
-          return false;
-        });
-
-        if (taken) return reply({ ok: false, error: "nickname_taken" });
+        if (failure) return reply({ ok: false, error: failure });
       } else {
-        apply();
+        const failure = await commit();
+
+        if (failure) return reply({ ok: false, error: failure });
       }
 
       reply({
@@ -1080,7 +1196,7 @@ export function createSocketServer(
       // Redis failure costs the history entry, not the message.
       const storedIpHash = ROLE_RULES[data.role].ignoresIpBans
         ? ""
-        : data.ipHash;
+        : data.identityHash;
 
       try {
         await recordMessage({ ...message, ipHash: storedIpHash });
@@ -1090,7 +1206,7 @@ export function createSocketServer(
 
       // A ban can land while the message is being recorded: it is neither delivered nor left in the history.
       if (data.banned) {
-        await redactMessagesFrom(message.roomSlug, [data.ipHash]).catch(
+        await redactMessagesFrom(message.roomSlug, [data.identityHash]).catch(
           (error) =>
             log.error("Failed to replace a banned guest's message", error),
         );
@@ -1208,7 +1324,7 @@ export function createSocketServer(
         result = await reportMessage(
           slug,
           messageId,
-          { guestId: data.guestId, ipHash: data.ipHash },
+          { guestId: data.guestId, ipHash: data.identityHash },
           {
             hideAt: env.REPORT_HIDE_THRESHOLD,
             hideNow: data.role === "moderator",
@@ -1285,6 +1401,19 @@ export async function roomOccupancy(io: Server): Promise<Map<string, number>> {
   return counts;
 }
 
+// Cuts off whatever is connected as an account that has just been deleted.
+export async function removeAccountConnections(
+  io: Server,
+  memberId: number,
+): Promise<void> {
+  for (const socket of await io.fetchSockets()) {
+    if ((socket.data as SocketData).memberId !== memberId) continue;
+
+    socket.emit("kicked", { reason: "invalid_token" });
+    socket.disconnect(true);
+  }
+}
+
 // Cuts off signed-in accounts that may no longer moderate, even though their token has not expired. Like bans, every
 // node does this for its own connections.
 export async function enforceModerators(
@@ -1317,7 +1446,10 @@ export async function enforceBans(
 
   for (const socket of io.sockets.sockets.values()) {
     const data = socket.data as SocketData;
-    if (!banned.has(data.ipHash) || ROLE_RULES[data.role].ignoresIpBans) {
+    if (
+      (!banned.has(data.ipHash) && !banned.has(data.identityHash)) ||
+      ROLE_RULES[data.role].ignoresIpBans
+    ) {
       continue;
     }
 

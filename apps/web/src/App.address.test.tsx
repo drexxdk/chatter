@@ -340,7 +340,7 @@ describe("keeping your place", () => {
 
       expect(
         await within(await screen.findByRole("dialog")).findByRole("alert"),
-      ).toHaveTextContent("Your moderator session has expired");
+      ).toHaveTextContent("Your session has expired");
       expect(sessionStorage.getItem(SAVED)).toBeNull();
     });
 

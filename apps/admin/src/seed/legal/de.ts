@@ -1,7 +1,7 @@
 import type { LegalTexts } from './types'
 
 export const de: LegalTexts = {
-  updated: 'Stand: 12. Oktober 2026',
+  updated: 'Stand: 13. Oktober 2026',
   terms: {
     title: 'Nutzungsbedingungen',
     sections: [
@@ -16,6 +16,13 @@ export const de: LegalTexts = {
         heading: 'Wer Chatter nutzen darf',
         paragraphs: [
           'Chatter ist nur für Personen ab 18 Jahren. Wenn du jünger bist, nutze es nicht. Wir können jeden entfernen, den wir für jünger als 18 halten.',
+        ],
+      },
+      {
+        heading: 'Konten',
+        paragraphs: [
+          'Du kannst Chatter als Gast nutzen oder ein Konto anlegen, indem du ein Google-, Facebook- oder Discord-Konto verbindest. Ein Konto behält deinen Spitznamen, deinen Avatar und dein Alter, damit du aus jedem Browser als dieselbe Person zurückkommen kannst, und der Spitzname gehört dir allein.',
+          'Du bist für das verantwortlich, was unter deinem Konto getan wird. Du kannst es jederzeit in deinem Profil löschen. Wir können ein Konto oder einen Spitznamen entfernen, der gegen diese Bedingungen verstößt oder so aussieht, als gehöre er zum Personal oder zu jemand anderem.',
         ],
       },
       {
@@ -43,7 +50,7 @@ export const de: LegalTexts = {
         heading: 'Meldungen und Moderation',
         paragraphs: [
           'Jeder kann eine Nachricht melden. Haben genug verschiedene Personen sie gemeldet, wird sie ausgeblendet, bis sie geprüft wurde. Moderatoren und wir können Nachrichten ausblenden, Verbindungen trennen und Personen ohne Vorwarnung sperren.',
-          'Eine Sperre gilt für eine Netzwerkadresse und kann daher auch andere treffen, die dieselbe nutzen. Wenn du eine Sperre oder Entfernung für falsch hältst, schreibe an {contact}. Wir entscheiden, ob sie aufgehoben wird.',
+          'Eine Sperre gilt für eine Netzwerkadresse oder, bei einem Konto, für das Konto und kann daher bei einer Adresse auch andere treffen, die dieselbe nutzen. Wenn du eine Sperre oder Entfernung für falsch hältst, schreibe an {contact}. Wir entscheiden, ob sie aufgehoben wird.',
         ],
       },
       {
@@ -85,12 +92,13 @@ export const de: LegalTexts = {
           'Deine IP-Adresse selbst, solange du verbunden bist. Sie kann auch in den technischen Protokollen des Servers auftauchen (zum Beispiel bei Verbindungsfehlern). Die Protokolle werden automatisch rotiert und nur genutzt, um den Dienst am Laufen zu halten.',
           'Meldungen. Wird eine Nachricht gemeldet, bewahren wir eine Kopie auf (den Text, den Spitznamen, den Hashwert der Adresse des Absenders und die genannten Gründe), höchstens 90 Tage lang, damit sie geprüft werden kann.',
           'Nur für Moderatoren: E-Mail-Adresse, Anzeigename und ein Passwort, das in verfremdeter Form gespeichert wird.',
+          'Konten. Legst du ein Konto an, speichern wir, welchen Dienst du genutzt hast (Google, Facebook oder Discord), deine Kennung dort, die E-Mail-Adresse, die der Dienst uns gibt (falls er eine gibt), deinen Spitznamen, deinen Avatar und dein Alter und wann du dich zuletzt angemeldet hast. Die E-Mail-Adresse wird niemandem angezeigt und nur genutzt, um dich zu deinem Konto zu kontaktieren. Dein Passwort beim Dienst erhalten wir nie.',
         ],
       },
       {
         heading: 'Was in deinem Browser gespeichert wird',
         paragraphs: [
-          'Es gibt keine Cookies und kein Tracking und keine Statistik. Der lokale Speicher des Browsers hält deine Sprache, deine Anzeigeoptionen und fest, dass du die Bedingungen akzeptiert hast. Sein Sitzungsspeicher hält, nur für diesen Tab, deinen Spitznamen, deinen Avatar und dein Alter, ein Geheimnis, das dich nach einem Neuladen in den Raum zurückbringt, und deine privaten Unterhaltungen. Das wird gelöscht, wenn du den Tab schließt.',
+          'Es gibt keine Cookies und kein Tracking und keine Statistik. Der lokale Speicher des Browsers hält deine Sprache, deine Anzeigeoptionen, dass du die Bedingungen akzeptiert hast und, wenn du ein Konto hast, den Schlüssel, der dich angemeldet hält. Sein Sitzungsspeicher hält, nur für diesen Tab, deinen Spitznamen, deinen Avatar und dein Alter, ein Geheimnis, das dich nach einem Neuladen in den Raum zurückbringt, und deine privaten Unterhaltungen. Das wird gelöscht, wenn du den Tab schließt.',
         ],
       },
       {
@@ -103,6 +111,7 @@ export const de: LegalTexts = {
         heading: 'Wer sonst Daten verarbeitet',
         paragraphs: [
           'Wir nutzen Cloudflare (die Dateien der Website und Sicherungen der Admin-Datenbank, die Moderatorenkonten und Meldungen enthält, aber keine Chatnachrichten) und Oracle Cloud (den Server, in Frankfurt, Deutschland). GIPHY ist oben beschrieben.',
+          'Verbindest du ein Konto, sehen Google, Facebook oder Discord, dass du Chatter nutzt, und was sie uns über dich mitteilen, ist oben beschrieben. Siehe deren eigene Datenschutzerklärungen.',
           'Wir verkaufen keine Daten und nutzen sie nicht für Werbung. Wir geben Daten an Behörden weiter, wenn das Gesetz es verlangt.',
         ],
       },
@@ -118,6 +127,7 @@ export const de: LegalTexts = {
           'Öffentliche Nachrichten und der Adress-Hashwert dazu: etwa eine Stunde.',
           'Eine Sperre: bis sie abläuft oder aufgehoben wird.',
           'Eine Meldung: höchstens 90 Tage.',
+          'Ein Konto: bis du es in deinem Profil löschst oder uns darum bittest.',
           'Sicherungen der Datenbank: 30 Tage.',
           'Technische Protokolle: bis sie rotiert werden.',
           'Was in deinem Browser ist: bis du es löschst oder den Tab schließt.',
@@ -126,7 +136,7 @@ export const de: LegalTexts = {
       {
         heading: 'Deine Rechte',
         paragraphs: [
-          'Du kannst Auskunft über deine Daten verlangen, sie berichtigen oder löschen lassen, ihre Nutzung einschränken lassen und widersprechen. Schreibe an {contact}. Weil wir nur anonyme Werte speichern, können wir deine Daten möglicherweise nur finden, wenn du uns sagst, wann und wo du im Chat warst.',
+          'Du kannst Auskunft über deine Daten verlangen, sie berichtigen oder löschen lassen, ihre Nutzung einschränken lassen und widersprechen. Hast du ein Konto, kannst du es selbst in deinem Profil löschen. Schreibe an {contact}. Weil wir nur anonyme Werte speichern, können wir deine Daten möglicherweise nur finden, wenn du uns sagst, wann und wo du im Chat warst.',
           'Du kannst dich bei der dänischen Datenschutzbehörde (Datatilsynet, datatilsynet.dk) oder bei der Behörde in deinem Land beschweren.',
         ],
       },

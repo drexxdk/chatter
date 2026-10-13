@@ -234,6 +234,26 @@
     "replyPlaceholder": "Skriv en privat besked til {name}",
     "stopReply": "Stop med at skrive privat til {name} og send til alle"
   },
+  "account": {
+    "title": "Konto",
+    "open": "Konto",
+    "intro": "Forbind en konto for at beholde dit kaldenavn, din avatar og din alder og for at have kaldenavnet for dig selv.",
+    "orContinue": "Eller fortsæt med en konto:",
+    "continueWith": "Fortsæt med {provider}",
+    "signedInWith": "Logget ind med {provider}.",
+    "signOut": "Log ud",
+    "delete": "Slet min konto",
+    "deleteWarning": "Det sletter din konto og frigiver dit kaldenavn. Det, du har skrevet i et rum, bliver stående, indtil det udløber. Det kan ikke fortrydes.",
+    "deleteConfirm": "Ja, slet min konto",
+    "working": "Logger dig ind…",
+    "back": "Tilbage til Chatter",
+    "register": {
+      "title": "Opret din konto",
+      "intro": "{provider} har bekræftet, hvem du er. Vælg, hvordan du vises i chatten.",
+      "submit": "Opret konto",
+      "submitting": "Opretter kontoen…"
+    }
+  },
   "errors": {
     "replaced": "Du har åbnet chatten i et andet vindue, så dette blev lukket.",
     "user_not_found": "Vedkommende er ikke længere i rummet.",
@@ -253,7 +273,12 @@
     "nickname_taken": "Der er allerede en i dette rum med det kaldenavn. Vælg et andet.",
     "invalid_profile": "Den profil er ikke tilladt. Alderen skal være mellem {min} og {max}.",
     "profile_rate_limited": "Du har ændret din profil for ofte. Du kan ændre den igen om {seconds} s.",
-    "invalid_token": "Din moderatorsession er udløbet. Log ind igen.",
+    "invalid_token": "Din session er udløbet. Log ind igen.",
+    "denied": "Du gav ikke lov til at logge ind.",
+    "failed": "Indlogningen virkede ikke. Prøv igen.",
+    "invalid_state": "Indlogningen tog for lang tid eller var allerede brugt. Prøv igen.",
+    "unknown_provider": "Den måde at logge ind på findes ikke.",
+    "invalid_ticket": "Indlogningen er udløbet. Start forfra.",
     "invalid_credentials": "Forkert e-mail eller adgangskode.",
     "not_a_moderator": "Denne konto kan ikke moderere chatten.",
     "no_display_name": "Denne konto har endnu ikke noget visningsnavn. Bed en administrator om at angive et.",

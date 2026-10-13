@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { parseAge } from "./age.js";
+import { parseAvatar, type Avatar } from "./avatars.js";
 import { env } from "./env.js";
 
 // Payload's API-key auth header format is "<collection-slug> API-Key <key>".
@@ -39,6 +41,18 @@ const describeIssues = (error: z.ZodError) =>
     .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
     .join("; ");
 
+// The status says what went wrong (a 404 is "not there", a 400 can be "already taken"). `detail` is the start of what
+// Payload answered, only for such checks: it can carry what was sent, so it is never logged.
+export class PayloadError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly detail = "",
+  ) {
+    super(message);
+  }
+}
+
 // A response that fails validation is rejected whole, so the caller keeps serving its last good copy.
 // The message names the field only: ban hashes and reasons must not end up in logs.
 async function payloadFetch<T extends z.ZodType>(
@@ -50,8 +64,9 @@ async function payloadFetch<T extends z.ZodType>(
   });
 
   if (!res.ok) {
-    throw new Error(
+    throw new PayloadError(
       `Payload request failed: ${res.status} ${res.statusText} (${path})`,
+      res.status,
     );
   }
 
@@ -242,8 +257,10 @@ async function payloadSend(
   });
 
   if (!res.ok) {
-    throw new Error(
+    throw new PayloadError(
       `Payload request failed: ${res.status} ${res.statusText} (${method} ${path.split("?")[0]})`,
+      res.status,
+      (await res.text().catch(() => "")).slice(0, 500),
     );
   }
 
@@ -304,4 +321,134 @@ export async function deleteReportsBefore(cutoff: Date): Promise<void> {
     "DELETE",
     `/api/reports?where[createdAt][less_than]=${encodeURIComponent(cutoff.toISOString())}`,
   );
+}
+
+// A person with an account (the `users` collection). Only the chat-server writes them.
+const userSchema = z.object({
+  id: z.number(),
+  provider: z.string(),
+  providerUserId: z.string(),
+  email: z.string().nullish(),
+  nickname: z.string().min(1),
+  nicknameKey: z.string().min(1),
+  avatar: z.string().nullish().transform(parseAvatar),
+  age: z
+    .number()
+    .nullish()
+    .transform((age) => parseAge(age)),
+});
+
+export type UserRecord = z.infer<typeof userSchema>;
+
+export interface NewUser {
+  provider: string;
+  providerUserId: string;
+  email?: string;
+  emailVerified?: boolean;
+  nickname: string;
+  nicknameKey: string;
+  avatar: Avatar;
+  age?: number;
+}
+
+export interface UserChanges {
+  nickname?: string;
+  nicknameKey?: string;
+  avatar?: Avatar;
+  // null takes the age back.
+  age?: number | null;
+  lastLoginAt?: string;
+}
+
+const userDocSchema = z.object({ doc: userSchema });
+
+// Whether Payload refused a write because another document already has this value in the field.
+export const isTaken = (error: unknown, field: string): boolean =>
+  error instanceof PayloadError &&
+  error.status === 400 &&
+  error.detail.includes(field);
+
+export async function findUserByIdentity(
+  identity: string,
+): Promise<UserRecord | undefined> {
+  const data = await payloadFetch(
+    `/api/users?where[identity][equals]=${encodeURIComponent(identity)}&limit=1&depth=0`,
+    z.object({ docs: z.array(userSchema) }),
+  );
+
+  return data.docs[0];
+}
+
+// Undefined when there is no such account (it was deleted); other failures are thrown.
+export async function fetchUser(id: number): Promise<UserRecord | undefined> {
+  try {
+    return await payloadFetch(`/api/users/${id}?depth=0`, userSchema);
+  } catch (error) {
+    if (error instanceof PayloadError && error.status === 404) return undefined;
+    throw error;
+  }
+}
+
+function parseDoc(body: unknown, what: string): UserRecord {
+  const result = userDocSchema.safeParse(body);
+
+  if (!result.success) {
+    throw new Error(
+      `Unexpected response from Payload (${what}): ${describeIssues(result.error)}`,
+    );
+  }
+
+  return result.data.doc;
+}
+
+export async function createUser(user: NewUser): Promise<UserRecord> {
+  return parseDoc(
+    await payloadSend("POST", "/api/users", {
+      provider: user.provider,
+      providerUserId: user.providerUserId,
+      identity: `${user.provider}:${user.providerUserId}`,
+      email: user.email,
+      emailVerified: user.emailVerified ?? false,
+      nickname: user.nickname,
+      nicknameKey: user.nicknameKey,
+      avatar: user.avatar,
+      age: user.age,
+      lastLoginAt: new Date().toISOString(),
+    }),
+    "create user",
+  );
+}
+
+export async function updateUser(
+  id: number,
+  changes: UserChanges,
+): Promise<UserRecord> {
+  return parseDoc(
+    await payloadSend("PATCH", `/api/users/${id}`, changes),
+    "update user",
+  );
+}
+
+export async function deleteUser(id: number): Promise<void> {
+  await payloadSend("DELETE", `/api/users/${id}`);
+}
+
+// Every account's id and normalized nickname, for the list of names a guest may not take.
+export async function fetchUserNames(): Promise<
+  { id: number; nicknameKey: string }[]
+> {
+  const names: { id: number; nicknameKey: string }[] = [];
+
+  for (let page = 1; ; page++) {
+    const data = await payloadFetch(
+      `/api/users?limit=1000&page=${page}&depth=0&select[nicknameKey]=true`,
+      z.object({
+        docs: z.array(z.object({ id: z.number(), nicknameKey: z.string() })),
+        hasNextPage: z.boolean(),
+      }),
+    );
+
+    names.push(...data.docs);
+    if (!data.hasNextPage) return names;
+  }
 }

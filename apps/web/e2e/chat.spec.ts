@@ -643,12 +643,13 @@ async function reportFrom(
   words: string,
   reason: string,
 ) {
-  await page
+  // The bar with the button is only shown over the message, so the mouse goes there first.
+  const row = page
     .getByRole("log")
     .getByRole("listitem")
-    .filter({ hasText: words })
-    .getByRole("button", { name: `Actions for ${author}` })
-    .click();
+    .filter({ hasText: words });
+  await row.hover();
+  await row.getByRole("button", { name: `Actions for ${author}` }).click();
   await page.getByRole("menuitem", { name: "Report message" }).click();
   const dialog = page.getByRole("dialog", { name: "Report this message" });
   await dialog.getByRole("radio", { name: reason }).check();
@@ -786,7 +787,7 @@ test("a moderator whose account is removed is signed out", async ({
 
     // The chat server notices on its next sync.
     await expect(moderator.getByRole("alert")).toHaveText(
-      "Your moderator session has expired. Sign in again.",
+      "Your session has expired. Sign in again.",
     );
     await expect(
       moderator.getByRole("heading", { name: "Public rooms" }),

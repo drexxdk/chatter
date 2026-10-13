@@ -14,11 +14,17 @@ Status legend: `[ ]` to do, `[~]` in progress.
 
 ## Before real users (hobby launch)
 
+- [~] Accounts with Google, Facebook and Discord: built and tested (guest to account from the profile, sign in from the
+  nickname dialog and the lobby, nickname reserved, bans follow the account, delete from the profile; a stand-in provider
+  for tests). To do: make the three apps at the providers and put their ids and secrets in `deploy/chat-server.env` (see
+  "Accounts" in `deploy/runbook.md`), add the account words to the terms and privacy text in the admin and bump the
+  terms version. Not done: blocks are still kept in the browser (they follow the account only in that the guest id is
+  the same), and signing up without a provider needs an email service.
 - [~] Terms and privacy text, a contact address for reports, and a rule for how reports are handled: drafted in English,
   Danish and German, managed in the admin panel (**Terms and privacy**, localized, with drafts; seeded from
   `apps/admin/src/seed/legal/`), shown at `/terms` and `/privacy`, contact `draxxdk@gmail.com` (changeable in the same
   place), report handling in `deploy/runbook.md`. Still to do: have somebody who knows the law read it (it is a draft,
-  not legal advice), and run `npm run seed:prod -- <host>` once after deploying so the text exists in production.
+  not legal advice), and run `npm run seed:prod` once after deploying so the text exists in production.
 - [x] Age rule: 18 or older, said in the terms and asked for in the nickname dialog (a browser that has not accepted the
       current terms must tick the box). There is no way to verify an age.
 - [x] A report button with auto-hide and a review list: done (see the chat-server README, "Reports", and the runbook).

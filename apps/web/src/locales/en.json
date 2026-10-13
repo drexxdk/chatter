@@ -234,6 +234,26 @@
     "replyPlaceholder": "Write a private message to {name}",
     "stopReply": "Stop writing privately to {name} and send to all"
   },
+  "account": {
+    "title": "Account",
+    "open": "Account",
+    "intro": "Connect an account to keep your nickname, avatar and age, and to have the nickname to yourself.",
+    "orContinue": "Or continue with an account:",
+    "continueWith": "Continue with {provider}",
+    "signedInWith": "Signed in with {provider}.",
+    "signOut": "Sign out",
+    "delete": "Delete my account",
+    "deleteWarning": "This deletes your account and frees your nickname. What you have written in a room stays there until it expires. It cannot be undone.",
+    "deleteConfirm": "Yes, delete my account",
+    "working": "Signing you in…",
+    "back": "Back to Chatter",
+    "register": {
+      "title": "Create your account",
+      "intro": "{provider} has confirmed who you are. Choose how you are shown in the chat.",
+      "submit": "Create account",
+      "submitting": "Creating the account…"
+    }
+  },
   "errors": {
     "replaced": "You opened the chat in another window, so this one was closed.",
     "user_not_found": "That person is not in this room any more.",
@@ -253,7 +273,12 @@
     "nickname_taken": "Somebody in this room already has that nickname. Pick another one.",
     "invalid_profile": "That profile isn't allowed. The age must be between {min} and {max}.",
     "profile_rate_limited": "You have changed your profile too often. You can change it again in {seconds} s.",
-    "invalid_token": "Your moderator session has expired. Sign in again.",
+    "invalid_token": "Your session has expired. Sign in again.",
+    "denied": "You did not allow the sign-in.",
+    "failed": "The sign-in did not work. Try again.",
+    "invalid_state": "The sign-in took too long or had already been used. Try again.",
+    "unknown_provider": "That way of signing in is not available.",
+    "invalid_ticket": "The sign-in has expired. Start again.",
     "invalid_credentials": "Wrong email or password.",
     "not_a_moderator": "This account cannot moderate the chat.",
     "no_display_name": "This account has no display name yet. Ask an administrator to set one.",

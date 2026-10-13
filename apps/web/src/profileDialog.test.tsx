@@ -300,6 +300,10 @@ describe("a moderator's profile", () => {
         open
         onClose={() => {}}
         onSave={async () => ({ ok: true })}
+        account={null}
+        returnPath="/"
+        onSignOut={() => {}}
+        onDelete={async () => {}}
         session={{
           guestId: "g",
           nickname: "Ada Mod",

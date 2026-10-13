@@ -1,11 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  createUser,
   deleteReportsBefore,
+  deleteUser,
   fetchBans,
   fetchLegal,
   fetchPublicRooms,
+  fetchUser,
+  fetchUserNames,
+  findUserByIdentity,
+  isTaken,
+  PayloadError,
   saveReport,
+  updateUser,
 } from "./payloadClient.js";
 
 function respondWith(body: unknown, init: ResponseInit = { status: 200 }) {
@@ -412,5 +420,155 @@ describe("fetchLegal", () => {
     respondWith({}, { status: 500 });
 
     await expect(fetchLegal()).rejects.toThrow(/500/);
+  });
+});
+
+describe("accounts", () => {
+  const user = {
+    id: 5,
+    provider: "google",
+    providerUserId: "g1",
+    email: "a@example.com",
+    nickname: "Alice",
+    nicknameKey: "alice",
+    avatar: "female",
+    age: 30,
+    lastLoginAt: "2026-10-13T10:00:00.000Z",
+  };
+  const calls = (fetchMock: ReturnType<typeof respondWith>) =>
+    fetchMock.mock.calls as unknown as [string, RequestInit][];
+
+  it("finds the account of an identity and keeps only what the chat needs", async () => {
+    const fetchMock = respondWith({ docs: [user] });
+
+    expect(await findUserByIdentity("google:g1")).toEqual({
+      id: 5,
+      provider: "google",
+      providerUserId: "g1",
+      email: "a@example.com",
+      nickname: "Alice",
+      nicknameKey: "alice",
+      avatar: "female",
+      age: 30,
+    });
+    expect(calls(fetchMock)[0]?.[0]).toBe(
+      "http://localhost:3000/api/users?where[identity][equals]=google%3Ag1&limit=1&depth=0",
+    );
+  });
+
+  it("finds nobody for an identity that has no account", async () => {
+    respondWith({ docs: [] });
+
+    expect(await findUserByIdentity("google:none")).toBeUndefined();
+  });
+
+  it("makes an unknown avatar the plain one, and an age out of range none", async () => {
+    respondWith({ ...user, avatar: "robot", age: 7 });
+
+    expect(await fetchUser(5)).toMatchObject({
+      avatar: "other",
+      age: undefined,
+    });
+  });
+
+  it("reads an account that is gone as none, and fails on anything else", async () => {
+    respondWith({ errors: [] }, { status: 404 });
+    expect(await fetchUser(5)).toBeUndefined();
+
+    respondWith({}, { status: 500 });
+    await expect(fetchUser(5)).rejects.toThrow(/500/);
+  });
+
+  it("makes an account with the identity worked out, and reads the answer", async () => {
+    const fetchMock = respondWith({ doc: user, message: "created" });
+
+    const created = await createUser({
+      provider: "google",
+      providerUserId: "g1",
+      email: "a@example.com",
+      nickname: "Alice",
+      nicknameKey: "alice",
+      avatar: "female",
+      age: 30,
+    });
+
+    const [url, init] = calls(fetchMock)[0] as [string, RequestInit];
+    expect(created.id).toBe(5);
+    expect(url).toBe("http://localhost:3000/api/users");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      identity: "google:g1",
+      nicknameKey: "alice",
+      emailVerified: false,
+    });
+  });
+
+  it("tells that a nickname or an identity is taken from what Payload answers", async () => {
+    respondWith(
+      { errors: [{ data: { errors: [{ path: "nicknameKey" }] } }] },
+      { status: 400 },
+    );
+
+    const error = await createUser({
+      provider: "google",
+      providerUserId: "g1",
+      nickname: "Alice",
+      nicknameKey: "alice",
+      avatar: "other",
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(PayloadError);
+    expect(isTaken(error, "nicknameKey")).toBe(true);
+    expect(isTaken(error, "identity")).toBe(false);
+    // What was answered is for that check only; it is not in the message that gets logged.
+    expect((error as Error).message).not.toContain("nicknameKey");
+    expect(isTaken(new Error("x"), "nicknameKey")).toBe(false);
+  });
+
+  it("changes an account, with a null age taking the age back", async () => {
+    const fetchMock = respondWith({ doc: { ...user, age: null } });
+
+    await updateUser(5, { nickname: "Al", age: null });
+
+    const [url, init] = calls(fetchMock)[0] as [string, RequestInit];
+    expect(url).toBe("http://localhost:3000/api/users/5");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({
+      nickname: "Al",
+      age: null,
+    });
+  });
+
+  it("deletes an account", async () => {
+    const fetchMock = respondWith({ doc: user });
+
+    await deleteUser(5);
+
+    expect(calls(fetchMock)[0]?.[0]).toBe("http://localhost:3000/api/users/5");
+    expect(calls(fetchMock)[0]?.[1].method).toBe("DELETE");
+  });
+
+  it("reads every nickname, page after page", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          docs: [{ id: 1, nicknameKey: "a" }],
+          hasNextPage: true,
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          docs: [{ id: 2, nicknameKey: "b" }],
+          hasNextPage: false,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await fetchUserNames()).toEqual([
+      { id: 1, nicknameKey: "a" },
+      { id: 2, nicknameKey: "b" },
+    ]);
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("page=2");
   });
 });

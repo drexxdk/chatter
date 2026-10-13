@@ -1,5 +1,7 @@
+import { parseAvatar, type Avatar } from "./chat/avatar";
 import { CHAT_SERVER_URL } from "./config";
 import { parseLegal, type LegalContent } from "./legal";
+import { parseAge } from "./profile";
 
 export interface Room {
   id: number;
@@ -95,4 +97,152 @@ export async function signInModerator(
   }
 
   return { token: fields.token, name: fields.name };
+}
+
+// The providers the chat-server has switched on (Google, Facebook, Discord); none when it has none or cannot be reached,
+// since the chat works without them. Every part of the page that offers them asks, so the answer is kept for the page;
+// an answer that did not come is not kept, and the next part asks again.
+let providersRequest: Promise<string[] | undefined> | undefined;
+
+async function loadAuthProviders(): Promise<string[] | undefined> {
+  try {
+    const response = await fetch(`${CHAT_SERVER_URL}/auth/providers`);
+
+    if (!response.ok) return undefined;
+
+    const body = (await response.json()) as { providers?: unknown };
+
+    return Array.isArray(body.providers)
+      ? body.providers.filter(
+          (provider): provider is string => typeof provider === "string",
+        )
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function fetchAuthProviders(): Promise<string[]> {
+  providersRequest ??= loadAuthProviders();
+  const providers = await providersRequest;
+
+  if (providers === undefined) providersRequest = undefined;
+
+  return providers ?? [];
+}
+
+// For tests: forget what the chat-server said, so the next page asks again.
+export function forgetAuthProviders(): void {
+  providersRequest = undefined;
+}
+
+// Where the browser is sent to sign in with a provider; it comes back to `returnPath` (a path of this site).
+export const authStartUrl = (provider: string, returnPath: string) =>
+  `${CHAT_SERVER_URL}/auth/${encodeURIComponent(provider)}/start?return=${encodeURIComponent(returnPath)}`;
+
+export interface AccountSession {
+  token: string;
+  provider: string;
+  profile: { nickname: string; avatar: Avatar; age?: number };
+  expiresAt: number;
+}
+
+// Carries a code the interface can translate (see `errors.*` in the locales).
+export class AccountError extends Error {
+  constructor(readonly code: string) {
+    super(code);
+  }
+}
+
+const ACCOUNT_ERRORS = new Set([
+  "invalid_ticket",
+  "invalid_token",
+  "invalid_nickname",
+  "reserved_nickname",
+  "invalid_profile",
+  "unavailable",
+]);
+
+function parseAccountSession(body: unknown): AccountSession {
+  const fields = (body ?? {}) as Record<string, unknown>;
+  const profile = (fields.profile ?? {}) as Record<string, unknown>;
+  const age = parseAge(profile.age);
+
+  if (
+    typeof fields.token !== "string" ||
+    typeof fields.provider !== "string" ||
+    typeof fields.expiresAt !== "number" ||
+    typeof profile.nickname !== "string"
+  ) {
+    throw new AccountError("connection");
+  }
+
+  return {
+    token: fields.token,
+    provider: fields.provider,
+    expiresAt: fields.expiresAt,
+    profile: {
+      nickname: profile.nickname,
+      avatar: parseAvatar(profile.avatar),
+      ...(age === undefined ? {} : { age }),
+    },
+  };
+}
+
+async function accountRequest(
+  path: string,
+  init: RequestInit,
+): Promise<unknown> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${CHAT_SERVER_URL}${path}`, init);
+  } catch {
+    throw new AccountError("connection");
+  }
+
+  const body: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const code = (body as { error?: unknown } | null)?.error;
+
+    if (response.status === 429) throw new AccountError("too_many_attempts");
+
+    throw new AccountError(
+      typeof code === "string" && ACCOUNT_ERRORS.has(code)
+        ? code
+        : "connection",
+    );
+  }
+
+  return body;
+}
+
+const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+// Makes the account for somebody a provider has vouched for (the ticket), with who they want to be shown as.
+export async function registerAccount(input: {
+  ticket: string;
+  nickname: string;
+  avatar: Avatar;
+  age?: number;
+}): Promise<AccountSession> {
+  return parseAccountSession(
+    await accountRequest("/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }),
+  );
+}
+
+// Who the token belongs to, and the token renewed. Fails with `invalid_token` when it no longer works.
+export async function fetchAccount(token: string): Promise<AccountSession> {
+  return parseAccountSession(
+    await accountRequest("/me", { headers: bearer(token) }),
+  );
+}
+
+export async function deleteAccount(token: string): Promise<void> {
+  await accountRequest("/me", { method: "DELETE", headers: bearer(token) });
 }

@@ -247,7 +247,7 @@ describe("moderators", () => {
       act(() => server.latest.serverEmit("disconnect", "transport close"));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
-        "Your moderator session has expired",
+        "Your session has expired",
       );
       expect(
         screen.getByRole("heading", { name: "Public rooms" }),
@@ -269,7 +269,7 @@ describe("moderators", () => {
       });
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
-        "Your moderator session has expired",
+        "Your session has expired",
       );
       expect(
         screen.getByRole("heading", { name: "Public rooms" }),

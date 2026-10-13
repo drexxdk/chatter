@@ -30,6 +30,7 @@ describe("parseEnv defaults", () => {
       AUTH_TOKEN_SECRET: undefined,
       MAX_CONNECTIONS_PER_IP: undefined,
       TRUST_PROXY_HOPS: 0,
+      DEV_OAUTH: false,
     });
   });
 
@@ -242,5 +243,70 @@ describe("parseEnv errors", () => {
     expect(run).toThrow(/PORT: /);
     expect(run).toThrow(/SYNC_INTERVAL_MS: /);
     expect(run).toThrow(/REDIS_URL: /);
+  });
+});
+
+describe("parseEnv sign-in providers", () => {
+  const WITH_TOKENS = {
+    AUTH_TOKEN_SECRET: "a-secret-of-at-least-32-characters!!",
+    PUBLIC_API_URL: "https://api.example.com",
+  };
+
+  it("needs nothing when no provider is set", () => {
+    expect(() => parse()).not.toThrow();
+    expect(parse().DEV_OAUTH).toBe(false);
+  });
+
+  it("accepts a provider with both of its settings, the address and the secret for sessions", () => {
+    const env = parse({
+      ...WITH_TOKENS,
+      GOOGLE_CLIENT_ID: "id",
+      GOOGLE_CLIENT_SECRET: "secret",
+    });
+
+    expect(env.GOOGLE_CLIENT_ID).toBe("id");
+  });
+
+  it.each([
+    ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    ["FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET"],
+    ["DISCORD_CLIENT_ID", "DISCORD_CLIENT_SECRET"],
+  ])("refuses %s without %s, and the other way round", (id, secret) => {
+    expect(() => parse({ ...WITH_TOKENS, [id]: "x" })).toThrow(
+      new RegExp(`${secret}: is required together with ${id}`),
+    );
+    expect(() => parse({ ...WITH_TOKENS, [secret]: "x" })).toThrow(
+      new RegExp(`${id}: is required together with ${secret}`),
+    );
+  });
+
+  it("refuses a provider without the address it is sent back to, or without the secret for sessions", () => {
+    const provider = { GOOGLE_CLIENT_ID: "id", GOOGLE_CLIENT_SECRET: "secret" };
+
+    expect(() =>
+      parse({ ...provider, AUTH_TOKEN_SECRET: WITH_TOKENS.AUTH_TOKEN_SECRET }),
+    ).toThrow(/PUBLIC_API_URL: is required/);
+    expect(() =>
+      parse({ ...provider, PUBLIC_API_URL: WITH_TOKENS.PUBLIC_API_URL }),
+    ).toThrow(/AUTH_TOKEN_SECRET: is required/);
+  });
+
+  it.each([
+    "https://api.example.com/",
+    "https://api.example.com/path",
+    "api.example.com",
+  ])("refuses %s as the public address", (address) => {
+    expect(() => parse({ PUBLIC_API_URL: address })).toThrow(/PUBLIC_API_URL/);
+  });
+
+  it("refuses the stand-in provider in production, and accepts it otherwise", () => {
+    expect(() =>
+      parse({ ...WITH_TOKENS, DEV_OAUTH: "true", NODE_ENV: "production" }),
+    ).toThrow(/DEV_OAUTH: must not be true in production/);
+    expect(
+      parse({ ...WITH_TOKENS, DEV_OAUTH: "true", NODE_ENV: "development" })
+        .DEV_OAUTH,
+    ).toBe(true);
+    expect(() => parse({ DEV_OAUTH: "yes" })).toThrow(/DEV_OAUTH/);
   });
 });

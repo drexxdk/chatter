@@ -71,6 +71,7 @@ export interface Config {
     'public-rooms': PublicRoom;
     bans: Ban;
     reports: Report;
+    users: User;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -82,6 +83,7 @@ export interface Config {
     'public-rooms': PublicRoomsSelect<false> | PublicRoomsSelect<true>;
     bans: BansSelect<false> | BansSelect<true>;
     reports: ReportsSelect<false> | ReportsSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -225,6 +227,39 @@ export interface Report {
   createdAt: string;
 }
 /**
+ * People with an account. Created by the chat-server when somebody connects a provider. To remove somebody, delete the entry.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  /**
+   * google, facebook or discord.
+   */
+  provider: string;
+  providerUserId: string;
+  /**
+   * The provider and the id there; one account for each.
+   */
+  identity: string;
+  /**
+   * As the provider gave it. Never shown to anybody in the chat.
+   */
+  email?: string | null;
+  emailVerified?: boolean | null;
+  nickname: string;
+  /**
+   * The nickname without case, spaces and punctuation: what makes it taken. Kept up to date by the chat-server.
+   */
+  nicknameKey: string;
+  avatar: 'male' | 'female' | 'trans' | 'other';
+  age?: number | null;
+  lastLoginAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -263,6 +298,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'reports';
         value: number | Report;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -373,6 +412,24 @@ export interface ReportsSelect<T extends boolean = true> {
   senderHash?: T;
   reporterCount?: T;
   reasons?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  provider?: T;
+  providerUserId?: T;
+  identity?: T;
+  email?: T;
+  emailVerified?: T;
+  nickname?: T;
+  nicknameKey?: T;
+  avatar?: T;
+  age?: T;
+  lastLoginAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

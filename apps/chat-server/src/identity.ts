@@ -19,6 +19,22 @@ export function hashIdentifier(ip: string): string {
     .digest("hex");
 }
 
+// What a ban names to reach an account, the way an address hash reaches a guest: the account's messages and reports
+// carry it, so a super-admin copies it into Bans like any other. The prefix keeps it apart from any address.
+export function hashMember(userId: number): string {
+  return hashIdentifier(`user:${userId}`);
+}
+
+// The guest id an account always has, so private conversations and blocks carry on from one visit to the next. Derived
+// with the salt, so the id says nothing about how many accounts there are.
+export function memberGuestId(userId: number): string {
+  return `m-${crypto
+    .createHmac("sha256", env.BAN_HASH_SALT)
+    .update(`member:${userId}`)
+    .digest("hex")
+    .slice(0, 32)}`;
+}
+
 interface HandshakeLike {
   address: string;
   headers: Record<string, string | string[] | undefined>;

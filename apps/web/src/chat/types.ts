@@ -3,7 +3,7 @@ import type { DirectThread } from "./direct";
 import type { Reaction } from "./reactions";
 import type { Resume } from "./socket";
 
-export type Role = "guest" | "moderator";
+export type Role = "guest" | "member" | "moderator";
 
 export interface Session {
   guestId: string;

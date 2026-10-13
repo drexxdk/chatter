@@ -234,6 +234,26 @@
     "replyPlaceholder": "Private Nachricht an {name} schreiben",
     "stopReply": "Nicht mehr privat an {name} schreiben, sondern an alle senden"
   },
+  "account": {
+    "title": "Konto",
+    "open": "Konto",
+    "intro": "Verbinde ein Konto, um Spitzname, Avatar und Alter zu behalten und den Spitznamen für dich allein zu haben.",
+    "orContinue": "Oder mit einem Konto fortfahren:",
+    "continueWith": "Weiter mit {provider}",
+    "signedInWith": "Angemeldet mit {provider}.",
+    "signOut": "Abmelden",
+    "delete": "Mein Konto löschen",
+    "deleteWarning": "Das löscht dein Konto und gibt deinen Spitznamen frei. Was du in einem Raum geschrieben hast, bleibt dort, bis es abläuft. Das lässt sich nicht rückgängig machen.",
+    "deleteConfirm": "Ja, mein Konto löschen",
+    "working": "Du wirst angemeldet…",
+    "back": "Zurück zu Chatter",
+    "register": {
+      "title": "Dein Konto erstellen",
+      "intro": "{provider} hat bestätigt, wer du bist. Wähle, wie du im Chat angezeigt wirst.",
+      "submit": "Konto erstellen",
+      "submitting": "Konto wird erstellt…"
+    }
+  },
   "errors": {
     "replaced": "Du hast den Chat in einem anderen Fenster geöffnet, daher wurde dieses geschlossen.",
     "user_not_found": "Diese Person ist nicht mehr in diesem Raum.",
@@ -253,7 +273,12 @@
     "nickname_taken": "Jemand in diesem Raum hat diesen Spitznamen schon. Wähle einen anderen.",
     "invalid_profile": "Dieses Profil ist nicht erlaubt. Das Alter muss zwischen {min} und {max} liegen.",
     "profile_rate_limited": "Du hast dein Profil zu oft geändert. Du kannst es in {seconds} s wieder ändern.",
-    "invalid_token": "Deine Moderatoren-Sitzung ist abgelaufen. Melde dich erneut an.",
+    "invalid_token": "Deine Sitzung ist abgelaufen. Melde dich erneut an.",
+    "denied": "Du hast die Anmeldung nicht erlaubt.",
+    "failed": "Die Anmeldung hat nicht geklappt. Versuche es noch einmal.",
+    "invalid_state": "Die Anmeldung hat zu lange gedauert oder wurde schon benutzt. Versuche es noch einmal.",
+    "unknown_provider": "Diese Art der Anmeldung gibt es nicht.",
+    "invalid_ticket": "Die Anmeldung ist abgelaufen. Fange noch einmal an.",
     "invalid_credentials": "Falsche E-Mail oder falsches Passwort.",
     "not_a_moderator": "Dieses Konto kann den Chat nicht moderieren.",
     "no_display_name": "Dieses Konto hat noch keinen Anzeigenamen. Bitte einen Administrator, einen festzulegen.",

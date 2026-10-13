@@ -40,6 +40,8 @@ export class FakeSocket implements ChatSocket {
 
   // Who the real server would say this guest is.
   profile: Record<string, unknown>;
+  // A token starting with "member-" is an account's; any other is a moderator's.
+  readonly role: "guest" | "member" | "moderator";
 
   constructor(
     readonly nickname: string,
@@ -56,6 +58,11 @@ export class FakeSocket implements ChatSocket {
     // What the guest said about their age when connecting.
     readonly age?: number,
   ) {
+    this.role = !token
+      ? "guest"
+      : token.startsWith("member-")
+        ? "member"
+        : "moderator";
     this.profile = {
       nickname,
       avatar: token ? "other" : avatar,
@@ -68,7 +75,7 @@ export class FakeSocket implements ChatSocket {
         this.serverEmit("session", {
           guestId: this.guestId,
           nickname,
-          role: token ? "moderator" : "guest",
+          role: this.role,
           avatar: token ? "other" : avatar,
           ...(age === undefined ? {} : { age }),
           resumeSecret: this.resumeSecret,
@@ -101,7 +108,7 @@ export class FakeSocket implements ChatSocket {
             {
               guestId: this.guestId,
               nickname: this.profile.nickname,
-              role: this.token ? "moderator" : "guest",
+              role: this.role,
               avatar: this.token ? "other" : this.profile.avatar,
               ...(this.profile.age === undefined
                 ? {}

@@ -40,9 +40,10 @@ export function stubRooms(
   }),
 ) {
   const fetchMock = vi.fn(response);
-  // The terms are not what these tests are about: they are not there, and the rooms' mock counts the rooms' requests only.
+  // The terms and the sign-in providers are not what these tests are about: they are not there, and the rooms' mock
+  // counts the rooms' requests only.
   vi.stubGlobal("fetch", (url: string) =>
-    String(url).endsWith("/legal")
+    /\/(legal|auth\/providers)$/.test(String(url))
       ? Promise.resolve({ ok: false, status: 404 })
       : fetchMock(),
   );

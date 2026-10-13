@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const chatRoleSchema = z.enum(["guest", "moderator"]);
+export const chatRoleSchema = z.enum(["guest", "member", "moderator"]);
 
 export type ChatRole = z.infer<typeof chatRoleSchema>;
 
@@ -16,6 +16,13 @@ export const ROLE_RULES: Record<
   }
 > = {
   guest: {
+    ignoresIpBans: false,
+    ignoresConnectionCap: false,
+    blockable: true,
+    canAnnounce: false,
+  },
+  // Somebody with an account (see accounts.ts): chats under the same rules as a guest.
+  member: {
     ignoresIpBans: false,
     ignoresConnectionCap: false,
     blockable: true,
