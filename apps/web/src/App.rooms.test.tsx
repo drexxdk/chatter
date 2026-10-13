@@ -555,6 +555,19 @@ describe("inside a room", () => {
     ]);
   });
 
+  it("names the room in the title of the page, and only the site in the lobby", async () => {
+    const { user } = await enterRoom();
+
+    await waitFor(() => expect(document.title).toBe("General \u2013 Chatter"));
+
+    await user.click(screen.getByRole("button", { name: "Leave room" }));
+    await screen.findByRole("heading", { name: "Public rooms" });
+    expect(document.title).toBe("Chatter");
+
+    await user.click(screen.getByRole("button", { name: "Join Music" }));
+    await waitFor(() => expect(document.title).toBe("Music \u2013 Chatter"));
+  });
+
   it("switches to another room from the room name in the header", async () => {
     const { user, server } = await enterRoom();
 

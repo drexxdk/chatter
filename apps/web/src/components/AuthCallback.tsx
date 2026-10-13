@@ -17,6 +17,7 @@ import { slugFromPath } from "../place";
 import { loadTermsAccepted, saveTermsAccepted } from "../preferences";
 import { readAge } from "../profile";
 import { clearSession, loadSession, saveSession } from "../session";
+import { usePageTitle } from "../usePageTitle";
 import { providerName } from "./AccountOptions";
 import { Button, ButtonLink } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
@@ -144,6 +145,10 @@ export function AuthCallback({
 
     if (outcome.kind === "ticket") setView({ status: "form" });
   }, [outcome, returnPath, navigate]);
+
+  usePageTitle(
+    view.status === "form" ? t("account.register.title") : undefined,
+  );
 
   return (
     <PageFrame>

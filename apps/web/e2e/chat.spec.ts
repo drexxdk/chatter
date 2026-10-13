@@ -124,7 +124,7 @@ test("two guests chat in real time and see each other come and go", async ({
   await expect(alice.getByRole("log")).toContainText(markup);
   // The guests' own pictures are images, so it is the one in the message that must not be there.
   await expect(alice.locator('img[src="x"]')).toHaveCount(0);
-  await expect(alice).toHaveTitle("Chatter");
+  await expect(alice).not.toHaveTitle(/pwned/);
 
   await send(alice, "Hi Bob!");
   await expect(bob.getByRole("log")).toContainText("Hi Bob!");

@@ -49,6 +49,7 @@ import {
   saveDirect,
   saveSession,
 } from "./session";
+import { usePageTitle } from "./usePageTitle";
 
 // The server's answer when somebody else in the room already has the guest's nickname.
 const NAME_TAKEN = "nickname_taken";
@@ -84,6 +85,12 @@ export function App({
 
   const rooms = roomsState.status === "ready" ? roomsState.rooms : [];
   const currentRoom = rooms.find((room) => room.slug === chat.roomSlug);
+  // The room is what the tab says while in one, and the site alone in the lobby.
+  usePageTitle(
+    chat.roomSlug && chat.session
+      ? (currentRoom?.name ?? chat.roomSlug)
+      : undefined,
+  );
 
   const resumeDetails = () => {
     const resume = chat.resume();

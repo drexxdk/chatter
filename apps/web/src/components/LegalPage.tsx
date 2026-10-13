@@ -1,11 +1,11 @@
 import { ChevronRight } from "lucide-react";
-import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CONTACT_EMAIL } from "../config";
 import { legalIn, withContact, type LegalPageName } from "../legal";
 import { useLegal } from "../legal/useLegal";
 import { LOBBY_PATH } from "../place";
+import { usePageTitle } from "../usePageTitle";
 import { LegalLinks, LINK } from "./LegalLinks";
 import { LoadError, Loading } from "./LoadState";
 import { PageFrame } from "./PageFrame";
@@ -45,14 +45,7 @@ export function LegalPage({ page }: { page: LegalPageName }) {
     state.status === "ready" ? state.legal.contactEmail : CONTACT_EMAIL;
   const title = doc?.title ?? t(`legal.${page}`);
 
-  useEffect(() => {
-    const before = document.title;
-    document.title = `${title} \u2013 ${t("app.title")}`;
-
-    return () => {
-      document.title = before;
-    };
-  }, [title, t]);
+  usePageTitle(title);
 
   return (
     <PageFrame>
