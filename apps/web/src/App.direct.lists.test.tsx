@@ -162,6 +162,20 @@ describe("direct messages", () => {
   });
 
   describe("new activity", () => {
+    it("counts what has not been seen in the title of the page, until it is opened", async () => {
+      const { user, server } = await enter();
+      receive(server, dm());
+      receive(server, dm({ text: "are you there?" }));
+
+      expect(document.title).toBe("(2 messages) General \u2013 Chatter");
+
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
+
+      await waitFor(() =>
+        expect(document.title).toBe("General \u2013 Chatter"),
+      );
+    });
+
     it("makes a conversation stand out, with a count, until it is opened", async () => {
       const { user, server } = await enter();
       receive(server, dm());

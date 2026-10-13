@@ -213,6 +213,8 @@
     "list": "Direkte beskeder",
     "none": "Ingen direkte beskeder endnu.",
     "unread": "{count, plural, one {# ulæst besked} other {# ulæste beskeder}}",
+    "titleCount": "{count, plural, one {(# besked)} other {(# beskeder)}}",
+    "titleNew": "Ny besked",
     "title": "Direkte besked til {name}",
     "back": "Tilbage til rummet",
     "empty": "Ingen beskeder endnu. Sig hej!",

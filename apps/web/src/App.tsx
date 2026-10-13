@@ -85,11 +85,13 @@ export function App({
 
   const rooms = roomsState.status === "ready" ? roomsState.rooms : [];
   const currentRoom = rooms.find((room) => room.slug === chat.roomSlug);
-  // The room is what the tab says while in one, and the site alone in the lobby.
+  // The room is what the tab says while in one, and the site alone in the lobby; private messages not yet seen are
+  // counted in front.
   usePageTitle(
     chat.roomSlug && chat.session
       ? (currentRoom?.name ?? chat.roomSlug)
       : undefined,
+    chat.direct.threads.reduce((sum, thread) => sum + thread.unread, 0),
   );
 
   const resumeDetails = () => {
