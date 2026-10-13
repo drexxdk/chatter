@@ -7,22 +7,90 @@ import { env } from "./env.js";
 // Payload's API-key auth header format is "<collection-slug> API-Key <key>".
 const AUTH_HEADER = `admins API-Key ${env.PAYLOAD_SERVICE_API_KEY}`;
 
+// The language Payload falls back to (`defaultLocale` in the admin's config) and the one the lobby shows when a room has
+// nothing written in the visitor's language.
+const DEFAULT_LANGUAGE = "en";
+
+// A localized field as Payload returns it with `locale=all`: `{ en: ..., da: ..., de: ... }`, a language that has not been
+// written holding nothing (or null). A plain string is the field in the default language.
+const localizedText = z.union([
+  z.string(),
+  z.record(z.string(), z.string().nullish()),
+]);
+
+const textsByLanguage = (
+  value: z.infer<typeof localizedText> | null | undefined,
+) =>
+  typeof value === "string" ? { [DEFAULT_LANGUAGE]: value } : (value ?? {});
+
 // Only the listed fields are kept, so a field added to the collection later never reaches a public endpoint.
-const publicRoomSchema = z.object({
-  id: z.number(),
-  name: z.string(),
-  slug: z.string(),
-  // Empty in Payload means the room has no limit.
-  maxMembers: z.number().int().min(1).nullish(),
-  // Seconds a guest must wait between messages; a room that leaves it empty gets the server's default.
-  slowModeSeconds: z
-    .number()
-    .int()
-    .min(1)
-    .nullish()
-    .transform((seconds) => seconds ?? env.DEFAULT_SLOW_MODE_SECONDS),
-  description: z.string().nullish(),
-});
+const publicRoomSchema = z
+  .object({
+    id: z.number(),
+    name: localizedText,
+    slug: z.string(),
+    // Empty in Payload means the room has no limit.
+    maxMembers: z.number().int().min(1).nullish(),
+    // Seconds a guest must wait between messages; a room that leaves it empty gets the server's default.
+    slowModeSeconds: z
+      .number()
+      .int()
+      .min(1)
+      .nullish()
+      .transform((seconds) => seconds ?? env.DEFAULT_SLOW_MODE_SECONDS),
+    description: localizedText.nullish(),
+  })
+  .refine(
+    (room) =>
+      Object.values(textsByLanguage(room.name)).some((name) => name?.trim()),
+    { path: ["name"], message: "The room has no name in any language" },
+  )
+  .transform(({ name, description, ...room }) => {
+    const names = textsByLanguage(name);
+    const descriptions = textsByLanguage(description);
+    const filled = (
+      texts: Record<string, string | null | undefined>,
+      language: string,
+    ) => (texts[language]?.trim() ? texts[language] : undefined);
+
+    const translations: Record<
+      string,
+      { name?: string; description?: string }
+    > = {};
+
+    for (const language of new Set([
+      ...Object.keys(names),
+      ...Object.keys(descriptions),
+    ])) {
+      if (language === DEFAULT_LANGUAGE) continue;
+
+      const translated = {
+        name: filled(names, language),
+        description: filled(descriptions, language),
+      };
+
+      if (translated.name || translated.description) {
+        translations[language] = {
+          ...(translated.name && { name: translated.name }),
+          ...(translated.description && {
+            description: translated.description,
+          }),
+        };
+      }
+    }
+
+    return {
+      ...room,
+      // A room nobody has named in English shows the first language that has a name.
+      name:
+        filled(names, DEFAULT_LANGUAGE) ??
+        Object.values(names).find((text) => text?.trim()) ??
+        "",
+      description: filled(descriptions, DEFAULT_LANGUAGE) ?? null,
+      // What the lobby shows instead of `name` and `description` in the visitor's language.
+      ...(Object.keys(translations).length > 0 && { translations }),
+    };
+  });
 
 // An unreadable expiry used to count as already expired, which would silently lift the ban.
 const banSchema = z.object({
@@ -83,7 +151,7 @@ async function payloadFetch<T extends z.ZodType>(
 
 export async function fetchPublicRooms(): Promise<PublicRoom[]> {
   const data = await payloadFetch(
-    "/api/public-rooms?limit=100",
+    "/api/public-rooms?limit=100&locale=all&depth=0",
     z.object({ docs: z.array(publicRoomSchema) }),
   );
   return data.docs;

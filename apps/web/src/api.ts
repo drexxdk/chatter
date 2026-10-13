@@ -13,8 +13,24 @@ export interface Room {
   // Seconds a guest must wait between messages; absent only when talking to an older chat server.
   slowModeSeconds?: number | null;
   description?: string | null;
+  // The name and description in the languages other than English, where somebody has written them; absent when there
+  // are none (or when talking to an older chat server).
+  translations?: Record<string, { name?: string; description?: string }>;
   // How many are in the room now; absent when talking to an older chat server.
   memberCount?: number;
+}
+
+// The room with its name and description in the language, where they are written in it, and in English otherwise.
+export function localizeRoom(room: Room, language: string | undefined): Room {
+  const translated = language ? room.translations?.[language] : undefined;
+
+  if (!translated) return room;
+
+  return {
+    ...room,
+    name: translated.name ?? room.name,
+    description: translated.description ?? room.description,
+  };
 }
 
 export async function fetchRooms(signal?: AbortSignal): Promise<Room[]> {

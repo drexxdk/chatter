@@ -24,6 +24,8 @@ export const PublicRooms: CollectionConfig = {
       name: 'name',
       type: 'text',
       required: true,
+      // Written in each language of the web client; a language left empty shows the English one.
+      localized: true,
     },
     {
       name: 'slug',
@@ -54,6 +56,7 @@ export const PublicRooms: CollectionConfig = {
     {
       name: 'description',
       type: 'textarea',
+      localized: true,
     },
   ],
 }

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { fetchRooms, type Room } from "../api";
+import { fetchRooms, localizeRoom, type Room } from "../api";
 import { roomVars, sortRooms } from "../roomThemes";
 import { Button } from "./Button";
 import { RoomIcon } from "./RoomIcon";
@@ -15,9 +15,23 @@ type RoomsState =
   | { status: "ready"; rooms: Room[] };
 
 export function useRooms(lobbyOpen = false) {
-  const [state, setState] = useState<RoomsState>({ status: "loading" });
+  const { i18n } = useTranslation();
+  const [fetched, setState] = useState<RoomsState>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
   const wasAway = useRef(false);
+  const language = i18n.resolvedLanguage;
+
+  // Names and descriptions in the language shown, which can change without fetching the rooms again.
+  const state = useMemo<RoomsState>(
+    () =>
+      fetched.status === "ready"
+        ? {
+            status: "ready",
+            rooms: fetched.rooms.map((room) => localizeRoom(room, language)),
+          }
+        : fetched,
+    [fetched, language],
+  );
 
   useEffect(() => {
     const controller = new AbortController();

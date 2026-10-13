@@ -30,6 +30,52 @@ describe("lobby", () => {
     expect(screen.getByText("Up to 30 people")).toBeInTheDocument();
   });
 
+  it("shows each room's name and description in the language of the page", async () => {
+    const { default: i18n } = await import("./i18n");
+    const translated = {
+      ...ROOMS[0],
+      translations: {
+        da: { name: "Generelt", description: "Åben chat" },
+        // No German description: English shows in its place.
+        de: { name: "Allgemein" },
+      },
+    };
+    stubRooms(async () => ({
+      ok: true,
+      json: async () => [translated, ROOMS[1]],
+    }));
+
+    try {
+      setup();
+      expect(
+        await screen.findByRole("heading", { name: "General" }),
+      ).toBeInTheDocument();
+
+      await act(() => i18n.changeLanguage("da"));
+
+      expect(
+        screen.getByRole("heading", { name: "Generelt" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Åben chat")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Deltag i Generelt" }),
+      ).toBeInTheDocument();
+      // A room with nothing written in Danish keeps its English name.
+      expect(
+        screen.getByRole("heading", { name: "Music" }),
+      ).toBeInTheDocument();
+
+      await act(() => i18n.changeLanguage("de"));
+
+      expect(
+        screen.getByRole("heading", { name: "Allgemein" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Open chat")).toBeInTheDocument();
+    } finally {
+      await act(() => i18n.changeLanguage("en"));
+    }
+  });
+
   it("shows no capacity for a room without a limit", async () => {
     setup();
 

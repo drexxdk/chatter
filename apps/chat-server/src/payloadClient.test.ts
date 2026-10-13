@@ -53,9 +53,58 @@ describe("fetchPublicRooms", () => {
       string,
       RequestInit,
     ];
-    expect(url).toBe("http://localhost:3000/api/public-rooms?limit=100");
+    expect(url).toBe(
+      "http://localhost:3000/api/public-rooms?limit=100&locale=all&depth=0",
+    );
     expect(init.headers).toEqual({
       Authorization: "admins API-Key test-api-key",
+    });
+  });
+
+  describe("room text in several languages", () => {
+    const localized = {
+      ...room,
+      name: { en: "Gaming", da: "Spil", de: null },
+      description: { en: "Talk games", da: "Snak om spil", de: "" },
+    };
+
+    it("keeps English as the name and lists the other languages apart", async () => {
+      respondWith({ docs: [localized] });
+
+      expect(await fetchPublicRooms()).toEqual([
+        {
+          ...room,
+          name: "Gaming",
+          description: "Talk games",
+          slowModeSeconds: 10,
+          translations: { da: { name: "Spil", description: "Snak om spil" } },
+        },
+      ]);
+    });
+
+    it("has no translations when only English is written", async () => {
+      respondWith({
+        docs: [{ ...room, name: { en: "Gaming", da: null, de: null } }],
+      });
+
+      const [only] = await fetchPublicRooms();
+
+      expect(only.translations).toBeUndefined();
+      expect(only.name).toBe("Gaming");
+    });
+
+    it("falls back to another language when the room has no English name", async () => {
+      respondWith({ docs: [{ ...room, name: { en: null, da: "Spil" } }] });
+
+      const [danish] = await fetchPublicRooms();
+
+      expect(danish.name).toBe("Spil");
+    });
+
+    it("rejects a room with no name in any language", async () => {
+      respondWith({ docs: [{ ...room, name: { en: "", da: null } }] });
+
+      await expect(fetchPublicRooms()).rejects.toThrow(/docs\.0\.name/);
     });
   });
 
