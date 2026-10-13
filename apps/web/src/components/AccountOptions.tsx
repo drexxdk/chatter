@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { authStartUrl, fetchAuthProviders } from "../api";
+import { ButtonLink } from "./Button";
 
 // The names are the services' own, written the same in every language.
 const PROVIDER_NAMES: Record<string, string> = {
@@ -53,13 +54,13 @@ export function AccountOptions({
       <p className="text-sm text-neutral-400">{intro}</p>
       <div className="flex flex-wrap gap-2">
         {providers.map((provider) => (
-          <a
+          <ButtonLink
             key={provider}
             href={authStartUrl(provider, returnPath)}
-            className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-indigo-400"
+            className="text-sm focus-visible:outline-2 focus-visible:outline-indigo-400"
           >
             {t("account.continueWith", { provider: providerName(provider) })}
-          </a>
+          </ButtonLink>
         ))}
       </div>
     </div>

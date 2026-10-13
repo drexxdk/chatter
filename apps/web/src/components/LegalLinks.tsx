@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { PRIVACY_PATH, TERMS_PATH } from "../place";
 
-const LINK =
+export const LINK =
   "text-indigo-300 underline hover:text-indigo-200 focus-visible:outline-2 focus-visible:outline-indigo-400";
 
 // Stand in for the two links while the sentence is translated, so each language can put them where its grammar wants.

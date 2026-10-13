@@ -17,18 +17,18 @@ import { loadTermsAccepted, saveTermsAccepted } from "../preferences";
 import { readAge } from "../profile";
 import { clearSession, loadSession, saveSession } from "../session";
 import { providerName } from "./AccountOptions";
-import { Button } from "./Button";
+import { Button, ButtonLink } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
-import { HeaderFrame } from "./HeaderFrame";
-import { LegalSentence } from "./LegalLinks";
-import { MainMenu } from "./MainMenu";
+import { Loading } from "./LoadState";
+import { PageFrame } from "./PageFrame";
 import {
   AvatarPicker,
   NameAndAge,
   PicturePicker,
   VisibleNote,
 } from "./ProfileFields";
+import { TermsCheckbox } from "./TermsCheckbox";
 
 export type CallbackOutcome =
   | { kind: "error"; code: string }
@@ -145,44 +145,30 @@ export function AuthCallback({
   }, [outcome, returnPath, navigate]);
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <HeaderFrame>
-        <a href="/" className="text-2xl font-bold">
-          {t("app.title")}
-        </a>
-        <MainMenu />
-      </HeaderFrame>
+    <PageFrame>
+      {view.status === "working" && <Loading>{t("account.working")}</Loading>}
 
-      <main className="mx-auto w-full max-w-md flex-1 space-y-4 px-(--page-gutter) pt-4 pb-8">
-        {view.status === "working" && (
-          <p role="status">{t("account.working")}</p>
-        )}
+      {view.status === "error" && (
+        <div className="space-y-3">
+          <ErrorAlert code={view.code} />
+          <ButtonLink href={returnPath} className="inline-block text-sm">
+            {t("account.back")}
+          </ButtonLink>
+        </div>
+      )}
 
-        {view.status === "error" && (
-          <div className="space-y-3">
-            <ErrorAlert code={view.code} />
-            <a
-              href={returnPath}
-              className="inline-block rounded-md bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
-            >
-              {t("account.back")}
-            </a>
-          </div>
-        )}
-
-        {view.status === "form" && outcome.kind === "ticket" && (
-          <RegisterForm
-            ticket={outcome.ticket}
-            provider={outcome.provider}
-            suggested={guest?.nickname ?? outcome.name}
-            guest={guest}
-            returnPath={returnPath}
-            navigate={navigate}
-            initialError={view.error}
-          />
-        )}
-      </main>
-    </div>
+      {view.status === "form" && outcome.kind === "ticket" && (
+        <RegisterForm
+          ticket={outcome.ticket}
+          provider={outcome.provider}
+          suggested={guest?.nickname ?? outcome.name}
+          guest={guest}
+          returnPath={returnPath}
+          navigate={navigate}
+          initialError={view.error}
+        />
+      )}
+    </PageFrame>
   );
 }
 
@@ -264,7 +250,7 @@ function RegisterForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="max-w-md space-y-4">
       <div className="space-y-1">
         <h1 className="text-xl font-semibold">{t("account.register.title")}</h1>
         <p className="text-sm text-neutral-300">
@@ -310,23 +296,11 @@ function RegisterForm({
       />
       <VisibleNote />
 
-      <div className="space-y-1">
-        <label className="flex items-start gap-2 rounded-md bg-neutral-950 p-3 text-sm text-neutral-300">
-          <input
-            type="checkbox"
-            checked={termsAccepted}
-            onChange={(event) => setTermsChoice(event.target.checked)}
-            aria-invalid={touched && !termsAccepted}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-500"
-          />
-          <span>
-            <LegalSentence i18nKey="terms.accept" />
-          </span>
-        </label>
-        {touched && !termsAccepted && (
-          <p className="text-sm text-red-300">{t("terms.acceptRequired")}</p>
-        )}
-      </div>
+      <TermsCheckbox
+        checked={termsAccepted}
+        onChange={setTermsChoice}
+        invalid={touched && !termsAccepted}
+      />
 
       <ErrorAlert code={error} />
 

@@ -195,7 +195,7 @@ describe("a page of the documents", () => {
       await screen.findByRole("heading", { level: 1, name: "Privacy policy" }),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByRole("main")).getAllByRole("listitem"),
+      within(screen.getByRole("article")).getAllByRole("listitem"),
     ).toHaveLength(6);
     expect(
       screen.getByRole("link", { name: "Terms of use", current: false }),

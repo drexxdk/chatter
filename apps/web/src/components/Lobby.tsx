@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { fetchRooms, localizeRoom, type Room } from "../api";
 import { roomVars, sortRooms } from "../roomThemes";
 import { Button } from "./Button";
+import { LoadError, Loading } from "./LoadState";
 import { RoomIcon } from "./RoomIcon";
 
 // How often the numbers of people in the rooms are fetched again while the lobby is open.
@@ -96,13 +97,14 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
         <p className="text-neutral-400">{t("lobby.intro")}</p>
       </div>
 
-      {state.status === "loading" && <p role="status">{t("lobby.loading")}</p>}
+      {state.status === "loading" && <Loading>{t("lobby.loading")}</Loading>}
 
       {state.status === "error" && (
-        <div role="alert" className="space-y-2">
-          <p className="text-red-200">{t("lobby.loadError")}</p>
-          <Button onClick={onRetry}>{t("lobby.retry")}</Button>
-        </div>
+        <LoadError
+          message={t("lobby.loadError")}
+          retryLabel={t("lobby.retry")}
+          onRetry={onRetry}
+        />
       )}
 
       {state.status === "ready" && state.rooms.length === 0 && (

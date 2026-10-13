@@ -35,6 +35,7 @@
    must land clear of them. */
 html {
   scroll-padding-block: 8rem;
+  scrollbar-gutter: stable;
 }
 
 /* The page's side margin, which the messages have and the dropdowns keep from the screen's edge (px-4, and sm:px-6 from
@@ -51,13 +52,11 @@ html {
   }
 }
 
-/* A dialog hides the page's scrollbar, with padding to match, for as long as it is on the page. Headless UI undoes that
-   as soon as the dialog starts to close, which would show the scrollbar again over the fading dialog; this keeps it
-   hidden until the dialog has gone. (The padding wins over Headless UI's, which it measures once this has hidden the
-   scrollbar.) */
+/* A dialog hides the page's scrollbar for as long as it is on the page (Headless UI would show it again as soon as the
+   dialog starts to close). The gutter stays reserved, so Headless UI's padding to make up for the scrollbar is not wanted. */
 html:has(#headlessui-portal-root [role="dialog"]) {
   overflow: hidden;
-  padding-right: var(--scrollbar-width, 0px) !important;
+  padding-right: 0 !important;
 }
 
 /* Headless UI draws an anchored dropdown in the page's corner for a frame before it has worked out where it goes (left

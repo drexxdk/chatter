@@ -33,3 +33,13 @@ export function Button({
     <button {...props} type={type} className={button({ variant, className })} />
   );
 }
+
+// A link to somewhere that looks like a button.
+export function ButtonLink({
+  variant,
+  className,
+  ...props
+}: Omit<ComponentProps<"a">, "className"> &
+  VariantProps<typeof button> & { className?: string }) {
+  return <a {...props} className={button({ variant, className })} />;
+}

@@ -10,7 +10,6 @@ import { AccountOptions } from "./AccountOptions";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
-import { LegalSentence } from "./LegalLinks";
 import { Modal } from "./Modal";
 import {
   AvatarPicker,
@@ -18,6 +17,7 @@ import {
   PicturePicker,
   VisibleNote,
 } from "./ProfileFields";
+import { TermsCheckbox } from "./TermsCheckbox";
 
 interface NicknameDialogProps {
   connecting: boolean;
@@ -140,25 +140,11 @@ export function NicknameDialog({
             />
             <AvatarPicker value={avatar} onChange={setAvatar} />
             <VisibleNote />
-            <div className="space-y-1">
-              <label className="flex items-start gap-2 rounded-md bg-neutral-950 p-3 text-sm text-neutral-300">
-                <input
-                  type="checkbox"
-                  checked={termsAccepted}
-                  onChange={(event) => setTermsChoice(event.target.checked)}
-                  aria-invalid={touched && !termsAccepted}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-500"
-                />
-                <span>
-                  <LegalSentence i18nKey="terms.accept" />
-                </span>
-              </label>
-              {touched && !termsAccepted && (
-                <p className="text-sm text-red-300">
-                  {t("terms.acceptRequired")}
-                </p>
-              )}
-            </div>
+            <TermsCheckbox
+              checked={termsAccepted}
+              onChange={setTermsChoice}
+              invalid={touched && !termsAccepted}
+            />
           </>
         )}
 
