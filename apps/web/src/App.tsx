@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useNavigationType,
+} from "react-router";
 
 import {
   AccountError,
@@ -22,12 +28,13 @@ import { PLAIN_AVATAR, type Avatar } from "./chat/avatar";
 import type { CreateSocket } from "./chat/socket";
 import type { ActionResult } from "./chat/types";
 import { useChat } from "./chat/useChat";
-import { AccountButton, AccountDialog } from "./components/AccountDialog";
+import { AboutPage } from "./components/AboutPage";
 import { AnnouncementBanner } from "./components/AnnouncementBanner";
 import { ChatRoom } from "./components/ChatRoom";
 import { ErrorAlert } from "./components/ErrorAlert";
 import { InfoPanel } from "./components/InfoPanel";
 import { LegalLinks } from "./components/LegalLinks";
+import { legalDocOf, LegalPage } from "./components/LegalPage";
 import { Lobby, useRooms } from "./components/Lobby";
 import { MainMenu } from "./components/MainMenu";
 import { NicknameDialog } from "./components/NicknameDialog";
@@ -37,7 +44,7 @@ import { ProfileDialog, type ProfileSubject } from "./components/ProfileDialog";
 import { RoomSwitcher } from "./components/RoomSwitcher";
 import { SideDrawer } from "./components/SideDrawer";
 import { ViewTransition } from "./components/ViewTransition";
-import { LOBBY_PATH, roomPath, slugFromPath } from "./place";
+import { LOBBY_PATH, pageFromPath, roomPath, slugFromPath } from "./place";
 import { useLegal } from "./legal/useLegal";
 import { loadShowMovements, saveShowMovements } from "./preferences";
 import type { ProfileChanges } from "./profile";
@@ -64,20 +71,23 @@ export function App({
   createSocket?: CreateSocket;
   reconnectDelaysMs?: number[];
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const navigationType = useNavigationType();
   const chat = useChat(createSocket, { reconnectDelaysMs });
   const { state: roomsState, retry } = useRooms(!chat.roomSlug);
-  const { state: legalState } = useLegal();
+  const { state: legalState, retry: retryLegal } = useLegal();
   // The version of the terms the guest has to have accepted; null while the chat-server has not said.
   const termsVersion =
     legalState.status === "ready" ? legalState.legal.version : null;
   const [pendingRoom, setPendingRoom] = useState<Room | null>(null);
-  // Whether it is known who this tab is: not while the saved guest is being brought back, so that the header does not show
-  // a login for a moment to somebody who is signed in. A page that starts in a room shows nothing of the lobby until then.
+  // Whether it is known who this tab is: not while the saved guest is being brought back, so that the header does not
+  // show no profile for a moment to somebody who has one. A page that starts in a room shows nothing of the lobby until then.
   const [settled, setSettled] = useState(
-    () => slugFromPath(window.location.pathname) === null && !loadSession(),
+    () => slugFromPath(location.pathname) === null && !loadSession(),
   );
-  const startedInRoom = useRef(slugFromPath(window.location.pathname) !== null);
+  const startedInRoom = useRef(slugFromPath(location.pathname) !== null);
   // The room the dialog asks for a nickname for stays for it to fade out.
   const shownRoom = useKept(pendingRoom);
   const [signInError, setSignInError] = useState<string | null>(null);
@@ -96,12 +106,20 @@ export function App({
 
   const rooms = roomsState.status === "ready" ? roomsState.rooms : [];
   const currentRoom = rooms.find((room) => room.slug === chat.roomSlug);
-  // The room is what the tab says while in one, and the site alone in the lobby; private messages not yet seen are
-  // counted in front.
+  const inRoom = Boolean(chat.roomSlug && chat.session);
+  // What is shown when not in a room: one of the site's pages, or the lobby.
+  const page = pageFromPath(location.pathname);
+  // The tab says the room while in one, the page on one of those, and the site alone in the lobby; private messages
+  // not yet seen are counted in front.
   usePageTitle(
-    chat.roomSlug && chat.session
-      ? (currentRoom?.name ?? chat.roomSlug)
-      : undefined,
+    inRoom
+      ? (currentRoom?.name ?? chat.roomSlug ?? undefined)
+      : page === "about"
+        ? t("about.title")
+        : page
+          ? (legalDocOf(legalState, i18n.resolvedLanguage, page)?.title ??
+            t(`legal.${page}`))
+          : undefined,
     chat.direct.threads.reduce((sum, thread) => sum + thread.unread, 0),
   );
 
@@ -320,26 +338,26 @@ export function App({
     setPendingRoom(null);
     clearDialogErrors();
     // Still in a room (the guest was only trying another one): its address stays.
-    if (!chat.roomSlug && slugFromPath(window.location.pathname)) {
-      window.history.replaceState(null, "", LOBBY_PATH);
+    if (!chat.roomSlug && slugFromPath(location.pathname)) {
+      navigate(LOBBY_PATH, { replace: true });
     }
   }
+
+  // What the effects that run on a change of the room or of the address have to read as it is now.
+  const latest = useRef({ chat, rooms, handleSelect, location, navigate });
+  latest.current = { chat, rooms, handleSelect, location, navigate };
 
   // The address says where the guest is, so a reload (or a shared link) can put them back. Entering a room adds a
   // history entry and leaving adds another, which is what makes the browser's back button leave the room.
   const previousRoom = useRef<string | null>(null);
   useEffect(() => {
     const slug = chat.roomSlug;
+    const { location, navigate } = latest.current;
 
     if (slug) {
-      if (window.location.pathname !== roomPath(slug)) {
-        window.history.pushState(null, "", roomPath(slug));
-      }
-    } else if (
-      previousRoom.current &&
-      window.location.pathname !== LOBBY_PATH
-    ) {
-      window.history.pushState(null, "", LOBBY_PATH);
+      if (location.pathname !== roomPath(slug)) navigate(roomPath(slug));
+    } else if (previousRoom.current && location.pathname !== LOBBY_PATH) {
+      navigate(LOBBY_PATH);
     }
 
     previousRoom.current = slug;
@@ -469,7 +487,7 @@ export function App({
   useEffect(() => {
     if (restored.current) return;
 
-    const slug = slugFromPath(window.location.pathname);
+    const slug = slugFromPath(location.pathname);
 
     if (!slug) {
       // Not before the rooms have been asked for: a connection made in the first moments of the page is closed again by
@@ -495,7 +513,7 @@ export function App({
     const room = roomsState.rooms.find((candidate) => candidate.slug === slug);
 
     if (!room) {
-      window.history.replaceState(null, "", LOBBY_PATH);
+      navigate(LOBBY_PATH, { replace: true });
       setSettled(true);
       return;
     }
@@ -503,6 +521,14 @@ export function App({
     const saved = loadSession();
 
     if (!saved) {
+      // Back from signing in with a provider, to the room that was being joined: the account says who they are.
+      const member = loadAccount();
+
+      if (member) {
+        void joinAsMember(room, member).finally(() => setSettled(true));
+        return;
+      }
+
       setPendingRoom(room);
       setSettled(true);
       return;
@@ -520,7 +546,7 @@ export function App({
       if (!joined.ok) {
         // Somebody in the room has the guest's name: they are asked for another instead of being sent away.
         if (joined.error === NAME_TAKEN) setPendingRoom(room);
-        else window.history.replaceState(null, "", LOBBY_PATH);
+        else navigate(LOBBY_PATH, { replace: true });
       }
 
       setSettled(true);
@@ -528,32 +554,30 @@ export function App({
   });
 
   // The back and forward buttons: the address changed under us, so the room follows it.
-  const latest = useRef({ chat, rooms, handleSelect });
-  latest.current = { chat, rooms, handleSelect };
+  const seenLocation = useRef(location.key);
   useEffect(() => {
-    const onPopState = () => {
-      const { chat, rooms, handleSelect } = latest.current;
-      const slug = slugFromPath(window.location.pathname);
+    if (seenLocation.current === location.key) return;
+    seenLocation.current = location.key;
+    if (navigationType !== "POP") return;
 
-      if (!slug) {
-        setPendingRoom(null);
-        if (chat.roomSlug) void chat.leaveRoom();
-        return;
-      }
+    const { chat, rooms, handleSelect, location: here } = latest.current;
+    const slug = slugFromPath(here.pathname);
 
-      const room = rooms.find((candidate) => candidate.slug === slug);
-      if (room && slug !== chat.roomSlug) void handleSelect(room);
-    };
+    if (!slug) {
+      setPendingRoom(null);
+      if (chat.roomSlug) void chat.leaveRoom();
+      return;
+    }
 
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
+    const room = rooms.find((candidate) => candidate.slug === slug);
+    if (room && slug !== chat.roomSlug) void handleSelect(room);
+  }, [location.key, navigationType]);
 
   return (
     <>
       <PageFrame
         roomSlug={chat.roomSlug && chat.session ? chat.roomSlug : undefined}
-        flush={Boolean(chat.roomSlug && chat.session)}
+        flush={inRoom}
         header={
           <>
             {chat.roomSlug && chat.session ? (
@@ -575,6 +599,10 @@ export function App({
                   onSelect={(room) => void handleSelect(room)}
                 />
               </div>
+            ) : page ? (
+              <Link to={LOBBY_PATH} className="text-2xl font-bold">
+                {t("app.title")}
+              </Link>
             ) : (
               <h1
                 className={
@@ -594,12 +622,14 @@ export function App({
                   picture={chat.session.picture}
                   onClick={() => setProfileOpen(true)}
                 />
-              ) : (
-                <AccountButton
-                  account={account}
+              ) : account ? (
+                <ProfileButton
+                  nickname={account.nickname}
+                  avatar={account.avatar}
+                  picture={account.picture}
                   onClick={() => setAccountOpen(true)}
                 />
-              )}
+              ) : null}
               <MainMenu
                 onInfo={() => setInfoOpen(true)}
                 movements={
@@ -619,10 +649,8 @@ export function App({
           />
         )}
         <ViewTransition
-          viewKey={
-            chat.roomSlug && chat.session ? `room:${chat.roomSlug}` : "lobby"
-          }
-          direction={chat.roomSlug && chat.session ? 1 : -1}
+          viewKey={inRoom ? `room:${chat.roomSlug}` : (page ?? "lobby")}
+          depth={inRoom || page ? 1 : 0}
           hold={!settled && startedInRoom.current}
         >
           {chat.roomSlug && chat.session ? (
@@ -646,6 +674,10 @@ export function App({
               direct={chat.direct}
               idleDeadline={chat.idleDeadline}
             />
+          ) : page === "terms" || page === "privacy" ? (
+            <LegalPage page={page} state={legalState} retry={retryLegal} />
+          ) : page === "about" ? (
+            <AboutPage />
           ) : (
             <div className="space-y-4">
               {!pendingRoom && <ErrorAlert code={chat.error} />}
@@ -675,13 +707,11 @@ export function App({
           profile={profile}
           onSave={saveProfile}
           account={account}
-          returnPath={chat.roomSlug ? roomPath(chat.roomSlug) : LOBBY_PATH}
+          returnPath={location.pathname}
           onSignOut={signOut}
           onDelete={deleteMyAccount}
         />
       )}
-
-      {!account && <AccountDialog open={accountOpen} onClose={closeProfile} />}
 
       {shownRoom && (
         <NicknameDialog

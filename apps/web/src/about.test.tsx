@@ -1,21 +1,25 @@
-import { act, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it } from "vitest";
 
-import { AboutPage } from "./components/AboutPage";
 import { SOURCE_URL } from "./config";
 import i18n from "./i18n";
-import { isAboutPath } from "./place";
+import { pageFromPath } from "./place";
+import { renderAt, stubRooms } from "./test/app";
+
+beforeEach(() => {
+  stubRooms();
+});
 
 describe("the page about how the site is built", () => {
   it("is opened by its address", () => {
-    expect(isAboutPath("/about")).toBe(true);
-    expect(isAboutPath("/about/")).toBe(true);
-    expect(isAboutPath("/about/more")).toBe(false);
-    expect(isAboutPath("/")).toBe(false);
+    expect(pageFromPath("/about")).toBe("about");
+    expect(pageFromPath("/about/")).toBe("about");
+    expect(pageFromPath("/about/more")).toBeNull();
+    expect(pageFromPath("/")).toBeNull();
   });
 
   it("names the parts, the journey of a message, what is kept and for how long, and what it is built with", () => {
-    render(<AboutPage />);
+    renderAt("/about");
 
     expect(
       screen.getByRole("heading", { level: 1, name: "How Chatter is built" }),
@@ -57,7 +61,7 @@ describe("the page about how the site is built", () => {
   });
 
   it("links to the code, which opens in a tab of its own, and has the other pages at its foot", () => {
-    render(<AboutPage />);
+    renderAt("/about");
 
     const source = screen.getByRole("link", {
       name: "Read the code on GitHub",
@@ -71,7 +75,7 @@ describe("the page about how the site is built", () => {
   });
 
   it("is in the language of the page", async () => {
-    render(<AboutPage />);
+    renderAt("/about");
 
     await act(() => i18n.changeLanguage("da"));
 

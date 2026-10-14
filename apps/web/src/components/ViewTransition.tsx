@@ -106,22 +106,35 @@ function Slide({
   );
 }
 
-// Swaps one view of a page for another with a fade and a slide, the old one still in view as the new one arrives. Not
-// when the page first opens, and without the slide for somebody who asked their system for less motion. While it is
-// held, nothing is shown (the page does not yet know which view it is to open with); the view that then appears is the
-// page's first, so it does not slide in either.
+// Swaps one view of a page for another with a fade and a slide, the old one still in view as the new one arrives. A view
+// has a depth (the lobby is the top, what is opened from it is a step down): going deeper slides forwards, coming back
+// up slides backwards, and a move to another view as deep goes forwards. Not when the page first opens, and without the
+// slide for somebody who asked their system for less motion. While it is held, nothing is shown (the page does not yet
+// know which view it is to open with); the view that then appears is the page's first, so it does not slide in either.
 export function ViewTransition({
   viewKey,
-  direction,
+  depth,
   hold = false,
   children,
 }: {
   // What the view is; a new one is a new view.
   viewKey: string;
-  direction: 1 | -1;
+  depth: number;
   hold?: boolean;
   children: ReactNode;
 }) {
+  const [last, setLast] = useState({
+    viewKey,
+    depth,
+    direction: 1 as 1 | -1,
+  });
+  let direction = last.direction;
+
+  if (last.viewKey !== viewKey) {
+    direction = depth >= last.depth ? 1 : -1;
+    setLast({ viewKey, depth, direction });
+  }
+
   if (hold) return <div className="flex flex-1 flex-col" />;
 
   return (

@@ -2,12 +2,10 @@ import { useTranslation } from "react-i18next";
 
 import { CONTACT_EMAIL } from "../config";
 import { legalIn, withContact, type LegalPageName } from "../legal";
-import { useLegal } from "../legal/useLegal";
-import { usePageTitle } from "../usePageTitle";
+import type { LegalState } from "../legal/useLegal";
 import { Breadcrumb } from "./Breadcrumb";
 import { LegalLinks, LINK } from "./LegalLinks";
 import { LoadError, Loading } from "./LoadState";
-import { PageFrame } from "./PageFrame";
 
 function Paragraph({
   text,
@@ -31,23 +29,35 @@ function Paragraph({
   );
 }
 
-// The terms of use or the privacy policy, in the guest's language, in the same frame as the chat: its header (with the
-// menu that sets the language), and a trail back to the lobby. The text is what the admin published.
-export function LegalPage({ page }: { page: LegalPageName }) {
+// The document in the guest's language, when the text has arrived.
+export function legalDocOf(
+  state: LegalState,
+  language: string | undefined,
+  page: LegalPageName,
+) {
+  return state.status === "ready"
+    ? legalIn(state.legal, language)[page]
+    : undefined;
+}
+
+// The terms of use or the privacy policy, in the guest's language, as a view of the app (under its header, with a trail
+// back to the lobby). The text is what the admin published, and `state` is how far fetching it has come.
+export function LegalPage({
+  page,
+  state,
+  retry,
+}: {
+  page: LegalPageName;
+  state: LegalState;
+  retry: () => void;
+}) {
   const { t, i18n } = useTranslation();
-  const { state, retry } = useLegal();
-  const doc =
-    state.status === "ready"
-      ? legalIn(state.legal, i18n.resolvedLanguage)[page]
-      : undefined;
+  const doc = legalDocOf(state, i18n.resolvedLanguage, page);
   const contactEmail =
     state.status === "ready" ? state.legal.contactEmail : CONTACT_EMAIL;
   const title = doc?.title ?? t(`legal.${page}`);
-
-  usePageTitle(title);
-
   return (
-    <PageFrame>
+    <div className="flex flex-col gap-4">
       <Breadcrumb title={title} />
 
       <article className="space-y-6 text-neutral-200">
@@ -93,6 +103,6 @@ export function LegalPage({ page }: { page: LegalPageName }) {
       </article>
 
       <LegalLinks />
-    </PageFrame>
+    </div>
   );
 }

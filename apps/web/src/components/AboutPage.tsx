@@ -13,11 +13,9 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CONTACT_EMAIL, SOURCE_URL } from "../config";
-import { usePageTitle } from "../usePageTitle";
 import { Breadcrumb } from "./Breadcrumb";
 import { ButtonLink } from "./Button";
 import { LegalLinks, LINK } from "./LegalLinks";
-import { PageFrame } from "./PageFrame";
 
 const PARTS: { id: string; icon: LucideIcon }[] = [
   { id: "website", icon: Globe },
@@ -101,21 +99,19 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 // How the site is built and where the data goes, for the owner to understand it and for anybody who wants to judge
-// whether to trust it. It says only what is true of what runs.
+// whether to trust it. It says only what is true of what runs. (The tab's title is the app's; see App.)
 export function AboutPage() {
   const { t } = useTranslation();
 
-  usePageTitle(t("about.title"));
-
   return (
-    <PageFrame>
+    <div className="flex flex-col gap-4">
       <Breadcrumb title={t("about.title")} />
 
       <article className="space-y-8 text-neutral-200">
-        <header className="space-y-2">
+        <div className="space-y-2">
           <h1 className="text-2xl font-bold">{t("about.title")}</h1>
           <p className="text-neutral-300">{t("about.lead")}</p>
-        </header>
+        </div>
 
         <Section title={t("about.partsTitle")}>
           <p className="text-sm text-neutral-400">{t("about.partsIntro")}</p>
@@ -238,6 +234,6 @@ export function AboutPage() {
       </article>
 
       <LegalLinks />
-    </PageFrame>
+    </div>
   );
 }

@@ -370,7 +370,6 @@
   },
   "account": {
     "title": "Konto",
-    "open": "Login",
     "intro": "Verbinde ein Konto, um Namen, Avatar und Alter zu behalten und den Namen für dich allein zu haben.",
     "orContinue": "Oder mit einem Konto fortfahren:",
     "continueWith": "Weiter mit {provider}",

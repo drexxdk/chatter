@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 
 import { ABOUT_PATH, PRIVACY_PATH, TERMS_PATH } from "../place";
 
@@ -50,15 +51,15 @@ export function LegalLinks() {
       aria-label={t("legal.nav")}
       className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-neutral-400"
     >
-      <a href={TERMS_PATH} className={LINK}>
+      <Link to={TERMS_PATH} className={LINK}>
         {t("legal.terms")}
-      </a>
-      <a href={PRIVACY_PATH} className={LINK}>
+      </Link>
+      <Link to={PRIVACY_PATH} className={LINK}>
         {t("legal.privacy")}
-      </a>
-      <a href={ABOUT_PATH} className={LINK}>
+      </Link>
+      <Link to={ABOUT_PATH} className={LINK}>
         {t("about.link")}
-      </a>
+      </Link>
     </nav>
   );
 }

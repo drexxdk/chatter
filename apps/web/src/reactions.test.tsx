@@ -9,7 +9,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { App } from "./App";
+import { App } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
 const ROOMS = [{ id: 1, name: "General", slug: "general", maxMembers: 100 }];

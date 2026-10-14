@@ -2,11 +2,10 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { App } from "./App";
-import { LegalPage } from "./components/LegalPage";
 import { legalIn, parseLegal, withContact } from "./legal";
-import { legalPageFromPath } from "./place";
+import { pageFromPath } from "./place";
 import { loadTermsAccepted, saveTermsAccepted } from "./preferences";
+import { App, renderAt } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
 const ROOMS = [{ id: 1, name: "General", slug: "general", maxMembers: 100 }];
@@ -162,13 +161,13 @@ describe("the addresses of the documents", () => {
     ["/rooms/terms", null],
     ["/termsx", null],
   ])("%s is %s", (path, page) => {
-    expect(legalPageFromPath(path)).toBe(page);
+    expect(pageFromPath(path)).toBe(page);
   });
 });
 
 describe("a page of the documents", () => {
   it("shows the terms with numbered sections, and the contact address as a link", async () => {
-    render(<LegalPage page="terms" />);
+    renderAt("/terms");
 
     expect(
       await screen.findByRole("heading", { level: 1, name: "Terms of use" }),
@@ -189,7 +188,7 @@ describe("a page of the documents", () => {
   });
 
   it("shows the privacy policy, with lists", async () => {
-    render(<LegalPage page="privacy" />);
+    renderAt("/privacy");
 
     expect(
       await screen.findByRole("heading", { level: 1, name: "Privacy policy" }),
@@ -203,14 +202,14 @@ describe("a page of the documents", () => {
   });
 
   it("says that it is loading", () => {
-    render(<LegalPage page="terms" />);
+    renderAt("/terms");
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading");
   });
 
   it("is shown in the language the guest picks in the site's menu", async () => {
     const user = userEvent.setup();
-    render(<LegalPage page="terms" />);
+    renderAt("/terms");
     await screen.findByRole("heading", { level: 1, name: "Terms of use" });
 
     await user.click(screen.getByRole("button", { name: "Menu" }));
@@ -222,9 +221,9 @@ describe("a page of the documents", () => {
     expect(localStorage.getItem("chatter.language")).toBe("da");
   });
 
-  it("keeps the site's header, with the way back to the lobby and without the chat's own entries", async () => {
+  it("has the site's header, with the way back to the lobby and the same menu as everywhere", async () => {
     const user = userEvent.setup();
-    render(<LegalPage page="privacy" />);
+    renderAt("/privacy");
 
     const header = within(screen.getByRole("banner"));
     expect(header.getByRole("link", { name: "Chatter" })).toHaveAttribute(
@@ -237,12 +236,12 @@ describe("a page of the documents", () => {
       await screen.findByRole("menuitem", { name: /Dansk/ }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("menuitem", { name: "How the chat works" }),
-    ).toBeNull();
+      screen.getByRole("menuitem", { name: "How the chat works" }),
+    ).toBeInTheDocument();
   });
 
   it("shows a trail from the lobby to the document", async () => {
-    render(<LegalPage page="terms" />);
+    renderAt("/terms");
     await screen.findByRole("heading", { level: 1, name: "Terms of use" });
 
     const trail = within(
@@ -259,7 +258,7 @@ describe("a page of the documents", () => {
   });
 
   it("sets the title of the browser tab", async () => {
-    render(<LegalPage page="privacy" />);
+    renderAt("/privacy");
 
     await vi.waitFor(() =>
       expect(document.title).toBe("Privacy policy \u2013 Chatter"),
@@ -269,7 +268,7 @@ describe("a page of the documents", () => {
   it("says so, and lets the guest try again, when the text cannot be had", async () => {
     legalResponse = unavailable();
     const user = userEvent.setup();
-    render(<LegalPage page="terms" />);
+    renderAt("/terms");
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /could not be loaded/,

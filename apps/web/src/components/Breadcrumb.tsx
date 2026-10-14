@@ -1,5 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 
 import { LOBBY_PATH } from "../place";
 import { LINK } from "./LegalLinks";
@@ -12,9 +13,9 @@ export function Breadcrumb({ title }: { title: string }) {
     <nav aria-label={t("legal.breadcrumb")} className="text-sm">
       <ol className="flex flex-wrap items-center gap-1 text-neutral-400">
         <li>
-          <a href={LOBBY_PATH} className={LINK}>
+          <Link to={LOBBY_PATH} className={LINK}>
             {t("app.title")}
-          </a>
+          </Link>
         </li>
         <li aria-hidden="true">
           <ChevronRight className="h-4 w-4" />

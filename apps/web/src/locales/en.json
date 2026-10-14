@@ -370,7 +370,6 @@
   },
   "account": {
     "title": "Account",
-    "open": "Login",
     "intro": "Connect an account to keep your name, avatar and age, and to have the name to yourself.",
     "orContinue": "Or continue with an account:",
     "continueWith": "Continue with {provider}",

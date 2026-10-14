@@ -1,9 +1,11 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Editor } from "@tiptap/core";
+import type { ComponentProps } from "react";
+import { BrowserRouter, MemoryRouter } from "react-router";
 import { expect, vi } from "vitest";
 
-import { App } from "../App";
+import { App as RealApp } from "../App";
 import { PICTURE_PATTERN } from "../chat/picture";
 import { makeFakeServer } from "./fakeSocket";
 
@@ -52,6 +54,24 @@ export function stubRooms(
       : fetchMock(),
   );
   return fetchMock;
+}
+
+// The app in the browser's own router, as main.tsx has it.
+export function App(props: ComponentProps<typeof RealApp>) {
+  return (
+    <BrowserRouter>
+      <RealApp {...props} />
+    </BrowserRouter>
+  );
+}
+
+// The app opened at an address, with its own history (nothing of the browser's).
+export function renderAt(path: string, server = makeFakeServer()) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <RealApp createSocket={server.createSocket} />
+    </MemoryRouter>,
+  );
 }
 
 export function setup(server = makeFakeServer(), reconnectDelaysMs?: number[]) {

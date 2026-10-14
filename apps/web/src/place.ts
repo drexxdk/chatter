@@ -1,3 +1,5 @@
+import { matchPath } from "react-router";
+
 const PREFIX = "/rooms/";
 
 export const LOBBY_PATH = "/";
@@ -8,23 +10,24 @@ export const PRIVACY_PATH = "/privacy";
 // How the site is built and where the data goes.
 export const ABOUT_PATH = "/about";
 
-export const isAboutPath = (pathname: string) =>
-  pathname.replace(/\/$/, "") === ABOUT_PATH;
-
 // Where a provider sends the browser back to, through the chat-server (see accounts.ts there).
 export const AUTH_CALLBACK_PATH = "/auth/callback";
 
-export const isAuthCallbackPath = (pathname: string) =>
-  pathname.replace(/\/$/, "") === AUTH_CALLBACK_PATH;
+// The pages of the site that are not the chat, by the address they have.
+export type SitePage = "terms" | "privacy" | "about";
 
-// The terms or the privacy policy, when the address is theirs.
-export function legalPageFromPath(
-  pathname: string,
-): "terms" | "privacy" | null {
-  const path = pathname.replace(/\/$/, "");
+const PAGE_PATHS: Record<SitePage, string> = {
+  terms: TERMS_PATH,
+  privacy: PRIVACY_PATH,
+  about: ABOUT_PATH,
+};
 
-  if (path === TERMS_PATH) return "terms";
-  if (path === PRIVACY_PATH) return "privacy";
+// The page an address is, or null for the lobby, a room and anything else.
+export function pageFromPath(pathname: string): SitePage | null {
+  for (const page of Object.keys(PAGE_PATHS) as SitePage[]) {
+    if (matchPath(PAGE_PATHS[page], pathname)) return page;
+  }
+
   return null;
 }
 
@@ -33,13 +36,5 @@ export const roomPath = (slug: string) =>
 
 // The room an address points at, or null for the lobby and anything else.
 export function slugFromPath(pathname: string): string | null {
-  if (!pathname.startsWith(PREFIX)) return null;
-
-  const slug = pathname.slice(PREFIX.length).replace(/\/$/, "");
-
-  try {
-    return slug ? decodeURIComponent(slug) : null;
-  } catch {
-    return null;
-  }
+  return matchPath(`${PREFIX}:slug`, pathname)?.params.slug ?? null;
 }

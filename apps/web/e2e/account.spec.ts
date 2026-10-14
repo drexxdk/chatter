@@ -124,16 +124,15 @@ test("a guest connects a provider and stays who they are, the names are theirs, 
     );
   }
 
-  // Another browser: the same provider account is the same account, and joins a room without being asked who it is.
+  // Another browser: the same provider account is the same account, and comes back into the room without being asked who it is.
   const elsewhere = await newPage(browser);
   await elsewhere.goto("/");
-  await elsewhere.getByRole("button", { name: "Login", exact: true }).click();
+  await elsewhere.getByRole("button", { name: `Join ${ROOM.name}` }).click();
   await signInWithProvider(elsewhere, "anna");
+  await inRoom(elsewhere);
   await expect(
     elsewhere.getByRole("button", { name: `Your profile: ${chatName}` }),
   ).toBeVisible();
-  await elsewhere.getByRole("button", { name: `Join ${ROOM.name}` }).click();
-  await inRoom(elsewhere);
   expect(await accountsNamed(handle)).toHaveLength(1);
 });
 
@@ -145,7 +144,7 @@ test("somebody makes an account from the lobby, chooses who they are, and can de
   const page = await newPage(browser);
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Login", exact: true }).click();
+  await page.getByRole("button", { name: `Join ${ROOM.name}` }).click();
   await signInWithProvider(page, "bea");
 
   // Nobody has this provider account yet, so they choose a username, a name, an avatar and accept the terms.
@@ -167,12 +166,11 @@ test("somebody makes an account from the lobby, chooses who they are, and can de
   await page.getByRole("checkbox", { name: /18 or older/ }).check();
   await page.getByRole("button", { name: "Create account" }).click();
 
-  // Back in the lobby, signed in, and a room needs no nickname.
+  // Back in the room that was being joined, signed in, and not asked for a nickname.
+  await inRoom(page);
   await expect(
     page.getByRole("button", { name: `Your profile: ${chatName}` }),
   ).toBeVisible();
-  await page.getByRole("button", { name: `Join ${ROOM.name}` }).click();
-  await inRoom(page);
   expect(await accountsNamed(handle)).toEqual([
     expect.objectContaining({
       nickname: handle,
@@ -190,9 +188,6 @@ test("somebody makes an account from the lobby, chooses who they are, and can de
   await expect(
     page.getByRole("heading", { name: "Public rooms" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Login", exact: true }),
-  ).toBeVisible();
   await expect.poll(async () => (await accountsNamed(handle)).length).toBe(0);
 
   const guest = await newPage(browser);
@@ -209,14 +204,18 @@ test("an account is edited from the lobby, where it is only shown until it is as
   const page = await newPage(browser);
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Login", exact: true }).click();
+  await page.getByRole("button", { name: `Join ${ROOM.name}` }).click();
   await signInWithProvider(page, "cleo");
   await page.getByLabel("Username").fill(handle);
   await page.getByLabel("Display name").fill(chatName);
   await page.getByRole("checkbox", { name: /18 or older/ }).check();
   await page.getByRole("button", { name: "Create account" }).click();
+  await inRoom(page);
 
-  // No chat connection yet: the lobby's profile shows who they are, and changes the account itself.
+  // A tab with no chat connection yet (the connection is what the tab kept): the lobby's profile shows who they are,
+  // and changes the account itself.
+  await page.evaluate(() => sessionStorage.clear());
+  await page.goto("/");
   await page.getByRole("button", { name: `Your profile: ${chatName}` }).click();
   const dialog = page.getByRole("dialog", { name: "Your profile" });
   await expect(dialog.getByText("Dev sign-in")).toBeVisible();

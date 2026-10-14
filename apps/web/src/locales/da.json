@@ -370,7 +370,6 @@
   },
   "account": {
     "title": "Konto",
-    "open": "Login",
     "intro": "Forbind en konto for at beholde dit navn, din avatar og din alder og for at have navnet for dig selv.",
     "orContinue": "Eller fortsæt med en konto:",
     "continueWith": "Fortsæt med {provider}",

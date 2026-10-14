@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { App } from "./App";
+import { App } from "./test/app";
 import { ProfileDialog } from "./components/ProfileDialog";
 import { anyPicture } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";

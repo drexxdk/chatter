@@ -84,35 +84,21 @@ afterEach(() => {
 });
 
 describe("signing in from the lobby", () => {
-  it("is offered when the server has a provider, with the way to it", async () => {
+  it("has no login in the header: a guest is asked who they are when they join a room", async () => {
     stubBackend({ providers: ["google"] });
     const { user } = setup();
-
-    await user.click(await screen.findByRole("button", { name: "Login" }));
-
-    const dialog = within(await screen.findByRole("dialog"));
-    expect(
-      dialog.getByRole("heading", { name: "Account" }),
-    ).toBeInTheDocument();
-    expect(
-      dialog.getByRole("link", { name: "Continue with Google" }),
-    ).toHaveAttribute(
-      "href",
-      "http://localhost:4000/auth/google/start?return=%2F",
-    );
-  });
-
-  it("is not offered when the server has no provider", async () => {
-    const fetchMock = stubBackend();
-    setup();
     await screen.findByRole("heading", { name: "General" });
-    await waitFor(() =>
-      expect(callsTo(fetchMock, "/auth/providers")).not.toHaveLength(0),
-    );
 
     expect(screen.queryByRole("button", { name: "Login" })).toBeNull();
-  });
 
+    await user.click(screen.getByRole("button", { name: "Join General" }));
+
+    expect(
+      await within(await screen.findByRole("dialog")).findByRole("link", {
+        name: "Continue with Google",
+      }),
+    ).toBeInTheDocument();
+  });
   it("is offered to a guest who is asked for a nickname, with the room to come back to", async () => {
     stubBackend({ providers: ["google", "discord"] });
     const { user } = setup();
@@ -176,9 +162,11 @@ describe("signing in from the lobby", () => {
     ).toBeInTheDocument();
     expect(loadSession()).toBeNull();
     expect(server.latest.disconnected).toBe(true);
-    expect(
-      await screen.findByRole("button", { name: "Login" }),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: /^Your profile:/ }),
+      ).toBeNull(),
+    );
     expect(screen.queryByRole("button", { name: /^Your profile:/ })).toBeNull();
   });
 });
@@ -233,6 +221,20 @@ describe("somebody signed in", () => {
     expect(
       await screen.findByRole("heading", { name: "General", level: 2 }),
     ).toBeInTheDocument();
+    expect(server.createSocket.mock.calls[0]?.[1]).toBe("member-abc");
+  });
+
+  it("is brought into the room an address names, as the account, when coming back from a provider with nothing else saved", async () => {
+    stubBackend();
+    window.history.replaceState(null, "", "/rooms/general");
+    const server = makeFakeServer();
+
+    setup(server);
+
+    expect(
+      await screen.findByRole("heading", { name: "General", level: 2 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Nickname/)).toBeNull();
     expect(server.createSocket.mock.calls[0]?.[1]).toBe("member-abc");
   });
 
@@ -416,9 +418,11 @@ describe("somebody signed in", () => {
       ).toBeInTheDocument();
       expect(loadAccount()).toBeNull();
       expect(loadSession()).toBeNull();
-      expect(
-        await screen.findByRole("button", { name: "Login" }),
-      ).toBeInTheDocument();
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("button", { name: /^Your profile:/ }),
+        ).toBeNull(),
+      );
     });
 
     it("is possible from the lobby too", async () => {
@@ -434,9 +438,11 @@ describe("somebody signed in", () => {
         }),
       );
 
-      expect(
-        await screen.findByRole("button", { name: "Login" }),
-      ).toBeInTheDocument();
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("button", { name: /^Your profile:/ }),
+        ).toBeNull(),
+      );
       expect(loadAccount()).toBeNull();
     });
   });

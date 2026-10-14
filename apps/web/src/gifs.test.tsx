@@ -10,7 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FrequentlyUsed, Picker } from "emoji-mart";
-import { App } from "./App";
+import { App } from "./test/app";
 import i18n from "./i18n";
 import { editorOf, fillBox, selectText } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";

@@ -1,14 +1,13 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { BrowserRouter, Route, Routes } from "react-router";
 
 import { App } from "./App";
-import { AboutPage } from "./components/AboutPage";
 import { AuthCallback } from "./components/AuthCallback";
-import { LegalPage } from "./components/LegalPage";
 import "./i18n";
 import "./index.css";
 import { trackInputMode } from "./inputMode";
-import { isAboutPath, isAuthCallbackPath, legalPageFromPath } from "./place";
+import { AUTH_CALLBACK_PATH } from "./place";
 import { publishScrollbarWidth } from "./scrollbarWidth";
 import { holdScrollWhilePopups } from "./scrollHold";
 import { keepStickyInView } from "./stickyFocus";
@@ -18,22 +17,15 @@ publishScrollbarWidth();
 holdScrollWhilePopups();
 keepStickyInView();
 
-// The terms, the privacy policy and the page about how the site is built are pages of their own, opened by address, and
-// so is the place a provider sends people back to; everything else is the chat.
-const legalPage = legalPageFromPath(window.location.pathname);
-const aboutPage = isAboutPath(window.location.pathname);
-const authCallback = isAuthCallbackPath(window.location.pathname);
-
+// The place a provider sends people back to is a page of its own; everything else (the chat, and the terms and the other
+// pages) is the app.
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    {authCallback ? (
-      <AuthCallback />
-    ) : aboutPage ? (
-      <AboutPage />
-    ) : legalPage ? (
-      <LegalPage page={legalPage} />
-    ) : (
-      <App />
-    )}
+    <BrowserRouter>
+      <Routes>
+        <Route path={AUTH_CALLBACK_PATH} element={<AuthCallback />} />
+        <Route path="*" element={<App />} />
+      </Routes>
+    </BrowserRouter>
   </StrictMode>,
 );
