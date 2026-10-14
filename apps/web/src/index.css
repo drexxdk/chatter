@@ -103,6 +103,51 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   }
 }
 
+/* The side panel of a room has one scrollbar, never two. While it is tall enough for both of its lists (the minimum each
+   has is under, about 20.25rem), they scroll in their own boxes; below that the panel scrolls as a whole, with the lists
+   shown in full. (`size` containment is what lets the panel's height be asked about; it is as tall as the window.) */
+.panel {
+  container: panel / size;
+  overscroll-behavior: contain;
+}
+
+.panel-people {
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 10rem;
+}
+
+/* Half of the panel plus what its heading and switch have over the people's heading, so that when both lists have more than
+   there is room for they are the same height. */
+.panel-threads {
+  max-height: calc(50% + 14px);
+  min-height: 9rem;
+}
+
+/* Positioned, so that text for screen readers only (which is absolute) is clipped with the list. */
+.panel-list {
+  position: relative;
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@container panel (height < 20.5rem) {
+  .panel-people,
+  .panel-threads {
+    flex: none;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .panel-list {
+    flex: none;
+    overflow: visible;
+  }
+}
 /* The emoji picker (emoji-mart, a web component) in the colours of the interface. It fills the panel it is in, which has
    the border and the rounded corners, and takes the font of the page. The variables are the ones it reads. */
 em-emoji-picker {

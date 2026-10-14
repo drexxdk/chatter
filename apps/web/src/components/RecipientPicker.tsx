@@ -1,5 +1,5 @@
 import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
-import { ChevronDown, Users } from "lucide-react";
+import { ChevronDown, ShieldCheck, Users } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -15,7 +15,7 @@ import { FocusSearch } from "./FocusSearch";
 import { SearchBox } from "./SearchBox";
 
 const chip = (active: boolean) =>
-  `flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
+  `flex min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${
     active
       ? "border-indigo-400 bg-indigo-500/30 text-white"
       : "border-neutral-700 text-neutral-300 hover:bg-neutral-800"
@@ -131,7 +131,7 @@ export function RecipientPicker({
               <div
                 role="group"
                 aria-label={t("dm.filter")}
-                className="flex flex-wrap gap-2"
+                className="grid grid-cols-2 gap-2"
               >
                 {AVATARS.map((avatar) => (
                   <button
@@ -151,6 +151,10 @@ export function RecipientPicker({
                   onClick={() => setModeratorsOnly((current) => !current)}
                   className={chip(moderatorsOnly)}
                 >
+                  <ShieldCheck
+                    aria-hidden="true"
+                    className="h-6 w-6 shrink-0 rounded-full bg-green-500/20 p-1 text-green-300 ring-1 ring-green-400/60"
+                  />
                   {t("room.moderatorBadge")}
                 </button>
               </div>

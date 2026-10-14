@@ -34,23 +34,26 @@ export function RoomPanel({
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h3 className="mb-2 text-sm font-semibold text-neutral-300">
+    <div className="flex h-full flex-col gap-5">
+      <section className="panel-people">
+        <h3 className="text-sm font-semibold text-neutral-300">
           {typeof maxMembers === "number"
             ? t("room.membersOfMax", { count: members.length, max: maxMembers })
             : t("room.members", { count: members.length })}
         </h3>
-        <PeopleList
-          members={members}
-          selfGuestId={selfGuestId}
-          blockedIds={blockedIds}
-          blockedByIds={blockedByIds}
-          onOpen={onOpen}
-        />
-      </div>
+        <div className="panel-list">
+          <PeopleList
+            members={members}
+            selfGuestId={selfGuestId}
+            blockedIds={blockedIds}
+            blockedByIds={blockedByIds}
+            onOpen={onOpen}
+          />
+        </div>
+      </section>
 
       <ThreadSection
+        className="panel-threads"
         threads={threads}
         notify={notify}
         blockedIds={blockedIds}

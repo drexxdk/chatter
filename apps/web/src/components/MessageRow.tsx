@@ -1,5 +1,6 @@
 import { LogOut } from "lucide-react";
 import clsx from "clsx";
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Avatar } from "../chat/avatar";
@@ -29,7 +30,7 @@ export interface GroupMessage {
 // right; a moderator's words keep their green, bold look either way. With `onSelect` a click on the name or the avatar
 // chooses the person to write to (from the keyboard, Enter on a message does); `nav` makes every message a stop for the
 // arrow keys (see rowNavigation.ts).
-export function MessageGroup({
+function MessageGroupView({
   mine,
   nickname,
   role,
@@ -243,6 +244,32 @@ export function MessageGroup({
     </li>
   );
 }
+// Whether two things are the same as far as what is drawn goes: functions are not compared (see ChatRoom, which gives
+// the rows ones that always do the current thing), everything else is, down to the last field.
+function sameLook(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a === "function" && typeof b === "function") return true;
+  if (typeof a !== "object" || typeof b !== "object" || !a || !b) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+
+  const keys = Object.keys(a);
+
+  if (keys.length !== Object.keys(b).length) return false;
+
+  return keys.every(
+    (key) =>
+      key in b &&
+      sameLook(
+        (a as Record<string, unknown>)[key],
+        (b as Record<string, unknown>)[key],
+      ),
+  );
+}
+
+// A group is only drawn again when something about it changed: a busy room would otherwise draw every message again for
+// each new one.
+export const MessageGroup = memo(MessageGroupView, sameLook);
+
 // Something that happened rather than something said, so it looks different from a message.
 export function StatusRow({ text, sentAt }: { text: string; sentAt: string }) {
   return (

@@ -1,5 +1,6 @@
 import { Field, Label, Switch } from "@headlessui/react";
 import { Ban, Bell, BellOff } from "lucide-react";
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { DirectThread, Partner } from "../chat/direct";
@@ -51,7 +52,7 @@ function AgeBadge({ age }: { age?: number }) {
 
 // Everybody in the room, the guest included (not clickable: there is nobody to write to). A name opens a conversation,
 // which is only listed below once something has been said.
-export function PeopleList({
+function PeopleListView({
   members,
   selfGuestId,
   blockedIds,
@@ -116,6 +117,8 @@ export function PeopleList({
     </ul>
   );
 }
+
+export const PeopleList = memo(PeopleListView);
 
 // Conversations with something in them, the one with the latest activity first. One with new words pulses (unless the
 // person has asked for less motion) and shows a count, which is also what a screen reader is told. The bell beside each
@@ -231,6 +234,7 @@ export function ThreadList({
 
 // The conversations with the switch for being told about new messages in any of them, above the list.
 export function ThreadSection({
+  className = "",
   threads,
   notify,
   blockedIds,
@@ -239,6 +243,8 @@ export function ThreadSection({
   onSetMuted,
   onSetBlocked,
 }: {
+  // For where the section is given a height to share out: its list then scrolls.
+  className?: string;
   threads: DirectThread[];
   notify: boolean;
   blockedIds: string[];
@@ -250,7 +256,7 @@ export function ThreadSection({
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-2">
+    <div className={`flex flex-col gap-2 ${className}`}>
       <h3 className="text-sm font-semibold text-neutral-300">
         {t("dm.heading")}
       </h3>
@@ -264,14 +270,16 @@ export function ThreadSection({
           <span className="size-4 translate-x-0.5 rounded-full bg-white transition-transform group-data-checked:translate-x-4.5" />
         </Switch>
       </Field>
-      <ThreadList
-        threads={threads}
-        notify={notify}
-        blockedIds={blockedIds}
-        onOpen={onOpen}
-        onSetMuted={onSetMuted}
-        onSetBlocked={onSetBlocked}
-      />
+      <div className="panel-list">
+        <ThreadList
+          threads={threads}
+          notify={notify}
+          blockedIds={blockedIds}
+          onOpen={onOpen}
+          onSetMuted={onSetMuted}
+          onSetBlocked={onSetBlocked}
+        />
+      </div>
     </div>
   );
 }

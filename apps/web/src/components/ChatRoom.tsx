@@ -1,6 +1,8 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type SubmitEvent,
@@ -271,6 +273,38 @@ export function ChatRoom({
   const hasLeft = (guestId: string) =>
     connected && !members.some((member) => member.guestId === guestId);
 
+  // The stop of the arrow keys, for the group it is in; the others are told there is none, so that they are not drawn
+  // again each time it moves (it follows the newest message).
+  const stopIn = (entries: { message: { id: string } }[]) =>
+    entries.some(({ message }) => message.id === rows.stopId)
+      ? rows.stopId
+      : null;
+
+  // What the rows call, always as it is now: a row is only drawn again when what it shows has changed, not for a new
+  // function, so what it holds must not go stale.
+  const act = useRef({
+    selectPerson,
+    openConversation,
+    canWriteTo,
+    markRead: direct.markRead,
+    setBlocked: direct.setBlocked,
+    react: direct.react,
+    onReact,
+  });
+  act.current = {
+    selectPerson,
+    openConversation,
+    canWriteTo,
+    markRead: direct.markRead,
+    setBlocked: direct.setBlocked,
+    react: direct.react,
+    onReact,
+  };
+  const openConversationStable = useCallback(
+    (partner: Partner) => act.current.openConversation(partner),
+    [],
+  );
+
   // What the "…" button of somebody's message offers.
   function personMenu(partner: Partner): PersonMenuOptions {
     const blocked = direct.blockedIds.includes(partner.guestId);
@@ -285,10 +319,10 @@ export function ChatRoom({
       ),
       blocked,
       blockedBy: direct.blockedByIds.includes(partner.guestId),
-      onMessage: () => selectPerson(partner),
-      onOpenChat: () => openConversation(partner),
+      onMessage: () => act.current.selectPerson(partner),
+      onOpenChat: () => act.current.openConversation(partner),
       onToggleBlock: () =>
-        void direct
+        void act.current
           .setBlocked(partner.guestId, !blocked)
           .then((result) => setReplyFailure(result.ok ? undefined : result)),
     };
@@ -297,18 +331,25 @@ export function ChatRoom({
     replyFailure?.error === "rate_limited" && replyFailure.retryAfterSeconds;
 
   // Names in messages that are people in the room: hovered they say who they are, clicked they choose who to write to.
-  const mentions: MentionsValue = {
-    people: members,
-    selfGuestId: session.guestId,
-    canWriteTo,
-    onSelect: (person) =>
-      selectPerson({
-        guestId: person.guestId,
-        nickname: person.nickname,
-        role: person.role ?? "guest",
-        avatar: person.avatar ?? PLAIN_AVATAR,
-      }),
-  };
+  // The same value until somebody comes or goes, or something is blocked, so that the names in the messages are not drawn
+  // again for nothing.
+  const mentions = useMemo<MentionsValue>(
+    () => ({
+      people: members,
+      selfGuestId: session.guestId,
+      canWriteTo: (guestId) => act.current.canWriteTo(guestId),
+      onSelect: (person) =>
+        act.current.selectPerson({
+          guestId: person.guestId,
+          nickname: person.nickname,
+          role: person.role ?? "guest",
+          avatar: person.avatar ?? PLAIN_AVATAR,
+        }),
+    }),
+    // canWriteTo reads the blocks as they are, which is why a change to them makes a new value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [members, session.guestId, direct.blockedIds, direct.blockedByIds],
+  );
 
   return (
     <MentionsProvider value={mentions}>
@@ -455,14 +496,16 @@ export function ChatRoom({
                           banned: message.banned,
                           reactions: message.reactions,
                         }))}
-                        onSelect={() => selectPerson(first.partner)}
-                        onSeen={() => direct.markRead(first.partner.guestId)}
+                        onSelect={() => act.current.selectPerson(first.partner)}
+                        onSeen={() =>
+                          act.current.markRead(first.partner.guestId)
+                        }
                         selectable={canWriteTo(first.partner.guestId)}
-                        nav={{ stopId: rows.stopId }}
+                        nav={{ stopId: stopIn(entries) }}
                         reactions={{
                           ownIds: ownGuestIds,
                           onReact: (messageId, emoji) =>
-                            void direct.react(
+                            void act.current.react(
                               first.partner.guestId,
                               messageId,
                               emoji,
@@ -533,7 +576,11 @@ export function ChatRoom({
                         reactions: message.reactions,
                       }))}
                       selectable={canWriteTo(author.guestId)}
-                      onSelect={mine ? undefined : () => selectPerson(author)}
+                      onSelect={
+                        mine
+                          ? undefined
+                          : () => act.current.selectPerson(author)
+                      }
                       onSeen={
                         !mine &&
                         direct.threads.some(
@@ -541,11 +588,15 @@ export function ChatRoom({
                             thread.guestId === author.guestId &&
                             thread.unread > 0,
                         )
-                          ? () => direct.markRead(author.guestId)
+                          ? () => act.current.markRead(author.guestId)
                           : undefined
                       }
-                      nav={{ stopId: rows.stopId }}
-                      reactions={{ ownIds: ownGuestIds, onReact }}
+                      nav={{ stopId: stopIn(entries) }}
+                      reactions={{
+                        ownIds: ownGuestIds,
+                        onReact: (messageId, emoji) =>
+                          act.current.onReact(messageId, emoji),
+                      }}
                       menu={mine ? undefined : personMenu(author)}
                       onReport={
                         mine || author.role === "moderator"
@@ -686,14 +737,14 @@ export function ChatRoom({
 
         <aside
           aria-label={t("room.panel")}
-          className="hidden md:col-start-2 md:row-start-1 md:-mt-4 md:sticky md:top-(--header-height) md:block md:max-h-[calc(100dvh-var(--header-height))] md:self-start md:overflow-y-auto md:pt-4"
+          className="panel hidden md:col-start-2 md:row-start-1 md:-mt-4 md:sticky md:top-(--header-height) md:block md:h-[calc(100dvh-var(--header-height))] md:self-start md:overflow-y-auto md:py-4"
         >
           <RoomPanel
             members={members}
             maxMembers={maxMembers}
             selfGuestId={session.guestId}
             threads={direct.threads}
-            onOpen={openConversation}
+            onOpen={openConversationStable}
             notify={direct.notify}
             blockedIds={direct.blockedIds}
             blockedByIds={direct.blockedByIds}

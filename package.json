@@ -22,6 +22,10 @@
     "format:check": "prettier --check .",
     "audit": "audit-ci --config audit-ci.jsonc",
     "loadtest": "npm run loadtest --workspace apps/chat-server --",
+    "crowd": "node scripts/crowd.mjs",
+    "crowd:pause": "node scripts/crowdControl.mjs pause",
+    "crowd:resume": "node scripts/crowdControl.mjs resume",
+    "crowd:stop": "node scripts/crowdControl.mjs stop",
     "seed:prod": "node scripts/seedProd.mjs",
     "env:push": "node scripts/pushEnv.mjs"
   },
