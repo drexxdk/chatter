@@ -7,7 +7,6 @@
     "title": "Din profil",
     "age": "Alder",
     "ageHint": "{min}–{max}",
-    "visible": "Dit kaldenavn, din avatar og din alder vises for alle i rummet.",
     "gender": "Køn",
     "notGiven": "Ikke oplyst",
     "signedInWith": "Logget ind med",
@@ -320,7 +319,7 @@
     "send": "Meddel"
   },
   "avatar": {
-    "legend": "Køn (valgfrit)",
+    "legend": "Køn",
     "male": "Mand",
     "female": "Kvinde",
     "trans": "Transkønnet",

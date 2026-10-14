@@ -94,6 +94,29 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
       if (sheet && shadow) {
         shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, sheet];
       }
+      // Where the panel scrolls as a whole the list has no scroll of its own, so a category button scrolls the panel.
+      shadow?.addEventListener(
+        "click",
+        (event) => {
+          const list = shadow.querySelector(".scroll");
+          const button = (event.target as Element).closest("nav button");
+          const panel = box.closest(".picker");
+          if (!list || !button || !panel) return;
+          if (getComputedStyle(list).overflowY !== "visible") return;
+
+          event.stopPropagation();
+          const index = [...shadow.querySelectorAll("nav button")].indexOf(
+            button,
+          );
+          const category = shadow.querySelectorAll(".category")[index];
+          if (!category) return;
+
+          panel.scrollTop +=
+            category.getBoundingClientRect().top -
+            panel.getBoundingClientRect().top;
+        },
+        true,
+      );
       box.replaceChildren(picker as unknown as Node);
     });
 
@@ -159,7 +182,7 @@ export function EmojiPane({ onPick }: { onPick: (emoji: string) => void }) {
       <div
         ref={host}
         hidden={needle !== ""}
-        className={needle ? undefined : pickerPane}
+        className={needle ? undefined : clsx(pickerPane, "picker-mart")}
       />
 
       {needle !== "" && (

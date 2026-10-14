@@ -14,12 +14,7 @@ import { AvatarIcon, GenderLabel } from "./Avatar";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Modal } from "./Modal";
-import {
-  AvatarPicker,
-  NameAndAge,
-  PicturePicker,
-  VisibleNote,
-} from "./ProfileFields";
+import { AvatarPicker, NameAndAge, PicturePicker } from "./ProfileFields";
 
 // Who somebody is shown as: a guest or an account in a room, or an account in the lobby.
 export type ProfileSubject = Pick<
@@ -189,7 +184,6 @@ function ProfileSummary({
               </Detail>
             )}
           </dl>
-          <VisibleNote />
           <Button icon={Pencil} onClick={onEdit}>
             {t("profile.edit")}
           </Button>
@@ -273,7 +267,6 @@ function ProfileForm({
         name="profile-picture"
       />
       <AvatarPicker value={avatar} onChange={setAvatar} name="profile-avatar" />
-      <VisibleNote />
 
       <ErrorAlert
         code={

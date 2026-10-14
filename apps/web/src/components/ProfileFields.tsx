@@ -33,14 +33,14 @@ export function PicturePicker({
   return (
     <fieldset className="space-y-2">
       <legend className="text-sm font-medium">{t("picture.legend")}</legend>
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-4 gap-1">
         {shown.map((option, index) => (
           <label
             key={option}
-            className={`flex cursor-pointer items-center justify-center rounded-md border p-1.5 focus-within:ring-2 focus-within:ring-indigo-400 ${
+            className={`flex aspect-square cursor-pointer items-center justify-center rounded-full p-1 focus-within:ring-2 focus-within:ring-indigo-400 ${
               value === option
-                ? "border-indigo-400 bg-indigo-500/10"
-                : "border-neutral-700 hover:bg-neutral-800"
+                ? "bg-indigo-500/10 ring-2 ring-indigo-400"
+                : "hover:bg-neutral-800"
             }`}
           >
             <input
@@ -52,7 +52,7 @@ export function PicturePicker({
               aria-label={t("picture.option", { number: index + 1 })}
               className="sr-only"
             />
-            <AvatarIcon avatar="other" picture={option} large />
+            <AvatarIcon avatar="other" picture={option} fill />
           </label>
         ))}
       </div>
@@ -84,11 +84,11 @@ export function AvatarPicker({
   return (
     <fieldset className="space-y-2">
       <legend className="text-sm font-medium">{t("avatar.legend")}</legend>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2">
         {AVATARS.map((option) => (
           <label
             key={option}
-            className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-sm focus-within:ring-2 focus-within:ring-indigo-400 ${
+            className={`flex min-w-0 cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-sm focus-within:ring-2 focus-within:ring-indigo-400 ${
               value === option
                 ? "border-indigo-400 bg-indigo-500/10"
                 : "border-neutral-700"
@@ -180,11 +180,4 @@ export function NameAndAge({
       </div>
     </div>
   );
-}
-
-// What the others in the room get to see of the guest.
-export function VisibleNote() {
-  const { t } = useTranslation();
-
-  return <p className="text-xs text-neutral-500">{t("profile.visible")}</p>;
 }

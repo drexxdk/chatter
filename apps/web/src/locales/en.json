@@ -7,7 +7,6 @@
     "title": "Your profile",
     "age": "Age",
     "ageHint": "{min}–{max}",
-    "visible": "Your nickname, avatar and age are shown to everybody in the room.",
     "gender": "Gender",
     "notGiven": "Not given",
     "signedInWith": "Signed in with",
@@ -320,7 +319,7 @@
     "send": "Announce"
   },
   "avatar": {
-    "legend": "Gender (optional)",
+    "legend": "Gender",
     "male": "Male",
     "female": "Female",
     "trans": "Transgender",

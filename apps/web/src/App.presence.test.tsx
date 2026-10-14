@@ -526,9 +526,7 @@ describe("avatars", () => {
     await user.click(
       await screen.findByRole("button", { name: "Join General" }),
     );
-    return within(
-      await screen.findByRole("group", { name: "Gender (optional)" }),
-    );
+    return within(await screen.findByRole("group", { name: "Gender" }));
   }
 
   async function submitAs(
@@ -655,7 +653,7 @@ describe("avatars", () => {
       );
 
       expect(
-        screen.queryByRole("group", { name: "Gender (optional)" }),
+        screen.queryByRole("group", { name: "Gender" }),
       ).not.toBeInTheDocument();
     });
 

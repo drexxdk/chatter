@@ -41,6 +41,7 @@ export function AvatarIcon({
   picture,
   small = false,
   large = false,
+  fill = false,
   titled = true,
   dimmed = false,
 }: {
@@ -49,6 +50,8 @@ export function AvatarIcon({
   picture?: string;
   small?: boolean;
   large?: boolean;
+  // As wide as its box, for a grid whose cells are not a fixed size.
+  fill?: boolean;
   // Whether hovering names the avatar ("Other"); off where it would only be in the way.
   titled?: boolean;
   // For somebody who is no longer here.
@@ -61,7 +64,13 @@ export function AvatarIcon({
   const kind = parseAvatar(avatar);
   const look = LOOKS[kind];
   const Icon = look.icon;
-  const size = large ? "h-14 w-14" : small ? "h-6 w-6" : "h-9 w-9";
+  const size = fill
+    ? "aspect-square w-full"
+    : large
+      ? "h-14 w-14"
+      : small
+        ? "h-6 w-6"
+        : "h-9 w-9";
   const fade = dimmed ? "opacity-50 grayscale" : "";
 
   if (known) {

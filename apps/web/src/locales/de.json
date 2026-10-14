@@ -7,7 +7,6 @@
     "title": "Dein Profil",
     "age": "Alter",
     "ageHint": "{min}–{max}",
-    "visible": "Dein Spitzname, dein Avatar und dein Alter sind für alle im Raum sichtbar.",
     "gender": "Geschlecht",
     "notGiven": "Keine Angabe",
     "signedInWith": "Angemeldet mit",
@@ -320,7 +319,7 @@
     "send": "Ankündigen"
   },
   "avatar": {
-    "legend": "Geschlecht (optional)",
+    "legend": "Geschlecht",
     "male": "Männlich",
     "female": "Weiblich",
     "trans": "Transgender",

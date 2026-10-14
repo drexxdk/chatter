@@ -12,12 +12,7 @@ import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
 import { Modal } from "./Modal";
-import {
-  AvatarPicker,
-  NameAndAge,
-  PicturePicker,
-  VisibleNote,
-} from "./ProfileFields";
+import { AvatarPicker, NameAndAge, PicturePicker } from "./ProfileFields";
 import { TermsCheckbox } from "./TermsCheckbox";
 
 interface NicknameDialogProps {
@@ -144,7 +139,6 @@ export function NicknameDialog({
               name="nickname-picture"
             />
             <AvatarPicker value={avatar} onChange={setAvatar} />
-            <VisibleNote />
             <TermsCheckbox
               checked={termsAccepted}
               onChange={setTermsChoice}

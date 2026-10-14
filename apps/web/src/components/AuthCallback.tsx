@@ -24,12 +24,7 @@ import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
 import { Loading } from "./LoadState";
 import { PageFrame } from "./PageFrame";
-import {
-  AvatarPicker,
-  NameAndAge,
-  PicturePicker,
-  VisibleNote,
-} from "./ProfileFields";
+import { AvatarPicker, NameAndAge, PicturePicker } from "./ProfileFields";
 import { TermsCheckbox } from "./TermsCheckbox";
 
 export type CallbackOutcome =
@@ -300,7 +295,6 @@ function RegisterForm({
         onChange={setAvatar}
         name="register-avatar"
       />
-      <VisibleNote />
 
       <TermsCheckbox
         checked={termsAccepted}
