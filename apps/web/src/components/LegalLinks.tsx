@@ -43,7 +43,12 @@ export function LegalSentence({ i18nKey }: { i18nKey: string }) {
 }
 
 // The two documents, one after the other, for the bottom of a page.
-export function LegalLinks() {
+export function LegalLinks({
+  onModeratorSignIn,
+}: {
+  // With it, a last link opens the moderators' sign-in.
+  onModeratorSignIn?: () => void;
+}) {
   const { t } = useTranslation();
 
   return (
@@ -60,6 +65,11 @@ export function LegalLinks() {
       <Link to={ABOUT_PATH} className={LINK}>
         {t("about.link")}
       </Link>
+      {onModeratorSignIn && (
+        <button type="button" onClick={onModeratorSignIn} className={LINK}>
+          {t("nickname.signInAsModerator")}
+        </button>
+      )}
     </nav>
   );
 }

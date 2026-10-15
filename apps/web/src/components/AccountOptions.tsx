@@ -51,10 +51,13 @@ export function useAuthProviders(): string[] {
 export function AccountOptions({
   returnPath,
   intro,
+  divider,
   className,
 }: {
   returnPath: string;
   intro: string;
+  // A line with this word between the buttons and whatever follows, shown only with the buttons.
+  divider?: string;
   className?: string;
 }) {
   const { t } = useTranslation();
@@ -81,6 +84,11 @@ export function AccountOptions({
           </ButtonLink>
         ))}
       </div>
+      {divider && (
+        <p className="flex items-center gap-3 pt-2 text-sm text-neutral-400 before:h-px before:flex-1 before:bg-neutral-800 after:h-px after:flex-1 after:bg-neutral-800">
+          {divider}
+        </p>
+      )}
     </div>
   );
 }

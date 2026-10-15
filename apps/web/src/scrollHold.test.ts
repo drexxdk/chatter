@@ -1,6 +1,19 @@
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { holdScrollWhilePopups } from "./scrollHold";
+import { dropHeldScroll, holdScrollWhilePopups } from "./scrollHold";
+
+const resized: (() => void)[] = [];
+
+vi.stubGlobal(
+  "ResizeObserver",
+  class {
+    constructor(callback: () => void) {
+      resized.push(callback);
+    }
+    observe() {}
+    disconnect() {}
+  },
+);
 
 const page = document.documentElement;
 let height = 2000;
@@ -72,6 +85,29 @@ describe("the page's scroll position around a dialog", () => {
     await closeDialog(dialog);
 
     expect(page.scrollTop).toBe(1700);
+  });
+
+  it("is not taken to the end for a page that was short when last scrolled and has grown since", async () => {
+    height = 500;
+    await scrollTo(0);
+    height = 2000;
+    resized.forEach((callback) => callback());
+    const dialog = await openDialog();
+
+    await closeDialog(dialog);
+
+    expect(page.scrollTop).toBe(0);
+  });
+
+  it("is not put back once it is dropped, for a dialog that takes the guest to another page", async () => {
+    await scrollTo(1500);
+    const dialog = await openDialog();
+
+    dropHeldScroll();
+    page.scrollTop = 0;
+    await closeDialog(dialog);
+
+    expect(page.scrollTop).toBe(0);
   });
 
   it("is not touched by a popup that did not lock the page", async () => {

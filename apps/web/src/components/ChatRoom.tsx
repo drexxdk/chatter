@@ -145,6 +145,7 @@ export function ChatRoom({
 
   // Whether the page is at its end, so that something new only scrolls it when the guest is not reading further up.
   const atBottom = useRef(true);
+  const root = useRef<HTMLElement>(null);
   // Whether it is exactly at its end, which only then follows the page getting longer.
   const pinned = useRef(true);
   useEffect(() => {
@@ -161,6 +162,9 @@ export function ChatRoom({
   }, []);
 
   const scrollToEnd = () => {
+    // A room on its way out (made inert while it fades) is only for the eyes: the page belongs to what replaces it.
+    if (root.current?.closest("[inert]")) return;
+
     const page = document.documentElement;
     page.scrollTop = page.scrollHeight;
   };
@@ -366,6 +370,7 @@ export function ChatRoom({
   return (
     <MentionsProvider value={mentions}>
       <section
+        ref={root}
         aria-labelledby="room-heading"
         className="grid flex-1 gap-4 md:grid-cols-[14rem_1fr]"
       >

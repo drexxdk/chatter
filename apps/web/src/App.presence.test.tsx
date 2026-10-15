@@ -526,49 +526,31 @@ describe("avatars", () => {
     await user.click(
       await screen.findByRole("button", { name: "Join General" }),
     );
-    return within(await screen.findByRole("group", { name: "Gender" }));
+    await screen.findByLabelText("Nickname");
   }
 
-  async function submitAs(
-    user: ReturnType<typeof userEvent.setup>,
-    avatar?: string,
-  ) {
-    const group = await openDialog(user);
-    if (avatar) await user.click(group.getByRole("radio", { name: avatar }));
+  async function submitAs(user: ReturnType<typeof userEvent.setup>) {
+    await openDialog(user);
     await user.type(screen.getByLabelText("Nickname"), "Alice");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("button", { name: "Your profile: Alice" });
   }
 
   describe("choosing a picture", () => {
-    const pictures = () =>
-      screen.getAllByRole("radio", {
-        name: /^Avatar \d$/,
-      }) as HTMLInputElement[];
-
-    it("is offered with one picked at random already, so a picture is always chosen", async () => {
-      const { user } = setup();
-      await openDialog(user);
-
-      expect(pictures()).toHaveLength(8);
-      expect(pictures().filter((option) => option.checked)).toHaveLength(1);
-    });
-
-    it("joins with the one that was chosen, shows it in the header, and keeps it for a reload", async () => {
+    it("is not asked for when joining: one is picked at random, shown in the header and kept for a reload", async () => {
       const { user, server } = setup();
       await openDialog(user);
-      await user.click(screen.getByRole("radio", { name: "Avatar 3" }));
-      const chosen = (
-        screen.getByRole("radio", { name: "Avatar 3" }) as HTMLInputElement
-      ).value;
+
+      expect(screen.queryAllByRole("radio")).toHaveLength(0);
+
       await user.type(screen.getByLabelText("Nickname"), "Alice");
       await user.click(screen.getByRole("button", { name: "Continue" }));
-
       const profile = await screen.findByRole("button", {
         name: "Your profile: Alice",
       });
+      const chosen = server.createSocket.mock.calls[0]?.[5] as string;
 
-      expect(server.createSocket.mock.calls[0]?.[5]).toBe(chosen);
+      expect(typeof chosen).toBe("string");
       expect(
         profile.querySelector(`[data-picture='${chosen}']`),
       ).not.toBeNull();
@@ -602,64 +584,44 @@ describe("avatars", () => {
   });
 
   describe("choosing one", () => {
-    it("offers four, with the plain one chosen unless the guest says otherwise", async () => {
-      const { user } = setup();
-
-      const group = await openDialog(user);
-
-      expect(group.getAllByRole("radio")).toHaveLength(4);
-      for (const name of ["Male", "Female", "Transgender"]) {
-        expect(group.getByRole("radio", { name })).not.toBeChecked();
-      }
-      expect(group.getByRole("radio", { name: "Not specified" })).toBeChecked();
-    });
-
-    it("joins with the avatar that was chosen", async () => {
+    it("is not asked for when joining, and the plain one sends nothing extra", async () => {
       const { user, server } = setup();
-
-      await submitAs(user, "Female");
-
-      expect(server.createSocket).toHaveBeenCalledWith(
-        "Alice",
-        undefined,
-        "female",
-        undefined,
-        undefined,
-        anyPicture,
-      );
-    });
-
-    it("sends nothing extra when the guest keeps the plain one", async () => {
-      const { user, server } = setup();
-
-      await submitAs(user);
-
-      expect(server.createSocket).toHaveBeenCalledWith(
-        "Alice",
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        anyPicture,
-      );
-    });
-
-    it("is not offered to a moderator, whose name and look come from their account", async () => {
-      const { user } = setup();
       await openDialog(user);
 
-      await user.click(
-        screen.getByRole("button", { name: "Sign in as moderator" }),
-      );
+      expect(screen.queryByLabelText("Gender")).not.toBeInTheDocument();
 
-      expect(
-        screen.queryByRole("group", { name: "Gender" }),
-      ).not.toBeInTheDocument();
+      await user.type(screen.getByLabelText("Nickname"), "Alice");
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      await screen.findByRole("button", { name: "Your profile: Alice" });
+
+      expect(server.createSocket).toHaveBeenCalledWith(
+        "Alice",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        anyPicture,
+      );
     });
 
-    it("is kept for a reload, along with the nickname", async () => {
+    it("is chosen in the profile, and kept for a reload along with the nickname", async () => {
       const first = setup();
-      await submitAs(first.user, "Transgender");
+      await submitAs(first.user);
+      await first.user.click(
+        screen.getByRole("button", { name: "Your profile: Alice" }),
+      );
+      await first.user.click(
+        await screen.findByRole("button", { name: "Edit profile" }),
+      );
+      await first.user.click(
+        await screen.findByRole("radio", { name: "Transgender" }),
+      );
+      await first.user.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() =>
+        expect(first.server.latest.emittedEvents("profile:update")).toEqual([
+          { avatar: "trans" },
+        ]),
+      );
       first.unmount();
 
       const { server } = setup();
@@ -674,7 +636,6 @@ describe("avatars", () => {
         anyPicture,
       );
     });
-
     it("is dropped from a saved session when it is not one we know", async () => {
       sessionStorage.setItem(
         SAVED,

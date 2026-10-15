@@ -38,6 +38,7 @@ import { legalDocOf, LegalPage } from "./components/LegalPage";
 import { Lobby, useRooms } from "./components/Lobby";
 import { MainMenu } from "./components/MainMenu";
 import { NicknameDialog } from "./components/NicknameDialog";
+import { ModeratorDialog } from "./components/ModeratorDialog";
 import { PageFrame } from "./components/PageFrame";
 import { ProfileButton } from "./components/ProfileButton";
 import { ProfileDialog, type ProfileSubject } from "./components/ProfileDialog";
@@ -59,6 +60,7 @@ import {
   type SavedSession,
 } from "./session";
 import { useKept } from "./useKept";
+import { dropHeldScroll } from "./scrollHold";
 import { usePageTitle } from "./usePageTitle";
 
 // The server's answer when somebody else in the room already has the guest's nickname.
@@ -92,6 +94,7 @@ export function App({
   const shownRoom = useKept(pendingRoom);
   const [signInError, setSignInError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
+  const [moderatorOpen, setModeratorOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -201,6 +204,7 @@ export function App({
   }
 
   function signOut() {
+    dropHeldScroll();
     clearAccount();
     setAccount(null);
     clearSession();
@@ -275,21 +279,18 @@ export function App({
     nickname: string,
     avatar: Avatar,
     picture: string,
-    age?: number,
   ) {
     if (!pendingRoom) return;
 
     // The plain avatar is what the server gives anyone who sends none, so it is not sent or kept.
     const chosen = avatar === PLAIN_AVATAR ? undefined : avatar;
 
-    if (!(await chat.connect(nickname, { avatar: chosen, picture, age })))
-      return;
+    if (!(await chat.connect(nickname, { avatar: chosen, picture }))) return;
 
     saveSession({
       nickname,
       ...(chosen ? { avatar: chosen } : {}),
       picture,
-      ...(age === undefined ? {} : { age }),
       guestIds: chat.guestIds(),
       ...resumeDetails(),
     });
@@ -301,8 +302,6 @@ export function App({
   }
 
   async function handleSignIn(email: string, password: string) {
-    if (!pendingRoom) return;
-
     setSignInError(null);
     chat.clearError();
     setSigningIn(true);
@@ -319,9 +318,7 @@ export function App({
         guestIds: chat.guestIds(),
         ...resumeDetails(),
       });
-      const { slug } = pendingRoom;
-      setPendingRoom(null);
-      await chat.joinRoom(slug);
+      setModeratorOpen(false);
     } catch (cause) {
       setSignInError(cause instanceof SignInError ? cause.code : "connection");
     } finally {
@@ -681,13 +678,24 @@ export function App({
             <AboutPage />
           ) : (
             <div className="space-y-4">
-              {!pendingRoom && <ErrorAlert code={chat.error} />}
+              {!pendingRoom && !moderatorOpen && (
+                <ErrorAlert code={chat.error} />
+              )}
               <Lobby
                 state={roomsState}
                 onRetry={retry}
                 onSelect={(room) => void handleSelect(room)}
               />
-              <LegalLinks />
+              <LegalLinks
+                onModeratorSignIn={
+                  chat.status === "connected"
+                    ? undefined
+                    : () => {
+                        clearDialogErrors();
+                        setModeratorOpen(true);
+                      }
+                }
+              />
             </div>
           )}
         </ViewTransition>
@@ -718,16 +726,25 @@ export function App({
         <NicknameDialog
           open={pendingRoom !== null}
           connecting={chat.status === "connecting"}
-          signingIn={signingIn}
-          error={signInError ?? chat.error}
-          onSubmit={(nickname, avatar, picture, age) =>
-            void handleNickname(nickname, avatar, picture, age)
+          error={chat.error}
+          onSubmit={(nickname, avatar, picture) =>
+            void handleNickname(nickname, avatar, picture)
           }
-          onSignIn={(email, password) => void handleSignIn(email, password)}
-          onModeChange={clearDialogErrors}
           onCancel={handleCancel}
           termsVersion={termsVersion}
           returnPath={roomPath(shownRoom.slug)}
+        />
+      )}
+
+      {moderatorOpen && (
+        <ModeratorDialog
+          signingIn={signingIn}
+          error={signInError ?? chat.error}
+          onSignIn={(email, password) => void handleSignIn(email, password)}
+          onCancel={() => {
+            setModeratorOpen(false);
+            clearDialogErrors();
+          }}
         />
       )}
     </>

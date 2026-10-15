@@ -429,10 +429,11 @@ describe("joining as a guest", () => {
 describe("signing in as a moderator", () => {
   it("is not asked to accept anything", async () => {
     localStorage.removeItem("chatter.terms");
-    const { user } = await openNicknameDialog();
+    const user = userEvent.setup();
+    render(<App createSocket={makeFakeServer({ others: [] }).createSocket} />);
 
     await user.click(
-      screen.getByRole("button", { name: "Sign in as moderator" }),
+      await screen.findByRole("button", { name: "Sign in as moderator" }),
     );
 
     expect(screen.queryByRole("checkbox")).toBeNull();

@@ -284,7 +284,7 @@ describe("joining a room", () => {
     await user.click(
       await screen.findByRole("button", { name: "Join General" }),
     );
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Close" }));
 
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),

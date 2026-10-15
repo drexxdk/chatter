@@ -38,9 +38,9 @@ describe("moderators", () => {
 
   async function openDialog(user: ReturnType<typeof userEvent.setup>) {
     await user.click(
-      await screen.findByRole("button", { name: "Join General" }),
+      await screen.findByRole("button", { name: "Sign in as moderator" }),
     );
-    await screen.findByLabelText("Nickname");
+    await screen.findByLabelText("Email");
   }
 
   async function signIn(
@@ -49,23 +49,41 @@ describe("moderators", () => {
     password = "correct horse",
   ) {
     await openDialog(user);
-    await user.click(
-      screen.getByRole("button", { name: "Sign in as moderator" }),
-    );
-    await user.type(await screen.findByLabelText("Email"), email);
+    await user.type(screen.getByLabelText("Email"), email);
     await user.type(screen.getByLabelText("Password"), password);
     await user.click(screen.getByRole("button", { name: "Sign in" }));
   }
 
+  // Signing in leaves the moderator in the lobby, connected; a room is joined from there.
+  async function signInAndJoin(
+    user: ReturnType<typeof userEvent.setup>,
+    email?: string,
+    password?: string,
+  ) {
+    await signIn(user, email, password);
+    await user.click(
+      await screen.findByRole("button", { name: "Join General" }),
+    );
+  }
+
   describe("the dialog", () => {
-    it("offers to sign in as a moderator, in place of choosing a nickname", async () => {
+    it("is opened from a link below the rooms, not from the dialog for joining one", async () => {
+      stubBackend(accepted);
+      const { user } = setup();
+      await user.click(
+        await screen.findByRole("button", { name: "Join General" }),
+      );
+      await screen.findByLabelText("Nickname");
+
+      expect(
+        screen.queryByRole("button", { name: "Sign in as moderator" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("asks for an email and a password", async () => {
       stubBackend(accepted);
       const { user } = setup();
       await openDialog(user);
-
-      await user.click(
-        screen.getByRole("button", { name: "Sign in as moderator" }),
-      );
 
       expect(screen.getByLabelText("Email")).toBeInTheDocument();
       expect(screen.getByLabelText("Password")).toHaveAttribute(
@@ -75,29 +93,22 @@ describe("moderators", () => {
       expect(screen.queryByLabelText("Nickname")).not.toBeInTheDocument();
     });
 
-    it("goes back to choosing a nickname", async () => {
+    it("closes without signing in", async () => {
       stubBackend(accepted);
       const { user } = setup();
       await openDialog(user);
-      await user.click(
-        screen.getByRole("button", { name: "Sign in as moderator" }),
-      );
 
-      await user.click(
-        screen.getByRole("button", { name: "Continue as guest" }),
-      );
+      await user.click(screen.getByRole("button", { name: "Close" }));
 
-      expect(screen.getByLabelText("Nickname")).toBeInTheDocument();
-      expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.queryByLabelText("Email")).not.toBeInTheDocument(),
+      );
     });
 
     it("does not call the server until both fields are filled in", async () => {
       const fetchMock = stubBackend(accepted);
       const { user, server } = setup();
       await openDialog(user);
-      await user.click(
-        screen.getByRole("button", { name: "Sign in as moderator" }),
-      );
 
       await user.click(screen.getByRole("button", { name: "Sign in" }));
 
@@ -113,7 +124,7 @@ describe("moderators", () => {
       const fetchMock = stubBackend(accepted);
       const { user, server } = setup();
 
-      await signIn(user);
+      await signInAndJoin(user);
 
       await screen.findByRole("button", { name: "Your profile: Ada Mod" });
       const [, init] = fetchMock.mock.calls.find(([url]) =>
@@ -137,7 +148,7 @@ describe("moderators", () => {
       stubBackend(accepted);
       const { user, server } = setup();
 
-      await signIn(user);
+      await signInAndJoin(user);
       await screen.findByRole("button", { name: "Your profile: Ada Mod" });
 
       expect(JSON.stringify(server.createSocket.mock.calls)).not.toContain(
@@ -222,7 +233,7 @@ describe("moderators", () => {
     it("reconnects with the same token after the connection drops", async () => {
       stubBackend(accepted);
       const { user, server } = setup(makeFakeServer(), [0]);
-      await signIn(user);
+      await signInAndJoin(user);
       await screen.findByRole("button", { name: "Your profile: Ada Mod" });
 
       act(() => server.latest.serverEmit("disconnect", "transport close"));
@@ -240,7 +251,7 @@ describe("moderators", () => {
       stubBackend(accepted);
       const server = makeFakeServer();
       const { user } = setup(server, [0]);
-      await signIn(user);
+      await signInAndJoin(user);
       await screen.findByRole("button", { name: "Your profile: Ada Mod" });
       server.failNextConnections("invalid_token");
 
@@ -260,7 +271,7 @@ describe("moderators", () => {
       stubBackend(accepted);
       const server = makeFakeServer();
       const { user } = setup(server, [0]);
-      await signIn(user);
+      await signInAndJoin(user);
       await screen.findByRole("button", { name: "Your profile: Ada Mod" });
 
       act(() => {
@@ -414,14 +425,17 @@ describe("announcements", () => {
     );
     const result = setup();
     await result.user.click(
-      await screen.findByRole("button", { name: "Join General" }),
-    );
-    await result.user.click(
       await screen.findByRole("button", { name: "Sign in as moderator" }),
     );
-    await result.user.type(screen.getByLabelText("Email"), "ada@example.com");
+    await result.user.type(
+      await screen.findByLabelText("Email"),
+      "ada@example.com",
+    );
     await result.user.type(screen.getByLabelText("Password"), "correct horse");
     await result.user.click(screen.getByRole("button", { name: "Sign in" }));
+    await result.user.click(
+      await screen.findByRole("button", { name: "Join General" }),
+    );
     await screen.findByRole("button", { name: "Your profile: Ada Mod" });
     return result;
   }

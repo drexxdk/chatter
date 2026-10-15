@@ -267,14 +267,15 @@
     "join": "{name} beitreten"
   },
   "nickname": {
-    "title": "Wähle einen Spitznamen",
+    "title": "Dem Chat beitreten",
     "label": "Spitzname",
     "hint": "2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",
     "submit": "Weiter",
     "connecting": "Verbinde…",
     "cancel": "Abbrechen",
+    "withAccount": "Mit einem Konto fortfahren",
+    "orGuest": "oder als Gast chatten",
     "signInAsModerator": "Als Moderator anmelden",
-    "continueAsGuest": "Als Gast fortfahren",
     "moderatorTitle": "Als Moderator anmelden",
     "email": "E-Mail",
     "password": "Passwort",

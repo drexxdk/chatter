@@ -267,14 +267,15 @@
     "join": "Deltag i {name}"
   },
   "nickname": {
-    "title": "Vælg et kaldenavn",
+    "title": "Deltag i chatten",
     "label": "Kaldenavn",
     "hint": "2–24 bogstaver, tal, mellemrum eller _ . -",
     "submit": "Fortsæt",
     "connecting": "Forbinder…",
     "cancel": "Annuller",
+    "withAccount": "Fortsæt med en konto",
+    "orGuest": "eller chat som gæst",
     "signInAsModerator": "Log ind som moderator",
-    "continueAsGuest": "Fortsæt som gæst",
     "moderatorTitle": "Log ind som moderator",
     "email": "E-mail",
     "password": "Adgangskode",

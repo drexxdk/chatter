@@ -267,14 +267,15 @@
     "join": "Join {name}"
   },
   "nickname": {
-    "title": "Choose a nickname",
+    "title": "Join the chat",
     "label": "Nickname",
     "hint": "2–24 letters, numbers, spaces, or _ . -",
     "submit": "Continue",
     "connecting": "Connecting…",
     "cancel": "Cancel",
+    "withAccount": "Continue with an account",
+    "orGuest": "or chat as a guest",
     "signInAsModerator": "Sign in as moderator",
-    "continueAsGuest": "Continue as guest",
     "moderatorTitle": "Sign in as moderator",
     "email": "Email",
     "password": "Password",

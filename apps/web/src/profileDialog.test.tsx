@@ -17,16 +17,11 @@ beforeEach(() => {
   );
 });
 
-async function enter(
-  server = makeFakeServer(),
-  { age = "", avatar = "" }: { age?: string; avatar?: string } = {},
-) {
+async function enter(server = makeFakeServer()) {
   const user = userEvent.setup();
   render(<App createSocket={server.createSocket} />);
   await user.click(await screen.findByRole("button", { name: "Join General" }));
   await user.type(await screen.findByLabelText("Nickname"), "Alice");
-  if (avatar) await user.click(screen.getByRole("radio", { name: avatar }));
-  if (age) await user.type(screen.getByLabelText("Age"), age);
   await user.click(screen.getByRole("button", { name: "Continue" }));
   await screen.findByRole("button", { name: "Your profile: Alice" });
 
@@ -50,26 +45,7 @@ const openProfile = async (
 };
 
 describe("saying who you are when joining", () => {
-  it("sends the age that was given, and keeps it for a reload", async () => {
-    const { server } = await enter(makeFakeServer(), {
-      age: "27",
-      avatar: "Female",
-    });
-
-    expect(server.createSocket).toHaveBeenCalledWith(
-      "Alice",
-      undefined,
-      "female",
-      undefined,
-      27,
-      anyPicture,
-    );
-    expect(
-      JSON.parse(sessionStorage.getItem("chatter.session")!),
-    ).toMatchObject({ nickname: "Alice", avatar: "female", age: 27 });
-  });
-
-  it("does not need an age", async () => {
+  it("asks for a nickname only, so no age is sent", async () => {
     const { server } = await enter();
 
     expect(server.createSocket).toHaveBeenCalledWith(
@@ -82,41 +58,19 @@ describe("saying who you are when joining", () => {
     );
   });
 
-  it.each(["12", "17", "100"])("does not join with the age %s", async (age) => {
-    const user = userEvent.setup();
-    const server = makeFakeServer();
-    render(<App createSocket={server.createSocket} />);
-    await user.click(
-      await screen.findByRole("button", { name: "Join General" }),
-    );
-    await user.type(await screen.findByLabelText("Nickname"), "Alice");
-    await user.type(screen.getByLabelText("Age"), age);
+  it("takes only digits in the age box of the profile, whatever is typed or pasted", async () => {
+    const { user } = await enter();
+    const dialog = await openProfile(user);
 
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.type(dialog.getByLabelText("Age"), "a2b.7-x");
 
-    expect(screen.getByLabelText("Age")).toHaveAttribute(
-      "aria-invalid",
-      "true",
-    );
-    expect(server.createSocket).not.toHaveBeenCalled();
-  });
+    expect(dialog.getByLabelText("Age")).toHaveValue("27");
 
-  it("takes only digits in the age box, whatever is typed or pasted", async () => {
-    const user = userEvent.setup();
-    render(<App createSocket={makeFakeServer().createSocket} />);
-    await user.click(
-      await screen.findByRole("button", { name: "Join General" }),
-    );
-
-    await user.type(await screen.findByLabelText("Age"), "a2b.7-x");
-
-    expect(screen.getByLabelText("Age")).toHaveValue("27");
-
-    await user.clear(screen.getByLabelText("Age"));
-    await user.click(screen.getByLabelText("Age"));
+    await user.clear(dialog.getByLabelText("Age"));
+    await user.click(dialog.getByLabelText("Age"));
     await user.paste("4 1e");
 
-    expect(screen.getByLabelText("Age")).toHaveValue("41");
+    expect(dialog.getByLabelText("Age")).toHaveValue("41");
   });
 });
 
@@ -131,23 +85,19 @@ describe("the profile button", () => {
   });
 
   it("opens a modal with who the guest is, and the form only when asked", async () => {
-    const { user } = await enter(makeFakeServer(), {
-      age: "31",
-      avatar: "Transgender",
-    });
+    const { user } = await enter();
 
     const dialog = await openProfile(user, { edit: false });
 
     expect(dialog.getByText("Alice")).toBeInTheDocument();
-    expect(dialog.getByText("Transgender")).toBeInTheDocument();
-    expect(dialog.getByText("31 years old")).toBeInTheDocument();
+    expect(dialog.getByText("Not specified")).toBeInTheDocument();
     expect(dialog.queryByLabelText("Nickname")).toBeNull();
 
     await user.click(dialog.getByRole("button", { name: "Edit profile" }));
 
     expect(dialog.getByLabelText("Nickname")).toHaveValue("Alice");
-    expect(dialog.getByRole("radio", { name: "Transgender" })).toBeChecked();
-    expect(dialog.getByLabelText("Age")).toHaveValue("31");
+    expect(dialog.getByRole("radio", { name: "Not specified" })).toBeChecked();
+    expect(dialog.getByLabelText("Age")).toHaveValue("");
   });
 
   it("says when no age was given", async () => {
@@ -189,14 +139,20 @@ describe("the profile button", () => {
   });
 
   it("takes the age back when the box is emptied", async () => {
-    const { user, server } = await enter(makeFakeServer(), { age: "40" });
+    const { user, server } = await enter();
     const dialog = await openProfile(user);
+    await user.type(dialog.getByLabelText("Age"), "40");
+    await user.click(dialog.getByRole("button", { name: "Save" }));
+    await user.click(
+      await dialog.findByRole("button", { name: "Edit profile" }),
+    );
 
     await user.clear(dialog.getByLabelText("Age"));
     await user.click(dialog.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
       expect(server.latest.emittedEvents("profile:update")).toEqual([
+        { age: 40 },
         { age: null },
       ]),
     );

@@ -519,12 +519,9 @@ describe("keeping your place", () => {
       );
       const { user } = setup();
       await user.click(
-        await screen.findByRole("button", { name: "Join General" }),
-      );
-      await user.click(
         await screen.findByRole("button", { name: "Sign in as moderator" }),
       );
-      await user.type(screen.getByLabelText("Email"), "ada@example.com");
+      await user.type(await screen.findByLabelText("Email"), "ada@example.com");
       await user.type(screen.getByLabelText("Password"), "correct horse");
       await user.click(screen.getByRole("button", { name: "Sign in" }));
       await screen.findByRole("button", { name: "Your profile: Ada Mod" });

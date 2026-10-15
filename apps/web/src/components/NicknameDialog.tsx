@@ -1,4 +1,4 @@
-import { ArrowRight, LogIn, X } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -6,30 +6,19 @@ import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
 import { randomPicture } from "../chat/picture";
 import { normalizeNickname } from "../nickname";
 import { loadTermsAccepted, saveTermsAccepted } from "../preferences";
-import { readAge } from "../profile";
 import { AccountOptions } from "./AccountOptions";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
 import { Modal } from "./Modal";
-import { AvatarPicker, NameAndAge, PicturePicker } from "./ProfileFields";
 import { TermsCheckbox } from "./TermsCheckbox";
 
 interface NicknameDialogProps {
   // Whether it is shown; it is left in the page while it fades out.
   open: boolean;
   connecting: boolean;
-  signingIn: boolean;
   error: string | null;
-  onSubmit: (
-    nickname: string,
-    avatar: Avatar,
-    picture: string,
-    age?: number,
-  ) => void;
-  onSignIn: (email: string, password: string) => void;
-  // Called when the guest switches between the two forms, so an error about one is not shown on the other.
-  onModeChange: () => void;
+  onSubmit: (nickname: string, avatar: Avatar, picture: string) => void;
   onCancel: () => void;
   // The version of the terms the chat-server names now; null while it is not known.
   termsVersion: string | null;
@@ -37,27 +26,21 @@ interface NicknameDialogProps {
   returnPath: string;
 }
 
+// The two ways in: with an account at a provider, which says who the person is, or as a guest with a nickname. The
+// accounts come first, so that nothing is typed that a provider's sign-in would make useless.
 export function NicknameDialog({
   open,
   connecting,
-  signingIn,
   error,
   onSubmit,
-  onSignIn,
-  onModeChange,
   onCancel,
   termsVersion,
   returnPath,
 }: NicknameDialogProps) {
   const { t } = useTranslation();
-  const [moderator, setModerator] = useState(false);
   const [value, setValue] = useState("");
-  const [avatar, setAvatar] = useState<Avatar>(PLAIN_AVATAR);
-  // Somebody who does not choose gets one at random.
-  const [picture, setPicture] = useState(() => randomPicture());
-  const [ageText, setAgeText] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  // A guest gets a picture at random, and the plain avatar; both can be changed in the profile once they are in.
+  const [picture] = useState(() => randomPicture());
   const [touched, setTouched] = useState(false);
   // The box is ticked for a browser that has accepted this version of the terms; null until the guest touches it.
   const rememberedTerms = loadTermsAccepted(termsVersion);
@@ -65,126 +48,57 @@ export function NicknameDialog({
   const termsAccepted = termsChoice ?? rememberedTerms;
 
   const nickname = normalizeNickname(value);
-  const age = readAge(ageText);
-  const busy = connecting || signingIn;
-  const showInvalid = touched && (moderator ? !email || !password : !nickname);
 
   function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
     setTouched(true);
 
-    if (moderator) {
-      if (email && password) onSignIn(email.trim(), password);
-    } else if (nickname && age.ok && termsAccepted) {
+    if (nickname && termsAccepted) {
       if (!rememberedTerms) saveTermsAccepted(termsVersion);
-      onSubmit(nickname, avatar, picture, age.age);
+      onSubmit(nickname, PLAIN_AVATAR, picture);
     }
   }
 
-  function switchMode() {
-    setModerator((current) => !current);
-    setTouched(false);
-    setPassword("");
-    onModeChange();
-  }
-
   return (
-    <Modal
-      open={open}
-      onClose={onCancel}
-      title={moderator ? t("nickname.moderatorTitle") : t("nickname.title")}
-    >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {moderator ? (
-          <div className="space-y-3">
-            <Field
-              id="email"
-              label={t("nickname.email")}
-              type="email"
-              required
-              autoFocus
-              autoComplete="username"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              invalid={showInvalid && !email}
-            />
-            <Field
-              id="password"
-              label={t("nickname.password")}
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              invalid={showInvalid && !password}
-            />
-          </div>
-        ) : (
-          <>
-            <NameAndAge
-              nicknameId="nickname"
-              ageId="age"
-              nickname={value}
-              onNicknameChange={setValue}
-              invalidNickname={showInvalid}
-              age={ageText}
-              onAgeChange={setAgeText}
-              invalidAge={touched && !age.ok}
-              autoFocus
-              autoComplete="nickname"
-            />
-            <PicturePicker
-              value={picture}
-              onChange={setPicture}
-              name="nickname-picture"
-            />
-            <AvatarPicker value={avatar} onChange={setAvatar} />
-            <TermsCheckbox
-              checked={termsAccepted}
-              onChange={setTermsChoice}
-              invalid={touched && !termsAccepted}
-            />
-          </>
-        )}
+    <Modal open={open} onClose={onCancel} title={t("nickname.title")} closable>
+      <div className="space-y-4">
+        <AccountOptions
+          returnPath={returnPath}
+          intro={t("nickname.withAccount")}
+          divider={t("nickname.orGuest")}
+        />
 
-        <ErrorAlert code={error} />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Field
+            id="nickname"
+            label={t("nickname.label")}
+            hint={t("nickname.hint")}
+            autoFocus
+            autoComplete="nickname"
+            maxLength={24}
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            invalid={touched && !nickname}
+          />
+          <TermsCheckbox
+            checked={termsAccepted}
+            onChange={setTermsChoice}
+            invalid={touched && !termsAccepted}
+          />
 
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" icon={X} onClick={onCancel}>
-            {t("nickname.cancel")}
-          </Button>
+          <ErrorAlert code={error} />
+
           <Button
             type="submit"
             variant="primary"
-            icon={moderator ? LogIn : ArrowRight}
-            disabled={busy}
+            icon={ArrowRight}
+            disabled={connecting}
+            className="w-full"
           >
-            {moderator
-              ? signingIn
-                ? t("nickname.signingIn")
-                : t("nickname.signIn")
-              : connecting
-                ? t("nickname.connecting")
-                : t("nickname.submit")}
+            {connecting ? t("nickname.connecting") : t("nickname.submit")}
           </Button>
-        </div>
-
-        <div className="space-y-3 border-t border-neutral-800 pt-3">
-          {!moderator && (
-            <AccountOptions
-              returnPath={returnPath}
-              intro={t("account.orContinue")}
-            />
-          )}
-          <div className="flex justify-center">
-            <Button variant="link" onClick={switchMode}>
-              {moderator
-                ? t("nickname.continueAsGuest")
-                : t("nickname.signInAsModerator")}
-            </Button>
-          </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </Modal>
   );
 }

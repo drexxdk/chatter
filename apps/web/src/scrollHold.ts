@@ -10,6 +10,12 @@ const SETTLE_FRAMES = 8;
 
 const EPSILON = 0.5;
 
+let drop = () => {};
+
+// For a dialog whose button takes the guest to another page (signing out leaves the room for the lobby): where the page was
+// is no use there, so it is not put back.
+export const dropHeldScroll = () => drop();
+
 export function holdScrollWhilePopups() {
   const page = document.documentElement;
   const distance = () => page.scrollHeight - page.scrollTop - page.clientHeight;
@@ -24,6 +30,10 @@ export function holdScrollWhilePopups() {
   let held: { top: number; atEnd: boolean; locked: boolean } | null = null;
   let settling = 0;
 
+  drop = () => {
+    settling++;
+    held = null;
+  };
   const restore = () => {
     if (!held) return;
 
@@ -75,6 +85,17 @@ export function holdScrollWhilePopups() {
   );
 
   let wasOpen = popupOpen();
+
+  // A page that was too short to scroll and then fills up (the lobby once its rooms are in) was never scrolled, so no
+  // scroll event says it is no longer at its end.
+  if (typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(() => {
+      if (popupOpen()) return;
+
+      top = page.scrollTop;
+      atEnd = distance() < 1;
+    }).observe(document.body);
+  }
 
   const update = () => {
     const open = popupOpen();
