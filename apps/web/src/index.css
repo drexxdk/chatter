@@ -82,9 +82,23 @@ html:has(#headlessui-portal-root [role="dialog"]) {
 }
 
 .picker-list {
+  position: relative;
   flex: 1 1 0%;
   min-height: 0;
   overflow-y: auto;
+}
+
+/* The recipient dropdown: the people scroll under the search box and the filters, with room for at least a few of them, and
+   the conversations under them are as tall as they need, no more than part of the panel and no less than their heading and
+   a line. When the panel has no room for all that (under 24rem inside its padding, which is what the query measures) the whole
+   panel scrolls instead, with everything in full. */
+.picker-people {
+  min-height: 5rem;
+}
+
+.picker-threads {
+  min-height: 4.5rem;
+  max-height: 40%;
 }
 
 @container picker (height < 17.75rem) {
@@ -100,6 +114,25 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   /* Emoji-mart is shown in full too (its own styles for that are in emojiPicker.css). */
   .picker-mart em-emoji-picker {
     height: auto;
+  }
+}
+
+@container picker (height < 24rem) {
+  .picker-people {
+    flex: none;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .picker-threads {
+    flex: none;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .picker-threads .panel-list {
+    flex: none;
+    overflow: visible;
   }
 }
 

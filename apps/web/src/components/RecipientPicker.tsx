@@ -10,7 +10,7 @@ import { AvatarIcon, GenderMark } from "./Avatar";
 import { Button } from "./Button";
 import { composerButton } from "./composerControls";
 import { BlockedByTag, BlockedTag, ThreadSection } from "./DirectLists";
-import { PANEL_MAX_HEIGHT, PANEL_SURFACE } from "./dropdown";
+import { PANEL_HEIGHT, PANEL_SURFACE } from "./dropdown";
 import { FocusSearch } from "./FocusSearch";
 import { SearchBox } from "./SearchBox";
 
@@ -111,7 +111,7 @@ export function RecipientPicker({
         aria-label={t("dm.recipient")}
         anchor={{ to: "top start", gap: 8 }}
         focus={!touch}
-        className={`z-40 flex ${PANEL_MAX_HEIGHT} w-[min(20rem,calc(100vw-1rem))] flex-col gap-4 p-3 ${PANEL_SURFACE}`}
+        className={`picker z-40 flex ${PANEL_HEIGHT} w-[min(20rem,calc(100vw-1rem))] flex-col gap-4 p-3 ${PANEL_SURFACE}`}
       >
         {({ close }) => {
           const choose = (guestId: string | null) => {
@@ -159,78 +159,81 @@ export function RecipientPicker({
                 </button>
               </div>
 
-              <ul className="space-y-1">
-                <li>
-                  <button
-                    type="button"
-                    aria-current={value === null}
-                    onClick={() => choose(null)}
-                    className={row(value === null)}
-                  >
-                    <Users aria-hidden="true" className="h-6 w-6 p-1" />
-                    {t("dm.all")}
-                  </button>
-                </li>
-                {shown.map((person) => {
-                  const blocked = blockedIds.includes(person.guestId);
-                  const blockedBy = blockedByIds.includes(person.guestId);
-
-                  return (
-                    <li
-                      key={person.guestId}
-                      className="flex items-center gap-1"
+              <div className="picker-list picker-people">
+                <ul className="space-y-1">
+                  <li>
+                    <button
+                      type="button"
+                      aria-current={value === null}
+                      onClick={() => choose(null)}
+                      className={row(value === null)}
                     >
-                      <button
-                        type="button"
-                        disabled={blocked || blockedBy}
-                        aria-current={value?.guestId === person.guestId}
-                        onClick={() => choose(person.guestId)}
-                        className={`${row(value?.guestId === person.guestId)} min-w-0 flex-1 disabled:opacity-60 disabled:hover:bg-transparent`}
-                      >
-                        <AvatarIcon
-                          avatar={person.avatar}
-                          picture={person.picture}
-                          small
-                        />
-                        <span
-                          className={
-                            person.role === "moderator"
-                              ? "truncate font-bold text-green-400"
-                              : "truncate"
-                          }
-                        >
-                          {person.nickname}
-                        </span>
-                        <GenderMark
-                          avatar={person.avatar}
-                          picture={person.picture}
-                        />
-                        {blocked && <BlockedTag />}
-                        {blockedBy && <BlockedByTag />}
-                      </button>
-                      {blocked && (
-                        <Button
-                          variant="inline"
-                          onClick={() => onSetBlocked(person.guestId, false)}
-                          aria-label={t("dm.unblock", {
-                            name: person.nickname,
-                          })}
-                          className="shrink-0"
-                        >
-                          {t("dm.unblockAction")}
-                        </Button>
-                      )}
-                    </li>
-                  );
-                })}
-                {filtering && shown.length === 0 && (
-                  <li className="px-2 py-1.5 text-sm text-neutral-500">
-                    {t("dm.noMatches")}
+                      <Users aria-hidden="true" className="h-6 w-6 p-1" />
+                      {t("dm.all")}
+                    </button>
                   </li>
-                )}
-              </ul>
+                  {shown.map((person) => {
+                    const blocked = blockedIds.includes(person.guestId);
+                    const blockedBy = blockedByIds.includes(person.guestId);
+
+                    return (
+                      <li
+                        key={person.guestId}
+                        className="flex items-center gap-1"
+                      >
+                        <button
+                          type="button"
+                          disabled={blocked || blockedBy}
+                          aria-current={value?.guestId === person.guestId}
+                          onClick={() => choose(person.guestId)}
+                          className={`${row(value?.guestId === person.guestId)} min-w-0 flex-1 disabled:opacity-60 disabled:hover:bg-transparent`}
+                        >
+                          <AvatarIcon
+                            avatar={person.avatar}
+                            picture={person.picture}
+                            small
+                          />
+                          <span
+                            className={
+                              person.role === "moderator"
+                                ? "truncate font-bold text-green-400"
+                                : "truncate"
+                            }
+                          >
+                            {person.nickname}
+                          </span>
+                          <GenderMark
+                            avatar={person.avatar}
+                            picture={person.picture}
+                          />
+                          {blocked && <BlockedTag />}
+                          {blockedBy && <BlockedByTag />}
+                        </button>
+                        {blocked && (
+                          <Button
+                            variant="inline"
+                            onClick={() => onSetBlocked(person.guestId, false)}
+                            aria-label={t("dm.unblock", {
+                              name: person.nickname,
+                            })}
+                            className="shrink-0"
+                          >
+                            {t("dm.unblockAction")}
+                          </Button>
+                        )}
+                      </li>
+                    );
+                  })}
+                  {filtering && shown.length === 0 && (
+                    <li className="px-2 py-1.5 text-sm text-neutral-500">
+                      {t("dm.noMatches")}
+                    </li>
+                  )}
+                </ul>
+              </div>
 
               <ThreadSection
+                className="picker-threads"
                 threads={threads}
                 notify={notify}
                 blockedIds={blockedIds}
