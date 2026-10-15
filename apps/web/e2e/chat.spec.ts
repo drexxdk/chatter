@@ -268,7 +268,7 @@ test("an emoji chosen from the picker is added to the message and sent with it",
   await box.fill(text);
   await alice.getByRole("button", { name: /^Emoji/ }).click();
   await alice.getByRole("searchbox", { name: "Search emoji" }).fill("pizza");
-  await alice.getByRole("button", { name: "🍕" }).click();
+  await alice.getByRole("gridcell").filter({ hasText: "🍕" }).click();
 
   // Added to what is being written, not sent.
   await expect(box).toHaveText(`${text}🍕`);

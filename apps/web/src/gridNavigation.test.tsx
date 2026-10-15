@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { neighbour, useGridNavigation } from "./gridNavigation";
+import { neighbour, reveal, useGridNavigation } from "./gridNavigation";
 
 function cell(x: number, y: number, w = 40, h = 40) {
   const button = document.createElement("button");
@@ -68,6 +68,38 @@ describe("neighbour", () => {
   });
 });
 
+describe("reveal", () => {
+  // A list that scrolls, 100 high at the top of the window, with the item placed by hand.
+  function list(top: number, bottom: number) {
+    const box = document.createElement("div");
+    box.style.overflowY = "auto";
+    Object.defineProperty(box, "scrollHeight", { value: 1000 });
+    Object.defineProperty(box, "clientHeight", { value: 100 });
+    box.getBoundingClientRect = () => ({ top: 0, bottom: 100 }) as DOMRect;
+    const item = cell(0, top, 40, bottom - top);
+    box.appendChild(item);
+    document.body.appendChild(box);
+
+    return { box, item };
+  }
+
+  it("scrolls the list down to an item below it, and up to one above it", () => {
+    const below = list(90, 140);
+    reveal(below.item);
+    expect(below.box.scrollTop).toBe(44);
+
+    const above = list(-30, 20);
+    above.box.scrollTop = 200;
+    reveal(above.item);
+    expect(above.box.scrollTop).toBe(166);
+  });
+
+  it("leaves the list alone for an item that is in view", () => {
+    const { box, item } = list(20, 60);
+    reveal(item);
+    expect(box.scrollTop).toBe(0);
+  });
+});
 function Grid({ onLeaveUp }: { onLeaveUp?: () => void }) {
   const keys = useGridNavigation({ onLeaveUp });
 

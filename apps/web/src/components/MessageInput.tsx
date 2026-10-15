@@ -191,6 +191,8 @@ export function MessageInput({
       }),
     ],
     editable: !disabled,
+    // The list belongs to the cursor in the box (choosing from it keeps the focus there, see MentionList).
+    onBlur: () => setSuggestion(null),
     onUpdate: ({ editor: updated }) =>
       latest.current.composer.setText(plainText(updated.state.doc)),
     editorProps: {

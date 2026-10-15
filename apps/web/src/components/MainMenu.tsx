@@ -56,6 +56,7 @@ export function MainMenu({
         {/* At the button's right edge: a portal in the document makes the page scroll to the item. */}
         <div className="absolute right-0 w-0">
           <MenuItems
+            modal={false}
             className={`${HEADER_DROPDOWN} w-64 -translate-x-full space-y-1 ${MENU_SURFACE}`}
           >
             {onInfo && (

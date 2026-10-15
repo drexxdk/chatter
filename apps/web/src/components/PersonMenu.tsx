@@ -55,6 +55,7 @@ export function PersonMenu({
         <Ellipsis aria-hidden="true" className="h-4 w-4" />
       </MenuButton>
       <MenuItems
+        modal={false}
         anchor={{ to: "bottom end", gap: 4 }}
         className={`z-50 min-w-52 ${MENU_SURFACE}`}
       >

@@ -104,44 +104,103 @@ declare module "vitest" {
     toBeLocked(): void;
   }
 }
-// The emoji picker is a web component with its own styles and a large file of data, which neither jsdom nor these tests
-// have a use for: it is stood in for by three emoji, which are what its search finds as well, and what the app gives it
-// can be looked at through `Picker`'s calls.
+// The emoji picker draws a large file of data in a list that needs a layout, which neither jsdom nor these tests have
+// a use for: it is stood in for by three emoji, which are what its search finds as well, and what the app gives it can be
+// looked at through the calls to `Root`.
 const EMOJI = [
   { id: "grinning", name: "Grinning Face", native: "😀" },
   { id: "fire", name: "Fire", native: "🔥" },
   { id: "pizza", name: "Pizza", native: "🍕" },
 ];
 
-vi.mock("@emoji-mart/data", () => ({ default: {} }));
-vi.mock("emoji-mart", () => ({
-  init: vi.fn(async () => {}),
-  FrequentlyUsed: { add: vi.fn() },
-  SearchIndex: {
-    search: vi.fn(async (query: string) =>
-      EMOJI.filter((emoji) =>
-        emoji.name.toLowerCase().includes(query.toLowerCase()),
-      ).map(({ id, name, native }) => ({ id, name, skins: [{ native }] })),
-    ),
-  },
-  Picker: vi.fn(function (props: {
-    onEmojiSelect: (emoji: { native: string }) => void;
-  }) {
-    const element = document.createElement("div");
+vi.mock("emoji-picker-react/primitives", async () => {
+  const React = await import("react");
+  type Labels = {
+    searchLabel?: string;
+    searchPlaceholder?: string;
+    searchResultsNone?: string;
+  };
+  const State = React.createContext({
+    query: "",
+    setQuery: (_value: string) => {},
+    labels: {} as Labels,
+    pick: (_emoji: string) => {},
+  });
+  const h = React.createElement;
+  const matches = (query: string) =>
+    EMOJI.filter((emoji) =>
+      emoji.name.toLowerCase().includes(query.toLowerCase()),
+    );
 
-    for (const { native } of EMOJI) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.setAttribute("aria-label", native);
-      button.textContent = native;
-      button.addEventListener("click", () => props.onEmojiSelect({ native }));
-      element.append(button);
-    }
+  return {
+    Root: vi.fn(function Root(props: {
+      children: React.ReactNode;
+      labels?: Labels;
+      onEmojiClick: (data: { emoji: string }) => void;
+    }) {
+      const [query, setQuery] = React.useState("");
 
-    return element;
-  }),
-}));
-// Drawing an account's picture takes a library and the file of a style, which these tests have no use for: a picture is
+      return h(
+        State.Provider,
+        {
+          value: {
+            query,
+            setQuery,
+            labels: props.labels ?? {},
+            pick: (emoji: string) => props.onEmojiClick({ emoji }),
+          },
+        },
+        h("div", null, props.children),
+      );
+    }),
+    SearchInput: function SearchInput(props: {
+      as: React.ComponentType<Record<string, unknown>>;
+    }) {
+      const { query, setQuery, labels } = React.useContext(State);
+
+      return h(props.as, {
+        type: "search",
+        value: query,
+        onChange: (event: { target: { value: string } }) =>
+          setQuery(event.target.value),
+        "aria-label": labels.searchLabel,
+        placeholder: labels.searchPlaceholder,
+      });
+    },
+    Viewport: (props: { children: React.ReactNode }) =>
+      h("div", null, props.children),
+    List: function List() {
+      const { query, pick } = React.useContext(State);
+
+      return h(
+        "div",
+        null,
+        matches(query).map(({ id, native }) =>
+          h(
+            "button",
+            {
+              key: id,
+              type: "button",
+              "aria-label": native,
+              onClick: () => pick(native),
+            },
+            native,
+          ),
+        ),
+      );
+    },
+    Empty: function Empty() {
+      const { query, labels } = React.useContext(State);
+
+      return query && matches(query).length === 0
+        ? h("p", { role: "status" }, labels.searchResultsNone)
+        : null;
+    },
+    Loading: () => null,
+    LoadError: () => null,
+    CategoryNav: () => null,
+  };
+}); // Drawing an account's picture takes a library and the file of a style, which these tests have no use for: a picture is
 // stood in for by an address that names it, at once.
 vi.mock("../chat/pictureImage", () => {
   const uriOf = (picture: string | undefined) =>

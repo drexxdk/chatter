@@ -16,7 +16,6 @@
   "dependencies": {
     "@dicebear/core": "^10.7.0",
     "@dicebear/styles": "^10.6.0",
-    "@emoji-mart/data": "^1.2.1",
     "@floating-ui/react": "^0.27.20",
     "@headlessui/react": "^2.2.10",
     "@tiptap/core": "^3.31.4",
@@ -32,7 +31,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "country-flag-icons": "^1.6.20",
-    "emoji-mart": "^5.6.0",
+    "emoji-picker-react": "^5.0.0",
     "i18next": "^26.4.2",
     "i18next-icu": "^2.5.0",
     "intl-messageformat": "^12.1.3",

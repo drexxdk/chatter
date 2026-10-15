@@ -83,10 +83,10 @@ export function RecipientPicker({
       <PopoverPanel
         role="dialog"
         aria-label={t("dm.recipient")}
-        anchor={{ to: "top end", gap: 8 }}
+        anchor={{ to: "top end", gap: 8, offset: 74, padding: 16 }}
         // As far right as the message box, like the emoji dropdown: past the emoji and send buttons beside this one.
         focus={!touch}
-        className={`picker z-40 ml-[calc(4.5rem+2px)] flex h-[36rem] w-[min(20rem,calc(100vw-1rem))] flex-col gap-4 p-3 ${PANEL_SURFACE}`}
+        className={`picker z-40 flex h-[36rem] w-[min(20rem,calc(100vw-2rem))] flex-col gap-4 p-3 ${PANEL_SURFACE}`}
       >
         {({ close }) => {
           const choose = (guestId: string | null) => {

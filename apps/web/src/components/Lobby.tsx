@@ -1,9 +1,9 @@
+import { ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { fetchRooms, localizeRoom, type Room } from "../api";
 import { roomVars, sortRooms } from "../roomThemes";
-import { Button } from "./Button";
 import { LoadError, Loading } from "./LoadState";
 import { RoomIcon } from "./RoomIcon";
 
@@ -118,7 +118,7 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
               <li
                 key={room.id}
                 style={roomVars(room.slug)}
-                className="flex flex-col justify-between gap-3 rounded-lg border border-(--room-border) bg-(--room-card) p-4"
+                className="group relative flex items-center justify-between gap-3 rounded-lg border border-(--room-border) bg-(--room-card) p-4 transition-colors focus-within:border-(--room-accent) hover:border-(--room-accent)"
               >
                 <div>
                   <h3 className="flex items-center gap-2 font-medium">
@@ -150,9 +150,17 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
                     </p>
                   )}
                 </div>
-                <Button variant="primary" onClick={() => onSelect(room)}>
-                  {t("lobby.join", { name: room.name })}
-                </Button>
+                <ChevronRight
+                  aria-hidden="true"
+                  className="h-5 w-5 shrink-0 text-neutral-500 transition group-hover:translate-x-0.5 group-hover:text-(--room-accent)"
+                />
+                {/* Over the whole card, so that all of it is the way in. */}
+                <button
+                  type="button"
+                  onClick={() => onSelect(room)}
+                  aria-label={t("lobby.join", { name: room.name })}
+                  className="absolute inset-0 cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-indigo-400"
+                />
               </li>
             );
           })}

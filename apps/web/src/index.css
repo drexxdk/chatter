@@ -81,10 +81,14 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   min-height: 0;
 }
 
+/* The room a focus outline needs around an item, so that the box that scrolls does not cut it off at its edges; the negative
+   margin keeps the items where they were. */
 .picker-list {
   position: relative;
   flex: 1 1 0%;
   min-height: 0;
+  margin: -4px;
+  padding: 4px;
   overflow-y: auto;
 }
 
@@ -109,11 +113,6 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   .picker-list {
     flex: none;
     overflow: visible;
-  }
-
-  /* Emoji-mart is shown in full too (its own styles for that are in emojiPicker.css). */
-  .picker-mart em-emoji-picker {
-    height: auto;
   }
 }
 
@@ -165,6 +164,8 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   position: relative;
   flex: 1 1 0%;
   min-height: 0;
+  margin: -4px;
+  padding: 4px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -182,23 +183,47 @@ html:has(#headlessui-portal-root [role="dialog"]) {
     overflow: visible;
   }
 }
-/* The emoji picker (emoji-mart, a web component) in the colours of the interface. It fills the panel it is in, which has
-   the border and the rounded corners, and takes the font of the page. The variables are the ones it reads. */
-em-emoji-picker {
-  --rgb-background: 41, 41, 41;
-  --rgb-input: 51, 51, 51;
-  --rgb-color: 245, 245, 245;
-  --rgb-accent: 129, 140, 248;
-  --color-border: #424242;
-  --color-border-over: #5c5c5c;
-  --font-family: inherit;
-  --border-radius: 0;
-  --shadow: none;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  max-height: none;
+/* The emoji picker (emoji-picker-react) in the colours of the interface: it fills the panel it is in, which has the border
+   and the rounded corners. The variables are the ones it reads (the dark set, as the picker is made dark), and nothing in
+   it is taller than the panel can show, so it keeps a height of its own where the panel scrolls as a whole. */
+.emoji-pane {
+  --epr-font-family: inherit;
+  --epr-emoji-size: 26px;
+  --epr-emoji-padding: 7px;
+  --epr-dark-bg-color: var(--color-neutral-900);
+  --epr-dark-picker-border-color: transparent;
+  --epr-picker-border-radius: 0;
+  --epr-horizontal-padding: 0px;
+  --epr-dark-text-color: var(--color-neutral-100);
+  --epr-text-color: var(--color-neutral-100);
+  --epr-highlight-color: var(--color-indigo-400);
+  --epr-hover-bg-color: var(--color-neutral-800);
+  --epr-dark-hover-bg-color: var(--color-neutral-800);
+  --epr-focus-bg-color: transparent;
+  --epr-category-label-bg-color: var(--color-neutral-900);
+  --epr-category-icon-active-color: var(--color-indigo-400);
+  --epr-category-icon-inactive-color: var(--color-neutral-400);
+  min-height: 14rem;
 }
+
+/* Focus is the outline the rest of the site has, round the emoji and the section buttons. */
+.emoji-pane [data-epr-part="emoji"]:focus-visible,
+.emoji-pane [data-epr-part="category-tab"]:focus-visible {
+  outline: 2px solid var(--color-indigo-400);
+  outline-offset: -2px;
+}
+
+/* The section buttons sit in the same columns as the emoji above (same cell size, spread the same way, and the
+   scrollbar's width left out as the emoji list has one), starting at the left and wrapping to rows as the emoji do. */
+.emoji-pane [role="tablist"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--epr-emoji-fullsize));
+  justify-content: space-between;
+  justify-items: center;
+  row-gap: 4px;
+  padding-right: 12px;
+}
+
 /* Scrollbars in the theme, as in Teams: no arrows and no track, just a slim rounded thumb. The width includes a 2px
    margin round the thumb (a transparent border it is clipped inside). Where WebKit's own pieces are not there (Firefox),
    the standard properties give a thin one; Chrome would let those override the pieces, so they are not set for it. */

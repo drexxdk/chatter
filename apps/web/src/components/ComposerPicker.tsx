@@ -55,12 +55,12 @@ export function ComposerPicker({
       <PopoverPanel
         role="dialog"
         aria-label={label}
-        anchor={{ to: "top end", gap: 8 }}
+        anchor={{ to: "top end", gap: 8, offset: 37, padding: 16 }}
         focus={!touch}
         // As tall as the room above allows (Headless UI caps the height to it) up to 26rem, and as far
         // right as the message box: past the send button beside this one (w-9) and the box's border. Only one thing
         // scrolls; see `.picker` in index.css.
-        className={`picker z-40 ml-[calc(2.25rem+1px)] flex ${PANEL_HEIGHT} w-[min(22rem,calc(100vw-1rem))] flex-col ${PANEL_SURFACE}`}
+        className={`picker z-40 flex ${PANEL_HEIGHT} w-[min(22rem,calc(100vw-2rem))] flex-col ${PANEL_SURFACE}`}
       >
         {({ close }) => {
           // Closing hands focus back to the button; the box takes it from there once that has happened.

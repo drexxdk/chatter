@@ -1,4 +1,4 @@
-import { act, screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { editorOf, joinRoom, selectText, setup, stubRooms } from "./test/app";
@@ -223,9 +223,9 @@ describe("mentioning somebody with @", () => {
     const { user, box } = await enter();
     await user.type(box, "@");
 
-    await user.click(screen.getByRole("button", { name: "Menu" }));
+    act(() => box.blur());
 
-    expect(list()).toBeNull();
+    await waitFor(() => expect(list()).toBeNull());
   });
 
   it("follows who is in the room", async () => {

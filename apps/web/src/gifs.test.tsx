@@ -9,7 +9,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { FrequentlyUsed, Picker } from "emoji-mart";
+import { Root } from "emoji-picker-react/primitives";
 import { App } from "./test/app";
 import i18n from "./i18n";
 import { editorOf, fillBox, selectText } from "./test/app";
@@ -183,7 +183,7 @@ describe("emoji", () => {
     expect(await screen.findByRole("button", { name: "😀" })).toBeVisible();
   });
 
-  it("adds what was found to the message, and to what is used most", async () => {
+  it("adds what was found to the message", async () => {
     const { user } = await enter();
     const message = screen.getByRole("textbox", { name: "Message" });
     await openPicker(user);
@@ -195,30 +195,28 @@ describe("emoji", () => {
     await user.click(await screen.findByRole("button", { name: "🍕" }));
 
     await waitFor(() => expect(message).toHaveDraft("🍕"));
-    expect(FrequentlyUsed.add).toHaveBeenCalledWith({ id: "pizza" });
   });
   describe("the picker", () => {
     const lastProps = () => {
-      const calls = vi.mocked(Picker).mock.calls;
+      const calls = vi.mocked(Root).mock.calls;
 
-      return calls[calls.length - 1][0] as Record<string, unknown> & {
-        i18n: { search: string; categories: { people: string } };
+      return calls[calls.length - 1][0] as unknown as Record<
+        string,
+        unknown
+      > & {
+        labels: { searchPlaceholder: string; searchResultsNone: string };
       };
     };
 
-    it("has its sections as tabs along the bottom, and no preview", async () => {
+    it("is dark, in the look the picker has of its own, and keeps the search box of the GIFs tab", async () => {
       const { user } = await enter();
 
       await openPicker(user);
       await screen.findByRole("button", { name: "😀" });
 
       expect(lastProps()).toMatchObject({
-        navPosition: "bottom",
-        previewPosition: "none",
-        searchPosition: "none",
-        skinTonePosition: "none",
-        theme: "dark",
-        set: "native",
+        appearance: "default",
+        colorScheme: "dark",
       });
     });
 
@@ -226,14 +224,17 @@ describe("emoji", () => {
       const { user } = await enter();
       await openPicker(user);
       await screen.findByRole("button", { name: "😀" });
-      expect(lastProps().i18n.search).toBe("Search");
+      expect(lastProps().labels.searchPlaceholder).toBe("Search emoji");
 
       await act(() => i18n.changeLanguage("da"));
-      await waitFor(() => expect(lastProps().i18n.search).toBe("Søg"));
-      expect(lastProps().i18n.categories.people).toBe("Smileys og personer");
+      await waitFor(() =>
+        expect(lastProps().labels.searchPlaceholder).toBe("Søg efter emoji"),
+      );
 
       await act(() => i18n.changeLanguage("de"));
-      await waitFor(() => expect(lastProps().i18n.search).toBe("Suchen"));
+      await waitFor(() =>
+        expect(lastProps().labels.searchPlaceholder).toBe("Emoji suchen"),
+      );
     });
   });
   it("are not added beyond the length of a message", async () => {

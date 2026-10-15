@@ -68,6 +68,36 @@ export function neighbour(
   return sideways ? items[at + sign] : undefined;
 }
 
+// Focus inside a popup does not scroll (see stickyFocus), so an item the arrow keys reach is brought into view by hand,
+// in the nearest box that scrolls and no further, so the page itself stays where it is. It is left a little room at the
+// edge, for its focus outline.
+const OUTLINE_ROOM = 4;
+
+export function reveal(item: HTMLElement) {
+  for (
+    let node = item.parentElement;
+    node && node !== document.body;
+    node = node.parentElement
+  ) {
+    const { overflowY } = getComputedStyle(node);
+    if (
+      (overflowY !== "auto" && overflowY !== "scroll") ||
+      node.scrollHeight <= node.clientHeight
+    ) {
+      continue;
+    }
+
+    const box = item.getBoundingClientRect();
+    const view = node.getBoundingClientRect();
+    const top = view.top + OUTLINE_ROOM;
+    const bottom = view.bottom - OUTLINE_ROOM;
+
+    if (box.top < top) node.scrollTop -= top - box.top;
+    else if (box.bottom > bottom) node.scrollTop += box.bottom - bottom;
+    return;
+  }
+}
+
 // A grid of buttons (marked `data-grid-item`) that is one tab stop, with the arrow keys moving between them: the
 // stop is the item focused last, or the first. `onLeaveUp` is called for the arrow up from the top row.
 export function useGridNavigation({
@@ -106,14 +136,20 @@ export function useGridNavigation({
     event.preventDefault();
     const next = neighbour(items(), target, event.key);
 
-    if (next) next.focus();
-    else if (event.key === "ArrowUp") onLeaveUp?.();
+    if (next) {
+      next.focus();
+      reveal(next);
+    } else if (event.key === "ArrowUp") onLeaveUp?.();
   };
 
   return {
     ref,
     onFocus,
     onKeyDown,
-    focus: () => (stop.current ?? items()[0])?.focus(),
+    focus: () => {
+      const item = stop.current ?? items()[0];
+      item?.focus();
+      if (item) reveal(item);
+    },
   };
 }
