@@ -293,12 +293,12 @@ function makeProfile() {
   };
 }
 
-// How often each kind of person writes (mean seconds between messages) and how often they react to what they read.
+// How often each kind of person writes (mean seconds between messages) and how often they react to what they read. (About one reaction for each message in all, as in a real room.)
 const PERSONAS = [
-  { kind: "chatty", weight: 12, everyS: 30, reacts: 0.05 },
-  { kind: "regular", weight: 40, everyS: 110, reacts: 0.03 },
-  { kind: "quiet", weight: 28, everyS: 420, reacts: 0.03 },
-  { kind: "lurker", weight: 20, everyS: Infinity, reacts: 0.04 },
+  { kind: "chatty", weight: 12, everyS: 30, reacts: 0.012 },
+  { kind: "regular", weight: 40, everyS: 110, reacts: 0.008 },
+  { kind: "quiet", weight: 28, everyS: 420, reacts: 0.006 },
+  { kind: "lurker", weight: 20, everyS: Infinity, reacts: 0.01 },
 ];
 
 function makePersona() {

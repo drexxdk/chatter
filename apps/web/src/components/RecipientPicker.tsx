@@ -1,25 +1,17 @@
 import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
-import { ChevronDown, ShieldCheck, Users } from "lucide-react";
-import { useState } from "react";
+import { ChevronDown, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { AVATARS, type Avatar } from "../chat/avatar";
 import type { DirectThread, Partner } from "../chat/direct";
 import { isTouchScreen } from "../touch";
 import { AvatarIcon, GenderMark } from "./Avatar";
 import { Button } from "./Button";
 import { composerButton } from "./composerControls";
 import { BlockedByTag, BlockedTag, ThreadSection } from "./DirectLists";
-import { PANEL_HEIGHT, PANEL_SURFACE } from "./dropdown";
+import { PANEL_SURFACE } from "./dropdown";
 import { FocusSearch } from "./FocusSearch";
+import { PeopleFilterChips, usePeopleFilter } from "./PeopleFilter";
 import { SearchBox } from "./SearchBox";
-
-const chip = (active: boolean) =>
-  `flex min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${
-    active
-      ? "border-indigo-400 bg-indigo-500/30 text-white"
-      : "border-neutral-700 text-neutral-300 hover:bg-neutral-800"
-  }`;
 
 // Who the message box writes to: everybody, or one person picked from a dropdown, as with the emoji button, that can
 // be searched and narrowed down by what they chose as avatar, or to moderators. The same dropdown has the private
@@ -51,28 +43,10 @@ export function RecipientPicker({
   onSetBlocked: (guestId: string, blocked: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const [query, setQuery] = useState("");
   const touch = isTouchScreen();
-  const [avatars, setAvatars] = useState<Avatar[]>([]);
-  const [moderatorsOnly, setModeratorsOnly] = useState(false);
+  const filter = usePeopleFilter(recipients);
+  const { shown, filtering } = filter;
   const unread = threads.reduce((sum, thread) => sum + thread.unread, 0);
-
-  const needle = query.trim().toLowerCase();
-  const shown = recipients.filter(
-    (person) =>
-      person.nickname.toLowerCase().includes(needle) &&
-      (avatars.length === 0 || avatars.includes(person.avatar)) &&
-      (!moderatorsOnly || person.role === "moderator"),
-  );
-  const filtering = needle !== "" || avatars.length > 0 || moderatorsOnly;
-
-  function toggleAvatar(avatar: Avatar) {
-    setAvatars((current) =>
-      current.includes(avatar)
-        ? current.filter((candidate) => candidate !== avatar)
-        : [...current, avatar],
-    );
-  }
 
   const row = (selected: boolean) =>
     `flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-neutral-800 ${
@@ -109,9 +83,10 @@ export function RecipientPicker({
       <PopoverPanel
         role="dialog"
         aria-label={t("dm.recipient")}
-        anchor={{ to: "top start", gap: 8 }}
+        anchor={{ to: "top end", gap: 8 }}
+        // As far right as the message box, like the emoji dropdown: past the emoji and send buttons beside this one.
         focus={!touch}
-        className={`picker z-40 flex ${PANEL_HEIGHT} w-[min(20rem,calc(100vw-1rem))] flex-col gap-4 p-3 ${PANEL_SURFACE}`}
+        className={`picker z-40 ml-[calc(4.5rem+2px)] flex h-[36rem] w-[min(20rem,calc(100vw-1rem))] flex-col gap-4 p-3 ${PANEL_SURFACE}`}
       >
         {({ close }) => {
           const choose = (guestId: string | null) => {
@@ -123,55 +98,15 @@ export function RecipientPicker({
             <>
               <FocusSearch />
               <SearchBox
-                value={query}
-                onChange={setQuery}
+                value={filter.query}
+                onChange={filter.setQuery}
                 label={t("dm.search")}
               />
 
-              <div
-                role="group"
-                aria-label={t("dm.filter")}
-                className="grid grid-cols-2 gap-2"
-              >
-                {AVATARS.map((avatar) => (
-                  <button
-                    key={avatar}
-                    type="button"
-                    aria-pressed={avatars.includes(avatar)}
-                    onClick={() => toggleAvatar(avatar)}
-                    className={chip(avatars.includes(avatar))}
-                  >
-                    <AvatarIcon avatar={avatar} small />
-                    {t(`avatar.${avatar}`)}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  aria-pressed={moderatorsOnly}
-                  onClick={() => setModeratorsOnly((current) => !current)}
-                  className={chip(moderatorsOnly)}
-                >
-                  <ShieldCheck
-                    aria-hidden="true"
-                    className="h-6 w-6 shrink-0 rounded-full bg-green-500/20 p-1 text-green-300 ring-1 ring-green-400/60"
-                  />
-                  {t("room.moderatorBadge")}
-                </button>
-              </div>
+              <PeopleFilterChips filter={filter} label={t("dm.filter")} />
 
               <div className="picker-list picker-people">
                 <ul className="space-y-1">
-                  <li>
-                    <button
-                      type="button"
-                      aria-current={value === null}
-                      onClick={() => choose(null)}
-                      className={row(value === null)}
-                    >
-                      <Users aria-hidden="true" className="h-6 w-6 p-1" />
-                      {t("dm.all")}
-                    </button>
-                  </li>
                   {shown.map((person) => {
                     const blocked = blockedIds.includes(person.guestId);
                     const blockedBy = blockedByIds.includes(person.guestId);
@@ -185,7 +120,13 @@ export function RecipientPicker({
                           type="button"
                           disabled={blocked || blockedBy}
                           aria-current={value?.guestId === person.guestId}
-                          onClick={() => choose(person.guestId)}
+                          onClick={() =>
+                            choose(
+                              value?.guestId === person.guestId
+                                ? null
+                                : person.guestId,
+                            )
+                          }
                           className={`${row(value?.guestId === person.guestId)} min-w-0 flex-1 disabled:opacity-60 disabled:hover:bg-transparent`}
                         >
                           <AvatarIcon

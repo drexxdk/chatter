@@ -3,13 +3,17 @@ import { useTranslation } from "react-i18next";
 import type { Partner } from "../chat/direct";
 import type { DirectApi, Member } from "../chat/useChat";
 import { PeopleList, ThreadSection } from "./DirectLists";
+import { PeopleFilterChips, usePeopleFilter } from "./PeopleFilter";
+import { SearchBox } from "./SearchBox";
 
 // The people in the room and the private conversations: a sidebar on wide screens.
 export function RoomPanel({
   members,
   maxMembers,
   selfGuestId,
+  selectedId,
   threads,
+  onSelect,
   onOpen,
   notify,
   onNotifyChange,
@@ -22,7 +26,10 @@ export function RoomPanel({
   // Absent or null means the room has no limit.
   maxMembers?: number | null;
   selfGuestId: string;
+  // Who the message box writes to privately now, if anybody.
+  selectedId?: string | null;
   threads: DirectApi["threads"];
+  onSelect: (partner: Partner) => void;
   onOpen: (partner: Partner) => void;
   notify: boolean;
   onNotifyChange: (notify: boolean) => void;
@@ -32,6 +39,7 @@ export function RoomPanel({
   onSetBlocked: (guestId: string, blocked: boolean) => void;
 }) {
   const { t } = useTranslation();
+  const filter = usePeopleFilter(members);
 
   return (
     <div className="flex h-full flex-col gap-5">
@@ -41,14 +49,25 @@ export function RoomPanel({
             ? t("room.membersOfMax", { count: members.length, max: maxMembers })
             : t("room.members", { count: members.length })}
         </h3>
+        <SearchBox
+          value={filter.query}
+          onChange={filter.setQuery}
+          label={t("dm.search")}
+        />
+        <PeopleFilterChips filter={filter} label={t("dm.filter")} compact />
         <div className="panel-list">
           <PeopleList
-            members={members}
+            members={filter.shown}
             selfGuestId={selfGuestId}
+            selectedId={selectedId}
             blockedIds={blockedIds}
             blockedByIds={blockedByIds}
+            onSelect={onSelect}
             onOpen={onOpen}
           />
+          {filter.filtering && filter.shown.length === 0 && (
+            <p className="text-sm text-neutral-500">{t("dm.noMatches")}</p>
+          )}
         </div>
       </section>
 

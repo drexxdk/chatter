@@ -125,7 +125,9 @@ describe("reacting to a private message", () => {
     receive(server, dm({ id: "d1", text: "hi Alice" }));
     reaction(server, "d1", ALICE, bob);
 
-    await user.click(people().getByRole("button", { name: "Bob" }));
+    await user.click(
+      people().getByRole("button", { name: "Open private chat with Bob" }),
+    );
 
     expect(
       within(

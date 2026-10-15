@@ -28,7 +28,9 @@ describe("direct messages", () => {
       receive(server, dm({ text: "first" }));
       receive(server, fromMe(bob, "second"));
 
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
 
       expect(pane("Bob")).toBeInTheDocument();
       expect(log("Bob").getByText("first")).toBeInTheDocument();
@@ -47,7 +49,9 @@ describe("direct messages", () => {
     it("takes the place of the room's messages, and the way back is clear", async () => {
       const { user } = await enter();
 
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
 
       expect(screen.queryByRole("textbox", { name: "Message" })).toBeNull();
       expect(screen.queryByRole("log", { name: "General" })).toBeNull();
@@ -67,13 +71,17 @@ describe("direct messages", () => {
       const back = () =>
         user.click(screen.getByRole("button", { name: "Back to the room" }));
 
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
       await back();
       await waitFor(() =>
         expect(screen.getByRole("textbox", { name: "Message" })).toHaveFocus(),
       );
 
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
       document.documentElement.setAttribute("data-pointer", "touch");
       try {
         await back();
@@ -92,7 +100,9 @@ describe("direct messages", () => {
       receive(server, dm({ text: "<img src=x onerror=alert(1)>" }));
       receive(server, fromMe(bob, "my answer"));
 
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
 
       expect(log("Bob").getByText("Bob")).toBeInTheDocument();
       // What the guest said is on the right and has no name, as in Teams.
@@ -119,7 +129,11 @@ describe("direct messages", () => {
         }),
       );
 
-      await user.click(people().getByRole("button", { name: "Ada Mod" }));
+      await user.click(
+        people().getByRole("button", {
+          name: "Open private chat with Ada Mod",
+        }),
+      );
 
       expect(log("Ada Mod").getByText("please keep it friendly")).toHaveClass(
         "font-bold",
@@ -130,7 +144,9 @@ describe("direct messages", () => {
 
     it("sends what was written to that person and clears the box", async () => {
       const { user, server } = await enter();
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
 
       await user.type(
         screen.getByRole("textbox", { name: "Message to Bob" }),
@@ -152,7 +168,9 @@ describe("direct messages", () => {
 
     it("sends nothing when the box is empty", async () => {
       const { user, server } = await enter();
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
 
       await user.type(
         screen.getByRole("textbox", { name: "Message to Bob" }),
@@ -165,7 +183,9 @@ describe("direct messages", () => {
 
     it("shows the message once the server has delivered it, not before", async () => {
       const { user, server } = await enter();
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
       await user.type(
         screen.getByRole("textbox", { name: "Message to Bob" }),
         "hello",
@@ -188,7 +208,9 @@ describe("direct messages", () => {
       receive(server, message);
       receive(server, message);
 
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
 
       expect(log("Bob").getAllByText("once")).toHaveLength(1);
     });
@@ -200,7 +222,9 @@ describe("direct messages", () => {
         error: "rate_limited",
         retryAfterMs: 2_100,
       });
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
 
       await user.type(
         screen.getByRole("textbox", { name: "Message to Bob" }),
@@ -222,7 +246,9 @@ describe("direct messages", () => {
         ok: false,
         error: "user_not_found",
       });
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
 
       await user.type(
         screen.getByRole("textbox", { name: "Message to Bob" }),
@@ -242,7 +268,9 @@ describe("direct messages", () => {
         { ok: true },
       ];
       server.latest.acks["dm:send"] = () => answers.shift();
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
       await user.type(
         screen.getByRole("textbox", { name: "Message to Bob" }),
         "hi",
@@ -263,7 +291,9 @@ describe("direct messages", () => {
         ok: false,
         error: "user_not_found",
       });
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
       await user.type(
         screen.getByRole("textbox", { name: "Message to Bob" }),
         "hello?",
@@ -274,7 +304,9 @@ describe("direct messages", () => {
         screen.getByRole("button", { name: "Back to the room" }),
       );
 
-      await user.click(people().getByRole("button", { name: "Carol" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Carol" }),
+      );
 
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       expect(

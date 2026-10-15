@@ -201,7 +201,9 @@ describe("choosing the person to write to", () => {
     await user.click(row.getByText("Bob"));
     await waitFor(() => expect(writingTo()).toBeInTheDocument());
 
-    await user.click(screen.getByRole("button", { name: /^Stop writing/ }));
+    await user.click(
+      screen.getByRole("button", { name: "Stop writing privately" }),
+    );
     await waitFor(() => expect(writingTo()).toBeNull());
 
     await user.click(rows()[0].querySelector<HTMLElement>("[data-avatar]")!);

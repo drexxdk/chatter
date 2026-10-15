@@ -113,7 +113,7 @@ describe("direct messages", () => {
         ]),
       );
 
-      await chooseRecipient(user, "All");
+      await chooseRecipient(user, "Carol");
 
       expect(
         screen.getByRole("textbox", { name: "Message" }),

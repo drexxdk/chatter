@@ -132,10 +132,10 @@ describe("direct messages", () => {
         expect(screen.getByRole("log").textContent).toContain(
           "Bob has blocked you. Your messages no longer reach them.",
         );
-        expect(people().getByRole("button", { name: /^Bob/ })).toBeDisabled();
         expect(
-          people().getByRole("button", { name: /^Bob/ }),
-        ).toHaveAccessibleName(/Blocked you/);
+          people().getByRole("button", { name: /with Bob/ }),
+        ).toBeDisabled();
+        expect(people().getByText("Blocked you")).toBeInTheDocument();
         expect(
           threads().getByRole("button", { name: /^Bob/ }),
         ).toHaveAccessibleName(/Blocked you/);
@@ -199,7 +199,9 @@ describe("direct messages", () => {
         expect(screen.getByRole("log").textContent).toContain(
           "Bob has unblocked you.",
         );
-        expect(people().getByRole("button", { name: /^Bob/ })).toBeEnabled();
+        expect(
+          people().getByRole("button", { name: /with Bob/ }),
+        ).toBeEnabled();
 
         await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
@@ -214,7 +216,9 @@ describe("direct messages", () => {
           ok: false,
           error: "blocked_by_recipient",
         });
-        await user.click(people().getByRole("button", { name: "Bob" }));
+        await user.click(
+          people().getByRole("button", { name: "Open private chat with Bob" }),
+        );
 
         await user.type(
           screen.getByRole("textbox", { name: "Message to Bob" }),
@@ -312,9 +316,7 @@ describe("direct messages", () => {
         screen.getByRole("button", { name: "Back to the room" }),
       );
 
-      expect(
-        people().getByRole("button", { name: /^Bob/ }),
-      ).toHaveAccessibleName(/Blocked/);
+      expect(people().getByText("Blocked")).toBeInTheDocument();
       expect(
         threads().getByRole("button", { name: /^Bob/ }),
       ).toHaveAccessibleName(/Blocked/);
@@ -364,7 +366,9 @@ describe("direct messages", () => {
         ok: false,
         error: "too_many_blocked",
       });
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
 
       await user.click(screen.getByRole("button", { name: "Block Bob" }));
 
@@ -378,14 +382,16 @@ describe("direct messages", () => {
 
     it("remembers a block when the conversation is closed and opened again", async () => {
       const { user } = await enter();
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
       await user.click(screen.getByRole("button", { name: "Block Bob" }));
       await screen.findAllByRole("button", { name: "Unblock Bob" });
       await user.click(
         screen.getByRole("button", { name: "Back to the room" }),
       );
 
-      await user.click(people().getByRole("button", { name: /^Bob/ }));
+      await user.click(people().getByRole("button", { name: /with Bob/ }));
 
       expect(
         screen.getAllByRole("button", { name: "Unblock Bob" }).length,
@@ -398,7 +404,9 @@ describe("direct messages", () => {
       await joinRoom(user);
       await screen.findByRole("button", { name: "Your profile: Alice" });
       present(server, [bob]);
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
       await user.click(screen.getByRole("button", { name: "Block Bob" }));
       await screen.findAllByRole("button", { name: "Unblock Bob" });
 
@@ -415,7 +423,11 @@ describe("direct messages", () => {
     it("does not offer to block a moderator", async () => {
       const { user } = await enter();
 
-      await user.click(people().getByRole("button", { name: "Ada Mod" }));
+      await user.click(
+        people().getByRole("button", {
+          name: "Open private chat with Ada Mod",
+        }),
+      );
 
       expect(pane("Ada Mod")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Block/ })).toBeNull();

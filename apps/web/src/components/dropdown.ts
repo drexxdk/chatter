@@ -6,7 +6,7 @@ const SCROLLS = "overflow-y-auto [color-scheme:dark]";
 export const MENU_SURFACE = `rounded-md border border-neutral-700 bg-neutral-900 p-1 shadow-lg focus:outline-none ${SCROLLS}`;
 
 // A panel with more in it than a list (a search box, tabs, a grid).
-export const PANEL_SURFACE = `rounded-xl border border-neutral-700 bg-neutral-900 shadow-xl ${SCROLLS}`;
+export const PANEL_SURFACE = `rounded-md border border-neutral-700 bg-neutral-900 shadow-lg ${SCROLLS}`;
 
 // The tallest a panel gets, when there is room: fixed for a panel that always has that much in it, a cap for one that
 // has less when it has little to show. (Whole class names, for Tailwind to find.)

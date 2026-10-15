@@ -47,9 +47,13 @@ describe("direct messages", () => {
     it("shows the people in the room as buttons, and no direct messages yet", async () => {
       await enter();
 
-      expect(people().getByRole("button", { name: "Bob" })).toBeInTheDocument();
       expect(
-        people().getByRole("button", { name: "Ada Mod" }),
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      ).toBeInTheDocument();
+      expect(
+        people().getByRole("button", {
+          name: "Open private chat with Ada Mod",
+        }),
       ).toBeInTheDocument();
       expect(screen.getByText("No direct messages yet.")).toBeInTheDocument();
     });
@@ -67,7 +71,53 @@ describe("direct messages", () => {
 
       expect(people().getByText("Alice")).toBeInTheDocument();
       expect(people().queryByRole("button", { name: /Alice/ })).toBeNull();
-      expect(people().getAllByRole("button")).toHaveLength(3);
+      expect(people().getAllByRole("button")).toHaveLength(6);
+    });
+
+    it("chooses who to write to privately by clicking a person, and again to stop", async () => {
+      const { user } = await enter();
+
+      await user.click(people().getByRole("button", { name: /^Bob/ }));
+
+      expect(screen.getByText("Writing privately to Bob")).toBeInTheDocument();
+      expect(people().getByRole("button", { name: /^Bob/ })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+
+      await user.click(people().getByRole("button", { name: /^Bob/ }));
+
+      expect(
+        screen.queryByText("Writing privately to Bob"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("closes the private writing bar, or goes into the private chat from it", async () => {
+      const { user } = await enter();
+
+      await user.click(people().getByRole("button", { name: /^Bob/ }));
+      await user.click(
+        screen.getByRole("button", { name: "Stop writing privately" }),
+      );
+      expect(
+        screen.queryByText("Writing privately to Bob"),
+      ).not.toBeInTheDocument();
+
+      await user.click(people().getByRole("button", { name: /^Bob/ }));
+      await user.click(
+        screen.getByRole("button", { name: "Open private chat" }),
+      );
+      expect(pane("Bob")).toBeInTheDocument();
+    });
+
+    it("opens the private chat from the arrow next to a person", async () => {
+      const { user } = await enter();
+
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
+
+      expect(pane("Bob")).toBeInTheDocument();
     });
 
     it("adds a conversation when somebody writes to the guest", async () => {
@@ -98,13 +148,17 @@ describe("direct messages", () => {
 
       receive(server, dm());
 
-      expect(people().getByRole("button", { name: "Bob" })).toBeInTheDocument();
+      expect(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      ).toBeInTheDocument();
     });
 
     it("does not add a conversation just because somebody was opened", async () => {
       const { user } = await enter();
 
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
 
       expect(screen.getByText("No direct messages yet.")).toBeInTheDocument();
     });
@@ -299,7 +353,9 @@ describe("direct messages", () => {
 
     it("is not triggered while that conversation is open", async () => {
       const { user, server } = await enter();
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
 
       receive(server, dm({ text: "right here" }));
 
@@ -314,7 +370,9 @@ describe("direct messages", () => {
 
     it("still stands out for another conversation while one is open", async () => {
       const { user, server } = await enter();
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
 
       receive(
         server,
@@ -427,7 +485,9 @@ describe("direct messages", () => {
 
     it("counts a first message from somebody whose name was clicked but never written to", async () => {
       const { user, server } = await enter();
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
       await user.click(
         screen.getByRole("button", { name: "Back to the room" }),
       );

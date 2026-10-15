@@ -39,7 +39,7 @@ import {
   parseAnnouncement,
   strings,
 } from "./messages";
-import { parseReactions } from "./reactions";
+import { parseReactions, type Reaction } from "./reactions";
 import {
   DEFAULT_RECONNECT_DELAYS_MS,
   DELIBERATE_DISCONNECTS,
@@ -92,6 +92,8 @@ export { DEFAULT_RECONNECT_DELAYS_MS } from "./reconnect";
 type DropHandler = (reason: string) => void;
 
 const MAX_ROOM_EVENTS = 200;
+// How long reactions that arrive close together wait to be drawn together.
+const REACTION_BATCH_MS = 400;
 
 export function useChat(
   createSocket: CreateSocket = defaultCreateSocket,
@@ -495,6 +497,39 @@ export function useChat(
           );
         });
 
+        // In a busy room reactions come many times a second, and each would draw the room again. The first is applied at once,
+        // and those that follow within a moment are applied together when it is over.
+        const pendingReactions = new Map<string, Reaction[]>();
+        let reactionWindow: ReturnType<typeof setTimeout> | undefined;
+        const flushReactions = () => {
+          if (!isCurrent() || pendingReactions.size === 0) return;
+
+          const batch = new Map(pendingReactions);
+          pendingReactions.clear();
+          setMessages((previous) =>
+            previous.map((message) => {
+              const reactions = batch.get(message.id);
+
+              return reactions && !message.banned
+                ? {
+                    ...message,
+                    reactions: reactions.length ? reactions : undefined,
+                  }
+                : message;
+            }),
+          );
+        };
+        const queueReaction = (messageId: string, reactions: Reaction[]) => {
+          pendingReactions.set(messageId, reactions);
+          if (reactionWindow !== undefined) return;
+
+          flushReactions();
+          reactionWindow = setTimeout(() => {
+            reactionWindow = undefined;
+            flushReactions();
+          }, REACTION_BATCH_MS);
+        };
+
         socket.on("reaction:update", (update: unknown) => {
           if (!isCurrent() || !isRecord(update)) return;
           const { messageId } = update;
@@ -505,17 +540,7 @@ export function useChat(
             return;
           }
 
-          const reactions = parseReactions(update.reactions);
-          setMessages((previous) =>
-            previous.map((message) =>
-              message.id === messageId && !message.banned
-                ? {
-                    ...message,
-                    reactions: reactions.length ? reactions : undefined,
-                  }
-                : message,
-            ),
-          );
+          queueReaction(messageId, parseReactions(update.reactions));
         });
 
         socket.on("kicked", (payload: { reason: string }) => {

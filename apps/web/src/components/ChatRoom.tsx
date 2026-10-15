@@ -7,7 +7,7 @@ import {
   useState,
   type SubmitEvent,
 } from "react";
-import { ArrowLeft, Ban, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Ban, MessageSquare, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type {
@@ -269,6 +269,12 @@ export function ChatRoom({
     focusMessageBox();
   }
 
+  // A click on a person in the list: they are who the message box writes to privately, or nobody again if they already were.
+  function toggleRecipient(partner: Partner) {
+    if (replyTo?.guestId === partner.guestId) chooseRecipient(null);
+    else selectPerson(partner);
+  }
+
   // Whether somebody is in the room; while the connection is down nobody can be told to have left.
   const hasLeft = (guestId: string) =>
     connected && !members.some((member) => member.guestId === guestId);
@@ -284,6 +290,7 @@ export function ChatRoom({
   // function, so what it holds must not go stale.
   const act = useRef({
     selectPerson,
+    toggleRecipient,
     openConversation,
     canWriteTo,
     markRead: direct.markRead,
@@ -293,6 +300,7 @@ export function ChatRoom({
   });
   act.current = {
     selectPerson,
+    toggleRecipient,
     openConversation,
     canWriteTo,
     markRead: direct.markRead,
@@ -300,6 +308,10 @@ export function ChatRoom({
     react: direct.react,
     onReact,
   };
+  const toggleRecipientStable = useCallback(
+    (partner: Partner) => act.current.toggleRecipient(partner),
+    [],
+  );
   const openConversationStable = useCallback(
     (partner: Partner) => act.current.openConversation(partner),
     [],
@@ -403,7 +415,7 @@ export function ChatRoom({
             )}
           </div>
 
-          {direct.active ? (
+          {direct.active && (
             <DirectChat
               key={direct.active.guestId}
               partner={direct.active}
@@ -423,316 +435,338 @@ export function ChatRoom({
               }
               idleDeadline={idleDeadline}
             />
-          ) : (
-            <div className="flex flex-1 flex-col">
-              <MessageLog
-                label={roomName}
-                onFocus={rows.onFocus}
-                onBlur={rows.onBlur}
-                onKeyDownCapture={rows.onKeyDownCapture}
-              >
-                {runs(items, runAuthor).map((run) => {
-                  const first = run[0];
+          )}
 
-                  if (first.kind === "event") {
-                    return (
-                      <StatusRow
-                        key={first.event.id}
-                        text={
-                          ownGuestIds.includes(first.event.guestId)
-                            ? t(
-                                first.event.event === "joined"
-                                  ? "room.youJoined"
-                                  : "room.youLeft",
-                              )
-                            : t(`room.${first.event.event}`, {
-                                name: first.event.nickname,
-                              })
-                        }
-                        sentAt={first.event.sentAt}
-                      />
-                    );
-                  }
+          {/* Stays in the page, out of sight, while a private chat is open: drawing a long room again is what made coming back slow. After the private chat in the page, so that the keyboard's way to the box finds that one first. */}
+          <div hidden={direct.active !== null} className="flex flex-1 flex-col">
+            <MessageLog
+              label={roomName}
+              onFocus={rows.onFocus}
+              onBlur={rows.onBlur}
+              onKeyDownCapture={rows.onKeyDownCapture}
+            >
+              {runs(items, runAuthor).map((run) => {
+                const first = run[0];
 
-                  if (first.kind === "notice") {
-                    return (
-                      <StatusRow
-                        key={first.status.id}
-                        text={t(`dm.${first.status.event}`, {
-                          name: first.partner.nickname,
-                        })}
-                        sentAt={first.status.sentAt}
-                      />
-                    );
-                  }
+                if (first.kind === "event") {
+                  return (
+                    <StatusRow
+                      key={first.event.id}
+                      text={
+                        ownGuestIds.includes(first.event.guestId)
+                          ? t(
+                              first.event.event === "joined"
+                                ? "room.youJoined"
+                                : "room.youLeft",
+                            )
+                          : t(`room.${first.event.event}`, {
+                              name: first.event.nickname,
+                            })
+                      }
+                      sentAt={first.event.sentAt}
+                    />
+                  );
+                }
 
-                  if (first.kind === "direct") {
-                    const entries = run as DirectItem[];
-                    const mine = ownGuestIds.includes(
-                      first.message.fromGuestId,
-                    );
+                if (first.kind === "notice") {
+                  return (
+                    <StatusRow
+                      key={first.status.id}
+                      text={t(`dm.${first.status.event}`, {
+                        name: first.partner.nickname,
+                      })}
+                      sentAt={first.status.sentAt}
+                    />
+                  );
+                }
 
-                    return (
-                      <MessageGroup
-                        key={first.message.id}
-                        mine={mine}
-                        nickname={first.partner.nickname}
-                        role={first.partner.role}
-                        avatar={first.partner.avatar}
-                        picture={first.partner.picture}
-                        blocked={direct.blockedIds.includes(
-                          first.partner.guestId,
-                        )}
-                        gone={hasLeft(first.partner.guestId)}
-                        direct={{
-                          label: t(mine ? "dm.to" : "dm.from", {
-                            name: first.partner.nickname,
-                          }),
-                        }}
-                        messages={entries.map(({ message }) => ({
-                          id: message.id,
-                          text: message.text,
-                          sentAt: message.sentAt,
-                          banned: message.banned,
-                          reactions: message.reactions,
-                        }))}
-                        onSelect={() => act.current.selectPerson(first.partner)}
-                        onSeen={() =>
-                          act.current.markRead(first.partner.guestId)
-                        }
-                        selectable={canWriteTo(first.partner.guestId)}
-                        nav={{ stopId: stopIn(entries) }}
-                        reactions={{
-                          ownIds: ownGuestIds,
-                          onReact: (messageId, emoji) =>
-                            void act.current.react(
-                              first.partner.guestId,
-                              messageId,
-                              emoji,
-                            ),
-                        }}
-                        menu={personMenu(first.partner)}
-                      />
-                    );
-                  }
-
-                  if (first.message.banned) {
-                    return (
-                      <li
-                        key={first.message.id}
-                        {...navStop(
-                          first.message.id,
-                          first.message.id === rows.stopId,
-                        )}
-                        className={`-mx-2 rounded-lg px-2 py-1 ${NAV_STOP_CLASS}`}
-                      >
-                        <span
-                          className={
-                            first.message.hidden
-                              ? "italic text-neutral-400"
-                              : "font-semibold italic text-red-400"
-                          }
-                        >
-                          {t(
-                            first.message.hidden
-                              ? "room.hiddenMessage"
-                              : "room.bannedMessage",
-                          )}
-                        </span>
-                        <Timestamp
-                          sentAt={first.message.sentAt}
-                          className="ml-2 text-xs text-neutral-500"
-                        />
-                      </li>
-                    );
-                  }
-
-                  const entries = run as MessageItem[];
-                  const author: Partner = {
-                    guestId: first.message.guestId,
-                    nickname: first.message.nickname,
-                    role: first.message.role ?? "guest",
-                    avatar: first.message.avatar ?? PLAIN_AVATAR,
-                    ...(first.message.picture
-                      ? { picture: first.message.picture }
-                      : {}),
-                  };
-                  const mine = ownGuestIds.includes(author.guestId);
+                if (first.kind === "direct") {
+                  const entries = run as DirectItem[];
+                  const mine = ownGuestIds.includes(first.message.fromGuestId);
 
                   return (
                     <MessageGroup
                       key={first.message.id}
                       mine={mine}
-                      nickname={author.nickname}
-                      role={author.role}
-                      avatar={author.avatar}
-                      picture={author.picture}
-                      blocked={direct.blockedIds.includes(author.guestId)}
-                      gone={!mine && hasLeft(author.guestId)}
+                      nickname={first.partner.nickname}
+                      role={first.partner.role}
+                      avatar={first.partner.avatar}
+                      picture={first.partner.picture}
+                      blocked={direct.blockedIds.includes(
+                        first.partner.guestId,
+                      )}
+                      gone={hasLeft(first.partner.guestId)}
+                      direct={{
+                        label: t(mine ? "dm.to" : "dm.from", {
+                          name: first.partner.nickname,
+                        }),
+                      }}
                       messages={entries.map(({ message }) => ({
                         id: message.id,
                         text: message.text,
                         sentAt: message.sentAt,
+                        banned: message.banned,
                         reactions: message.reactions,
                       }))}
-                      selectable={canWriteTo(author.guestId)}
-                      onSelect={
-                        mine
-                          ? undefined
-                          : () => act.current.selectPerson(author)
-                      }
-                      onSeen={
-                        !mine &&
-                        direct.threads.some(
-                          (thread) =>
-                            thread.guestId === author.guestId &&
-                            thread.unread > 0,
-                        )
-                          ? () => act.current.markRead(author.guestId)
-                          : undefined
-                      }
+                      onSelect={() => act.current.selectPerson(first.partner)}
+                      onSeen={() => act.current.markRead(first.partner.guestId)}
+                      selectable={canWriteTo(first.partner.guestId)}
                       nav={{ stopId: stopIn(entries) }}
                       reactions={{
                         ownIds: ownGuestIds,
                         onReact: (messageId, emoji) =>
-                          act.current.onReact(messageId, emoji),
+                          void act.current.react(
+                            first.partner.guestId,
+                            messageId,
+                            emoji,
+                          ),
                       }}
-                      menu={mine ? undefined : personMenu(author)}
-                      onReport={
-                        mine || author.role === "moderator"
-                          ? undefined
-                          : (messageId) =>
-                              setReporting({
-                                id: messageId,
-                                nickname: author.nickname,
-                              })
-                      }
+                      menu={personMenu(first.partner)}
                     />
                   );
-                })}
-                {items.every((item) => item.kind === "event") && (
-                  <li className="text-neutral-500">{t("room.empty")}</li>
-                )}
-              </MessageLog>
+                }
 
-              <ComposerBar
-                composer={composer}
-                id="message"
-                label={
-                  replyTo
-                    ? t("dm.label", { name: replyTo.nickname })
-                    : t("room.messageLabel")
+                if (first.message.banned) {
+                  return (
+                    <li
+                      key={first.message.id}
+                      {...navStop(
+                        first.message.id,
+                        first.message.id === rows.stopId,
+                      )}
+                      className={`-mx-2 rounded-lg px-2 py-1 ${NAV_STOP_CLASS}`}
+                    >
+                      <span
+                        className={
+                          first.message.hidden
+                            ? "italic text-neutral-400"
+                            : "font-semibold italic text-red-400"
+                        }
+                      >
+                        {t(
+                          first.message.hidden
+                            ? "room.hiddenMessage"
+                            : "room.bannedMessage",
+                        )}
+                      </span>
+                      <Timestamp
+                        sentAt={first.message.sentAt}
+                        className="ml-2 text-xs text-neutral-500"
+                      />
+                    </li>
+                  );
                 }
-                placeholder={
-                  replyBlockedBy && replyTo
-                    ? t("dm.blockedByPlaceholder", { name: replyTo.nickname })
-                    : replyBlocked && replyTo
-                      ? t("dm.blockedPlaceholder", { name: replyTo.nickname })
-                      : replyTo
-                        ? t("dm.replyPlaceholder", { name: replyTo.nickname })
-                        : t("room.messagePlaceholder")
-                }
-                disabled={!canWrite}
-                onSubmit={handleSubmit}
-                idleDeadline={idleDeadline}
-                mentionable={recipients.filter(
-                  (person) =>
-                    members.some(
-                      (member) => member.guestId === person.guestId,
-                    ) && !direct.blockedIds.includes(person.guestId),
-                )}
-                alert={
-                  <ErrorAlert
-                    code={
-                      replyFailure
-                        ? replyWaiting
-                          ? "rate_limited_wait"
-                          : replyFailure.error
-                        : error === "rate_limited" && retryAfterSeconds
-                          ? "rate_limited_wait"
-                          : error
+
+                const entries = run as MessageItem[];
+                const author: Partner = {
+                  guestId: first.message.guestId,
+                  nickname: first.message.nickname,
+                  role: first.message.role ?? "guest",
+                  avatar: first.message.avatar ?? PLAIN_AVATAR,
+                  ...(first.message.picture
+                    ? { picture: first.message.picture }
+                    : {}),
+                };
+                const mine = ownGuestIds.includes(author.guestId);
+
+                return (
+                  <MessageGroup
+                    key={first.message.id}
+                    mine={mine}
+                    nickname={author.nickname}
+                    role={author.role}
+                    avatar={author.avatar}
+                    picture={author.picture}
+                    blocked={direct.blockedIds.includes(author.guestId)}
+                    gone={!mine && hasLeft(author.guestId)}
+                    messages={entries.map(({ message }) => ({
+                      id: message.id,
+                      text: message.text,
+                      sentAt: message.sentAt,
+                      reactions: message.reactions,
+                    }))}
+                    selectable={canWriteTo(author.guestId)}
+                    onSelect={
+                      mine ? undefined : () => act.current.selectPerson(author)
                     }
-                    values={{
-                      seconds: replyFailure
-                        ? replyFailure.retryAfterSeconds
-                        : retryAfterSeconds,
+                    onSeen={
+                      !mine &&
+                      direct.threads.some(
+                        (thread) =>
+                          thread.guestId === author.guestId &&
+                          thread.unread > 0,
+                      )
+                        ? () => act.current.markRead(author.guestId)
+                        : undefined
+                    }
+                    nav={{ stopId: stopIn(entries) }}
+                    reactions={{
+                      ownIds: ownGuestIds,
+                      onReact: (messageId, emoji) =>
+                        act.current.onReact(messageId, emoji),
                     }}
+                    menu={mine ? undefined : personMenu(author)}
+                    onReport={
+                      mine || author.role === "moderator"
+                        ? undefined
+                        : (messageId) =>
+                            setReporting({
+                              id: messageId,
+                              nickname: author.nickname,
+                            })
+                    }
                   />
-                }
-                leading={
-                  <>
-                    <RecipientPicker
-                      recipients={recipients}
-                      value={replyTo}
-                      onChange={chooseRecipient}
-                      threads={direct.threads}
-                      onOpenThread={openConversation}
-                      notify={direct.notify}
-                      onNotifyChange={direct.setNotify}
-                      onSetMuted={direct.setMuted}
-                      blockedIds={direct.blockedIds}
-                      blockedByIds={direct.blockedByIds}
-                      onSetBlocked={direct.setBlocked}
-                    />
-                    {replyTo && (
-                      <>
-                        <ComposerSeparator />
-                        <button
-                          type="button"
-                          onClick={() => chooseRecipient(null)}
-                          title={t("dm.stopReply", { name: replyTo.nickname })}
-                          aria-label={t("dm.stopReply", {
-                            name: replyTo.nickname,
-                          })}
-                          className={composerIconButton}
-                        >
-                          <X aria-hidden="true" className="h-5 w-5" />
-                        </button>
-                      </>
-                    )}
-                  </>
-                }
-                above={
-                  <>
-                    {replyTo && !replyPresent && (
-                      <Notice role="status">
-                        {t("dm.away", { name: replyTo.nickname })}
-                      </Notice>
-                    )}
+                );
+              })}
+              {items.every((item) => item.kind === "event") && (
+                <li className="text-neutral-500">{t("room.empty")}</li>
+              )}
+            </MessageLog>
 
-                    {replyTo && replyBlockedBy && (
-                      <Notice role="status" tone="neutral" icon={Ban}>
-                        {t("dm.blockedByWrite", { name: replyTo.nickname })}
-                      </Notice>
-                    )}
+            <ComposerBar
+              composer={composer}
+              id="message"
+              label={
+                replyTo
+                  ? t("dm.label", { name: replyTo.nickname })
+                  : t("room.messageLabel")
+              }
+              placeholder={
+                replyBlockedBy && replyTo
+                  ? t("dm.blockedByPlaceholder", { name: replyTo.nickname })
+                  : replyBlocked && replyTo
+                    ? t("dm.blockedPlaceholder", { name: replyTo.nickname })
+                    : replyTo
+                      ? t("dm.replyPlaceholder", { name: replyTo.nickname })
+                      : t("room.messagePlaceholder")
+              }
+              disabled={!canWrite}
+              onSubmit={handleSubmit}
+              idleDeadline={idleDeadline}
+              mentionable={recipients.filter(
+                (person) =>
+                  members.some((member) => member.guestId === person.guestId) &&
+                  !direct.blockedIds.includes(person.guestId),
+              )}
+              alert={
+                <ErrorAlert
+                  code={
+                    replyFailure
+                      ? replyWaiting
+                        ? "rate_limited_wait"
+                        : replyFailure.error
+                      : error === "rate_limited" && retryAfterSeconds
+                        ? "rate_limited_wait"
+                        : error
+                  }
+                  values={{
+                    seconds: replyFailure
+                      ? replyFailure.retryAfterSeconds
+                      : retryAfterSeconds,
+                  }}
+                />
+              }
+              leadingClassName="flex items-center md:hidden"
+              leading={
+                <>
+                  <RecipientPicker
+                    recipients={recipients}
+                    value={replyTo}
+                    onChange={chooseRecipient}
+                    threads={direct.threads}
+                    onOpenThread={openConversation}
+                    notify={direct.notify}
+                    onNotifyChange={direct.setNotify}
+                    onSetMuted={direct.setMuted}
+                    blockedIds={direct.blockedIds}
+                    blockedByIds={direct.blockedByIds}
+                    onSetBlocked={direct.setBlocked}
+                  />
+                  {replyTo && (
+                    <>
+                      <ComposerSeparator />
+                      <button
+                        type="button"
+                        onClick={() => chooseRecipient(null)}
+                        title={t("dm.stopReply", { name: replyTo.nickname })}
+                        aria-label={t("dm.stopReply", {
+                          name: replyTo.nickname,
+                        })}
+                        className={composerIconButton}
+                      >
+                        <X aria-hidden="true" className="h-5 w-5" />
+                      </button>
+                    </>
+                  )}
+                </>
+              }
+              above={
+                <>
+                  {replyTo && (
+                    <div className="hidden items-center gap-2 rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-sm text-sky-200 md:flex">
+                      <MessageSquare
+                        aria-hidden="true"
+                        className="h-4 w-4 shrink-0"
+                      />
+                      <span className="min-w-0 flex-1 truncate">
+                        {t("dm.writingTo", { name: replyTo.nickname })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openConversation(replyTo)}
+                        title={t("person.openChat")}
+                        aria-label={t("person.openChat")}
+                        className="shrink-0 rounded p-1 hover:bg-sky-500/20"
+                      >
+                        <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => chooseRecipient(null)}
+                        title={t("dm.closeBar")}
+                        aria-label={t("dm.closeBar")}
+                        className="shrink-0 rounded p-1 hover:bg-sky-500/20"
+                      >
+                        <X aria-hidden="true" className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
 
-                    {replyTo && replyBlocked && (
-                      <Notice role="status" tone="error" icon={Ban}>
-                        {t("dm.blockedWrite", { name: replyTo.nickname })}{" "}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void direct.setBlocked(replyTo.guestId, false)
-                          }
-                          className="font-semibold underline hover:text-red-100"
-                        >
-                          {t("dm.unblockAction")}
-                        </button>
-                      </Notice>
-                    )}
-                  </>
-                }
-                below={
-                  session.role === "moderator" && (
-                    <AnnounceForm
-                      disabled={!connected}
-                      onAnnounce={onAnnounce}
-                    />
-                  )
-                }
-              />
-            </div>
-          )}
+                  {replyTo && !replyPresent && (
+                    <Notice role="status">
+                      {t("dm.away", { name: replyTo.nickname })}
+                    </Notice>
+                  )}
+
+                  {replyTo && replyBlockedBy && (
+                    <Notice role="status" tone="neutral" icon={Ban}>
+                      {t("dm.blockedByWrite", { name: replyTo.nickname })}
+                    </Notice>
+                  )}
+
+                  {replyTo && replyBlocked && (
+                    <Notice role="status" tone="error" icon={Ban}>
+                      {t("dm.blockedWrite", { name: replyTo.nickname })}{" "}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void direct.setBlocked(replyTo.guestId, false)
+                        }
+                        className="font-semibold underline hover:text-red-100"
+                      >
+                        {t("dm.unblockAction")}
+                      </button>
+                    </Notice>
+                  )}
+                </>
+              }
+              below={
+                session.role === "moderator" && (
+                  <AnnounceForm disabled={!connected} onAnnounce={onAnnounce} />
+                )
+              }
+            />
+          </div>
         </div>
 
         <aside
@@ -744,6 +778,8 @@ export function ChatRoom({
             maxMembers={maxMembers}
             selfGuestId={session.guestId}
             threads={direct.threads}
+            selectedId={replyTo?.guestId ?? null}
+            onSelect={toggleRecipientStable}
             onOpen={openConversationStable}
             notify={direct.notify}
             blockedIds={direct.blockedIds}

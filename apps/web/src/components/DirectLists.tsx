@@ -1,5 +1,5 @@
 import { Field, Label, Switch } from "@headlessui/react";
-import { Ban, Bell, BellOff } from "lucide-react";
+import { ArrowRight, Ban, Bell, BellOff } from "lucide-react";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -50,20 +50,26 @@ function AgeBadge({ age }: { age?: number }) {
   );
 }
 
-// Everybody in the room, the guest included (not clickable: there is nobody to write to). A name opens a conversation,
-// which is only listed below once something has been said.
+// Everybody in the room, the guest included (who has nobody to write to there). A name chooses the person to write to
+// privately (and chooses nobody again when it is clicked once more); the arrow beside it goes into the private chat, which
+// is only listed below once something has been said.
 function PeopleListView({
   members,
   selfGuestId,
+  selectedId = null,
   blockedIds,
   blockedByIds,
+  onSelect,
   onOpen,
 }: {
   members: Member[];
   selfGuestId: string;
+  // Who the message box writes to privately now.
+  selectedId?: string | null;
   blockedIds: string[];
   // Whoever has blocked the guest is greyed out: there is nothing to write to them.
   blockedByIds: string[];
+  onSelect: (partner: Partner) => void;
   onOpen: (partner: Partner) => void;
 }) {
   const { t } = useTranslation();
@@ -73,6 +79,15 @@ function PeopleListView({
       {members.map((member) => {
         const role = member.role ?? "guest";
         const avatar = member.avatar ?? PLAIN_AVATAR;
+        const partner: Partner = {
+          guestId: member.guestId,
+          nickname: member.nickname,
+          role,
+          avatar,
+          ...(member.picture ? { picture: member.picture } : {}),
+        };
+        const blockedBy = blockedByIds.includes(member.guestId);
+        const selected = selectedId === member.guestId;
 
         return (
           <li key={member.guestId}>
@@ -89,27 +104,37 @@ function PeopleListView({
                 <AgeBadge age={member.age} />
               </span>
             ) : (
-              <button
-                type="button"
-                disabled={blockedByIds.includes(member.guestId)}
-                onClick={() =>
-                  onOpen({
-                    guestId: member.guestId,
-                    nickname: member.nickname,
-                    role,
-                    avatar,
-                    ...(member.picture ? { picture: member.picture } : {}),
-                  })
-                }
-                className="flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-neutral-800 disabled:opacity-50 disabled:hover:bg-transparent"
+              <div
+                className={`flex items-center gap-1 rounded ${selected ? "bg-sky-500/15 ring-1 ring-sky-400/50" : ""}`}
               >
-                <AvatarIcon avatar={avatar} picture={member.picture} small />
-                <span className={nameClass(role)}>{member.nickname}</span>
-                <GenderMark avatar={avatar} picture={member.picture} />
-                <AgeBadge age={member.age} />
-                {blockedIds.includes(member.guestId) && <BlockedTag />}
-                {blockedByIds.includes(member.guestId) && <BlockedByTag />}
-              </button>
+                <button
+                  type="button"
+                  disabled={blockedBy}
+                  aria-pressed={selected}
+                  title={t("person.message", { name: member.nickname })}
+                  onClick={() => onSelect(partner)}
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1 text-left hover:bg-neutral-800 disabled:opacity-50 disabled:hover:bg-transparent"
+                >
+                  <AvatarIcon avatar={avatar} picture={member.picture} small />
+                  <span className={`truncate ${nameClass(role) ?? ""}`}>
+                    {member.nickname}
+                  </span>
+                  <GenderMark avatar={avatar} picture={member.picture} />
+                  <AgeBadge age={member.age} />
+                  {blockedIds.includes(member.guestId) && <BlockedTag />}
+                  {blockedBy && <BlockedByTag />}
+                </button>
+                <button
+                  type="button"
+                  disabled={blockedBy}
+                  onClick={() => onOpen(partner)}
+                  aria-label={t("dm.openWith", { name: member.nickname })}
+                  title={t("dm.openWith", { name: member.nickname })}
+                  className="shrink-0 rounded p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                </button>
+              </div>
             )}
           </li>
         );
@@ -117,7 +142,6 @@ function PeopleListView({
     </ul>
   );
 }
-
 export const PeopleList = memo(PeopleListView);
 
 // Conversations with something in them, the one with the latest activity first. One with new words pulses (unless the

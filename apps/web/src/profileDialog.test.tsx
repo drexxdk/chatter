@@ -301,10 +301,10 @@ describe("others' ages", () => {
       screen.getByRole("list", { name: "People in this room" }),
     );
 
+    expect(people.getByText("41 years old")).toBeInTheDocument();
     expect(
-      people.getByRole("button", { name: /^Bob\s*41 years old$/ }),
+      people.getByRole("button", { name: "Open private chat with Carol" }),
     ).toBeInTheDocument();
-    expect(people.getByRole("button", { name: "Carol" })).toBeInTheDocument();
   });
 
   it("follow a guest who changes their name: the conversation carries the new one", async () => {
@@ -315,7 +315,7 @@ describe("others' ages", () => {
     await user.click(
       within(
         screen.getByRole("list", { name: "People in this room" }),
-      ).getByRole("button", { name: "Bob" }),
+      ).getByRole("button", { name: "Open private chat with Bob" }),
     );
     expect(
       await screen.findByRole("heading", { name: "Direct message with Bob" }),

@@ -143,7 +143,9 @@ describe("direct messages", () => {
       receive(server, dm({ text: "from Bob" }));
       receive(server, fromMe(bob, "from me"));
 
-      await user.click(people().getByRole("button", { name: "Bob" }));
+      await user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
 
       const theirs = log("Bob").getByText("from Bob").closest("li");
       const mine = log("Bob").getByText("from me").closest("li");
@@ -214,7 +216,9 @@ describe("direct messages", () => {
 
     it("keeps who was blocked, and tells the new connection", async () => {
       const first = await enter();
-      await first.user.click(people().getByRole("button", { name: "Bob" }));
+      await first.user.click(
+        people().getByRole("button", { name: "Open private chat with Bob" }),
+      );
       await first.user.click(screen.getByRole("button", { name: "Block Bob" }));
       await screen.findByRole("button", { name: "Unblock Bob" });
 

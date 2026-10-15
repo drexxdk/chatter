@@ -137,7 +137,7 @@ html:has(#headlessui-portal-root [role="dialog"]) {
 }
 
 /* The side panel of a room has one scrollbar, never two. While it is tall enough for both of its lists (the minimum each
-   has is under, about 20.25rem), they scroll in their own boxes; below that the panel scrolls as a whole, with the lists
+   has is under, about 24.25rem), they scroll in their own boxes; below that the panel scrolls as a whole, with the lists
    shown in full. (`size` containment is what lets the panel's height be asked about; it is as tall as the window.) */
 .panel {
   container: panel / size;
@@ -149,13 +149,14 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   flex: 1 1 0%;
   flex-direction: column;
   gap: 0.5rem;
-  min-height: 10rem;
+  min-height: 14rem;
 }
 
-/* Half of the panel plus what its heading and switch have over the people's heading, so that when both lists have more than
-   there is room for they are the same height. */
+/* Half of the panel, less half the gap between the sections and half of what the people have over the conversations above their
+   lists (the search box and the filters, about 37px), so that when both lists have more than there is room for they are the
+   same height. */
 .panel-threads {
-  max-height: calc(50% + 14px);
+  max-height: calc(50% - 28.5px);
   min-height: 9rem;
 }
 
@@ -168,7 +169,7 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   overscroll-behavior: contain;
 }
 
-@container panel (height < 20.5rem) {
+@container panel (height < 24.5rem) {
   .panel-people,
   .panel-threads {
     flex: none;

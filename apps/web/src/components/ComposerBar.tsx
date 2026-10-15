@@ -31,6 +31,8 @@ interface ComposerBarProps {
   below?: ReactNode;
   // Before the box, in the form.
   leading?: ReactNode;
+  // How leading is laid out, for a page that shows it only some of the time.
+  leadingClassName?: string;
   // In place of the picker and the send button.
   actions?: ReactNode;
 }
@@ -50,6 +52,7 @@ export function ComposerBar({
   above,
   below,
   leading,
+  leadingClassName = "flex items-center",
   actions,
 }: ComposerBarProps) {
   const { t } = useTranslation();
@@ -115,8 +118,12 @@ export function ComposerBar({
           >
             {/* The group's top and left lines meet the box's own border, which is its bottom and right; clipped to the box's corner. */}
             <div className="flex cursor-default items-center overflow-hidden rounded-br-[5px] rounded-tl-md border-l border-t border-neutral-700">
-              {leading}
-              {leading && <ComposerSeparator />}
+              {leading && (
+                <div className={leadingClassName}>
+                  {leading}
+                  <ComposerSeparator />
+                </div>
+              )}
               {actions ?? (
                 <>
                   <ComposerPicker
