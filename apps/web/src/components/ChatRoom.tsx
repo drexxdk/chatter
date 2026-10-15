@@ -355,9 +355,9 @@ export function ChatRoom({
     <MentionsProvider value={mentions}>
       <section
         aria-labelledby="room-heading"
-        className="grid flex-1 gap-4 md:grid-cols-[1fr_14rem]"
+        className="grid flex-1 gap-4 md:grid-cols-[14rem_1fr]"
       >
-        <div className="flex min-w-0 flex-col md:col-start-1">
+        <div className="flex min-w-0 flex-col md:col-start-2 md:w-full md:max-w-4xl md:justify-self-center">
           <div className="sticky top-(--header-height) z-20 -mt-4 space-y-2 bg-neutral-950 pb-2 pt-4 empty:hidden">
             {direct.active && (
               <div className="flex items-center gap-2">
@@ -737,7 +737,7 @@ export function ChatRoom({
 
         <aside
           aria-label={t("room.panel")}
-          className="panel hidden md:col-start-2 md:row-start-1 md:-mt-4 md:sticky md:top-(--header-height) md:block md:h-[calc(100dvh-var(--header-height))] md:self-start md:overflow-y-auto md:py-4"
+          className="panel hidden md:col-start-1 md:row-start-1 md:-mt-4 md:sticky md:top-(--header-height) md:block md:h-[calc(100dvh-var(--header-height))] md:self-start md:overflow-y-auto md:border-r md:border-neutral-800 md:py-4 md:pr-3"
         >
           <RoomPanel
             members={members}

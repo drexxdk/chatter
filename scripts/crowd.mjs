@@ -576,7 +576,13 @@ function startBot() {
       scheduleMessage();
 
       if (!options["no-churn"]) {
-        wait(rand(10, 60) * 60_000, () => leave(rand(5000, 60_000)));
+        // Nobody comes or goes while it is paused either: the room is left as it is.
+        const scheduleLeaving = (ms) =>
+          wait(ms, () =>
+            paused ? scheduleLeaving(5000) : leave(rand(5000, 60_000)),
+          );
+
+        scheduleLeaving(rand(10, 60) * 60_000);
       }
     });
   });

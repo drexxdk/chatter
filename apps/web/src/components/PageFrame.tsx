@@ -11,10 +11,13 @@ export function PageFrame({
   header,
   roomSlug,
   flush = false,
+  wide = false,
   children,
 }: {
   header?: ReactNode;
   roomSlug?: string;
+  // As wide as the window, for the room: its people and conversations on the left edge, and the chat (which keeps a width of its own) in what is left.
+  wide?: boolean;
   // Without room under the content, for a page that fills the window to its bottom edge (the chat).
   flush?: boolean;
   children: ReactNode;
@@ -23,7 +26,7 @@ export function PageFrame({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <HeaderFrame roomSlug={roomSlug}>
+      <HeaderFrame roomSlug={roomSlug} wide={wide}>
         {header ?? (
           <>
             <a href={LOBBY_PATH} className="text-2xl font-bold">
@@ -35,7 +38,7 @@ export function PageFrame({
       </HeaderFrame>
 
       <main
-        className={`relative mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 overflow-x-clip px-(--page-gutter) pt-4 ${flush ? "" : "pb-8"}`}
+        className={`relative mx-auto flex w-full flex-1 flex-col gap-4 overflow-x-clip px-(--page-gutter) pt-4 ${wide ? "max-w-none" : "max-w-4xl"} ${flush ? "" : "pb-8"}`}
       >
         {children}
       </main>

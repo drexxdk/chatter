@@ -578,6 +578,7 @@ export function App({
       <PageFrame
         roomSlug={chat.roomSlug && chat.session ? chat.roomSlug : undefined}
         flush={inRoom}
+        wide={inRoom}
         header={
           <>
             {chat.roomSlug && chat.session ? (
