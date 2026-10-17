@@ -1,7 +1,8 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { saveModerator, saveSession } from "./session";
 import { ROOMS, setup, stubRooms } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
@@ -90,6 +91,85 @@ describe("the admin's rooms", () => {
     expect(
       await screen.findByRole("heading", { name: "Test lab", level: 2 }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("a new tab", () => {
+  it("is signed in as the admin who is signed in in the browser", async () => {
+    stubLogin("admin-token", "Ada Admin");
+    saveModerator({ nickname: "Ada Admin", token: "admin-token" });
+    const server = makeFakeServer();
+
+    setup(server);
+
+    expect(
+      await screen.findByRole("button", { name: "Admin tools" }),
+    ).toBeInTheDocument();
+    expect(server.createSocket.mock.calls[0]?.slice(0, 2)).toEqual([
+      "Ada Admin",
+      "admin-token",
+    ]);
+  });
+
+  it("is signed in after signing in, and signs out for the browser too", async () => {
+    stubLogin("admin-token", "Ada Admin");
+    const { user } = setup();
+
+    await signIn(user);
+    await screen.findByRole("button", { name: "Account menu: Ada Admin" });
+
+    expect(localStorage.getItem("chatter.moderator")).toContain("admin-token");
+
+    await user.click(
+      screen.getByRole("button", { name: "Account menu: Ada Admin" }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: "Sign out" }));
+
+    await waitFor(() =>
+      expect(localStorage.getItem("chatter.moderator")).toBeNull(),
+    );
+  });
+});
+
+describe("reloading in a room", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+    sessionStorage.clear();
+  });
+
+  it("brings an admin back into a test room, which the list of rooms does not have until they are connected", async () => {
+    stubLogin("admin-token", "Ada Admin");
+    saveSession({ nickname: "Ada Admin", token: "admin-token" });
+    window.history.replaceState(null, "", "/rooms/admin-lab");
+    const server = makeFakeServer();
+
+    setup(server);
+
+    expect(
+      await screen.findByRole("heading", { name: "Test lab", level: 2 }),
+    ).toBeInTheDocument();
+    expect(server.createSocket.mock.calls[0]?.slice(0, 2)).toEqual([
+      "Ada Admin",
+      "admin-token",
+    ]);
+    expect(server.latest.emittedEvents("room:join")).toEqual([
+      { slug: "admin-lab" },
+    ]);
+  });
+
+  it("keeps whoever it was connected when the room is not theirs, and goes to the lobby", async () => {
+    stubLogin("signed-token", "Ada Mod");
+    saveSession({ nickname: "Ada Mod", token: "signed-token" });
+    window.history.replaceState(null, "", "/rooms/admin-lab");
+    const server = makeFakeServer();
+    server.acks["room:join"] = () => ({ ok: false, error: "room_not_found" });
+
+    setup(server);
+
+    expect(
+      await screen.findByRole("button", { name: "Account menu: Ada Mod" }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
   });
 });
 

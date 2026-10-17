@@ -2,6 +2,12 @@
   "app": { "title": "Chatter" },
   "language": { "label": "Language" },
   "menu": { "open": "Menu" },
+  "tabs": {
+    "title": "You are already in a chat room",
+    "body": "You can only be in one chat room at a time, and you are in one in another tab or window.",
+    "useHere": "Use this tab",
+    "close": "Close"
+  },
   "admin": {
     "open": "Admin tools",
     "crowd": {

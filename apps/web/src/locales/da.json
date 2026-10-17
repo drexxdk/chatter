@@ -2,6 +2,12 @@
   "app": { "title": "Chatter" },
   "language": { "label": "Sprog" },
   "menu": { "open": "Menu" },
+  "tabs": {
+    "title": "Du er allerede i et chatrum",
+    "body": "Du kan kun være i ét chatrum ad gangen, og du er i et i en anden fane eller et andet vindue.",
+    "useHere": "Brug denne fane",
+    "close": "Luk"
+  },
   "admin": {
     "open": "Admin-værktøjer",
     "crowd": {

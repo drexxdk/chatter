@@ -9,6 +9,9 @@ MotionGlobalConfig.skipAnimations = true;
 // The default of one second is too short for findBy and waitFor when every test file runs at once on a busy machine.
 configure({ asyncUtilTimeout: 4000 });
 
+// A test is one tab; the tests of the tabs agreeing give the app a channel of their own.
+Reflect.deleteProperty(globalThis, "BroadcastChannel");
+
 // Newer Node versions define their own experimental `localStorage` and `sessionStorage` globals, which hide jsdom's
 // and are undefined without --localstorage-file. Browsers are unaffected, so only the tests need this.
 for (const name of ["localStorage", "sessionStorage"] as const) {

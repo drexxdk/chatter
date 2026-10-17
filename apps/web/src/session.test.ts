@@ -7,6 +7,7 @@ import {
   rememberConnection,
   rememberProfile,
   saveDirect,
+  saveModerator,
   saveSession,
 } from "./session";
 
@@ -280,5 +281,55 @@ describe("remembering a changed profile", () => {
     rememberProfile({ nickname: "Somebody", age: 30 });
 
     expect(stored(SESSION)).toEqual({ nickname: "Ada Mod", token: "signed" });
+  });
+});
+
+describe("a moderator who is signed in in the browser", () => {
+  it("is what a tab with nothing of its own is signed in as", () => {
+    saveModerator({ nickname: "Ada Mod", token: "signed" });
+
+    expect(loadSession()).toEqual({ nickname: "Ada Mod", token: "signed" });
+    expect(sessionStorage.getItem(SESSION)).toBeNull();
+  });
+
+  it("does not replace what the tab has of its own", () => {
+    saveModerator({ nickname: "Ada Mod", token: "signed" });
+    saveSession({ nickname: "Alice" });
+
+    expect(loadSession()).toEqual({ nickname: "Alice" });
+  });
+
+  it("is forgotten with the session", () => {
+    saveModerator({ nickname: "Ada Mod", token: "signed" });
+
+    clearSession();
+
+    expect(loadSession()).toBeNull();
+  });
+
+  it.each([
+    ["nothing readable", "{"],
+    ["no token", JSON.stringify({ nickname: "Ada Mod" })],
+    ["no name", JSON.stringify({ token: "signed" })],
+    ["an empty token", JSON.stringify({ nickname: "Ada Mod", token: "" })],
+  ])("is nobody when what was kept has %s", (_label, value) => {
+    localStorage.setItem("chatter.moderator", value);
+
+    expect(loadSession()).toBeNull();
+  });
+
+  it("keeps the connection ids and the secret in the tab", () => {
+    saveModerator({ nickname: "Ada Mod", token: "signed" });
+
+    rememberConnection({ guestIds: ["guest-1"], resume: null });
+
+    expect(stored(SESSION)).toEqual({
+      nickname: "Ada Mod",
+      token: "signed",
+      guestIds: ["guest-1"],
+    });
+    expect(JSON.parse(localStorage.getItem("chatter.moderator") ?? "")).toEqual(
+      { nickname: "Ada Mod", token: "signed" },
+    );
   });
 });

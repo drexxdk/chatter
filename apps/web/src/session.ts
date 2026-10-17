@@ -7,6 +7,7 @@ import type { Resume } from "./chat/socket";
 import { parseAge } from "./profile";
 
 const KEY = "chatter.session";
+const MODERATOR_KEY = "chatter.moderator";
 const DIRECT_KEY = "chatter.direct";
 const MAX_BLOCKED = 100;
 // Only the latest are kept: each reload or reconnect adds one, and old messages fall out of the history anyway.
@@ -42,7 +43,41 @@ function isResume(value: unknown): value is Resume {
   );
 }
 
+// A moderator's sign-in is kept for the whole browser, in local storage, so that a new tab is signed in too; the token is
+// the signed one the server gave (it stops working by itself), never an email or a password. Only the name and token are
+// kept: what else a tab remembers (its connection ids and secret) is its own.
+export function saveModerator(moderator: { nickname: string; token: string }) {
+  try {
+    localStorage.setItem(MODERATOR_KEY, JSON.stringify(moderator));
+  } catch {
+    // See saveSession.
+  }
+}
+
+function loadModerator(): SavedSession | null {
+  try {
+    const value: unknown = JSON.parse(
+      localStorage.getItem(MODERATOR_KEY) ?? "null",
+    );
+    const { nickname, token } = (value ?? {}) as Record<string, unknown>;
+
+    return typeof nickname === "string" &&
+      nickname &&
+      typeof token === "string" &&
+      token
+      ? { nickname, token }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+// What this tab kept, or else the moderator who is signed in in the browser.
 export function loadSession(): SavedSession | null {
+  return loadTabSession() ?? loadModerator();
+}
+
+function loadTabSession(): SavedSession | null {
   try {
     const value: unknown = JSON.parse(sessionStorage.getItem(KEY) ?? "null");
 
@@ -141,6 +176,7 @@ export function clearSession(): void {
   try {
     sessionStorage.removeItem(KEY);
     sessionStorage.removeItem(DIRECT_KEY);
+    localStorage.removeItem(MODERATOR_KEY);
   } catch {
     // See saveSession.
   }

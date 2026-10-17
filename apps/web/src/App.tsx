@@ -29,6 +29,7 @@ import type { CreateSocket } from "./chat/socket";
 import type { ActionResult } from "./chat/types";
 import { useChat } from "./chat/useChat";
 import { AboutPage } from "./components/AboutPage";
+import { createTabCoordinator, type TabCoordinator } from "./activeTab";
 import { AdminMenu } from "./components/AdminMenu";
 import { AnnouncementBanner } from "./components/AnnouncementBanner";
 import { ChatRoom } from "./components/ChatRoom";
@@ -44,6 +45,7 @@ import { PageFrame } from "./components/PageFrame";
 import { ProfileDialog, type ProfileSubject } from "./components/ProfileDialog";
 import { RoomSwitcher } from "./components/RoomSwitcher";
 import { SideDrawer } from "./components/SideDrawer";
+import { TabNotice } from "./components/TabNotice";
 import { ViewTransition } from "./components/ViewTransition";
 import { LOBBY_PATH, pageFromPath, roomPath, slugFromPath } from "./place";
 import { useLegal } from "./legal/useLegal";
@@ -56,6 +58,7 @@ import {
   rememberConnection,
   rememberProfile,
   saveDirect,
+  saveModerator,
   saveSession,
   type SavedSession,
 } from "./session";
@@ -69,9 +72,12 @@ const NAME_TAKEN = "nickname_taken";
 export function App({
   createSocket,
   reconnectDelaysMs,
+  tabs: tabsOverride,
 }: {
   createSocket?: CreateSocket;
   reconnectDelaysMs?: number[];
+  // How the tabs of the browser agree that one of them is in a room; the browser's own channel unless told otherwise.
+  tabs?: TabCoordinator;
 }) {
   const { t, i18n } = useTranslation();
   const location = useLocation();
@@ -92,6 +98,10 @@ export function App({
   const startedInRoom = useRef(slugFromPath(location.pathname) !== null);
   // The room the dialog asks for a nickname for stays for it to fade out.
   const shownRoom = useKept(pendingRoom);
+  const [tabs] = useState(() => tabsOverride ?? createTabCoordinator());
+  // The room that was to be entered, or was left, because another tab is in one; the notice about it stays to fade out.
+  const [elsewhere, setElsewhere] = useState<string | null>(null);
+  const shownElsewhere = useKept(elsewhere);
   const [signInError, setSignInError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
   const [moderatorOpen, setModeratorOpen] = useState(false);
@@ -134,7 +144,36 @@ export function App({
     return resume ? { resume } : {};
   };
 
+  // Whether another tab of the browser is in a room, which this tab may not enter then; the notice says so and offers
+  // to take over. The address goes back to the lobby when it named the room.
+  async function otherTabHasRoom(slug: string): Promise<boolean> {
+    if (!(await tabs.otherInRoom())) return false;
+
+    setElsewhere(slug);
+    if (slugFromPath(location.pathname))
+      navigate(LOBBY_PATH, { replace: true });
+
+    return true;
+  }
+
   async function handleSelect(room: Room) {
+    if (await otherTabHasRoom(room.slug)) return;
+
+    await enterRoom(room);
+  }
+
+  // This tab becomes the one that is in a room; the other is told to leave its own.
+  async function takeOverRoom() {
+    const slug = elsewhere;
+
+    setElsewhere(null);
+    tabs.claim();
+
+    const room = knownRooms.find((candidate) => candidate.slug === slug);
+    if (room) await enterRoom(room);
+  }
+
+  async function enterRoom(room: Room) {
     chat.clearError();
 
     if (chat.status === "connected") {
@@ -285,6 +324,11 @@ export function App({
   ) {
     if (!pendingRoom) return;
 
+    if (await otherTabHasRoom(pendingRoom.slug)) {
+      setPendingRoom(null);
+      return;
+    }
+
     // The plain avatar is what the server gives anyone who sends none, so it is not sent or kept.
     const chosen = avatar === PLAIN_AVATAR ? undefined : avatar;
 
@@ -321,6 +365,7 @@ export function App({
         guestIds: chat.guestIds(),
         ...resumeDetails(),
       });
+      saveModerator({ nickname: moderator.name, token: moderator.token });
       setModeratorOpen(false);
     } catch (cause) {
       setSignInError(cause instanceof SignInError ? cause.code : "connection");
@@ -358,6 +403,24 @@ export function App({
     location,
     navigate,
   };
+
+  // The other tabs are told when this one is in a room, and this one leaves its room when another takes over.
+  useEffect(() => {
+    tabs.setInRoom(inRoom);
+  }, [tabs, inRoom]);
+  useEffect(
+    () =>
+      tabs.onDisplaced(() => {
+        const { chat: current, navigate: go } = latest.current;
+
+        if (!current.roomSlug) return;
+
+        setElsewhere(current.roomSlug);
+        void current.leaveRoom();
+        go(LOBBY_PATH, { replace: true });
+      }),
+    [tabs],
+  );
 
   // The address says where the guest is, so a reload (or a shared link) can put them back. Entering a room adds a
   // history entry and leaving adds another, which is what makes the browser's back button leave the room.
@@ -525,8 +588,28 @@ export function App({
     const room = roomsState.rooms.find((candidate) => candidate.slug === slug);
 
     if (!room) {
-      navigate(LOBBY_PATH, { replace: true });
-      setSettled(true);
+      // Not in the list: perhaps one only an admin can enter, which the server tells of once they are connected. Whoever
+      // this tab already was is brought back either way, and the server says whether the room is theirs.
+      const saved = loadSession();
+
+      if (!saved) {
+        navigate(LOBBY_PATH, { replace: true });
+        setSettled(true);
+        return;
+      }
+
+      void (async () => {
+        if (!(await reconnect(saved))) {
+          navigate(LOBBY_PATH, { replace: true });
+        } else if (
+          !(await otherTabHasRoom(slug)) &&
+          !(await chat.joinRoom(slug)).ok
+        ) {
+          navigate(LOBBY_PATH, { replace: true });
+        }
+
+        setSettled(true);
+      })();
       return;
     }
 
@@ -537,7 +620,11 @@ export function App({
       const member = loadAccount();
 
       if (member) {
-        void joinAsMember(room, member).finally(() => setSettled(true));
+        void (async () => {
+          if (!(await otherTabHasRoom(room.slug)))
+            await joinAsMember(room, member);
+          setSettled(true);
+        })();
         return;
       }
 
@@ -549,6 +636,11 @@ export function App({
     void (async () => {
       if (!(await reconnect(saved))) {
         setPendingRoom(room);
+        setSettled(true);
+        return;
+      }
+
+      if (await otherTabHasRoom(room.slug)) {
         setSettled(true);
         return;
       }
@@ -776,6 +868,14 @@ export function App({
           onCancel={handleCancel}
           termsVersion={termsVersion}
           returnPath={roomPath(shownRoom.slug)}
+        />
+      )}
+
+      {shownElsewhere && (
+        <TabNotice
+          open={elsewhere !== null}
+          onUseHere={() => void takeOverRoom()}
+          onClose={() => setElsewhere(null)}
         />
       )}
 
