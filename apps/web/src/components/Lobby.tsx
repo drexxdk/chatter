@@ -76,7 +76,14 @@ export function useRooms(lobbyOpen = false) {
 
   const retry = useCallback(() => setAttempt((value) => value + 1), []);
 
-  return { state, retry };
+  // Quietly, like the refresh above: for the numbers to be right when they are looked at.
+  const refresh = useCallback(() => {
+    fetchRooms()
+      .then((rooms) => setState({ status: "ready", rooms }))
+      .catch(() => undefined);
+  }, []);
+
+  return { state, retry, refresh };
 }
 
 interface LobbyProps {

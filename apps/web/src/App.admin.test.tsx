@@ -326,6 +326,36 @@ describe("the crowd", () => {
     ]);
   });
 
+  it("drops the message that the room is full once its count shows room", async () => {
+    stubLogin("admin-token", "Ada Admin");
+    const server = makeFakeServer();
+    server.acks["room:join"] = () => ({ ok: false, error: "room_full" });
+    const { user } = setup(server);
+
+    await signIn(user);
+    await user.click(
+      await screen.findByRole("button", { name: "Join Test lab" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This room is full.",
+    );
+
+    const count = (people: number) =>
+      act(() =>
+        server.latest.serverEmit("admin:count", {
+          roomSlug: "admin-lab",
+          count: people,
+        }),
+      );
+
+    await count(10);
+    expect(screen.getByRole("alert")).toBeVisible();
+
+    await count(9);
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  });
+
   it("is counted on the Test lab's card in the list of rooms", async () => {
     stubLogin("admin-token", "Ada Admin");
     const server = makeFakeServer();

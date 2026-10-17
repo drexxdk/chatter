@@ -85,7 +85,7 @@ export function App({
   const navigate = useNavigate();
   const navigationType = useNavigationType();
   const chat = useChat(createSocket, { reconnectDelaysMs });
-  const { state: roomsState, retry } = useRooms(!chat.roomSlug);
+  const { state: roomsState, retry, refresh: refreshRooms } = useRooms(!chat.roomSlug);
   const { state: legalState, retry: retryLegal } = useLegal();
   // The version of the terms the guest has to have accepted; null while the chat-server has not said.
   const termsVersion =
@@ -97,6 +97,9 @@ export function App({
     () => slugFromPath(location.pathname) === null && !loadSession(),
   );
   const startedInRoom = useRef(slugFromPath(location.pathname) !== null);
+  // The room last tried, and whether the numbers have shown it full since it turned out to be.
+  const attemptedRoom = useRef<string | null>(null);
+  const sawFull = useRef(false);
   // The room the dialog asks for a nickname for stays for it to fade out.
   const shownRoom = useKept(pendingRoom);
   const [tabs] = useState(() => tabsOverride ?? createTabCoordinator());
@@ -184,6 +187,7 @@ export function App({
 
   async function enterRoom(room: Room) {
     chat.clearError();
+    attemptedRoom.current = room.slug;
 
     if (chat.status === "connected") {
       const joined = await chat.joinRoom(room.slug);
@@ -425,6 +429,29 @@ export function App({
       }),
     [],
   );
+
+  // The message that a room is full goes once the numbers show it was full and now has room.
+  useEffect(() => {
+    if (chat.error !== "room_full") {
+      sawFull.current = false;
+      return;
+    }
+
+    const room = latest.current.rooms.find(
+      (candidate) => candidate.slug === attemptedRoom.current,
+    );
+
+    if (!room || typeof room.memberCount !== "number") return;
+
+    if (
+      typeof room.maxMembers === "number" &&
+      room.memberCount >= room.maxMembers
+    ) {
+      sawFull.current = true;
+    } else if (sawFull.current) {
+      latest.current.chat.clearError();
+    }
+  }, [chat.error, roomsState, chat.adminCounts]);
 
   // The other tabs are told when this one is in a room, and this one leaves its room when another takes over.
   useEffect(() => {
@@ -719,11 +746,17 @@ export function App({
                   <ArrowLeft aria-hidden="true" className="h-5 w-5" />
                 </button>
                 <RoomSwitcher
-                  rooms={knownRooms}
+                  // The room you are in is counted from who is in it now, which is newer than the list.
+                  rooms={knownRooms.map((room) =>
+                    room.slug === chat.roomSlug
+                      ? { ...room, memberCount: chat.members.length }
+                      : room,
+                  )}
                   slug={chat.roomSlug}
                   name={currentRoom?.name ?? chat.roomSlug}
                   disabled={chat.status !== "connected"}
                   onSelect={(room) => void handleSelect(room)}
+                  onOpen={refreshRooms}
                 />
               </div>
             ) : page ? (

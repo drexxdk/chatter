@@ -617,6 +617,24 @@ describe("inside a room", () => {
     expect(server.latest.emittedEvents("room:leave")).toEqual([]);
   });
 
+  it("counts the people in each room in the list from the room name, out of the most it takes", async () => {
+    const { user } = await enterRoom();
+
+    await user.click(screen.getByRole("button", { name: "General" }));
+
+    expect(await screen.findByRole("option", { name: /Music/ })).toHaveTextContent(
+      "0/30",
+    );
+    // The room you are in is shown by its own look, not by a checkmark, and is counted from who is in it now.
+    expect(screen.getByRole("option", { name: /General/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("option", { name: /General/ })).toHaveTextContent(
+      /^General\d+\/100$/,
+    );
+  });
+
   it("explains an inactivity disconnect and returns to the lobby", async () => {
     const { server } = await enterRoom();
 
