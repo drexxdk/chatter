@@ -13,12 +13,15 @@ A real-time chat for guests: public rooms, private messages, moderators and bans
 Needs Node 20 or newer and Docker (Postgres and Redis come from `docker-compose.yml`).
 
 ```
-npm install
+npm run setup    # first time only: dependencies, .env files, Postgres and Redis, seed
 npm start        # admin :3000, chat-server :4000, web :5173 (npm run stop to stop)
 ```
 
-The first time, copy `.env.example` to `.env` in the repository root and in each app, then run
-`npm run seed --workspace apps/admin` for the first super-admin, the sample rooms and the chat-server's API key. Checks: `npm run format:check`, `lint`, `typecheck`,
+`npm run setup` is for local development only. It creates the `.env` files with generated secrets, starts Postgres and
+Redis, and seeds the first super-admin (`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` in `apps/admin/.env`), the sample rooms
+and the chat-server's API key. It can be run again: it keeps what is already filled in. If the database already has the
+chat-server's account but the key is missing from `apps/chat-server/.env`, reset the local database with
+`docker compose down -v` and run it again. Checks: `npm run format:check`, `lint`, `typecheck`,
 `test:chat-server`, `test:web` and `test:web:e2e`. CI runs the same.
 
 ## How it is hosted

@@ -6,6 +6,7 @@
     "apps/*"
   ],
   "scripts": {
+    "setup": "node scripts/setup.mjs",
     "start": "node scripts/start.mjs",
     "stop": "node scripts/stop.mjs",
     "restart": "node scripts/stop.mjs && node scripts/start.mjs",
