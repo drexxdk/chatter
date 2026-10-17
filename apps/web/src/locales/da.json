@@ -19,7 +19,9 @@
       "start": "Start mængden",
       "pause": "Pause",
       "resume": "Fortsæt",
-      "stop": "Stop og send dem væk"
+      "stop": "Stop og send dem væk",
+      "amount": "Antal personer (1–{max})",
+      "set": "Skift"
     },
     "people": "Folk i rummet",
     "addPerson": "Tilføj en person",
@@ -299,6 +301,7 @@
     "leave": "Forlad rum",
     "groupOpen": "Åben snak",
     "groupTopics": "Emner",
+    "groupAdmin": "Test",
     "members": "I dette rum ({count})",
     "membersOfMax": "I dette rum ({count} af {max})",
     "panel": "Personer og direkte beskeder",

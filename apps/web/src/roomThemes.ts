@@ -13,8 +13,9 @@ import type { CSSProperties } from "react";
 
 import type { Room } from "./api";
 
-// The rooms are in two groups: the ones that are open to anything, and the ones about something.
-export type RoomGroup = "open" | "topics";
+// The rooms are in groups: the ones only an admin can enter (listed first), the ones about something, and the ones that are
+// open to anything.
+export type RoomGroup = "admin" | "open" | "topics";
 
 export interface RoomTheme {
   group: RoomGroup;
@@ -81,8 +82,7 @@ const THEMES: Record<string, RoomTheme> = {
     accent: "#38bdf8",
   },
   // The rooms only an admin can enter, for testing.
-  "admin-lab": { group: "topics", icon: FlaskConical, ...ADMIN },
-  "admin-small": { group: "topics", icon: FlaskConical, ...ADMIN },
+  "admin-lab": { group: "admin", icon: FlaskConical, ...ADMIN },
 };
 
 const OTHER: RoomTheme = { group: "topics", icon: Hash, ...PLAIN };
@@ -103,7 +103,7 @@ export function roomVars(slug: string | undefined): CSSProperties | undefined {
   } as CSSProperties;
 }
 
-const GROUPS: RoomGroup[] = ["topics", "open"];
+const GROUPS: RoomGroup[] = ["admin", "topics", "open"];
 
 // The rooms in the order they are listed in: the ones about something first, the open ones last, and in each group by
 // name.

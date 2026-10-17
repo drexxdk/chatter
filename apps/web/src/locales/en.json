@@ -19,7 +19,9 @@
       "start": "Start the crowd",
       "pause": "Pause",
       "resume": "Carry on",
-      "stop": "Stop and send them away"
+      "stop": "Stop and send them away",
+      "amount": "Number of people (1–{max})",
+      "set": "Change"
     },
     "people": "People in the room",
     "addPerson": "Add a person",
@@ -299,6 +301,7 @@
     "leave": "Leave room",
     "groupOpen": "Open chat",
     "groupTopics": "Topics",
+    "groupAdmin": "Testing",
     "members": "In this room ({count})",
     "membersOfMax": "In this room ({count} of {max})",
     "people": "People in this room",

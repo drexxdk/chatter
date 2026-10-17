@@ -9,9 +9,15 @@ import clsx from "clsx";
 import { useTranslation } from "react-i18next";
 
 import type { Room } from "../api";
-import { groupRooms } from "../roomThemes";
+import { groupRooms, type RoomGroup } from "../roomThemes";
 import { HEADER_DROPDOWN, MENU_SURFACE } from "./dropdown";
 import { RoomIcon } from "./RoomIcon";
+
+const GROUP_LABELS = {
+  admin: "room.groupAdmin",
+  open: "room.groupOpen",
+  topics: "room.groupTopics",
+} as const satisfies Record<RoomGroup, string>;
 
 // The room's name as the page's title, which is also how to move to another room.
 export function RoomSwitcher({
@@ -70,7 +76,7 @@ export function RoomSwitcher({
                   id={`room-group-${group}`}
                   className="px-2 py-1 text-xs font-medium tracking-wide text-neutral-500 uppercase"
                 >
-                  {t(group === "open" ? "room.groupOpen" : "room.groupTopics")}
+                  {t(GROUP_LABELS[group])}
                 </div>
                 {inGroup.map((room) => (
                   <ListboxOption

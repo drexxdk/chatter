@@ -151,6 +151,8 @@ export function useChat(
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   // Only an admin in a test room is told of this.
   const [crowd, setCrowd] = useState<CrowdState | null>(null);
+  // How many are in each test room, the people who are not there too; what the list of rooms shows.
+  const [adminCounts, setAdminCounts] = useState<Record<string, number>>({});
   // When the server will disconnect the guest for doing nothing, once it has warned them.
   const [idleDeadline, setIdleDeadline] = useState<number | null>(null);
   // The server repeats the latest announcement on every connection; one that was dismissed must not return.
@@ -235,6 +237,7 @@ export function useChat(
     setSession(null);
     setAnnouncement(null);
     setCrowd(null);
+    setAdminCounts({});
     setIdleDeadline(null);
     setThreads([]);
     blockedRef.current = [];
@@ -381,6 +384,18 @@ export function useChat(
         socket.on("crowd:state", (next: CrowdState) => {
           if (isCurrent()) setCrowd(next);
         });
+
+        socket.on(
+          "admin:count",
+          (next: { roomSlug: string; count: number }) => {
+            if (isCurrent()) {
+              setAdminCounts((previous) => ({
+                ...previous,
+                [next.roomSlug]: next.count,
+              }));
+            }
+          },
+        );
 
         socket.on("announcement:new", (value: unknown) => {
           const next = parseAnnouncement(value);
@@ -1112,6 +1127,7 @@ export function useChat(
     clearError,
     adminTool,
     crowd,
+    adminCounts,
   };
 }
 

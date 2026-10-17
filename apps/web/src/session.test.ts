@@ -333,3 +333,28 @@ describe("a moderator who is signed in in the browser", () => {
     );
   });
 });
+
+describe("the cookie of a moderator who is signed in in the browser", () => {
+  it("brings a tab in when its local storage is not shared with the others", () => {
+    saveModerator({ nickname: "Ada Mod", token: "signed" });
+    localStorage.clear();
+
+    expect(loadSession()).toEqual({ nickname: "Ada Mod", token: "signed" });
+  });
+
+  it("is forgotten with the session", () => {
+    saveModerator({ nickname: "Ada Mod", token: "signed" });
+    localStorage.clear();
+
+    clearSession();
+
+    expect(loadSession()).toBeNull();
+    expect(document.cookie).not.toContain("chatter.moderator");
+  });
+
+  it("is nobody when it holds something else", () => {
+    document.cookie = `chatter.moderator=${encodeURIComponent("{")}; Path=/`;
+
+    expect(loadSession()).toBeNull();
+  });
+});

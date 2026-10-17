@@ -19,7 +19,9 @@
       "start": "Menge starten",
       "pause": "Pause",
       "resume": "Weiter",
-      "stop": "Stoppen und wegschicken"
+      "stop": "Stoppen und wegschicken",
+      "amount": "Anzahl Personen (1–{max})",
+      "set": "Ändern"
     },
     "people": "Leute im Raum",
     "addPerson": "Person hinzufügen",
@@ -299,6 +301,7 @@
     "leave": "Raum verlassen",
     "groupOpen": "Offener Chat",
     "groupTopics": "Themen",
+    "groupAdmin": "Test",
     "members": "In diesem Raum ({count})",
     "membersOfMax": "In diesem Raum ({count} von {max})",
     "panel": "Personen und Direktnachrichten",

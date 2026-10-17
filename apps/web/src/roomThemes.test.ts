@@ -51,6 +51,12 @@ describe("sortRooms", () => {
 
     expect(ROOMS.map((r) => r.name)).toEqual(before);
   });
+
+  it("puts the test lab before all of them", () => {
+    expect(
+      sortRooms([...ROOMS, room("Test lab", "admin-lab")], "en")[0]?.name,
+    ).toBe("Test lab");
+  });
 });
 
 describe("groupRooms", () => {

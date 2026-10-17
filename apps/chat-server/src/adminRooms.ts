@@ -9,17 +9,9 @@ export const ADMIN_ROOMS = [
     id: -1,
     name: "Test lab",
     slug: "admin-lab",
-    maxMembers: null,
+    maxMembers: 10,
     slowModeSeconds: null,
-    description: "An empty room with no limit, for trying things out.",
-  },
-  {
-    id: -2,
-    name: "Test room (4 people)",
-    slug: "admin-small",
-    maxMembers: 4,
-    slowModeSeconds: null,
-    description: "Room for four people, to see it fill up.",
+    description: "A room for ten, for trying things out.",
   },
 ] as const;
 

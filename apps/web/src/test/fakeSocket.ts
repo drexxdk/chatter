@@ -92,13 +92,7 @@ export class FakeSocket implements ChatSocket {
                     id: -1,
                     name: "Test lab",
                     slug: "admin-lab",
-                    maxMembers: null,
-                  },
-                  {
-                    id: -2,
-                    name: "Test room (4 people)",
-                    slug: "admin-small",
-                    maxMembers: 4,
+                    maxMembers: 10,
                   },
                 ],
               }

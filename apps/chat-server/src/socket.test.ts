@@ -4266,17 +4266,21 @@ describe("admin tools", () => {
     ]);
   });
 
-  async function signIn(sub: number, name: string) {
-    const { port: own } = await startServer({
-      authTokenSecret: SECRET,
-      crowdRampMs: 0,
-    });
+  async function signIn(sub: number, name: string, onPort?: number) {
+    const own =
+      onPort ??
+      (
+        await startServer({
+          authTokenSecret: SECRET,
+          crowdRampMs: 0,
+        })
+      ).port;
     const { socket, session } = await connect(
       { token: signedIn(sub, name) },
       own,
     );
     if (!socket || !session) throw new Error("sign-in failed");
-    return { socket, session: await session };
+    return { socket, session: await session, port: own };
   }
 
   it("tells an admin so, with the rooms only they can enter, and nobody else", async () => {
@@ -4287,8 +4291,7 @@ describe("admin tools", () => {
       role: "moderator",
       admin: true,
       adminRooms: [
-        expect.objectContaining({ slug: "admin-lab" }),
-        expect.objectContaining({ slug: "admin-small", maxMembers: 4 }),
+        expect.objectContaining({ slug: "admin-lab", maxMembers: 10 }),
       ],
     });
     expect(moderator.session).not.toHaveProperty("admin");
@@ -4309,17 +4312,17 @@ describe("admin tools", () => {
 
   it("fills a test room with people who are not there, up to its limit", async () => {
     const { socket } = await signIn(7, "Ada Admin");
-    await emit(socket, "room:join", { slug: "admin-small" });
+    await emit(socket, "room:join", { slug: "admin-lab" });
     const full = waitFor<Presence>(
       socket,
       "room:presence",
-      (presence) => presence.members.length === 4,
+      (presence) => presence.members.length === 10,
     );
 
     expect(await emit(socket, "admin:fake:fill")).toEqual({ ok: true });
     expect(
       (await full).members.filter((m) => m.guestId.startsWith("fake-")),
-    ).toHaveLength(3);
+    ).toHaveLength(9);
     expect(await emit(socket, "admin:fake:fill")).toEqual({
       ok: false,
       error: "room_full",
@@ -4354,6 +4357,26 @@ describe("admin tools", () => {
     expect(await emit(socket, "admin:fake:remove")).toEqual({
       ok: false,
       error: "nobody",
+    });
+  });
+
+  it("uses the tools on a test room from outside it, which counts the people for the list of rooms", async () => {
+    const { socket } = await signIn(7, "Ada Admin");
+    const counted = waitFor<{ roomSlug: string; count: number }>(
+      socket,
+      "admin:count",
+      (next) => next.count === 2,
+    );
+
+    await emit(socket, "admin:fake:add", { slug: "admin-lab" });
+    expect(
+      await emit(socket, "admin:fake:add", { slug: "admin-lab" }),
+    ).toEqual({ ok: true });
+
+    expect(await counted).toEqual({ roomSlug: "admin-lab", count: 2 });
+    expect(await emit(socket, "admin:fake:add", { slug: "general" })).toEqual({
+      ok: false,
+      error: "not_in_test_room",
     });
   });
 
@@ -4454,18 +4477,22 @@ describe("admin tools", () => {
       });
     });
 
-    it("takes no more people than the room has seats", async () => {
+    it("takes no more people than the room has seats, and refuses more than it holds", async () => {
       const { socket } = await signIn(7, "Ada Admin");
-      await emit(socket, "room:join", { slug: "admin-small" });
+      await emit(socket, "room:join", { slug: "admin-lab" });
       const full = waitFor<Presence>(
         socket,
         "room:presence",
-        (presence) => presence.members.length === 4,
+        (presence) => presence.members.length === 10,
       );
 
-      await emit(socket, "admin:crowd:start", { people: 50 });
+      expect(await emit(socket, "admin:crowd:start", { people: 11 })).toEqual({
+        ok: false,
+        error: "invalid_people",
+      });
+      await emit(socket, "admin:crowd:start", { people: 10 });
 
-      expect((await full).members).toHaveLength(4);
+      expect((await full).members).toHaveLength(10);
       expect(await emit(socket, "admin:fake:add")).toEqual({
         ok: false,
         error: "room_full",
@@ -4492,18 +4519,44 @@ describe("admin tools", () => {
       ).toEqual({ ok: false, error: "forbidden" });
     });
 
-    it("goes when the last real person leaves", async () => {
+    it("stays after the admin leaves the room, counted for the list of rooms", async () => {
       const { socket } = await signIn(7, "Ada Admin");
       await emit(socket, "room:join", { slug: "admin-lab" });
+      const running = waitFor<CrowdState>(
+        socket,
+        "crowd:state",
+        (next) => next.status === "running" && next.people === 2,
+      );
       await emit(socket, "admin:crowd:start", { people: 2 });
+      await running;
+
+      const counted = waitFor<{ roomSlug: string; count: number }>(
+        socket,
+        "admin:count",
+        (next) => next.count === 2,
+      );
       await emit(socket, "room:leave");
 
-      await emit(socket, "room:join", { slug: "admin-lab" });
-      const stopped = waitFor<CrowdState>(socket, "crowd:state");
-      await emit(socket, "room:leave");
+      expect(await counted).toEqual({ roomSlug: "admin-lab", count: 2 });
+
+      const told = waitFor<CrowdState>(socket, "crowd:state");
       await emit(socket, "room:join", { slug: "admin-lab" });
 
-      expect(await stopped).toMatchObject({ status: "stopped", people: 0 });
+      expect(await told).toMatchObject({ status: "running", people: 2 });
+    });
+
+    it("goes when the last admin disconnects", async () => {
+      const first = await signIn(7, "Ada Admin");
+      await emit(first.socket, "room:join", { slug: "admin-lab" });
+      await emit(first.socket, "admin:crowd:start", { people: 2 });
+      first.socket.disconnect();
+      // The server notices the disconnect a moment later.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const second = await signIn(7, "Ada Admin", first.port);
+      const told = waitFor<CrowdState>(second.socket, "crowd:state");
+      await emit(second.socket, "room:join", { slug: "admin-lab" });
+      expect(await told).toMatchObject({ status: "stopped", people: 0 });
     });
   });
 });

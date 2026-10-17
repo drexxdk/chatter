@@ -55,6 +55,7 @@ import {
   clearSession,
   loadDirect,
   loadSession,
+  onSignedOutElsewhere,
   rememberConnection,
   rememberProfile,
   saveDirect,
@@ -119,8 +120,16 @@ export function App({
 
   const rooms = roomsState.status === "ready" ? roomsState.rooms : [];
   // The rooms only an admin can enter are listed for them alone, in the lobby and the room switcher.
-  const adminRooms = chat.session?.adminRooms ?? [];
+  const adminRooms = (chat.session?.adminRooms ?? []).map((room) => ({
+    ...room,
+    memberCount: chat.adminCounts[room.slug] ?? 0,
+  }));
   const knownRooms = [...rooms, ...adminRooms];
+  // What the admin's tools work on: the test room they are in, and otherwise the first.
+  const testRoom =
+    adminRooms.find((room) => room.slug === chat.roomSlug) ??
+    adminRooms[0] ??
+    null;
   const currentRoom = knownRooms.find((room) => room.slug === chat.roomSlug);
   const inRoom = Boolean(chat.roomSlug && chat.session);
   // What is shown when not in a room: one of the site's pages, or the lobby.
@@ -395,6 +404,8 @@ export function App({
     handleSelect,
     location,
     navigate,
+    signedIn: false,
+    signOut,
   });
   latest.current = {
     chat,
@@ -402,7 +413,18 @@ export function App({
     handleSelect,
     location,
     navigate,
+    signedIn: Boolean(account) || chat.session?.role === "moderator",
+    signOut,
   };
+
+  // Signing out in one tab signs this one out too, but a guest has nothing shared to lose.
+  useEffect(
+    () =>
+      onSignedOutElsewhere(() => {
+        if (latest.current.signedIn) latest.current.signOut();
+      }),
+    [],
+  );
 
   // The other tabs are told when this one is in a room, and this one leaves its room when another takes over.
   useEffect(() => {
@@ -722,10 +744,9 @@ export function App({
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
               {chat.session?.admin && (
                 <AdminMenu
-                  rooms={adminRooms}
-                  slug={chat.roomSlug}
+                  room={testRoom}
                   crowd={
-                    chat.crowd?.roomSlug === chat.roomSlug ? chat.crowd : null
+                    chat.crowd?.roomSlug === testRoom?.slug ? chat.crowd : null
                   }
                   onTool={(event, payload) =>
                     void chat.adminTool(event, payload)

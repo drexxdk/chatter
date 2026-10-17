@@ -148,6 +148,10 @@ type Ack = (
 
 const roomKey = (slug: string) => `room:${slug}`;
 
+// Every connected admin: the test rooms' people and crowd stay while one is, wherever they are, and each is told how the
+// crowd stands and how many are in the rooms.
+const ADMIN_KEY = "admins";
+
 // Runs tasks for the same room one at a time so a capacity check and the join that follows can't interleave.
 // Only covers this process; multiple nodes would need a Redis-side counter.
 const roomLocks = new Map<string, Promise<void>>();
@@ -299,14 +303,30 @@ export function createSocketServer(
     createAdapter(pubClient, subClient, { key: env.SOCKET_ADAPTER_KEY }),
   );
 
+  // People who were only for show go when the last real one does; in a test room, when the last admin does.
+  async function dropShow(slug: string): Promise<void> {
+    if (
+      isAdminRoom(slug) &&
+      (await io.in(ADMIN_KEY).fetchSockets()).length > 0
+    ) {
+      return;
+    }
+
+    fakeMembers.delete(slug);
+    crowd.discard(slug);
+  }
+
+  // Who is in a test room, the people who are not there too: what its card in the list says.
+  async function peopleIn(slug: string): Promise<number> {
+    const here = (await io.in(roomKey(slug)).fetchSockets()).length;
+
+    return here + (fakeMembers.get(slug)?.length ?? 0);
+  }
+
   async function emitPresence(slug: string): Promise<void> {
     const members = await io.in(roomKey(slug)).fetchSockets();
 
-    // People who were only for show go when the last real one does.
-    if (members.length === 0) {
-      fakeMembers.delete(slug);
-      crowd.discard(slug);
-    }
+    if (members.length === 0) await dropShow(slug);
 
     io.to(roomKey(slug)).emit("room:presence", {
       roomSlug: slug,
@@ -324,6 +344,13 @@ export function createSocketServer(
         ...(fakeMembers.get(slug) ?? []),
       ],
     });
+
+    if (isAdminRoom(slug)) {
+      io.to(ADMIN_KEY).emit("admin:count", {
+        roomSlug: slug,
+        count: await peopleIn(slug),
+      });
+    }
   }
 
   const announceFake = (
@@ -402,7 +429,10 @@ export function createSocketServer(
         await emitPresence(slug);
       },
       changed: (slug, state) =>
-        io.to(roomKey(slug)).emit("crowd:state", { roomSlug: slug, ...state }),
+        io
+          .to(roomKey(slug))
+          .to(ADMIN_KEY)
+          .emit("crowd:state", { roomSlug: slug, ...state }),
     },
     { rampMs: options.crowdRampMs },
   );
@@ -714,6 +744,18 @@ export function createSocketServer(
       await socket.leave(roomKey(slug));
       announceLeave(slug, data);
       await emitPresence(slug);
+    }
+
+    if (data.admin) {
+      void Promise.resolve(socket.join(ADMIN_KEY)).then(async () => {
+        for (const { slug } of ADMIN_ROOMS) {
+          socket.emit("crowd:state", { roomSlug: slug, ...crowd.state(slug) });
+          socket.emit("admin:count", {
+            roomSlug: slug,
+            count: await peopleIn(slug),
+          });
+        }
+      });
     }
 
     socket.emit("session", {
@@ -1273,7 +1315,9 @@ export function createSocketServer(
 
         if (!data.admin) return reply({ ok: false, error: "forbidden" });
 
-        const slug = data.roomSlug ?? "";
+        // A test room can be named, to use the tools from outside it.
+        const named = stringField(payload, "slug");
+        const slug = isAdminRoom(named) ? named : (data.roomSlug ?? "");
 
         if (inTestRoom && !isAdminRoom(slug)) {
           return reply({ ok: false, error: "not_in_test_room" });
@@ -1342,23 +1386,27 @@ export function createSocketServer(
       await emitPresence(slug);
     });
 
-    const peopleOf = (payload: unknown) => {
+    // A crowd takes no more than the room holds.
+    const peopleOf = (slug: string, payload: unknown) => {
       const people = Number((payload as { people?: unknown } | null)?.people);
+      const limit = adminRoomOf(slug)?.maxMembers;
 
-      return Number.isInteger(people) && people >= 1 && people <= MAX_CROWD
+      return Number.isInteger(people) &&
+        people >= 1 &&
+        people <= (typeof limit === "number" ? limit : MAX_CROWD)
         ? people
         : undefined;
     };
 
     // The crowd: people who write and react by themselves, started, paused and stopped from the admin's menu.
     adminTool("admin:crowd:start", (slug, payload) => {
-      const people = peopleOf(payload);
+      const people = peopleOf(slug, payload);
 
       return people ? crowd.start(slug, people) : "invalid_people";
     });
 
     adminTool("admin:crowd:people", (slug, payload) => {
-      const people = peopleOf(payload);
+      const people = peopleOf(slug, payload);
 
       return people ? crowd.setPeople(slug, people) : "invalid_people";
     });
@@ -1630,6 +1678,19 @@ export function createSocketServer(
         emitPresence(data.roomSlug).catch((error) =>
           log.error("Presence update failed", error),
         );
+      }
+
+      // The last admin gone leaves the test rooms' people with nobody to see them.
+      if (data.admin) {
+        for (const { slug } of ADMIN_ROOMS) {
+          if (slug === data.roomSlug) continue;
+
+          void io
+            .in(roomKey(slug))
+            .fetchSockets()
+            .then((members) => (members.length === 0 ? dropShow(slug) : undefined))
+            .catch((error) => log.error("Presence update failed", error));
+        }
       }
     });
   });

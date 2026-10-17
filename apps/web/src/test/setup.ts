@@ -231,6 +231,9 @@ afterEach(async () => {
   // Every test's page asks the chat-server which providers it has.
   forgetAuthProviders();
   sessionStorage.clear();
+  for (const entry of document.cookie.split("; ")) {
+    document.cookie = `${entry.split("=")[0]}=; Max-Age=0; Path=/`;
+  }
   // The address is part of what the app keeps, so every test starts at the lobby.
   window.history.replaceState(null, "", "/");
   await i18n.changeLanguage("en");

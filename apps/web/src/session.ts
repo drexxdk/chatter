@@ -4,6 +4,7 @@ import { AVATARS, PLAIN_AVATAR, type Avatar } from "./chat/avatar";
 import { parseThreads, type DirectThread } from "./chat/direct";
 import { parsePicture } from "./chat/picture";
 import type { Resume } from "./chat/socket";
+import { KEY as ACCOUNT_KEY } from "./account";
 import { parseAge } from "./profile";
 
 const KEY = "chatter.session";
@@ -43,22 +44,53 @@ function isResume(value: unknown): value is Resume {
   );
 }
 
-// A moderator's sign-in is kept for the whole browser, in local storage, so that a new tab is signed in too; the token is
-// the signed one the server gave (it stops working by itself), never an email or a password. Only the name and token are
-// kept: what else a tab remembers (its connection ids and secret) is its own.
+// A moderator's sign-in is kept for the whole browser, so that a new tab is signed in too: in local storage and in a
+// cookie, which is what a browser shares between its tabs even where storage is kept apart (as in an embedded browser). The
+// token is the signed one the server gave (it stops working by itself), never an email or a password. Only the name and
+// token are kept: what else a tab remembers (its connection ids and secret) is its own.
+const COOKIE_MAX_AGE_SECONDS = 8 * 60 * 60;
+
+function cookieAttributes(maxAge: number) {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+
+  return `; Path=/; Max-Age=${maxAge}; SameSite=Strict${secure}`;
+}
+
 export function saveModerator(moderator: { nickname: string; token: string }) {
+  const value = JSON.stringify(moderator);
+
   try {
-    localStorage.setItem(MODERATOR_KEY, JSON.stringify(moderator));
+    localStorage.setItem(MODERATOR_KEY, value);
   } catch {
     // See saveSession.
   }
+
+  try {
+    document.cookie = `${MODERATOR_KEY}=${encodeURIComponent(value)}${cookieAttributes(COOKIE_MAX_AGE_SECONDS)}`;
+  } catch {
+    // Cookies can be switched off.
+  }
 }
 
-function loadModerator(): SavedSession | null {
+// Told when another tab signed out: the account or the moderator was removed from the storage the tabs share.
+// The browser raises this event in the other tabs only.
+export function onSignedOutElsewhere(listener: () => void): () => void {
+  const handle = (event: StorageEvent) => {
+    const removed =
+      event.key === null ||
+      ((event.key === ACCOUNT_KEY || event.key === MODERATOR_KEY) &&
+        event.newValue === null);
+
+    if (removed) listener();
+  };
+
+  window.addEventListener("storage", handle);
+  return () => window.removeEventListener("storage", handle);
+}
+
+function readModerator(raw: string | null): SavedSession | null {
   try {
-    const value: unknown = JSON.parse(
-      localStorage.getItem(MODERATOR_KEY) ?? "null",
-    );
+    const value: unknown = JSON.parse(raw ?? "null");
     const { nickname, token } = (value ?? {}) as Record<string, unknown>;
 
     return typeof nickname === "string" &&
@@ -70,6 +102,31 @@ function loadModerator(): SavedSession | null {
   } catch {
     return null;
   }
+}
+
+function loadModerator(): SavedSession | null {
+  let stored: string | null = null;
+  let cookie: string | null = null;
+
+  try {
+    stored = localStorage.getItem(MODERATOR_KEY);
+  } catch {
+    // See saveSession.
+  }
+
+  try {
+    const found = document.cookie
+      .split("; ")
+      .find((entry) => entry.startsWith(`${MODERATOR_KEY}=`));
+
+    cookie = found
+      ? decodeURIComponent(found.slice(MODERATOR_KEY.length + 1))
+      : null;
+  } catch {
+    // Cookies can be switched off, or hold something that is not ours to read.
+  }
+
+  return readModerator(stored) ?? readModerator(cookie);
 }
 
 // What this tab kept, or else the moderator who is signed in in the browser.
@@ -177,6 +234,7 @@ export function clearSession(): void {
     sessionStorage.removeItem(KEY);
     sessionStorage.removeItem(DIRECT_KEY);
     localStorage.removeItem(MODERATOR_KEY);
+    document.cookie = `${MODERATOR_KEY}=${cookieAttributes(0)}`;
   } catch {
     // See saveSession.
   }

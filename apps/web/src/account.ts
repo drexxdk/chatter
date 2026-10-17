@@ -6,7 +6,7 @@ import { AVATARS, type Avatar } from "./chat/avatar";
 import { parsePicture } from "./chat/picture";
 import { parseAge } from "./profile";
 
-const KEY = "chatter.account";
+export const KEY = "chatter.account";
 
 export interface Account {
   token: string;

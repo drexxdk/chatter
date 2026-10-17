@@ -29,30 +29,33 @@ const heading = "px-2 py-1 text-xs font-semibold uppercase text-neutral-500";
 // Why the server removes somebody; each can be shown to the admin themselves.
 const KICK_REASONS = ["inactivity", "banned", "replaced", "invalid_token"];
 
-// How many people the crowd can be.
-const AMOUNTS = [10, 25, 50, 100];
+// What the crowd is when nothing else is chosen, and the most it can be in a room with no limit.
+const DEFAULT_AMOUNT = 10;
+const MAX_AMOUNT = 200;
 
 // The admin's tools for trying the chat out in the rooms only they can enter: people who are not there, a crowd of them that
 // writes by itself, and being removed.
 export function AdminMenu({
-  rooms,
-  slug,
+  room,
   crowd,
   onTool,
 }: {
-  // The rooms the tools are for.
-  rooms: Room[];
-  // The room the admin is in, if any.
-  slug: string | null;
+  // The test room the tools are for; none, and they cannot be used.
+  room: Room | null;
   crowd: CrowdState | null;
   onTool: (event: string, payload?: unknown) => void;
 }) {
   const { t } = useTranslation();
-  const [amount, setAmount] = useState(25);
-  const inTestRoom = rooms.some((room) => room.slug === slug);
+  const [amount, setAmount] = useState(String(DEFAULT_AMOUNT));
+  const inTestRoom = room !== null;
   const status = crowd?.status ?? "stopped";
-  // The number the crowd is meant to be while it runs; what was chosen otherwise.
-  const chosen = status === "stopped" ? amount : (crowd?.target ?? amount);
+  // The crowd can be no more than the room holds.
+  const limit = room?.maxMembers ?? MAX_AMOUNT;
+  const people = /^\d+$/.test(amount) ? Number(amount) : 0;
+  const valid = people >= 1 && people <= limit;
+  // The room is named, so that the tools work from outside it too.
+  const use = (event: string, payload?: object) =>
+    onTool(event, { ...payload, slug: room?.slug });
 
   return (
     <div className="relative">
@@ -80,48 +83,64 @@ export function AdminMenu({
                     : null}
                 </span>
               </MenuHeading>
-              <div className="grid grid-cols-4 gap-1">
-                {AMOUNTS.map((people) => (
-                  <MenuItem key={people} disabled={!inTestRoom}>
-                    <button
-                      type="button"
-                      aria-checked={people === chosen}
-                      onClick={(event) => {
-                        // The menu stays open, to start or change the crowd after choosing.
-                        event.preventDefault();
-                        setAmount(people);
+              <form
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
 
-                        if (status !== "stopped") {
-                          onTool("admin:crowd:people", { people });
-                        }
-                      }}
-                      className={`${MENU_ITEM} justify-center px-1 py-2 ${people === chosen ? "bg-neutral-800 ring-1 ring-indigo-400" : ""}`}
-                    >
-                      {people}
-                    </button>
-                  </MenuItem>
-                ))}
-              </div>
-              {status === "stopped" ? (
-                <MenuItem disabled={!inTestRoom}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onTool("admin:crowd:start", { people: chosen })
+                  if (!inTestRoom || !valid) return;
+
+                  use(
+                    status === "stopped"
+                      ? "admin:crowd:start"
+                      : "admin:crowd:people",
+                    { people },
+                  );
+                }}
+                className="flex gap-1 pb-1"
+              >
+                <input
+                  type="text"
+                  // The menu gives every element in it without a role the role of none, which would hide these from
+                  // assistive technology.
+                  role="textbox"
+                  inputMode="numeric"
+                  value={amount}
+                  disabled={!inTestRoom}
+                  aria-label={t("admin.crowd.amount", { max: limit })}
+                  aria-invalid={!valid}
+                  onChange={(event) => setAmount(event.target.value)}
+                  // The menu would take the keys for moving between items and for finding one by its first letter.
+                  onKeyDown={(event) => {
+                    if (event.key !== "Escape" && event.key !== "Tab") {
+                      event.stopPropagation();
                     }
-                    className={item}
-                  >
-                    <Play aria-hidden="true" className="h-5 w-5 shrink-0" />
-                    {t("admin.crowd.start")}
-                  </button>
-                </MenuItem>
-              ) : (
+                  }}
+                  className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm outline-none focus:border-indigo-400 aria-invalid:border-red-500"
+                />
+                <button
+                  type="submit"
+                  role="button"
+                  disabled={!inTestRoom || !valid}
+                  className="flex items-center gap-2 rounded bg-neutral-800 px-2 py-1.5 text-sm hover:bg-neutral-700 disabled:opacity-50 disabled:hover:bg-neutral-800"
+                >
+                  {status === "stopped" && (
+                    <Play aria-hidden="true" className="h-4 w-4 shrink-0" />
+                  )}
+                  {t(
+                    status === "stopped"
+                      ? "admin.crowd.start"
+                      : "admin.crowd.set",
+                  )}
+                </button>
+              </form>
+              {status !== "stopped" && (
                 <>
                   <MenuItem disabled={!inTestRoom}>
                     <button
                       type="button"
                       onClick={() =>
-                        onTool(
+                        use(
                           status === "paused"
                             ? "admin:crowd:resume"
                             : "admin:crowd:pause",
@@ -147,7 +166,7 @@ export function AdminMenu({
                   <MenuItem disabled={!inTestRoom}>
                     <button
                       type="button"
-                      onClick={() => onTool("admin:crowd:stop")}
+                      onClick={() => use("admin:crowd:stop")}
                       className={item}
                     >
                       <Square aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -163,7 +182,7 @@ export function AdminMenu({
               <MenuItem disabled={!inTestRoom}>
                 <button
                   type="button"
-                  onClick={() => onTool("admin:fake:add")}
+                  onClick={() => use("admin:fake:add")}
                   className={item}
                 >
                   <UserPlus aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -173,7 +192,7 @@ export function AdminMenu({
               <MenuItem disabled={!inTestRoom}>
                 <button
                   type="button"
-                  onClick={() => onTool("admin:fake:fill")}
+                  onClick={() => use("admin:fake:fill")}
                   className={item}
                 >
                   <UsersRound aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -183,7 +202,7 @@ export function AdminMenu({
               <MenuItem disabled={!inTestRoom}>
                 <button
                   type="button"
-                  onClick={() => onTool("admin:fake:remove")}
+                  onClick={() => use("admin:fake:remove")}
                   className={item}
                 >
                   <UserMinus aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -193,7 +212,7 @@ export function AdminMenu({
               <MenuItem disabled={!inTestRoom}>
                 <button
                   type="button"
-                  onClick={() => onTool("admin:fake:clear")}
+                  onClick={() => use("admin:fake:clear")}
                   className={item}
                 >
                   <UserX aria-hidden="true" className="h-5 w-5 shrink-0" />

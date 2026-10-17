@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -78,8 +78,15 @@ describe("the admin's rooms", () => {
     await signIn(user);
 
     expect(
-      await screen.findByRole("button", { name: "Join Test room (4 people)" }),
+      await screen.findByRole("button", { name: "Join Test lab" }),
     ).toBeVisible();
+
+    // First in the list, before the real rooms.
+    const joins = screen
+      .getAllByRole("button", { name: /^Join / })
+      .map((button) => button.getAttribute("aria-label"));
+
+    expect(joins[0]).toBe("Join Test lab");
 
     await user.click(screen.getByRole("button", { name: "Join Test lab" }));
 
@@ -184,21 +191,33 @@ describe("the admin's tools", () => {
     expect(screen.queryByRole("button", { name: "Admin tools" })).toBeNull();
   });
 
-  it("add and take away people only in a test room", async () => {
+  it("work on the Test lab from the list of rooms and from another room", async () => {
     stubLogin("admin-token", "Ada Admin");
     const server = makeFakeServer();
     const { user } = setup(server);
 
-    await signInAndJoin(user);
+    await signIn(user);
     await openTools(user);
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Add a person" }),
+    );
 
-    // In General, which is a real room: the tools are there but cannot be used.
-    expect(
+    expect(server.latest.emittedEvents("admin:fake:add")).toEqual([
+      { slug: "admin-lab" },
+    ]);
+    expect(server.latest.emittedEvents("room:join")).toEqual([]);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Join General" }),
+    );
+    await openTools(user);
+    await user.click(
       await screen.findByRole("menuitem", { name: "Fill the room" }),
-    ).toHaveAttribute("aria-disabled", "true");
-    expect(
-      screen.getByRole("menuitem", { name: "Start the crowd" }),
-    ).toHaveAttribute("aria-disabled", "true");
+    );
+
+    expect(server.latest.emittedEvents("admin:fake:fill")).toEqual([
+      { slug: "admin-lab" },
+    ]);
   });
 
   it("fill a test room", async () => {
@@ -248,7 +267,7 @@ describe("the crowd", () => {
       }),
     );
 
-  it("starts with the number chosen, 25 until another is", async () => {
+  it("starts with the number typed, 10 until another is", async () => {
     stubLogin("admin-token", "Ada Admin");
     const server = makeFakeServer();
     const { user } = setup(server);
@@ -256,23 +275,79 @@ describe("the crowd", () => {
     await enterTestLab(user);
     await openTools(user);
     await user.click(
-      await screen.findByRole("menuitem", { name: "Start the crowd" }),
+      await screen.findByRole("button", { name: "Start the crowd" }),
     );
 
     expect(server.latest.emittedEvents("admin:crowd:start")).toEqual([
-      { people: 25 },
+      { people: 10, slug: "admin-lab" },
     ]);
 
+    const amount = screen.getByRole("textbox", {
+      name: "Number of people (1–10)",
+    });
+
+    await user.clear(amount);
+    await user.type(amount, "6");
+    await user.click(screen.getByRole("button", { name: "Start the crowd" }));
+
+    expect(server.latest.emittedEvents("admin:crowd:start")).toEqual([
+      { people: 10, slug: "admin-lab" },
+      { people: 6, slug: "admin-lab" },
+    ]);
+  });
+
+  it("starts from the box with Enter, and takes no more than the room holds", async () => {
+    stubLogin("admin-token", "Ada Admin");
+    const server = makeFakeServer();
+    const { user } = setup(server);
+
+    await enterTestLab(user);
     await openTools(user);
-    await user.click(await screen.findByRole("menuitem", { name: "100" }));
-    await user.click(
-      await screen.findByRole("menuitem", { name: "Start the crowd" }),
-    );
+
+    const amount = await screen.findByRole("textbox", {
+      name: "Number of people (1–10)",
+    });
+
+    for (const wrong of ["11", "0", "", "ten", "2.5"]) {
+      await user.clear(amount);
+      if (wrong) await user.type(amount, wrong);
+
+      expect(amount).toBeInvalid();
+      expect(
+        screen.getByRole("button", { name: "Start the crowd" }),
+      ).toBeDisabled();
+    }
+
+    await user.clear(amount);
+    await user.type(amount, "10{Enter}");
 
     expect(server.latest.emittedEvents("admin:crowd:start")).toEqual([
-      { people: 25 },
-      { people: 100 },
+      { people: 10, slug: "admin-lab" },
     ]);
+  });
+
+  it("is counted on the Test lab's card in the list of rooms", async () => {
+    stubLogin("admin-token", "Ada Admin");
+    const server = makeFakeServer();
+    const { user } = setup(server);
+
+    await signIn(user);
+    await screen.findByRole("button", { name: "Join Test lab" });
+
+    const card = within(
+      screen.getByRole("heading", { name: "Test lab" }).closest("li")!,
+    );
+
+    expect(card.getByText("Nobody here now")).toBeVisible();
+
+    act(() =>
+      server.latest.serverEmit("admin:count", {
+        roomSlug: "admin-lab",
+        count: 6,
+      }),
+    );
+
+    expect(await card.findByText("6 people here now")).toBeVisible();
   });
 
   it("shows how it stands, and can be paused, carried on and stopped", async () => {
@@ -314,12 +389,19 @@ describe("the crowd", () => {
     const { user } = setup(server);
 
     await enterTestLab(user);
-    await told(server, "running", 25, 25);
+    await told(server, "running", 10, 10);
     await openTools(user);
-    await user.click(await screen.findByRole("menuitem", { name: "50" }));
+
+    const amount = await screen.findByRole("textbox", {
+      name: "Number of people (1–10)",
+    });
+
+    await user.clear(amount);
+    await user.type(amount, "5");
+    await user.click(screen.getByRole("button", { name: "Change" }));
 
     expect(server.latest.emittedEvents("admin:crowd:people")).toEqual([
-      { people: 50 },
+      { people: 5, slug: "admin-lab" },
     ]);
     expect(screen.getByRole("menuitem", { name: "Pause" })).toBeVisible();
   });
