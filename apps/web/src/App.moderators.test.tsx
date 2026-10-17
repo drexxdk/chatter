@@ -126,7 +126,7 @@ describe("moderators", () => {
 
       await signInAndJoin(user);
 
-      await screen.findByRole("button", { name: "Your profile: Ada Mod" });
+      await screen.findByRole("button", { name: "Account menu: Ada Mod" });
       const [, init] = fetchMock.mock.calls.find(([url]) =>
         url.endsWith("/moderator/login"),
       ) as unknown as [string, RequestInit];
@@ -149,7 +149,7 @@ describe("moderators", () => {
       const { user, server } = setup();
 
       await signInAndJoin(user);
-      await screen.findByRole("button", { name: "Your profile: Ada Mod" });
+      await screen.findByRole("button", { name: "Account menu: Ada Mod" });
 
       expect(JSON.stringify(server.createSocket.mock.calls)).not.toContain(
         "correct horse",
@@ -234,7 +234,7 @@ describe("moderators", () => {
       stubBackend(accepted);
       const { user, server } = setup(makeFakeServer(), [0]);
       await signInAndJoin(user);
-      await screen.findByRole("button", { name: "Your profile: Ada Mod" });
+      await screen.findByRole("button", { name: "Account menu: Ada Mod" });
 
       act(() => server.latest.serverEmit("disconnect", "transport close"));
 
@@ -252,7 +252,7 @@ describe("moderators", () => {
       const server = makeFakeServer();
       const { user } = setup(server, [0]);
       await signInAndJoin(user);
-      await screen.findByRole("button", { name: "Your profile: Ada Mod" });
+      await screen.findByRole("button", { name: "Account menu: Ada Mod" });
       server.failNextConnections("invalid_token");
 
       act(() => server.latest.serverEmit("disconnect", "transport close"));
@@ -272,7 +272,7 @@ describe("moderators", () => {
       const server = makeFakeServer();
       const { user } = setup(server, [0]);
       await signInAndJoin(user);
-      await screen.findByRole("button", { name: "Your profile: Ada Mod" });
+      await screen.findByRole("button", { name: "Account menu: Ada Mod" });
 
       act(() => {
         server.latest.serverEmit("kicked", { reason: "invalid_token" });
@@ -300,7 +300,7 @@ describe("moderators", () => {
       };
       const result = setup(server);
       await joinRoom(result.user);
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       return result;
     }
 
@@ -406,7 +406,7 @@ describe("announcements", () => {
   async function enterAsGuest() {
     const result = setup();
     await joinRoom(result.user);
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
     return result;
   }
 
@@ -436,7 +436,7 @@ describe("announcements", () => {
     await result.user.click(
       await screen.findByRole("button", { name: "Join General" }),
     );
-    await screen.findByRole("button", { name: "Your profile: Ada Mod" });
+    await screen.findByRole("button", { name: "Account menu: Ada Mod" });
     return result;
   }
 
@@ -528,7 +528,7 @@ describe("announcements", () => {
       const server = makeFakeServer();
       const { user } = setup(server, [60_000, 60_000]);
       await joinRoom(user);
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       act(() => server.latest.serverEmit("announcement:new", announcement()));
       act(() => server.latest.serverEmit("disconnect", "transport close"));
 
@@ -551,13 +551,13 @@ describe("announcements", () => {
       const server = makeFakeServer();
       const { user } = setup(server, [0]);
       await joinRoom(user);
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       act(() => server.latest.serverEmit("announcement:new", announcement()));
       await user.click(screen.getByRole("button", { name: "Dismiss" }));
 
       act(() => server.latest.serverEmit("disconnect", "transport close"));
       await waitFor(() => expect(server.createSocket).toHaveBeenCalledTimes(2));
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       act(() => server.latest.serverEmit("announcement:new", announcement()));
       expect(banner()).not.toBeInTheDocument();
 

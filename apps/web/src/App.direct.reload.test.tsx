@@ -117,7 +117,7 @@ describe("direct messages", () => {
       await user.click(screen.getByRole("button", { name: "Leave room" }));
       await screen.findByRole("heading", { name: "Public rooms" });
       await user.click(screen.getByRole("button", { name: "Join General" }));
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(statuses()).toHaveLength(0);
@@ -130,7 +130,7 @@ describe("direct messages", () => {
       await user.click(screen.getByRole("button", { name: "Leave room" }));
       await screen.findByRole("heading", { name: "Public rooms" });
       await user.click(screen.getByRole("button", { name: "Join Music" }));
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(statuses()).toHaveLength(0);
@@ -173,7 +173,7 @@ describe("direct messages", () => {
     async function reload(before: Entered) {
       before.unmount();
       const result = setup();
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       present(result.server, [bob, carol, ada]);
       return result;
     }
@@ -250,7 +250,7 @@ describe("direct messages", () => {
       async function reloadWith(before: Entered, others: unknown[]) {
         before.unmount();
         const result = setup(makeFakeServer({ others }));
-        await screen.findByRole("button", { name: "Your profile: Alice" });
+        await screen.findByRole("button", { name: "Account menu: Alice" });
         return result;
       }
 
@@ -338,7 +338,7 @@ describe("direct messages", () => {
         await waitFor(() => expect(server.sockets).toHaveLength(1));
         server.latest.acks["room:join"] = () => ({ ok: true });
         await user.click(screen.getByRole("button", { name: "Join Music" }));
-        await screen.findByRole("button", { name: "Your profile: Alice" });
+        await screen.findByRole("button", { name: "Account menu: Alice" });
 
         expect(
           screen.queryByRole("heading", { name: /^Direct message with/ }),
@@ -427,7 +427,7 @@ describe("direct messages", () => {
       sessionStorage.setItem("chatter.session", JSON.stringify(saved));
 
       const { user } = setup(makeFakeServer({ refuseResume: true }));
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(
@@ -461,7 +461,7 @@ describe("direct messages", () => {
 
       setup();
 
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       expect(screen.getByText("No direct messages yet.")).toBeInTheDocument();
     });
 
@@ -492,7 +492,7 @@ describe("direct messages", () => {
       window.history.replaceState(null, "", "/rooms/general");
 
       const { user } = setup();
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(log("Bob").getByText("still here")).toBeInTheDocument();
@@ -509,7 +509,7 @@ describe("direct messages", () => {
       await user.click(screen.getByRole("button", { name: "Leave room" }));
       await screen.findByRole("heading", { name: "Public rooms" });
       await user.click(screen.getByRole("button", { name: "Join Music" }));
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
 
       expect(
         threads().getByRole("button", { name: /^Bob/ }),
@@ -524,7 +524,7 @@ describe("direct messages", () => {
       await user.click(screen.getByRole("button", { name: "Leave room" }));
       await screen.findByRole("heading", { name: "Public rooms" });
       await user.click(screen.getByRole("button", { name: "Join Music" }));
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
 
       expect(pane("Bob")).not.toBeInTheDocument();
     });
@@ -533,7 +533,7 @@ describe("direct messages", () => {
       const server = makeFakeServer();
       const { user } = setup(server, [60_000, 60_000]);
       await joinRoom(user);
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       present(server, [bob]);
       receive(server, dm());
 
@@ -541,7 +541,7 @@ describe("direct messages", () => {
       await user.click(screen.getByRole("button", { name: "Leave room" }));
       await screen.findByRole("heading", { name: "Public rooms" });
       await joinRoom(user);
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
 
       expect(screen.getByText("No direct messages yet.")).toBeInTheDocument();
     });

@@ -402,7 +402,7 @@ describe("direct messages", () => {
       const server = makeFakeServer();
       const { user } = setup(server, [0]);
       await joinRoom(user);
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       present(server, [bob]);
       await user.click(
         people().getByRole("button", { name: "Open private chat with Bob" }),

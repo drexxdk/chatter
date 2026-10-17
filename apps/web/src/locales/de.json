@@ -3,7 +3,7 @@
   "language": { "label": "Sprache" },
   "menu": { "open": "Menü" },
   "profile": {
-    "open": "Dein Profil: {name}",
+    "open": "Kontomen�: {name}",
     "title": "Dein Profil",
     "age": "Alter",
     "ageHint": "{min}–{max}",
@@ -290,7 +290,7 @@
     "left": "{name} hat den Raum verlassen.",
     "idleWarning": "Du wirst aus dem Raum getrennt, wenn du nichts schreibst.",
     "idleTimeLeft": "Verbleibende Zeit",
-    "showMovements": "Anzeigen, wann Leute kommen und gehen"
+    "showMovements": "Kommen und gehen"
   },
   "announcement": {
     "title": "Ankündigung",

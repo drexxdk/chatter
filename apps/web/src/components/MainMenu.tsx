@@ -6,12 +6,20 @@ import {
   MenuItems,
   MenuSection,
 } from "@headlessui/react";
-import { DoorClosed, DoorOpen, Info, Menu as MenuIcon } from "lucide-react";
+import {
+  DoorClosed,
+  DoorOpen,
+  Info,
+  Menu as MenuIcon,
+  User,
+} from "lucide-react";
 import { Check } from "lucide-react";
 import { DE, DK, GB } from "country-flag-icons/react/3x2";
 import { useTranslation } from "react-i18next";
 
+import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
 import { LANGUAGES, setLanguage } from "../i18n";
+import { AvatarIcon } from "./Avatar";
 import { HEADER_DROPDOWN, MENU_ITEM, MENU_SURFACE } from "./dropdown";
 
 const FLAGS: Record<string, typeof GB> = {
@@ -30,11 +38,26 @@ function Flag({ code }: { code: string }) {
 
 const item = `${MENU_ITEM} gap-3 px-2 py-2`;
 
-// The burger menu: how the chat works, what the room's log shows, and the language.
+// Who is signed in, for the menu that opens from their avatar.
+export interface MenuProfile {
+  nickname: string;
+  // A line under the name, such as an account's username.
+  detail?: string;
+  avatar?: Avatar;
+  picture?: string;
+  moderator?: boolean;
+  onProfile: () => void;
+  onSignOut: () => void;
+}
+
+// The header's one menu: with somebody signed in it opens from their avatar and starts with who they are; otherwise it is
+// the burger. Then how the chat works, what the room's log shows, and the language.
 export function MainMenu({
+  profile,
   onInfo,
   movements,
 }: {
+  profile?: MenuProfile;
   // Absent where there is no chat to explain, as on the pages of the terms.
   onInfo?: () => void;
   // Only in a room's own chat, where there is a log that can show who came and went.
@@ -47,18 +70,69 @@ export function MainMenu({
   return (
     <div className="relative">
       <Menu>
-        <MenuButton
-          aria-label={t("menu.open")}
-          className="rounded-md p-2 outline-none hover:bg-neutral-800 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
-        >
-          <MenuIcon aria-hidden="true" className="h-5 w-5" />
-        </MenuButton>
+        {profile ? (
+          <MenuButton
+            aria-label={t("profile.open", { name: profile.nickname })}
+            className="flex rounded-full p-1 outline-none hover:bg-neutral-800 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
+          >
+            <AvatarIcon
+              avatar={profile.avatar ?? PLAIN_AVATAR}
+              picture={profile.picture}
+              small
+              titled={false}
+            />
+          </MenuButton>
+        ) : (
+          <MenuButton
+            aria-label={t("menu.open")}
+            className="rounded-md p-2 outline-none hover:bg-neutral-800 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
+          >
+            <MenuIcon aria-hidden="true" className="h-5 w-5" />
+          </MenuButton>
+        )}
         {/* At the button's right edge: a portal in the document makes the page scroll to the item. */}
         <div className="absolute right-0 w-0">
           <MenuItems
             modal={false}
             className={`${HEADER_DROPDOWN} w-64 -translate-x-full space-y-1 ${MENU_SURFACE}`}
           >
+            {profile && (
+              <>
+                <div className="flex items-center gap-3 px-2 py-2">
+                  <AvatarIcon
+                    avatar={profile.avatar ?? PLAIN_AVATAR}
+                    picture={profile.picture}
+                    large
+                    titled={false}
+                  />
+                  <div className="min-w-0">
+                    <p
+                      className={`font-bold wrap-break-word ${profile.moderator ? "text-green-400" : ""}`}
+                    >
+                      {profile.nickname}
+                    </p>
+                    {profile.detail && (
+                      <p className="truncate text-sm text-neutral-400">
+                        {profile.detail}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <MenuSection className="space-y-1 border-t border-neutral-800 pt-1">
+                  <MenuItem>
+                    <button
+                      type="button"
+                      onClick={profile.onProfile}
+                      className={item}
+                    >
+                      <User aria-hidden="true" className="h-5 w-5 shrink-0" />
+                      {t("profile.title")}
+                    </button>
+                  </MenuItem>
+                </MenuSection>
+              </>
+            )}
+
             {onInfo && (
               <MenuItem>
                 <button type="button" onClick={onInfo} className={item}>
@@ -88,8 +162,8 @@ export function MainMenu({
               </MenuItem>
             )}
 
-            <MenuSection className="border-t border-neutral-800 pt-1">
-              <MenuHeading className="px-2 py-1 text-xs font-semibold uppercase text-neutral-500">
+            <MenuSection className="grid grid-cols-3 gap-1 border-t border-neutral-800 pt-1">
+              <MenuHeading className="col-span-3 px-2 py-1 text-xs font-semibold uppercase text-neutral-500">
                 {t("language.label")}
               </MenuHeading>
               {LANGUAGES.map((language) => (
@@ -98,20 +172,29 @@ export function MainMenu({
                     type="button"
                     aria-checked={language.code === current}
                     onClick={() => setLanguage(language.code)}
-                    className={item}
+                    className={`${MENU_ITEM} flex-col gap-1 px-1 py-2 text-xs ${language.code === current ? "bg-neutral-800 ring-1 ring-indigo-400" : ""}`}
                   >
                     <Flag code={language.code} />
-                    <span className="flex-1">{language.label}</span>
-                    {language.code === current && (
-                      <Check
-                        aria-hidden="true"
-                        className="h-4 w-4 text-indigo-300"
-                      />
-                    )}
+                    {language.label}
                   </button>
                 </MenuItem>
               ))}
             </MenuSection>
+
+            {profile && (
+              <MenuSection className="border-t border-neutral-800 pt-1">
+                <MenuItem>
+                  <button
+                    type="button"
+                    onClick={profile.onSignOut}
+                    className={item}
+                  >
+                    <DoorOpen aria-hidden="true" className="h-5 w-5 shrink-0" />
+                    {t("account.signOut")}
+                  </button>
+                </MenuItem>
+              </MenuSection>
+            )}
           </MenuItems>
         </div>
       </Menu>

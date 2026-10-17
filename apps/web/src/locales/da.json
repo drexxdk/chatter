@@ -3,7 +3,7 @@
   "language": { "label": "Sprog" },
   "menu": { "open": "Menu" },
   "profile": {
-    "open": "Din profil: {name}",
+    "open": "Kontomenu: {name}",
     "title": "Din profil",
     "age": "Alder",
     "ageHint": "{min}–{max}",

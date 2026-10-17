@@ -23,7 +23,7 @@ async function enter(server = makeFakeServer()) {
   await user.click(await screen.findByRole("button", { name: "Join General" }));
   await user.type(await screen.findByLabelText("Nickname"), "Alice");
   await user.click(screen.getByRole("button", { name: "Continue" }));
-  await screen.findByRole("button", { name: "Your profile: Alice" });
+  await screen.findByRole("button", { name: "Account menu: Alice" });
 
   return { user, server };
 }
@@ -33,7 +33,10 @@ const openProfile = async (
   user: ReturnType<typeof userEvent.setup>,
   { edit = true }: { edit?: boolean } = {},
 ) => {
-  await user.click(screen.getByRole("button", { name: /^Your profile:/ }));
+  await user.click(screen.getByRole("button", { name: /^Account menu:/ }));
+  await user.click(
+    await screen.findByRole("menuitem", { name: "Your profile" }),
+  );
   const dialog = within(
     await screen.findByRole("dialog", { name: "Your profile" }),
   );
@@ -78,7 +81,7 @@ describe("the profile button", () => {
   it("is the guest's picture, without a tooltip that names it", async () => {
     await enter();
 
-    const button = screen.getByRole("button", { name: "Your profile: Alice" });
+    const button = screen.getByRole("button", { name: "Account menu: Alice" });
 
     expect(button.querySelector("[data-picture]")).not.toBeNull();
     expect(button.querySelector("[data-picture]")).not.toHaveAttribute("title");
@@ -125,7 +128,7 @@ describe("the profile button", () => {
     );
     expect(
       await screen.findByRole("button", {
-        name: "Your profile: Alicia",
+        name: "Account menu: Alicia",
         hidden: true,
       }),
     ).toBeInTheDocument();
@@ -343,7 +346,7 @@ describe("a nickname somebody in the room already has", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(TAKEN);
     expect(screen.getByLabelText("Nickname")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Your profile:/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Account menu:/ })).toBeNull();
 
     server.acks["room:join"] = () => ({ ok: true });
     await user.clear(screen.getByLabelText("Nickname"));
@@ -351,7 +354,7 @@ describe("a nickname somebody in the room already has", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(
-      await screen.findByRole("button", { name: "Your profile: Alicia" }),
+      await screen.findByRole("button", { name: "Account menu: Alicia" }),
     ).toBeInTheDocument();
   });
 
@@ -385,7 +388,7 @@ describe("a nickname somebody in the room already has", () => {
 
     expect(await dialog.findByRole("alert")).toHaveTextContent(TAKEN);
     expect(
-      screen.getByRole("button", { name: "Your profile: Alice", hidden: true }),
+      screen.getByRole("button", { name: "Account menu: Alice", hidden: true }),
     ).toBeInTheDocument();
   });
 });

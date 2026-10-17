@@ -25,10 +25,12 @@ describe("who comes and goes", () => {
   const roomLog = () => within(screen.getByRole("log", { name: "General" }));
   // The setting is an item of the burger menu, which closes when it is used.
   const toggleItem = async (user: ReturnType<typeof userEvent.setup>) => {
-    await user.click(screen.getByRole("button", { name: "Menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /^(Menu|Account menu:)/ }),
+    );
 
     return screen.findByRole("menuitem", {
-      name: "Show when people join and leave",
+      name: "Joins and leaves",
     });
   };
   const present = (
@@ -77,7 +79,7 @@ describe("who comes and goes", () => {
     // What the server hands over with the join.
     server.acks["room:join"] = () => ({ ok: true, history });
     await joinRoom(result.user);
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
     return result;
   }
 
@@ -513,7 +515,7 @@ describe("who comes and goes", () => {
     await user.click(screen.getByRole("button", { name: "Leave room" }));
     await screen.findByRole("heading", { name: "Public rooms" });
     await user.click(screen.getByRole("button", { name: "Join Music" }));
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
 
     expect(screen.queryByText("Carol joined the room.")).toBeNull();
   });
@@ -533,7 +535,7 @@ describe("avatars", () => {
     await openDialog(user);
     await user.type(screen.getByLabelText("Nickname"), "Alice");
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
   }
 
   describe("choosing a picture", () => {
@@ -546,7 +548,7 @@ describe("avatars", () => {
       await user.type(screen.getByLabelText("Nickname"), "Alice");
       await user.click(screen.getByRole("button", { name: "Continue" }));
       const profile = await screen.findByRole("button", {
-        name: "Your profile: Alice",
+        name: "Account menu: Alice",
       });
       const chosen = server.createSocket.mock.calls[0]?.[5] as string;
 
@@ -564,7 +566,10 @@ describe("avatars", () => {
       await submitAs(user);
 
       await user.click(
-        screen.getByRole("button", { name: "Your profile: Alice" }),
+        screen.getByRole("button", { name: "Account menu: Alice" }),
+      );
+      await user.click(
+        await screen.findByRole("menuitem", { name: "Your profile" }),
       );
       await user.click(
         await screen.findByRole("button", { name: "Edit profile" }),
@@ -592,7 +597,7 @@ describe("avatars", () => {
 
       await user.type(screen.getByLabelText("Nickname"), "Alice");
       await user.click(screen.getByRole("button", { name: "Continue" }));
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
 
       expect(server.createSocket).toHaveBeenCalledWith(
         "Alice",
@@ -608,7 +613,10 @@ describe("avatars", () => {
       const first = setup();
       await submitAs(first.user);
       await first.user.click(
-        screen.getByRole("button", { name: "Your profile: Alice" }),
+        screen.getByRole("button", { name: "Account menu: Alice" }),
+      );
+      await first.user.click(
+        await screen.findByRole("menuitem", { name: "Your profile" }),
       );
       await first.user.click(
         await screen.findByRole("button", { name: "Edit profile" }),
@@ -626,7 +634,7 @@ describe("avatars", () => {
 
       const { server } = setup();
 
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       expect(server.createSocket).toHaveBeenCalledWith(
         "Alice",
         undefined,
@@ -644,7 +652,7 @@ describe("avatars", () => {
       window.history.replaceState(null, "", "/rooms/general");
       const { server } = setup();
 
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
 
       expect(server.createSocket).toHaveBeenCalledWith("Alice");
     });
@@ -661,7 +669,7 @@ describe("avatars", () => {
       };
       const result = setup(server);
       await joinRoom(result.user);
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       return result;
     }
 
@@ -821,7 +829,7 @@ describe("avatars", () => {
       };
       const { user } = setup(server);
       await joinRoom(user);
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
 
       expect(side("theirs")).toBe("left");
       expect(side("mine")).toBe("right");

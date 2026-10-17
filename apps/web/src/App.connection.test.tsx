@@ -22,7 +22,7 @@ describe("losing the connection", () => {
   async function enterRoom(server = makeFakeServer(), delays = [5, 5, 5]) {
     const result = setup(server, delays);
     await joinRoom(result.user);
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
     return result;
   }
 
@@ -258,7 +258,7 @@ describe("a connection that keeps failing", () => {
     const server = makeFakeServer();
     const { user } = setup(server, [60_000]);
     await joinRoom(user);
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
 
     act(() => server.latest.serverEmit("disconnect", "transport close"));
     await screen.findByRole("status");
@@ -269,14 +269,14 @@ describe("a connection that keeps failing", () => {
     });
 
     await waitFor(() => expect(server.createSocket).toHaveBeenCalledTimes(2));
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
   });
 
   it("tries again at once when the guest comes back to the tab", async () => {
     const server = makeFakeServer();
     const { user } = setup(server, [60_000]);
     await joinRoom(user);
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
 
     act(() => server.latest.serverEmit("disconnect", "transport close"));
     await screen.findByRole("status");

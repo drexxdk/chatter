@@ -40,7 +40,6 @@ import { MainMenu } from "./components/MainMenu";
 import { NicknameDialog } from "./components/NicknameDialog";
 import { ModeratorDialog } from "./components/ModeratorDialog";
 import { PageFrame } from "./components/PageFrame";
-import { ProfileButton } from "./components/ProfileButton";
 import { ProfileDialog, type ProfileSubject } from "./components/ProfileDialog";
 import { RoomSwitcher } from "./components/RoomSwitcher";
 import { SideDrawer } from "./components/SideDrawer";
@@ -613,22 +612,34 @@ export function App({
               </h1>
             )}
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-              {!settled ? null : chat.session ? (
-                <ProfileButton
-                  nickname={chat.session.nickname}
-                  avatar={chat.session.avatar}
-                  picture={chat.session.picture}
-                  onClick={() => setProfileOpen(true)}
-                />
-              ) : account ? (
-                <ProfileButton
-                  nickname={account.nickname}
-                  avatar={account.avatar}
-                  picture={account.picture}
-                  onClick={() => setAccountOpen(true)}
-                />
-              ) : null}
               <MainMenu
+                profile={
+                  !settled
+                    ? undefined
+                    : chat.session
+                      ? {
+                          nickname: chat.session.nickname,
+                          detail:
+                            chat.session.role === "member"
+                              ? account?.username
+                              : undefined,
+                          avatar: chat.session.avatar,
+                          picture: chat.session.picture,
+                          moderator: chat.session.role === "moderator",
+                          onProfile: () => setProfileOpen(true),
+                          onSignOut: signOut,
+                        }
+                      : account
+                        ? {
+                            nickname: account.nickname,
+                            detail: account.username,
+                            avatar: account.avatar,
+                            picture: account.picture,
+                            onProfile: () => setAccountOpen(true),
+                            onSignOut: signOut,
+                          }
+                        : undefined
+                }
                 onInfo={() => setInfoOpen(true)}
                 movements={
                   chat.roomSlug && chat.session && !chat.direct.active

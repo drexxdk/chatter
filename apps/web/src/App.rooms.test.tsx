@@ -141,7 +141,7 @@ describe("lobby", () => {
   it("fetches the numbers again when back in the lobby from a room", async () => {
     const { user } = setup();
     await joinRoom(user);
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
     const fetchMock = stubRooms(async () => ({
       ok: true,
       json: async () => [{ ...ROOMS[0], memberCount: 5 }],
@@ -189,7 +189,7 @@ describe("joining a room", () => {
     await joinRoom(user, "General", "  Alice  ");
 
     expect(
-      await screen.findByRole("button", { name: "Your profile: Alice" }),
+      await screen.findByRole("button", { name: "Account menu: Alice" }),
     ).toBeInTheDocument();
     expect(server.createSocket).toHaveBeenCalledWith(
       "Alice",
@@ -313,7 +313,7 @@ describe("inside a room", () => {
   async function enterRoom() {
     const result = setup();
     await joinRoom(result.user);
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
     return result;
   }
 
@@ -500,14 +500,16 @@ describe("inside a room", () => {
       }));
       const result = setup();
       await joinRoom(result.user);
-      await screen.findByRole("button", { name: "Your profile: Alice" });
+      await screen.findByRole("button", { name: "Account menu: Alice" });
       return result;
     }
 
     it("tells the guest how often they may write, in the info panel", async () => {
       const { user } = await enterSlowRoom(10);
 
-      await user.click(screen.getByRole("button", { name: "Menu" }));
+      await user.click(
+        screen.getByRole("button", { name: /^(Menu|Account menu:)/ }),
+      );
       await user.click(
         await screen.findByRole("menuitem", { name: "How the chat works" }),
       );
@@ -525,7 +527,9 @@ describe("inside a room", () => {
     ])("says nothing about it in a room %s", async (_label, value) => {
       const { user } = await enterSlowRoom(value);
 
-      await user.click(screen.getByRole("button", { name: "Menu" }));
+      await user.click(
+        screen.getByRole("button", { name: /^(Menu|Account menu:)/ }),
+      );
       await user.click(
         await screen.findByRole("menuitem", { name: "How the chat works" }),
       );
@@ -607,7 +611,7 @@ describe("inside a room", () => {
   it("closes the connection when the app unmounts", async () => {
     const { user, server, unmount } = setup();
     await joinRoom(user);
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
     expect(server.latest.disconnected).toBe(false);
 
     unmount();
@@ -631,7 +635,7 @@ describe("message history", () => {
     };
     const result = setup(server);
     await joinRoom(result.user);
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
     return result;
   }
 
@@ -732,7 +736,7 @@ describe("banned authors", () => {
     };
     const result = setup(server);
     await joinRoom(result.user);
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
     return result;
   }
 

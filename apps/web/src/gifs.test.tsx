@@ -72,7 +72,7 @@ async function enter() {
   await user.click(await screen.findByRole("button", { name: "Join General" }));
   await user.type(await screen.findByLabelText("Nickname"), "Alice");
   await user.click(screen.getByRole("button", { name: "Continue" }));
-  await screen.findByRole("button", { name: "Your profile: Alice" });
+  await screen.findByRole("button", { name: "Account menu: Alice" });
 
   return { user, server };
 }
@@ -442,7 +442,7 @@ describe("a GIF in a message", () => {
     );
     await user.type(await screen.findByLabelText("Nickname"), "Alice");
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
     act(() =>
       server.latest.serverEmit("message:new", message(`words\n${BARE}`)),
     );

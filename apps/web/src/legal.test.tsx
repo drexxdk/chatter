@@ -358,7 +358,7 @@ describe("joining as a guest", () => {
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
     expect(localStorage.getItem("chatter.terms")).toBe("v1");
     expect(loadTermsAccepted("v1")).toBe(true);
     expect(loadTermsAccepted("v2")).toBe(false);
@@ -371,7 +371,7 @@ describe("joining as a guest", () => {
     expect(screen.getByRole("checkbox")).toBeChecked();
 
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
   });
 
   it("does not let that browser in once it unticks the box", async () => {

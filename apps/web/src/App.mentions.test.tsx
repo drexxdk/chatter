@@ -17,7 +17,7 @@ describe("mentioning somebody with @", () => {
   async function enter(others = [BOB, BOBBY, ANNE, CAROL]) {
     const result = setup(makeFakeServer({ others }));
     await joinRoom(result.user);
-    await screen.findByRole("button", { name: "Your profile: Alice" });
+    await screen.findByRole("button", { name: "Account menu: Alice" });
 
     return { ...result, box: screen.getByRole("textbox", { name: "Message" }) };
   }

@@ -89,7 +89,8 @@ test("a guest connects a provider and stays who they are, the names are theirs, 
   await inRoom(page);
 
   // The profile in the header is where a guest makes an account.
-  await page.getByRole("button", { name: `Your profile: ${chatName}` }).click();
+  await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
+  await page.getByRole("menuitem", { name: "Your profile" }).click();
   await signInWithProvider(page, "anna");
 
   // The form starts from who the guest was: the name they had, and a username made from it.
@@ -100,7 +101,8 @@ test("a guest connects a provider and stays who they are, the names are theirs, 
 
   // Back in the same room, as the same person, now with an account.
   await inRoom(page);
-  await page.getByRole("button", { name: `Your profile: ${chatName}` }).click();
+  await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
+  await page.getByRole("menuitem", { name: "Your profile" }).click();
   await expect(page.getByText("Signed in with", { exact: true })).toBeVisible();
   await expect(page.getByRole("dialog").getByText("Dev sign-in")).toBeVisible();
 
@@ -131,7 +133,7 @@ test("a guest connects a provider and stays who they are, the names are theirs, 
   await signInWithProvider(elsewhere, "anna");
   await inRoom(elsewhere);
   await expect(
-    elsewhere.getByRole("button", { name: `Your profile: ${chatName}` }),
+    elsewhere.getByRole("button", { name: `Account menu: ${chatName}` }),
   ).toBeVisible();
   expect(await accountsNamed(handle)).toHaveLength(1);
 });
@@ -169,7 +171,7 @@ test("somebody makes an account from the lobby, chooses who they are, and can de
   // Back in the room that was being joined, signed in, and not asked for a nickname.
   await inRoom(page);
   await expect(
-    page.getByRole("button", { name: `Your profile: ${chatName}` }),
+    page.getByRole("button", { name: `Account menu: ${chatName}` }),
   ).toBeVisible();
   expect(await accountsNamed(handle)).toEqual([
     expect.objectContaining({
@@ -181,7 +183,8 @@ test("somebody makes an account from the lobby, chooses who they are, and can de
   ]);
 
   // Deleting the account removes it, and both names are free for anybody again.
-  await page.getByRole("button", { name: `Your profile: ${chatName}` }).click();
+  await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
+  await page.getByRole("menuitem", { name: "Your profile" }).click();
   await page.getByRole("button", { name: "Delete my account" }).click();
   await page.getByRole("button", { name: "Yes, delete my account" }).click();
 
@@ -216,7 +219,8 @@ test("an account is edited from the lobby, where it is only shown until it is as
   // and changes the account itself.
   await page.evaluate(() => sessionStorage.clear());
   await page.goto("/");
-  await page.getByRole("button", { name: `Your profile: ${chatName}` }).click();
+  await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
+  await page.getByRole("menuitem", { name: "Your profile" }).click();
   const dialog = page.getByRole("dialog", { name: "Your profile" });
   await expect(dialog.getByText("Dev sign-in")).toBeVisible();
   await expect(dialog.getByText("Not given")).toBeVisible();
@@ -241,6 +245,6 @@ test("an account is edited from the lobby, where it is only shown until it is as
   await page.getByRole("button", { name: `Join ${ROOM.name}` }).click();
   await inRoom(page);
   await expect(
-    page.getByRole("button", { name: `Your profile: ${renamed}` }),
+    page.getByRole("button", { name: `Account menu: ${renamed}` }),
   ).toBeVisible();
 });

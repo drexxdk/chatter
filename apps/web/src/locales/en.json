@@ -3,7 +3,7 @@
   "language": { "label": "Language" },
   "menu": { "open": "Menu" },
   "profile": {
-    "open": "Your profile: {name}",
+    "open": "Account menu: {name}",
     "title": "Your profile",
     "age": "Age",
     "ageHint": "{min}–{max}",
@@ -290,7 +290,7 @@
     "left": "{name} left the room.",
     "idleWarning": "You will be disconnected from the room unless you write something.",
     "idleTimeLeft": "Time left",
-    "showMovements": "Show when people join and leave"
+    "showMovements": "Joins and leaves"
   },
   "announcement": {
     "title": "Announcement",

@@ -124,7 +124,10 @@ describe("signing in from the lobby", () => {
     await joinRoom(user);
 
     await user.click(
-      await screen.findByRole("button", { name: "Your profile: Alice" }),
+      await screen.findByRole("button", { name: "Account menu: Alice" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Your profile" }),
     );
 
     const dialog = within(await screen.findByRole("dialog"));
@@ -147,7 +150,10 @@ describe("signing in from the lobby", () => {
     const { user, server } = setup();
     await joinRoom(user);
     await user.click(
-      await screen.findByRole("button", { name: "Your profile: Alice" }),
+      await screen.findByRole("button", { name: "Account menu: Alice" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Your profile" }),
     );
     expect(loadSession()).not.toBeNull();
 
@@ -164,10 +170,10 @@ describe("signing in from the lobby", () => {
     expect(server.latest.disconnected).toBe(true);
     await waitFor(() =>
       expect(
-        screen.queryByRole("button", { name: /^Your profile:/ }),
+        screen.queryByRole("button", { name: /^Account menu:/ }),
       ).toBeNull(),
     );
-    expect(screen.queryByRole("button", { name: /^Your profile:/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Account menu:/ })).toBeNull();
   });
 });
 
@@ -181,7 +187,7 @@ describe("somebody signed in", () => {
     setup();
 
     expect(
-      await screen.findByRole("button", { name: "Your profile: Alice" }),
+      await screen.findByRole("button", { name: "Account menu: Alice" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Login" })).toBeNull();
   });
@@ -246,7 +252,10 @@ describe("somebody signed in", () => {
     );
 
     await user.click(
-      await screen.findByRole("button", { name: "Your profile: Alice" }),
+      await screen.findByRole("button", { name: "Account menu: Alice" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Your profile" }),
     );
 
     const dialog = within(await screen.findByRole("dialog"));
@@ -272,7 +281,10 @@ describe("somebody signed in", () => {
       await screen.findByRole("button", { name: "Join General" }),
     );
     await user.click(
-      await screen.findByRole("button", { name: "Your profile: Alice" }),
+      await screen.findByRole("button", { name: "Account menu: Alice" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Your profile" }),
     );
     const dialog = within(await screen.findByRole("dialog"));
 
@@ -298,7 +310,10 @@ describe("somebody signed in", () => {
       await screen.findByRole("button", { name: "Join General" }),
     );
     await user.click(
-      await screen.findByRole("button", { name: "Your profile: Alice" }),
+      await screen.findByRole("button", { name: "Account menu: Alice" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Your profile" }),
     );
     const dialog = within(await screen.findByRole("dialog"));
 
@@ -309,7 +324,7 @@ describe("somebody signed in", () => {
 
     expect(
       await screen.findByRole("button", {
-        name: "Your profile: Alicia",
+        name: "Account menu: Alicia",
         hidden: true,
       }),
     ).toBeInTheDocument();
@@ -321,7 +336,10 @@ describe("somebody signed in", () => {
       user: ReturnType<typeof userEvent.setup>,
     ) {
       await user.click(
-        await screen.findByRole("button", { name: "Your profile: Alice" }),
+        await screen.findByRole("button", { name: "Account menu: Alice" }),
+      );
+      await user.click(
+        await screen.findByRole("menuitem", { name: "Your profile" }),
       );
 
       return within(
@@ -367,7 +385,7 @@ describe("somebody signed in", () => {
       });
       expect(
         await screen.findByRole("button", {
-          name: "Your profile: Alicia",
+          name: "Account menu: Alicia",
           hidden: true,
         }),
       ).toBeInTheDocument();
@@ -404,7 +422,10 @@ describe("somebody signed in", () => {
         await screen.findByRole("button", { name: "Join General" }),
       );
       await user.click(
-        await screen.findByRole("button", { name: "Your profile: Alice" }),
+        await screen.findByRole("button", { name: "Account menu: Alice" }),
+      );
+      await user.click(
+        await screen.findByRole("menuitem", { name: "Your profile" }),
       );
 
       await user.click(
@@ -420,7 +441,7 @@ describe("somebody signed in", () => {
       expect(loadSession()).toBeNull();
       await waitFor(() =>
         expect(
-          screen.queryByRole("button", { name: /^Your profile:/ }),
+          screen.queryByRole("button", { name: /^Account menu:/ }),
         ).toBeNull(),
       );
     });
@@ -429,7 +450,10 @@ describe("somebody signed in", () => {
       stubBackend({ providers: ["google"] });
       const { user } = setup();
       await user.click(
-        await screen.findByRole("button", { name: "Your profile: Alice" }),
+        await screen.findByRole("button", { name: "Account menu: Alice" }),
+      );
+      await user.click(
+        await screen.findByRole("menuitem", { name: "Your profile" }),
       );
 
       await user.click(
@@ -440,7 +464,7 @@ describe("somebody signed in", () => {
 
       await waitFor(() =>
         expect(
-          screen.queryByRole("button", { name: /^Your profile:/ }),
+          screen.queryByRole("button", { name: /^Account menu:/ }),
         ).toBeNull(),
       );
       expect(loadAccount()).toBeNull();
@@ -450,7 +474,10 @@ describe("somebody signed in", () => {
   describe("deleting the account", () => {
     async function askToDelete(user: ReturnType<typeof userEvent.setup>) {
       await user.click(
-        await screen.findByRole("button", { name: "Your profile: Alice" }),
+        await screen.findByRole("button", { name: "Account menu: Alice" }),
+      );
+      await user.click(
+        await screen.findByRole("menuitem", { name: "Your profile" }),
       );
       const dialog = within(await screen.findByRole("dialog"));
       await user.click(
@@ -523,7 +550,7 @@ describe("an account that does not work any more", () => {
 
     await waitFor(() => expect(loadAccount()).toBeNull());
     expect(
-      screen.queryByRole("button", { name: "Your profile: Alice" }),
+      screen.queryByRole("button", { name: "Account menu: Alice" }),
     ).toBeNull();
   });
 
@@ -534,7 +561,7 @@ describe("an account that does not work any more", () => {
     setup();
 
     expect(
-      await screen.findByRole("button", { name: "Your profile: Alice" }),
+      await screen.findByRole("button", { name: "Account menu: Alice" }),
     ).toBeInTheDocument();
     expect(loadAccount()).not.toBeNull();
   });
