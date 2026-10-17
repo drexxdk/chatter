@@ -2,6 +2,22 @@
   "app": { "title": "Chatter" },
   "language": { "label": "Sprog" },
   "menu": { "open": "Menu" },
+  "admin": {
+    "open": "Admin-værktøjer",
+    "rooms": "Testrum",
+    "people": "Folk i rummet",
+    "addPerson": "Tilføj en person",
+    "fillRoom": "Fyld rummet",
+    "removePerson": "Fjern en person",
+    "clearPeople": "Fjern alle",
+    "kick": "Vis at blive fjernet",
+    "kicks": {
+      "inactivity": "For inaktivitet",
+      "banned": "For at være udelukket",
+      "replaced": "For at åbne et andet vindue",
+      "invalid_token": "For en udløbet session"
+    }
+  },
   "profile": {
     "open": "Kontomenu: {name}",
     "title": "Din profil",

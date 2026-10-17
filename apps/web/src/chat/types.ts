@@ -1,3 +1,4 @@
+import type { Room } from "../api";
 import type { Avatar } from "./avatar";
 import type { DirectThread } from "./direct";
 import type { Reaction } from "./reactions";
@@ -15,6 +16,9 @@ export interface Session {
   // Only when the guest said how old they are.
   age?: number;
   resumeSecret?: string;
+  // Only for an admin: they have the testing tools, and these rooms that nobody else can enter.
+  admin?: boolean;
+  adminRooms?: Room[];
 }
 
 export interface Member {

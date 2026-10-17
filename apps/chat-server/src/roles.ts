@@ -42,3 +42,8 @@ export function chatRoleFor(payloadRole: string): ChatRole | undefined {
     ? "moderator"
     : undefined;
 }
+
+// Whether the account is an admin: in the chat they are a moderator who also has the tools for testing.
+export function isAdminRole(payloadRole: string): boolean {
+  return payloadRole === "super-admin";
+}

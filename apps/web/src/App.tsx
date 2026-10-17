@@ -29,6 +29,7 @@ import type { CreateSocket } from "./chat/socket";
 import type { ActionResult } from "./chat/types";
 import { useChat } from "./chat/useChat";
 import { AboutPage } from "./components/AboutPage";
+import { AdminMenu } from "./components/AdminMenu";
 import { AnnouncementBanner } from "./components/AnnouncementBanner";
 import { ChatRoom } from "./components/ChatRoom";
 import { ErrorAlert } from "./components/ErrorAlert";
@@ -107,7 +108,10 @@ export function App({
   }
 
   const rooms = roomsState.status === "ready" ? roomsState.rooms : [];
-  const currentRoom = rooms.find((room) => room.slug === chat.roomSlug);
+  // The rooms only an admin can enter are not in the lobby or the room switcher.
+  const adminRooms = chat.session?.adminRooms ?? [];
+  const knownRooms = [...rooms, ...adminRooms];
+  const currentRoom = knownRooms.find((room) => room.slug === chat.roomSlug);
   const inRoom = Boolean(chat.roomSlug && chat.session);
   // What is shown when not in a room: one of the site's pages, or the lobby.
   const page = pageFromPath(location.pathname);
@@ -340,8 +344,20 @@ export function App({
   }
 
   // What the effects that run on a change of the room or of the address have to read as it is now.
-  const latest = useRef({ chat, rooms, handleSelect, location, navigate });
-  latest.current = { chat, rooms, handleSelect, location, navigate };
+  const latest = useRef({
+    chat,
+    rooms: knownRooms,
+    handleSelect,
+    location,
+    navigate,
+  });
+  latest.current = {
+    chat,
+    rooms: knownRooms,
+    handleSelect,
+    location,
+    navigate,
+  };
 
   // The address says where the guest is, so a reload (or a shared link) can put them back. Entering a room adds a
   // history entry and leaving adds another, which is what makes the browser's back button leave the room.
@@ -612,6 +628,16 @@ export function App({
               </h1>
             )}
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              {chat.session?.admin && (
+                <AdminMenu
+                  rooms={adminRooms}
+                  slug={chat.roomSlug}
+                  onJoin={(room) => void handleSelect(room)}
+                  onTool={(event, payload) =>
+                    void chat.adminTool(event, payload)
+                  }
+                />
+              )}
               <MainMenu
                 profile={
                   !settled

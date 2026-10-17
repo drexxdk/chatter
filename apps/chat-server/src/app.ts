@@ -10,7 +10,7 @@ import { createDevOAuthRouter } from "./devOAuth.js";
 import { getCachedLegal } from "./legal.js";
 import { rememberModerator } from "./names.js";
 import { loginAccount } from "./payloadClient.js";
-import { chatRoleFor } from "./roles.js";
+import { chatRoleFor, isAdminRole } from "./roles.js";
 import { getCachedPublicRooms } from "./rooms.js";
 import { signToken } from "./tokens.js";
 import { log } from "./log.js";
@@ -157,6 +157,7 @@ export function createApp(
         await rememberModerator({
           id: account.id,
           name: account.displayName,
+          ...(isAdminRole(account.role) ? { admin: true } : {}),
         });
       } catch (error) {
         log.error("Failed to record the moderator", error);

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { parseAge } from "./age.js";
 import { parseAvatar, parsePicture, type Avatar } from "./avatars.js";
 import { env } from "./env.js";
+import { isAdminRole } from "./roles.js";
 
 // Payload's API-key auth header format is "<collection-slug> API-Key <key>".
 const AUTH_HEADER = `admins API-Key ${env.PAYLOAD_SERVICE_API_KEY}`;
@@ -214,6 +215,8 @@ export interface Moderator {
   id: number;
   // Moderators without a display name cannot sign in to the chat, but their names are not theirs to take either.
   name: string | null;
+  // A super-admin: the chat gives them the same powers as a moderator, plus the tools for testing (see adminRooms.ts).
+  admin?: boolean;
 }
 
 // The accounts that can moderate: their names so guests cannot pick one, and their ids so a removed account stops
@@ -223,7 +226,11 @@ export async function fetchModerators(): Promise<Moderator[]> {
     "/api/admins?where[role][in]=moderator,super-admin&limit=100&depth=0",
     z.object({
       docs: z.array(
-        z.object({ id: z.number(), displayName: z.string().nullish() }),
+        z.object({
+          id: z.number(),
+          displayName: z.string().nullish(),
+          role: z.string().nullish(),
+        }),
       ),
     }),
   );
@@ -231,6 +238,7 @@ export async function fetchModerators(): Promise<Moderator[]> {
   return data.docs.map((doc) => ({
     id: doc.id,
     name: doc.displayName || null,
+    ...(isAdminRole(doc.role ?? "") ? { admin: true } : {}),
   }));
 }
 

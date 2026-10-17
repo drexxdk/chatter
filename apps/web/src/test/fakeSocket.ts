@@ -40,8 +40,9 @@ export class FakeSocket implements ChatSocket {
 
   // Who the real server would say this guest is.
   profile: Record<string, unknown>;
-  // A token starting with "member-" is an account's; any other is a moderator's.
+  // A token starting with "member-" is an account's, one starting with "admin-" an admin's; any other is a moderator's.
   readonly role: "guest" | "member" | "moderator";
+  readonly admin: boolean;
 
   constructor(
     readonly nickname: string,
@@ -60,6 +61,7 @@ export class FakeSocket implements ChatSocket {
     // The picture the guest chose when connecting.
     readonly picture?: string,
   ) {
+    this.admin = token?.startsWith("admin-") ?? false;
     this.role = !token
       ? "guest"
       : token.startsWith("member-")
@@ -82,6 +84,25 @@ export class FakeSocket implements ChatSocket {
           avatar: token ? "other" : avatar,
           ...(picture && !token ? { picture } : {}),
           ...(age === undefined ? {} : { age }),
+          ...(this.admin
+            ? {
+                admin: true,
+                adminRooms: [
+                  {
+                    id: -1,
+                    name: "Test lab",
+                    slug: "admin-lab",
+                    maxMembers: null,
+                  },
+                  {
+                    id: -2,
+                    name: "Test room (4 people)",
+                    slug: "admin-small",
+                    maxMembers: 4,
+                  },
+                ],
+              }
+            : {}),
           resumeSecret: this.resumeSecret,
         });
         if (waitingAnnouncement)

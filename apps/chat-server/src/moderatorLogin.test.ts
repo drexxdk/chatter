@@ -132,6 +132,11 @@ describe("POST /moderator/login", () => {
 
     expect(res.status).toBe(200);
     expect(((await res.json()) as { role: string }).role).toBe("moderator");
+    expect(rememberModerator).toHaveBeenCalledWith({
+      id: 7,
+      name: "Ada Mod",
+      admin: true,
+    });
   });
 
   it("never sends the email or password back", async () => {

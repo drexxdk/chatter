@@ -106,6 +106,13 @@ A moderator can tell everyone who is connected something, whether or not they ar
 - Only the latest announcement is kept, in Redis for an hour. Every connection is sent it right after `session`, so someone who arrives later sees it too. If it cannot be kept, it is still delivered live; if it cannot be read, the guest connects without it.
 - Announcements are not part of any room's history and cannot be redacted. Clients decide how long to show one (the web client lets people dismiss it and does not show the same one again after a reconnect).
 
+## Admins
+
+A super-admin signs in as a moderator (same powers) and is also an admin: the cached moderator list (`chatter:moderators`) carries `admin: true` for them, so a demoted account loses it at its next connection. `session` then has `admin: true` and `adminRooms`, the rooms of `src/adminRooms.ts`, which are not in Payload or the lobby and which only an admin can `room:join` (anybody else gets `room_not_found`).
+
+- `admin:fake:add`, `admin:fake:fill` (up to the room's limit; a room without one takes five), `admin:fake:remove`, `admin:fake:clear` (client to server, in a test room only): people who are not there are added to, or taken from, the room's presence, with a `room:event` for each. They count toward the room's limit and go when the last real person leaves. Ack: `{ ok: true }`, or `{ ok: false, error }` with `forbidden` (not an admin), `not_in_test_room`, `room_full` or `nobody`.
+- `admin:kick` `{ reason }` (any room): sends the admin themselves `kicked` with that reason (`inactivity`, `banned`, `replaced` or `invalid_token`) and disconnects them, to see what each looks like. `invalid_reason` for any other.
+
 ## Avatars
 
 A guest can say how they want to be shown next to their messages: `avatar` in the handshake is `male`, `female`, `trans` or `other`. It is self-declared and optional, nothing is checked, and anything missing or unknown (including a wrong case) becomes `other`, the plain one, rather than turning the guest away. Moderators always have `other` until accounts have a profile. The avatar is sent in `session`, in the room's presence list, with every message (and in a room's history) and as `fromAvatar` / `toAvatar` in direct messages. How each one looks is up to the client; the web client shows the usual symbol and colour for male and female, the transgender symbol in the colours of its flag for trans, and a plain silhouette for other.

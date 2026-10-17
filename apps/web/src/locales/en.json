@@ -2,6 +2,22 @@
   "app": { "title": "Chatter" },
   "language": { "label": "Language" },
   "menu": { "open": "Menu" },
+  "admin": {
+    "open": "Admin tools",
+    "rooms": "Test rooms",
+    "people": "People in the room",
+    "addPerson": "Add a person",
+    "fillRoom": "Fill the room",
+    "removePerson": "Remove a person",
+    "clearPeople": "Remove everybody",
+    "kick": "Show being removed",
+    "kicks": {
+      "inactivity": "For being inactive",
+      "banned": "For being banned",
+      "replaced": "For opening another window",
+      "invalid_token": "For an expired session"
+    }
+  },
   "profile": {
     "open": "Account menu: {name}",
     "title": "Your profile",

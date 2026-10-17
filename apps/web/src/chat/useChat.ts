@@ -1020,6 +1020,13 @@ export function useChat(
 
   const clearError = useCallback(() => setError(null), []);
 
+  // One of the admin's testing tools (see the chat-server's adminRooms.ts).
+  const adminTool = useCallback(
+    async (event: string, payload?: unknown): Promise<ActionResult> =>
+      toResult(await emitWithAck(event, payload)),
+    [emitWithAck],
+  );
+
   const activeThread = partner
     ? threads.find((thread) => thread.guestId === partner.guestId)
     : undefined;
@@ -1087,6 +1094,7 @@ export function useChat(
     dismissAnnouncement,
     disconnect,
     clearError,
+    adminTool,
   };
 }
 

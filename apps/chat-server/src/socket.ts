@@ -5,6 +5,13 @@ import { createAdapter } from "@socket.io/redis-adapter";
 
 import { parseAge } from "./age.js";
 import {
+  ADMIN_ROOMS,
+  adminRoomOf,
+  fakeMember,
+  isAdminRoom,
+  type FakeMember,
+} from "./adminRooms.js";
+import {
   avatarSchema,
   parseAvatar,
   parsePicture,
@@ -66,6 +73,8 @@ const MAX_PACKET_BYTES = 8 * 1024;
 const PING_INTERVAL_MS = 25_000;
 const PING_TIMEOUT_MS = 20_000;
 const MAX_ANNOUNCEMENT_LENGTH = 500;
+// Why the server removes somebody, which an admin can have shown to themselves to see what it looks like.
+const KICK_REASONS = ["inactivity", "banned", "replaced", "invalid_token"];
 // A guest who has done nothing is warned this long before they are disconnected for it (when the timeout is longer).
 const IDLE_WARNING_BEFORE_MS = 2 * 60_000;
 // Somebody who goes out of a room and is back within this long (a reload, a dropped connection) is not announced as
@@ -101,6 +110,8 @@ interface SocketData {
   age?: number;
   // The Payload account behind a signed-in moderator; others have none.
   accountId?: number;
+  // A super-admin, who may use the testing tools (see adminRooms.ts).
+  admin?: boolean;
   // The account of a member (the `users` collection), whose profile is kept there.
   memberId?: number;
   // A member's username, which their display name must not be taken for.
@@ -272,6 +283,8 @@ export function createSocketServer(
   // The secret each connection was given for resuming its identity. Kept out of the socket's data on purpose: that
   // is copied between nodes, and this belongs to the one client it was sent to.
   const resumeSecrets = new WeakMap<object, string>();
+  // The people made up in the test rooms, by room. Only on this node: the test rooms are for one admin at a time.
+  const fakeMembers = new Map<string, FakeMember[]>();
   const io = new Server(httpServer, {
     cors: { origin: env.WEB_ORIGIN, credentials: true },
     maxHttpBufferSize: MAX_PACKET_BYTES,
@@ -286,18 +299,24 @@ export function createSocketServer(
   async function emitPresence(slug: string): Promise<void> {
     const members = await io.in(roomKey(slug)).fetchSockets();
 
+    // People who were only for show go when the last real one does.
+    if (members.length === 0) fakeMembers.delete(slug);
+
     io.to(roomKey(slug)).emit("room:presence", {
       roomSlug: slug,
-      members: members.map((member) => ({
-        guestId: (member.data as SocketData).guestId,
-        nickname: (member.data as SocketData).nickname,
-        role: (member.data as SocketData).role,
-        avatar: (member.data as SocketData).avatar,
-        ...pictureOf(member.data as SocketData),
-        ...((member.data as SocketData).age === undefined
-          ? {}
-          : { age: (member.data as SocketData).age }),
-      })),
+      members: [
+        ...members.map((member) => ({
+          guestId: (member.data as SocketData).guestId,
+          nickname: (member.data as SocketData).nickname,
+          role: (member.data as SocketData).role,
+          avatar: (member.data as SocketData).avatar,
+          ...pictureOf(member.data as SocketData),
+          ...((member.data as SocketData).age === undefined
+            ? {}
+            : { age: (member.data as SocketData).age }),
+        })),
+        ...(fakeMembers.get(slug) ?? []),
+      ],
     });
   }
 
@@ -399,6 +418,7 @@ export function createSocketServer(
     let nickname: string | null;
     let role: ChatRole = "guest";
     let accountId: number | undefined;
+    let admin = false;
     let memberId: number | undefined;
     let username: string | undefined;
     let avatar: Avatar = "other";
@@ -443,6 +463,10 @@ export function createSocketServer(
           if (!moderators.some((moderator) => moderator.id === claims.sub)) {
             return next(new Error("invalid_token"));
           }
+
+          admin =
+            moderators.find((moderator) => moderator.id === claims.sub)
+              ?.admin === true;
         } catch (error) {
           log.error("Moderator check failed", error);
           return next(new Error("unavailable"));
@@ -562,6 +586,7 @@ export function createSocketServer(
       picture,
       age,
       accountId,
+      ...(admin ? { admin } : {}),
       memberId,
       username,
       ipHash,
@@ -611,6 +636,7 @@ export function createSocketServer(
       avatar: data.avatar,
       ...pictureOf(data),
       ...(data.age === undefined ? {} : { age: data.age }),
+      ...(data.admin ? { admin: true, adminRooms: ADMIN_ROOMS } : {}),
       resumeSecret: resumeSecrets.get(socket),
     });
 
@@ -1082,9 +1108,10 @@ export function createSocketServer(
       const reply = ackOf(ack);
       const slug = stringField(payload, "slug");
 
-      const room = (await getCachedPublicRooms()).find(
-        (candidate) => candidate.slug === slug,
-      );
+      const room =
+        (await getCachedPublicRooms()).find(
+          (candidate) => candidate.slug === slug,
+        ) ?? (data.admin ? adminRoomOf(slug) : undefined);
 
       if (!room) {
         return reply({ ok: false, error: "room_not_found" });
@@ -1099,7 +1126,8 @@ export function createSocketServer(
         // Rooms without a limit skip the cluster-wide member lookup entirely.
         if (typeof limit === "number") {
           const members = await io.in(roomKey(slug)).fetchSockets();
-          if (members.length >= limit) return "room_full" as const;
+          const made = fakeMembers.get(slug)?.length ?? 0;
+          if (members.length + made >= limit) return "room_full" as const;
         }
 
         if (await nameInUse(slug, data, data.nickname)) {
@@ -1139,6 +1167,117 @@ export function createSocketServer(
       await leaveRoom();
       if (typeof ack === "function") ack({ ok: true });
     });
+
+    // The testing tools of an admin. Anybody else is told no, as if there were nothing to ask for.
+    function adminTool(
+      event: string,
+      run: (
+        slug: string,
+        payload: unknown,
+      ) => Promise<string | void> | string | void,
+      { inTestRoom = true }: { inTestRoom?: boolean } = {},
+    ) {
+      socket.on(event, async (payload: unknown, ack?: Ack) => {
+        const reply = ackOf(ack);
+
+        if (!data.admin) return reply({ ok: false, error: "forbidden" });
+
+        const slug = data.roomSlug ?? "";
+
+        if (inTestRoom && !isAdminRoom(slug)) {
+          return reply({ ok: false, error: "not_in_test_room" });
+        }
+
+        const failure = await run(slug, payload);
+
+        reply(failure ? { ok: false, error: failure } : { ok: true });
+      });
+    }
+
+    const announceFake = (
+      slug: string,
+      event: "joined" | "left",
+      who: FakeMember,
+    ) =>
+      io.to(roomKey(slug)).emit("room:event", {
+        id: crypto.randomUUID(),
+        roomSlug: slug,
+        sentAt: new Date().toISOString(),
+        event,
+        guestId: who.guestId,
+        nickname: who.nickname,
+      });
+
+    // How many more people the room has room for; a room with no limit takes five at a time.
+    async function freeSeats(slug: string): Promise<number> {
+      const limit = adminRoomOf(slug)?.maxMembers;
+      const here = (await io.in(roomKey(slug)).fetchSockets()).length;
+      const made = fakeMembers.get(slug)?.length ?? 0;
+
+      return typeof limit === "number" ? Math.max(0, limit - here - made) : 5;
+    }
+
+    async function addFake(
+      slug: string,
+      count: number,
+    ): Promise<string | void> {
+      const seats = Math.min(count, await freeSeats(slug));
+
+      if (seats <= 0) return "room_full";
+
+      for (let i = 0; i < seats; i++) {
+        const made = fakeMembers.get(slug) ?? [];
+        const real = (await io.in(roomKey(slug)).fetchSockets()).map(
+          (member) => (member.data as SocketData).nickname,
+        );
+        const who = fakeMember([...made.map((m) => m.nickname), ...real]);
+
+        fakeMembers.set(slug, [...made, who]);
+        announceFake(slug, "joined", who);
+      }
+
+      await emitPresence(slug);
+    }
+
+    adminTool("admin:fake:add", (slug) => addFake(slug, 1));
+
+    adminTool("admin:fake:fill", async (slug) => {
+      const seats = await freeSeats(slug);
+
+      if (seats <= 0) return "room_full";
+
+      return addFake(slug, seats);
+    });
+
+    adminTool("admin:fake:remove", async (slug) => {
+      const made = fakeMembers.get(slug) ?? [];
+      const who = made[made.length - 1];
+
+      if (!who) return "nobody";
+
+      fakeMembers.set(slug, made.slice(0, -1));
+      announceFake(slug, "left", who);
+      await emitPresence(slug);
+    });
+
+    adminTool("admin:fake:clear", async (slug) => {
+      fakeMembers.delete(slug);
+      await emitPresence(slug);
+    });
+
+    // What a guest sees when the server removes them, for each reason it does.
+    adminTool(
+      "admin:kick",
+      (_slug, payload) => {
+        const reason = stringField(payload, "reason");
+
+        if (!KICK_REASONS.includes(reason)) return "invalid_reason";
+
+        socket.emit("kicked", { reason });
+        socket.disconnect(true);
+      },
+      { inTestRoom: false },
+    );
 
     socket.on("message:send", async (payload: unknown, ack?: Ack) => {
       const reply = ackOf(ack);

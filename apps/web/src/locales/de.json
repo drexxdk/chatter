@@ -2,8 +2,24 @@
   "app": { "title": "Chatter" },
   "language": { "label": "Sprache" },
   "menu": { "open": "Menü" },
+  "admin": {
+    "open": "Admin-Werkzeuge",
+    "rooms": "Testräume",
+    "people": "Leute im Raum",
+    "addPerson": "Person hinzufügen",
+    "fillRoom": "Raum füllen",
+    "removePerson": "Person entfernen",
+    "clearPeople": "Alle entfernen",
+    "kick": "Entfernt werden zeigen",
+    "kicks": {
+      "inactivity": "Wegen Inaktivität",
+      "banned": "Wegen einer Sperre",
+      "replaced": "Wegen eines weiteren Fensters",
+      "invalid_token": "Wegen einer abgelaufenen Sitzung"
+    }
+  },
   "profile": {
-    "open": "Kontomen�: {name}",
+    "open": "Kontomenü: {name}",
     "title": "Dein Profil",
     "age": "Alter",
     "ageHint": "{min}–{max}",

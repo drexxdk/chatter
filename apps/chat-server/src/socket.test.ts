@@ -4249,3 +4249,142 @@ describe("members", () => {
     );
   });
 });
+
+describe("admin tools", () => {
+  const SECRET = "a-secret-that-is-long-enough-for-tests";
+  const signedIn = (sub: number, name: string) =>
+    signToken(
+      { sub, name, role: "moderator" },
+      { secret: SECRET, ttlMs: 3_600_000 },
+    );
+
+  beforeEach(() => {
+    getModerators.mockResolvedValue([
+      { id: 7, name: "Ada Admin", admin: true },
+      { id: 8, name: "Grace" },
+    ]);
+  });
+
+  async function signIn(sub: number, name: string) {
+    const { port: own } = await startServer({ authTokenSecret: SECRET });
+    const { socket, session } = await connect(
+      { token: signedIn(sub, name) },
+      own,
+    );
+    if (!socket || !session) throw new Error("sign-in failed");
+    return { socket, session: await session };
+  }
+
+  it("tells an admin so, with the rooms only they can enter, and nobody else", async () => {
+    const admin = await signIn(7, "Ada Admin");
+    const moderator = await signIn(8, "Grace");
+
+    expect(admin.session).toMatchObject({
+      role: "moderator",
+      admin: true,
+      adminRooms: [
+        expect.objectContaining({ slug: "admin-lab" }),
+        expect.objectContaining({ slug: "admin-small", maxMembers: 4 }),
+      ],
+    });
+    expect(moderator.session).not.toHaveProperty("admin");
+    expect(moderator.session).not.toHaveProperty("adminRooms");
+  });
+
+  it("keeps the test rooms from moderators and guests", async () => {
+    const moderator = await signIn(8, "Grace");
+    const guest = await connectGuest("Alice");
+
+    for (const socket of [moderator.socket, guest]) {
+      expect(await emit(socket, "room:join", { slug: "admin-lab" })).toEqual({
+        ok: false,
+        error: "room_not_found",
+      });
+    }
+  });
+
+  it("fills a test room with people who are not there, up to its limit", async () => {
+    const { socket } = await signIn(7, "Ada Admin");
+    await emit(socket, "room:join", { slug: "admin-small" });
+    const full = waitFor<Presence>(
+      socket,
+      "room:presence",
+      (presence) => presence.members.length === 4,
+    );
+
+    expect(await emit(socket, "admin:fake:fill")).toEqual({ ok: true });
+    expect(
+      (await full).members.filter((m) => m.guestId.startsWith("fake-")),
+    ).toHaveLength(3);
+    expect(await emit(socket, "admin:fake:fill")).toEqual({
+      ok: false,
+      error: "room_full",
+    });
+    expect(await emit(socket, "admin:fake:add")).toEqual({
+      ok: false,
+      error: "room_full",
+    });
+  });
+
+  it("takes one of them away, and then all of them", async () => {
+    const { socket } = await signIn(7, "Ada Admin");
+    await emit(socket, "room:join", { slug: "admin-lab" });
+    await emit(socket, "admin:fake:add");
+    await emit(socket, "admin:fake:add");
+    const left = waitFor<{ event: string }>(
+      socket,
+      "room:event",
+      (e) => e.event === "left",
+    );
+
+    expect(await emit(socket, "admin:fake:remove")).toEqual({ ok: true });
+    expect((await left).event).toBe("left");
+
+    const alone = waitFor<Presence>(
+      socket,
+      "room:presence",
+      (presence) => presence.members.length === 1,
+    );
+    await emit(socket, "admin:fake:clear");
+    expect((await alone).members).toHaveLength(1);
+    expect(await emit(socket, "admin:fake:remove")).toEqual({
+      ok: false,
+      error: "nobody",
+    });
+  });
+
+  it("refuses the tools outside a test room, and to everybody who is not an admin", async () => {
+    const admin = await signIn(7, "Ada Admin");
+    const moderator = await signIn(8, "Grace");
+    await emit(admin.socket, "room:join", { slug: "general" });
+    await emit(moderator.socket, "room:join", { slug: "general" });
+
+    expect(await emit(admin.socket, "admin:fake:fill")).toEqual({
+      ok: false,
+      error: "not_in_test_room",
+    });
+    expect(await emit(moderator.socket, "admin:fake:fill")).toEqual({
+      ok: false,
+      error: "forbidden",
+    });
+    expect(
+      await emit(moderator.socket, "admin:kick", { reason: "banned" }),
+    ).toEqual({
+      ok: false,
+      error: "forbidden",
+    });
+  });
+
+  it("removes the admin themselves, for a reason they choose", async () => {
+    const { socket } = await signIn(7, "Ada Admin");
+    const kicked = waitFor<{ reason: string }>(socket, "kicked");
+
+    expect(await emit(socket, "admin:kick", { reason: "nonsense" })).toEqual({
+      ok: false,
+      error: "invalid_reason",
+    });
+    void emit(socket, "admin:kick", { reason: "banned" });
+
+    expect(await kicked).toEqual({ reason: "banned" });
+  });
+});

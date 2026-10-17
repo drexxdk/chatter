@@ -76,6 +76,8 @@ async function seed() {
         email,
         password,
         role: 'super-admin',
+        // Without one the account cannot sign in to the chat.
+        displayName: 'Admin',
       },
     })
 

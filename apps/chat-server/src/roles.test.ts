@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { ROLE_RULES, chatRoleFor } from "./roles.js";
+import { ROLE_RULES, chatRoleFor, isAdminRole } from "./roles.js";
+
+describe("isAdminRole", () => {
+  it("is true for a super-admin only", () => {
+    expect(isAdminRole("super-admin")).toBe(true);
+
+    for (const role of ["moderator", "service", "", "Super-Admin"]) {
+      expect(isAdminRole(role)).toBe(false);
+    }
+  });
+});
 
 describe("chatRoleFor", () => {
   it.each([
