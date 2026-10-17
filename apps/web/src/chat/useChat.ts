@@ -62,6 +62,7 @@ import {
   type ChatMessage,
   type ChatStatus,
   type ConnectOptions,
+  type CrowdState,
   type Member,
   type ReportReason,
   type Session,
@@ -148,6 +149,8 @@ export function useChat(
   const membersRef = useRef<Member[]>([]);
   const selfGuestIdRef = useRef<string | null>(null);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
+  // Only an admin in a test room is told of this.
+  const [crowd, setCrowd] = useState<CrowdState | null>(null);
   // When the server will disconnect the guest for doing nothing, once it has warned them.
   const [idleDeadline, setIdleDeadline] = useState<number | null>(null);
   // The server repeats the latest announcement on every connection; one that was dismissed must not return.
@@ -215,6 +218,7 @@ export function useChat(
     setStatus("idle");
     setSession(null);
     setAnnouncement(null);
+    setCrowd(null);
     setIdleDeadline(null);
     setThreads([]);
     blockedRef.current = [];
@@ -356,6 +360,10 @@ export function useChat(
                 : [...previous, live].slice(-MAX_MESSAGES),
             );
           }
+        });
+
+        socket.on("crowd:state", (next: CrowdState) => {
+          if (isCurrent()) setCrowd(next);
         });
 
         socket.on("announcement:new", (value: unknown) => {
@@ -1095,6 +1103,7 @@ export function useChat(
     disconnect,
     clearError,
     adminTool,
+    crowd,
   };
 }
 

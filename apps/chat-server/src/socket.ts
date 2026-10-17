@@ -11,6 +11,7 @@ import {
   isAdminRoom,
   type FakeMember,
 } from "./adminRooms.js";
+import { createCrowd, MAX_CROWD, type Crowd } from "./crowd.js";
 import {
   avatarSchema,
   parseAvatar,
@@ -266,6 +267,8 @@ export function createSocketServer(
     trustedProxyHops?: number;
     // An empty string means no moderator can sign in, like leaving AUTH_TOKEN_SECRET unset.
     authTokenSecret?: string;
+    // How long the crowd of a test room takes to come in.
+    crowdRampMs?: number;
   } = {},
 ): Server {
   const authTokenSecret = options.authTokenSecret ?? env.AUTH_TOKEN_SECRET;
@@ -300,7 +303,10 @@ export function createSocketServer(
     const members = await io.in(roomKey(slug)).fetchSockets();
 
     // People who were only for show go when the last real one does.
-    if (members.length === 0) fakeMembers.delete(slug);
+    if (members.length === 0) {
+      fakeMembers.delete(slug);
+      crowd.discard(slug);
+    }
 
     io.to(roomKey(slug)).emit("room:presence", {
       roomSlug: slug,
@@ -319,6 +325,87 @@ export function createSocketServer(
       ],
     });
   }
+
+  const announceFake = (
+    slug: string,
+    event: "joined" | "left",
+    who: FakeMember,
+  ) =>
+    io.to(roomKey(slug)).emit("room:event", {
+      id: crypto.randomUUID(),
+      roomSlug: slug,
+      sentAt: new Date().toISOString(),
+      event,
+      guestId: who.guestId,
+      nickname: who.nickname,
+    });
+
+  // How many more people a test room has room for; unlimited when it has no limit.
+  async function seatsLeft(slug: string): Promise<number> {
+    const limit = adminRoomOf(slug)?.maxMembers;
+
+    if (typeof limit !== "number") return Infinity;
+
+    const here = (await io.in(roomKey(slug)).fetchSockets()).length;
+
+    return Math.max(0, limit - here - (fakeMembers.get(slug)?.length ?? 0));
+  }
+
+  // The crowd of a test room: made-up people who write and react as real ones would, through the same paths.
+  const crowd: Crowd = createCrowd(
+    {
+      fakes: fakeMembers,
+      seatsLeft,
+      say: async (slug, who, text) => {
+        const message = {
+          id: crypto.randomUUID(),
+          roomSlug: slug,
+          guestId: who.guestId,
+          nickname: who.nickname,
+          role: who.role,
+          avatar: who.avatar,
+          picture: who.picture,
+          text,
+          sentAt: new Date().toISOString(),
+        };
+
+        await recordMessage({ ...message, ipHash: "" }).catch((error) =>
+          log.error("Failed to record a message of the crowd", error),
+        );
+        io.to(roomKey(slug)).emit("message:new", message);
+        crowd.heard(slug, message);
+      },
+      react: async (slug, who, messageId, emoji) => {
+        try {
+          const result = await toggleReaction(slug, messageId, emoji, {
+            guestId: who.guestId,
+            nickname: who.nickname,
+          });
+
+          if (result.ok) {
+            io.to(roomKey(slug)).emit("reaction:update", {
+              roomSlug: slug,
+              messageId,
+              reactions: result.reactions,
+            });
+          }
+        } catch (error) {
+          log.error("Failed to record a reaction of the crowd", error);
+        }
+      },
+      joined: async (slug, who) => {
+        announceFake(slug, "joined", who);
+        await emitPresence(slug);
+      },
+      left: async (slug, who) => {
+        announceFake(slug, "left", who);
+        await emitPresence(slug);
+      },
+      changed: (slug, state) =>
+        io.to(roomKey(slug)).emit("crowd:state", { roomSlug: slug, ...state }),
+    },
+    { rampMs: options.crowdRampMs },
+  );
 
   // Tells the room that somebody came or went, after it is remembered, so whatever a guest has seen live is also in the
   // history a later joiner reads. Failing to remember it costs the history entry, not the announcement.
@@ -1153,6 +1240,10 @@ export function createSocketServer(
         await announceJoin(slug, data);
       }
 
+      if (data.admin && isAdminRoom(slug)) {
+        socket.emit("crowd:state", { roomSlug: slug, ...crowd.state(slug) });
+      }
+
       // Read after joining, so a message sent in between is in the history, delivered live, or both (the client
       // removes the duplicate by id), but never neither.
       const history = await getHistory(slug).catch((error) => {
@@ -1194,27 +1285,11 @@ export function createSocketServer(
       });
     }
 
-    const announceFake = (
-      slug: string,
-      event: "joined" | "left",
-      who: FakeMember,
-    ) =>
-      io.to(roomKey(slug)).emit("room:event", {
-        id: crypto.randomUUID(),
-        roomSlug: slug,
-        sentAt: new Date().toISOString(),
-        event,
-        guestId: who.guestId,
-        nickname: who.nickname,
-      });
-
     // How many more people the room has room for; a room with no limit takes five at a time.
     async function freeSeats(slug: string): Promise<number> {
-      const limit = adminRoomOf(slug)?.maxMembers;
-      const here = (await io.in(roomKey(slug)).fetchSockets()).length;
-      const made = fakeMembers.get(slug)?.length ?? 0;
+      const seats = await seatsLeft(slug);
 
-      return typeof limit === "number" ? Math.max(0, limit - here - made) : 5;
+      return Number.isFinite(seats) ? seats : 5;
     }
 
     async function addFake(
@@ -1256,16 +1331,43 @@ export function createSocketServer(
       if (!who) return "nobody";
 
       fakeMembers.set(slug, made.slice(0, -1));
+      crowd.release(slug, who.guestId);
       announceFake(slug, "left", who);
       await emitPresence(slug);
     });
 
     adminTool("admin:fake:clear", async (slug) => {
+      await crowd.stop(slug);
       fakeMembers.delete(slug);
       await emitPresence(slug);
     });
 
-    // What a guest sees when the server removes them, for each reason it does.
+    const peopleOf = (payload: unknown) => {
+      const people = Number((payload as { people?: unknown } | null)?.people);
+
+      return Number.isInteger(people) && people >= 1 && people <= MAX_CROWD
+        ? people
+        : undefined;
+    };
+
+    // The crowd: people who write and react by themselves, started, paused and stopped from the admin's menu.
+    adminTool("admin:crowd:start", (slug, payload) => {
+      const people = peopleOf(payload);
+
+      return people ? crowd.start(slug, people) : "invalid_people";
+    });
+
+    adminTool("admin:crowd:people", (slug, payload) => {
+      const people = peopleOf(payload);
+
+      return people ? crowd.setPeople(slug, people) : "invalid_people";
+    });
+
+    adminTool("admin:crowd:pause", (slug) => crowd.pause(slug));
+    adminTool("admin:crowd:resume", (slug) => crowd.resume(slug));
+    adminTool("admin:crowd:stop", (slug) => crowd.stop(slug));
+
+    // What a guest is told when the server removes them, for each reason it does; the admin stays connected.
     adminTool(
       "admin:kick",
       (_slug, payload) => {
@@ -1274,7 +1376,6 @@ export function createSocketServer(
         if (!KICK_REASONS.includes(reason)) return "invalid_reason";
 
         socket.emit("kicked", { reason });
-        socket.disconnect(true);
       },
       { inTestRoom: false },
     );
@@ -1365,6 +1466,7 @@ export function createSocketServer(
       }
 
       io.to(roomKey(message.roomSlug)).emit("message:new", message);
+      crowd.heard(message.roomSlug, message);
 
       reply({ ok: true });
     });

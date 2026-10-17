@@ -210,6 +210,7 @@ async function startServer(options?: {
   maxConnectionsPerIp?: number;
   trustedProxyHops?: number;
   authTokenSecret?: string;
+  crowdRampMs?: number;
 }) {
   const server = http.createServer();
   const io = createSocketServer(server, options);
@@ -4266,7 +4267,10 @@ describe("admin tools", () => {
   });
 
   async function signIn(sub: number, name: string) {
-    const { port: own } = await startServer({ authTokenSecret: SECRET });
+    const { port: own } = await startServer({
+      authTokenSecret: SECRET,
+      crowdRampMs: 0,
+    });
     const { socket, session } = await connect(
       { token: signedIn(sub, name) },
       own,
@@ -4375,7 +4379,7 @@ describe("admin tools", () => {
     });
   });
 
-  it("removes the admin themselves, for a reason they choose", async () => {
+  it("shows the admin being removed, for a reason they choose, and keeps them connected", async () => {
     const { socket } = await signIn(7, "Ada Admin");
     const kicked = waitFor<{ reason: string }>(socket, "kicked");
 
@@ -4383,8 +4387,123 @@ describe("admin tools", () => {
       ok: false,
       error: "invalid_reason",
     });
-    void emit(socket, "admin:kick", { reason: "banned" });
+    expect(await emit(socket, "admin:kick", { reason: "banned" })).toEqual({
+      ok: true,
+    });
 
     expect(await kicked).toEqual({ reason: "banned" });
+    expect(socket.connected).toBe(true);
+  });
+
+  describe("the crowd", () => {
+    type CrowdState = { roomSlug: string; status: string; people: number };
+
+    it("comes in when started, with the state told to the room, and goes when stopped", async () => {
+      const { socket } = await signIn(7, "Ada Admin");
+      const state = (status: string, people?: number) =>
+        waitFor<CrowdState>(
+          socket,
+          "crowd:state",
+          (next) =>
+            next.status === status &&
+            (people === undefined || next.people === people),
+        );
+      await emit(socket, "room:join", { slug: "admin-lab" });
+      const full = waitFor<Presence>(
+        socket,
+        "room:presence",
+        (presence) => presence.members.length === 4,
+      );
+      const running = state("running", 3);
+
+      expect(await emit(socket, "admin:crowd:start", { people: 3 })).toEqual({
+        ok: true,
+      });
+
+      expect(await running).toMatchObject({ roomSlug: "admin-lab" });
+      expect((await full).members).toHaveLength(4);
+
+      const paused = state("paused");
+      expect(await emit(socket, "admin:crowd:pause")).toEqual({ ok: true });
+      await paused;
+
+      const resumed = state("running");
+      expect(await emit(socket, "admin:crowd:resume")).toEqual({ ok: true });
+      await resumed;
+
+      const alone = waitFor<Presence>(
+        socket,
+        "room:presence",
+        (presence) => presence.members.length === 1,
+      );
+      const stopped = state("stopped");
+      expect(await emit(socket, "admin:crowd:stop")).toEqual({ ok: true });
+      await stopped;
+      expect((await alone).members).toHaveLength(1);
+    });
+
+    it("is told how it stands to an admin who comes into the room", async () => {
+      const { socket } = await signIn(7, "Ada Admin");
+      const told = waitFor<CrowdState>(socket, "crowd:state");
+
+      await emit(socket, "room:join", { slug: "admin-lab" });
+
+      expect(await told).toMatchObject({
+        roomSlug: "admin-lab",
+        status: "stopped",
+      });
+    });
+
+    it("takes no more people than the room has seats", async () => {
+      const { socket } = await signIn(7, "Ada Admin");
+      await emit(socket, "room:join", { slug: "admin-small" });
+      const full = waitFor<Presence>(
+        socket,
+        "room:presence",
+        (presence) => presence.members.length === 4,
+      );
+
+      await emit(socket, "admin:crowd:start", { people: 50 });
+
+      expect((await full).members).toHaveLength(4);
+      expect(await emit(socket, "admin:fake:add")).toEqual({
+        ok: false,
+        error: "room_full",
+      });
+    });
+
+    it("refuses an amount that is not a number of people, and everybody who is not an admin", async () => {
+      const admin = await signIn(7, "Ada Admin");
+      const moderator = await signIn(8, "Grace");
+      await emit(admin.socket, "room:join", { slug: "admin-lab" });
+      await emit(moderator.socket, "room:join", { slug: "general" });
+
+      for (const people of [0, -1, 1.5, "ten", 100_000, undefined]) {
+        expect(
+          await emit(admin.socket, "admin:crowd:start", { people }),
+        ).toEqual({ ok: false, error: "invalid_people" });
+      }
+      expect(await emit(admin.socket, "admin:crowd:pause")).toEqual({
+        ok: false,
+        error: "not_running",
+      });
+      expect(
+        await emit(moderator.socket, "admin:crowd:start", { people: 5 }),
+      ).toEqual({ ok: false, error: "forbidden" });
+    });
+
+    it("goes when the last real person leaves", async () => {
+      const { socket } = await signIn(7, "Ada Admin");
+      await emit(socket, "room:join", { slug: "admin-lab" });
+      await emit(socket, "admin:crowd:start", { people: 2 });
+      await emit(socket, "room:leave");
+
+      await emit(socket, "room:join", { slug: "admin-lab" });
+      const stopped = waitFor<CrowdState>(socket, "crowd:state");
+      await emit(socket, "room:leave");
+      await emit(socket, "room:join", { slug: "admin-lab" });
+
+      expect(await stopped).toMatchObject({ status: "stopped", people: 0 });
+    });
   });
 });

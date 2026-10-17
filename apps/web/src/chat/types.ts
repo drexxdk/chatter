@@ -53,6 +53,15 @@ export interface ChatMessage {
 
 export type ChatStatus = "idle" | "connecting" | "connected" | "reconnecting";
 
+// How the admin's crowd of made-up people stands in a test room.
+export interface CrowdState {
+  roomSlug: string;
+  status: "stopped" | "running" | "paused";
+  // Who is in the room now, and how many there are meant to be.
+  people: number;
+  target: number;
+}
+
 export interface ConnectOptions {
   // A moderator's signed token, in place of a nickname.
   token?: string;

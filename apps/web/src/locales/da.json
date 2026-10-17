@@ -4,7 +4,17 @@
   "menu": { "open": "Menu" },
   "admin": {
     "open": "Admin-værktøjer",
-    "rooms": "Testrum",
+    "crowd": {
+      "title": "Menneskemængde",
+      "count": "{people} af {target}",
+      "stopped": "Kører ikke",
+      "running": "Kører",
+      "paused": "På pause",
+      "start": "Start mængden",
+      "pause": "Pause",
+      "resume": "Fortsæt",
+      "stop": "Stop og send dem væk"
+    },
     "people": "Folk i rummet",
     "addPerson": "Tilføj en person",
     "fillRoom": "Fyld rummet",

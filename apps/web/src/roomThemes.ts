@@ -1,6 +1,7 @@
 import {
   Cpu,
   Dices,
+  FlaskConical,
   Gamepad2,
   Hash,
   Heart,
@@ -32,6 +33,14 @@ const PLAIN = {
   border: "var(--color-neutral-800)",
   card: "var(--color-neutral-900)",
   accent: "var(--color-neutral-300)",
+};
+
+// The look of the rooms only an admin can enter.
+const ADMIN = {
+  tint: "#2e2410",
+  border: "#6b5420",
+  card: "#261d0c",
+  accent: "#fbbf24",
 };
 
 // By the room's address, which is what stays the same when its name is changed. A room made later has the plain look until
@@ -71,6 +80,9 @@ const THEMES: Record<string, RoomTheme> = {
     card: "#0e1e2b",
     accent: "#38bdf8",
   },
+  // The rooms only an admin can enter, for testing.
+  "admin-lab": { group: "topics", icon: FlaskConical, ...ADMIN },
+  "admin-small": { group: "topics", icon: FlaskConical, ...ADMIN },
 };
 
 const OTHER: RoomTheme = { group: "topics", icon: Hash, ...PLAIN };

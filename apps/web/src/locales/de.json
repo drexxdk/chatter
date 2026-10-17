@@ -4,7 +4,17 @@
   "menu": { "open": "Menü" },
   "admin": {
     "open": "Admin-Werkzeuge",
-    "rooms": "Testräume",
+    "crowd": {
+      "title": "Menschenmenge",
+      "count": "{people} von {target}",
+      "stopped": "Läuft nicht",
+      "running": "Läuft",
+      "paused": "Pausiert",
+      "start": "Menge starten",
+      "pause": "Pause",
+      "resume": "Weiter",
+      "stop": "Stoppen und wegschicken"
+    },
     "people": "Leute im Raum",
     "addPerson": "Person hinzufügen",
     "fillRoom": "Raum füllen",

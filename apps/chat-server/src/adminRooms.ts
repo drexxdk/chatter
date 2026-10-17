@@ -19,7 +19,7 @@ export const ADMIN_ROOMS = [
     slug: "admin-small",
     maxMembers: 4,
     slowModeSeconds: null,
-    description: "A room that is full with four people.",
+    description: "Room for four people, to see it fill up.",
   },
 ] as const;
 
@@ -35,6 +35,7 @@ export interface FakeMember {
   role: "guest";
   avatar: Avatar;
   picture: string;
+  age?: number;
 }
 
 const NAMES = [

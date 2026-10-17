@@ -8,15 +8,19 @@ import {
 } from "@headlessui/react";
 import {
   FlaskConical,
-  Users,
+  Pause,
+  Play,
+  Square,
   UserMinus,
   UserPlus,
   UserX,
   UsersRound,
 } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Room } from "../api";
+import type { CrowdState } from "../chat/types";
 import { HEADER_DROPDOWN, MENU_ITEM, MENU_SURFACE } from "./dropdown";
 
 const item = `${MENU_ITEM} gap-3 px-2 py-2`;
@@ -25,21 +29,30 @@ const heading = "px-2 py-1 text-xs font-semibold uppercase text-neutral-500";
 // Why the server removes somebody; each can be shown to the admin themselves.
 const KICK_REASONS = ["inactivity", "banned", "replaced", "invalid_token"];
 
-// The admin's tools for trying the chat out: the rooms only they can enter, people who are not there, and being removed.
+// How many people the crowd can be.
+const AMOUNTS = [10, 25, 50, 100];
+
+// The admin's tools for trying the chat out in the rooms only they can enter: people who are not there, a crowd of them that
+// writes by itself, and being removed.
 export function AdminMenu({
   rooms,
   slug,
-  onJoin,
+  crowd,
   onTool,
 }: {
+  // The rooms the tools are for.
   rooms: Room[];
   // The room the admin is in, if any.
   slug: string | null;
-  onJoin: (room: Room) => void;
+  crowd: CrowdState | null;
   onTool: (event: string, payload?: unknown) => void;
 }) {
   const { t } = useTranslation();
+  const [amount, setAmount] = useState(25);
   const inTestRoom = rooms.some((room) => room.slug === slug);
+  const status = crowd?.status ?? "stopped";
+  // The number the crowd is meant to be while it runs; what was chosen otherwise.
+  const chosen = status === "stopped" ? amount : (crowd?.target ?? amount);
 
   return (
     <div className="relative">
@@ -57,19 +70,92 @@ export function AdminMenu({
             className={`${HEADER_DROPDOWN} w-64 -translate-x-full space-y-1 ${MENU_SURFACE}`}
           >
             <MenuSection>
-              <MenuHeading className={heading}>{t("admin.rooms")}</MenuHeading>
-              {rooms.map((room) => (
-                <MenuItem key={room.slug}>
+              <MenuHeading className={`${heading} flex justify-between`}>
+                <span>{t("admin.crowd.title")}</span>
+                <span className="normal-case">
+                  {inTestRoom && crowd
+                    ? status === "stopped"
+                      ? t("admin.crowd.stopped")
+                      : `${t(`admin.crowd.${status}`)} · ${t("admin.crowd.count", { people: crowd.people, target: crowd.target })}`
+                    : null}
+                </span>
+              </MenuHeading>
+              <div className="grid grid-cols-4 gap-1">
+                {AMOUNTS.map((people) => (
+                  <MenuItem key={people} disabled={!inTestRoom}>
+                    <button
+                      type="button"
+                      aria-checked={people === chosen}
+                      onClick={(event) => {
+                        // The menu stays open, to start or change the crowd after choosing.
+                        event.preventDefault();
+                        setAmount(people);
+
+                        if (status !== "stopped") {
+                          onTool("admin:crowd:people", { people });
+                        }
+                      }}
+                      className={`${MENU_ITEM} justify-center px-1 py-2 ${people === chosen ? "bg-neutral-800 ring-1 ring-indigo-400" : ""}`}
+                    >
+                      {people}
+                    </button>
+                  </MenuItem>
+                ))}
+              </div>
+              {status === "stopped" ? (
+                <MenuItem disabled={!inTestRoom}>
                   <button
                     type="button"
-                    onClick={() => onJoin(room)}
+                    onClick={() =>
+                      onTool("admin:crowd:start", { people: chosen })
+                    }
                     className={item}
                   >
-                    <Users aria-hidden="true" className="h-5 w-5 shrink-0" />
-                    {room.name}
+                    <Play aria-hidden="true" className="h-5 w-5 shrink-0" />
+                    {t("admin.crowd.start")}
                   </button>
                 </MenuItem>
-              ))}
+              ) : (
+                <>
+                  <MenuItem disabled={!inTestRoom}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onTool(
+                          status === "paused"
+                            ? "admin:crowd:resume"
+                            : "admin:crowd:pause",
+                        )
+                      }
+                      className={item}
+                    >
+                      {status === "paused" ? (
+                        <Play aria-hidden="true" className="h-5 w-5 shrink-0" />
+                      ) : (
+                        <Pause
+                          aria-hidden="true"
+                          className="h-5 w-5 shrink-0"
+                        />
+                      )}
+                      {t(
+                        status === "paused"
+                          ? "admin.crowd.resume"
+                          : "admin.crowd.pause",
+                      )}
+                    </button>
+                  </MenuItem>
+                  <MenuItem disabled={!inTestRoom}>
+                    <button
+                      type="button"
+                      onClick={() => onTool("admin:crowd:stop")}
+                      className={item}
+                    >
+                      <Square aria-hidden="true" className="h-5 w-5 shrink-0" />
+                      {t("admin.crowd.stop")}
+                    </button>
+                  </MenuItem>
+                </>
+              )}
             </MenuSection>
 
             <MenuSection className="border-t border-neutral-800 pt-1">

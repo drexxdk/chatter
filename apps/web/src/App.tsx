@@ -108,7 +108,7 @@ export function App({
   }
 
   const rooms = roomsState.status === "ready" ? roomsState.rooms : [];
-  // The rooms only an admin can enter are not in the lobby or the room switcher.
+  // The rooms only an admin can enter are listed for them alone, in the lobby and the room switcher.
   const adminRooms = chat.session?.adminRooms ?? [];
   const knownRooms = [...rooms, ...adminRooms];
   const currentRoom = knownRooms.find((room) => room.slug === chat.roomSlug);
@@ -605,7 +605,7 @@ export function App({
                   <ArrowLeft aria-hidden="true" className="h-5 w-5" />
                 </button>
                 <RoomSwitcher
-                  rooms={rooms}
+                  rooms={knownRooms}
                   slug={chat.roomSlug}
                   name={currentRoom?.name ?? chat.roomSlug}
                   disabled={chat.status !== "connected"}
@@ -632,7 +632,9 @@ export function App({
                 <AdminMenu
                   rooms={adminRooms}
                   slug={chat.roomSlug}
-                  onJoin={(room) => void handleSelect(room)}
+                  crowd={
+                    chat.crowd?.roomSlug === chat.roomSlug ? chat.crowd : null
+                  }
                   onTool={(event, payload) =>
                     void chat.adminTool(event, payload)
                   }
@@ -719,7 +721,11 @@ export function App({
                 <ErrorAlert code={chat.error} />
               )}
               <Lobby
-                state={roomsState}
+                state={
+                  roomsState.status === "ready" && adminRooms.length > 0
+                    ? { status: "ready", rooms: knownRooms }
+                    : roomsState
+                }
                 onRetry={retry}
                 onSelect={(room) => void handleSelect(room)}
               />
