@@ -6,6 +6,7 @@ import type { Account } from "../account";
 import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
 import { randomPicture } from "../chat/picture";
 import type { ActionResult, Session } from "../chat/types";
+import { useRetryCountdown } from "../chat/useRetryCountdown";
 import { normalizeNickname } from "../nickname";
 import { MAX_AGE, MIN_AGE, readAge, type ProfileChanges } from "../profile";
 import { ProviderLabel } from "./AccountOptions";
@@ -216,6 +217,7 @@ function ProfileForm({
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<ActionResult & { ok: false }>();
+  useRetryCountdown(failure, setFailure);
 
   const nickname = normalizeNickname(name);
   const age = readAge(ageText);

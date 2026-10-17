@@ -7,6 +7,7 @@ import { isStatus } from "../chat/direct";
 import { runs } from "../chat/runs";
 import type { ActionResult } from "../chat/useChat";
 import { useComposer } from "../chat/useComposer";
+import { useRetryCountdown } from "../chat/useRetryCountdown";
 import { focusMessageBox } from "../focusMessageBox";
 import { ComposerBar } from "./ComposerBar";
 import { composerButton } from "./composerControls";
@@ -49,6 +50,7 @@ export function DirectChat({
   const { t } = useTranslation();
   const composer = useComposer();
   const [failure, setFailure] = useState<ActionResult & { ok: false }>();
+  useRetryCountdown(failure, setFailure);
   const label = t("dm.title", { name: partner.nickname });
 
   async function deliver(value: string): Promise<boolean> {

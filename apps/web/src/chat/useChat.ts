@@ -162,6 +162,22 @@ export function useChat(
     null,
   );
 
+  // The wait counts down, and the error goes when it is over.
+  useEffect(() => {
+    if (error !== "rate_limited" || !retryAfterSeconds) return;
+
+    const timer = setTimeout(() => {
+      if (retryAfterSeconds > 1) {
+        setRetryAfterSeconds(retryAfterSeconds - 1);
+      } else {
+        setError(null);
+        setRetryAfterSeconds(null);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [error, retryAfterSeconds]);
+
   useEffect(() => {
     delaysRef.current =
       options.reconnectDelaysMs ?? DEFAULT_RECONNECT_DELAYS_MS;
@@ -772,38 +788,37 @@ export function useChat(
     resetRoom();
   }, [cancelReconnect, disconnect, emitWithAck, resetRoom]);
 
-  const sendMessage = useCallback(
-    async (text: string): Promise<boolean> => {
+  // What an answer to a message or a reaction does to the error shown. It stays until the answer comes: clearing it first
+  // and showing it again makes the box under the messages shrink and grow, which moves the chat.
+  const settle = useCallback((ack: Ack) => {
+    if (ack.ok) {
       setError(null);
       setRetryAfterSeconds(null);
+      return;
+    }
+
+    setError(ack.error);
+    setRetryAfterSeconds(
+      ack.retryAfterMs ? Math.ceil(ack.retryAfterMs / 1000) : null,
+    );
+  }, []);
+
+  const sendMessage = useCallback(
+    async (text: string): Promise<boolean> => {
       const ack = await emitWithAck("message:send", { text });
 
-      if (!ack.ok) {
-        setError(ack.error);
-        if (ack.retryAfterMs) {
-          setRetryAfterSeconds(Math.ceil(ack.retryAfterMs / 1000));
-        }
-      }
+      settle(ack);
       return ack.ok;
     },
-    [emitWithAck],
+    [emitWithAck, settle],
   );
 
   // Adds the guest's reaction to a message, or takes it back; the room is told what the reactions are now.
   const react = useCallback(
     async (messageId: string, emoji: string): Promise<void> => {
-      setError(null);
-      setRetryAfterSeconds(null);
-      const ack = await emitWithAck("reaction:toggle", { messageId, emoji });
-
-      if (!ack.ok) {
-        setError(ack.error);
-        if (ack.retryAfterMs) {
-          setRetryAfterSeconds(Math.ceil(ack.retryAfterMs / 1000));
-        }
-      }
+      settle(await emitWithAck("reaction:toggle", { messageId, emoji }));
     },
-    [emitWithAck],
+    [emitWithAck, settle],
   );
 
   // Adds the guest's reaction to a private message, or takes it back; both people are told, and each client keeps it.
@@ -825,23 +840,16 @@ export function useChat(
           ?.find((reaction) => reaction.emoji === emoji)
           ?.users.some((user) => ownGuestIdsRef.current.includes(user.guestId));
 
-      setError(null);
-      setRetryAfterSeconds(null);
-      const ack = await emitWithAck("dm:react", {
-        toGuestId: partnerGuestId,
-        messageId,
-        emoji,
-        on: !had,
-      });
-
-      if (!ack.ok) {
-        setError(ack.error);
-        if (ack.retryAfterMs) {
-          setRetryAfterSeconds(Math.ceil(ack.retryAfterMs / 1000));
-        }
-      }
+      settle(
+        await emitWithAck("dm:react", {
+          toGuestId: partnerGuestId,
+          messageId,
+          emoji,
+          on: !had,
+        }),
+      );
     },
-    [emitWithAck],
+    [emitWithAck, settle],
   );
 
   const sendAnnouncement = useCallback(

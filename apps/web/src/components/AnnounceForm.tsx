@@ -2,6 +2,7 @@ import { useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { AnnounceResult } from "../chat/useChat";
+import { useRetryCountdown } from "../chat/useRetryCountdown";
 import { ErrorAlert } from "./ErrorAlert";
 
 const MAX_LENGTH = 500;
@@ -16,6 +17,7 @@ export function AnnounceForm({
   const { t } = useTranslation();
   const [text, setText] = useState("");
   const [failure, setFailure] = useState<AnnounceResult & { ok: false }>();
+  useRetryCountdown(failure, setFailure);
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();

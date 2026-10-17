@@ -7,6 +7,7 @@ import {
   type ActionResult,
   type ReportReason,
 } from "../chat/types";
+import { useRetryCountdown } from "../chat/useRetryCountdown";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Modal } from "./Modal";
@@ -29,6 +30,7 @@ export function ReportDialog({
   const [reason, setReason] = useState<ReportReason>("other");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<ActionResult & { ok: false }>();
+  useRetryCountdown(failure, setFailure);
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();

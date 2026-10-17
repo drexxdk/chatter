@@ -24,6 +24,7 @@ import { isStatus, type Partner } from "../chat/direct";
 import { runs } from "../chat/runs";
 import type { ReportReason } from "../chat/types";
 import { useComposer } from "../chat/useComposer";
+import { useRetryCountdown } from "../chat/useRetryCountdown";
 import {
   timeline,
   withDirect,
@@ -123,6 +124,7 @@ export function ChatRoom({
   const [replyFailure, setReplyFailure] = useState<
     ActionResult & { ok: false }
   >();
+  useRetryCountdown(replyFailure, setReplyFailure);
   const replyPresent =
     !replyTo || members.some((member) => member.guestId === replyTo.guestId);
   // Somebody who has been blocked is not written to until they are unblocked.

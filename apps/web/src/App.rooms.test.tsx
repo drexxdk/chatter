@@ -492,6 +492,33 @@ describe("inside a room", () => {
     expect(screen.getByLabelText("Message")).toHaveDraft("too fast");
   });
 
+  it("counts the wait down, and takes the message away when it is over", async () => {
+    const { user, server } = await enterRoom();
+    server.latest.acks["message:send"] = () => ({
+      ok: false,
+      error: "rate_limited",
+      retryAfterMs: 2_000,
+    });
+
+    await user.type(screen.getByLabelText("Message"), "too fast");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You can send again in 2 s.",
+    );
+    await waitFor(
+      () =>
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          "You can send again in 1 s.",
+        ),
+      { timeout: 2000 },
+    );
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull(), {
+      timeout: 2500,
+    });
+    expect(screen.getByLabelText("Message")).toHaveDraft("too fast");
+  });
+
   describe("slow mode", () => {
     async function enterSlowRoom(slowModeSeconds?: number | null) {
       stubRooms(async () => ({
