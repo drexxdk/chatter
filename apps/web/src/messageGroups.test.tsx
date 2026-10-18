@@ -273,4 +273,23 @@ describe("in a private conversation", () => {
     expect(log.getAllByRole("listitem")).toHaveLength(1);
     expect(log.getAllByText("Bob")).toHaveLength(1);
   });
+
+  it("does not look clickable on a private message from somebody who has left", async () => {
+    const { server } = await enter();
+    act(() => server.latest.serverEmit("dm:new", dm("psst", 1)));
+    const label = () =>
+      within(rows()[0]).getByText("Direct message from Bob");
+
+    expect(label()).toHaveClass("cursor-pointer", "hover:underline");
+
+    act(() =>
+      server.latest.serverEmit("room:presence", {
+        roomSlug: "general",
+        members: [{ guestId: "guest-me", nickname: "Alice" }, CAROL],
+      }),
+    );
+
+    expect(label()).not.toHaveClass("cursor-pointer");
+    expect(label()).not.toHaveClass("hover:underline");
+  });
 });

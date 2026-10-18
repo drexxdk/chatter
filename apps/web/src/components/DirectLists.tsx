@@ -148,12 +148,15 @@ export const PeopleList = memo(PeopleListView);
 // one switches off being told about that person.
 export function ThreadList({
   threads,
+  searching = false,
   blockedIds,
   onOpen,
   onSetMuted,
   onSetBlocked,
 }: {
   threads: DirectThread[];
+  // The list is narrowed by a search, so that having none to show is no news about the conversations.
+  searching?: boolean;
   blockedIds: string[];
   onOpen: (partner: Partner) => void;
   onSetMuted: (guestId: string, muted: boolean) => void;
@@ -162,7 +165,11 @@ export function ThreadList({
   const { t } = useTranslation();
 
   if (threads.length === 0) {
-    return <p className="text-sm text-neutral-500">{t("dm.none")}</p>;
+    return (
+      <p className="text-sm text-neutral-500">
+        {t(searching ? "dm.noMatches" : "dm.none")}
+      </p>
+    );
   }
 
   return (
@@ -256,6 +263,7 @@ export function ThreadSection({
   className = "",
   showHeading = true,
   threads,
+  searching,
   blockedIds,
   onOpen,
   onSetMuted,
@@ -266,6 +274,7 @@ export function ThreadSection({
   // Off where the section has a heading of its own.
   showHeading?: boolean;
   threads: DirectThread[];
+  searching?: boolean;
   blockedIds: string[];
   onOpen: (partner: Partner) => void;
   onSetMuted: (guestId: string, muted: boolean) => void;
@@ -283,6 +292,7 @@ export function ThreadSection({
       <div className="panel-list">
         <ThreadList
           threads={threads}
+          searching={searching}
           blockedIds={blockedIds}
           onOpen={onOpen}
           onSetMuted={onSetMuted}

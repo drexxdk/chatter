@@ -79,7 +79,7 @@ function MessageGroupView({
   const moderator = role === "moderator";
   const last = messages[messages.length - 1];
   // What the name and the avatar do when clicked: choosing the person (not for somebody who cannot be written to now)
-  // and, always, having seen what they wrote.
+  // and, always, having seen what they wrote. Only the first looks like something that can be clicked.
   const pick = onSelect && selectable ? onSelect : undefined;
   const clickPerson =
     onSeen || pick
@@ -152,7 +152,7 @@ function MessageGroupView({
       {!mine && (
         <span
           onClick={clickPerson}
-          className={clsx("flex shrink-0", clickPerson && "cursor-pointer")}
+          className={clsx("flex shrink-0", pick && "cursor-pointer")}
         >
           <AvatarIcon avatar={avatar} picture={picture} dimmed={gone} />
         </span>
@@ -174,7 +174,7 @@ function MessageGroupView({
                   : moderator
                     ? "font-bold text-green-400"
                     : "font-semibold"
-              } ${clickPerson && !mine ? "cursor-pointer hover:underline" : ""}`}
+              } ${pick && !mine ? "cursor-pointer hover:underline" : ""}`}
             >
               {direct ? direct.label : nickname}
             </span>

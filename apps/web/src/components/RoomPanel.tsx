@@ -73,9 +73,20 @@ export function RoomPanel({
 }) {
   const { t } = useTranslation();
   const filter = usePeopleFilter(members);
+  // The search is for the conversations too: by who they are with.
+  const needle = filter.query.trim().toLowerCase();
+  const shownThreads = threads.filter((thread) =>
+    thread.nickname.toLowerCase().includes(needle),
+  );
 
   return (
     <div className="flex h-full flex-col gap-5">
+      <SearchBox
+        value={filter.query}
+        onChange={filter.setQuery}
+        label={t("dm.search")}
+      />
+
       <PanelSection
         title={
           typeof maxMembers === "number"
@@ -83,11 +94,6 @@ export function RoomPanel({
             : t("room.members", { count: members.length })
         }
       >
-        <SearchBox
-          value={filter.query}
-          onChange={filter.setQuery}
-          label={t("dm.search")}
-        />
         <PeopleFilterChips filter={filter} label={t("dm.filter")} compact />
         <div className="panel-list">
           <PeopleList
@@ -109,7 +115,8 @@ export function RoomPanel({
         <ThreadSection
           className="min-h-0 flex-1"
           showHeading={false}
-          threads={threads}
+          threads={shownThreads}
+          searching={needle !== ""}
           blockedIds={blockedIds}
           onOpen={onOpen}
           onSetMuted={onSetMuted}

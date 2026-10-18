@@ -406,6 +406,29 @@ describe("direct messages", () => {
       ).toHaveAccessibleName(/1 unread message/);
     });
 
+    it("are narrowed by the search above the people, and say so when nobody matches", async () => {
+      const { user, server } = await enter();
+      receive(server, dm());
+      receive(
+        server,
+        dm({
+          fromGuestId: carol.guestId,
+          fromNickname: "Carol",
+          text: "hi",
+        }),
+      );
+
+      await user.type(screen.getByRole("searchbox", { name: "Search people" }), "bo");
+
+      expect(threads().getByRole("button", { name: /^Bob/ })).toBeInTheDocument();
+      expect(threads().queryByRole("button", { name: /^Carol/ })).toBeNull();
+
+      await user.type(screen.getByRole("searchbox", { name: "Search people" }), "zz");
+
+      expect(screen.queryByRole("list", { name: "Direct messages" })).toBeNull();
+      expect(screen.getAllByText("Nobody matches.")).toHaveLength(2);
+    });
+
     it("can be switched off for one person, and back on", async () => {
       const { user, server } = await enter();
       receive(server, dm());
