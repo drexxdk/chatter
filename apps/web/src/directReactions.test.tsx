@@ -83,6 +83,7 @@ describe("reacting to a private message", () => {
 
     const chip = row("hi Alice").getByRole("button", { name: /^👍 1/ });
     expect(chip).toHaveAttribute("aria-pressed", "true");
+    expect(chip).toHaveTextContent(/^👍$/);
 
     await user.click(chip);
 
@@ -103,7 +104,9 @@ describe("reacting to a private message", () => {
 
     const mine = row("hi back");
     expect(mine.queryByRole("button", { name: /^React with/ })).toBeNull();
-    expect(mine.getByRole("img", { name: "👍 1: Bob" })).toBeInTheDocument();
+    expect(mine.getByRole("img", { name: "👍 1: Bob" })).toHaveTextContent(
+      /^👍$/,
+    );
   });
 
   it.each([

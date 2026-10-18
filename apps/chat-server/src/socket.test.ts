@@ -699,8 +699,33 @@ describe("reactions", () => {
     expect(toggleReaction.mock.calls[0][3].guestId).toEqual(expect.any(String));
   });
 
+  it.each(["🦖", "👍🏽", "👩‍💻", "🇩🇰"])(
+    "accepts full-picker emoji %s",
+    async (emoji) => {
+      toggleReaction.mockResolvedValue({
+        ok: true,
+        reactions: [{ emoji, users: [] }],
+      });
+      const alice = await connectGuest("Alice");
+      await emit(alice, "room:join", { slug: "general" });
+
+      expect(
+        await emit(alice, "reaction:toggle", { messageId: "m1", emoji }),
+      ).toEqual({ ok: true });
+      expect(toggleReaction).toHaveBeenCalledWith(
+        "general",
+        "m1",
+        emoji,
+        expect.any(Object),
+      );
+    },
+  );
+
   it.each([
-    ["an emoji that is not offered", { messageId: "m1", emoji: "🦖" }],
+    ["multiple emoji", { messageId: "m1", emoji: "👍👍" }],
+    ["text containing an emoji", { messageId: "m1", emoji: "hello 👍" }],
+    ["an empty emoji", { messageId: "m1", emoji: "" }],
+    ["an oversized emoji", { messageId: "m1", emoji: "👍".repeat(1000) }],
     ["text instead of an emoji", { messageId: "m1", emoji: "hello" }],
     ["no emoji", { messageId: "m1" }],
     ["no message", { emoji: "👍" }],
@@ -2616,29 +2641,32 @@ describe("direct messages", () => {
       return heard;
     };
 
-    it("tells both of them, and nobody else, who reacted to what", async () => {
-      const alice = await inRoom({ nickname: "Alice" });
-      const bob = await inRoom({ nickname: "Bob" });
-      const carol = await inRoom({ nickname: "Carol" });
-      const heardByAlice = waitFor(alice.socket, "dm:reaction");
-      const heardByBob = waitFor(bob.socket, "dm:reaction");
-      const heardByCarol = heardReactions(carol);
+    it.each(["👍", "🦖", "👍🏽", "👩‍💻", "🇩🇰"])(
+      "tells both of them, and nobody else, who reacted with %s",
+      async (emoji) => {
+        const alice = await inRoom({ nickname: "Alice" });
+        const bob = await inRoom({ nickname: "Bob" });
+        const carol = await inRoom({ nickname: "Carol" });
+        const heardByAlice = waitFor(alice.socket, "dm:reaction");
+        const heardByBob = waitFor(bob.socket, "dm:reaction");
+        const heardByCarol = heardReactions(carol);
 
-      expect(await react(bob, alice)).toEqual({ ok: true });
+        expect(await react(bob, alice, { emoji })).toEqual({ ok: true });
 
-      const expected = {
-        messageId: "m1",
-        emoji: "👍",
-        on: true,
-        byGuestId: bob.guestId,
-        byNickname: "Bob",
-        toGuestId: alice.guestId,
-      };
-      expect(await heardByAlice).toEqual(expected);
-      expect(await heardByBob).toEqual(expected);
-      await settle();
-      expect(heardByCarol).toEqual([]);
-    });
+        const expected = {
+          messageId: "m1",
+          emoji,
+          on: true,
+          byGuestId: bob.guestId,
+          byNickname: "Bob",
+          toGuestId: alice.guestId,
+        };
+        expect(await heardByAlice).toEqual(expected);
+        expect(await heardByBob).toEqual(expected);
+        await settle();
+        expect(heardByCarol).toEqual([]);
+      },
+    );
 
     it("passes on taking a reaction back", async () => {
       const alice = await inRoom({ nickname: "Alice" });
@@ -2661,7 +2689,8 @@ describe("direct messages", () => {
     });
 
     it.each([
-      ["an emoji that is not offered", { emoji: "🦖" }],
+      ["multiple emoji", { emoji: "👍👍" }],
+      ["text containing an emoji", { emoji: "hello 👍" }],
       ["no emoji", { emoji: undefined }],
       ["no message", { messageId: undefined }],
       ["a message id that is too long", { messageId: "m".repeat(65) }],

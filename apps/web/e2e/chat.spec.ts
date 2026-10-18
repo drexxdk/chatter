@@ -524,12 +524,42 @@ test("a guest reacts to a message, everyone sees it, and a guest who joins later
     "aria-pressed",
     "true",
   );
+  for (const chip of [
+    bobsRow.getByRole("button", { name: "👍 1: Bob" }),
+    alicesRow.getByRole("img", { name: "👍 1: Bob" }),
+    bobsRow.getByRole("button", { name: "Add reaction" }).last(),
+  ]) {
+    await expect(chip).toHaveCSS("width", "28px");
+    await expect(chip).toHaveCSS("height", "24px");
+  }
 
   // Another emoji from the full set.
-  await bobsRow.getByText(text).hover();
-  await bobsRow.getByRole("button", { name: "Add reaction" }).first().click();
-  await bob.getByRole("button", { name: "React with 🔥" }).click();
-  await expect(alicesRow.getByRole("img", { name: "🔥 1: Bob" })).toBeVisible();
+  for (const width of [390, 1280]) {
+    await bob.setViewportSize({ width, height: 844 });
+    await bobsRow.getByText(text).hover();
+    await bobsRow.getByRole("button", { name: "Add reaction" }).first().click();
+    const picker = bob.getByRole("dialog", { name: "Add reaction" });
+    const search = picker.getByRole("searchbox", { name: "Search emoji" });
+    await expect(search).toBeVisible();
+    await expect(
+      picker.getByRole("tab", { name: "GIFs", exact: true }),
+    ).toHaveCount(0);
+    const bounds = await picker.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.y).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
+    await search.fill("dinosaur");
+    const dinosaur = picker.getByRole("gridcell").filter({ hasText: "🦖" });
+    await expect(dinosaur).toBeVisible();
+    if (width === 390) {
+      await picker.press("Escape");
+    } else {
+      await dinosaur.press("Space");
+    }
+    await expect(picker).toHaveCount(0);
+  }
+  await expect(alicesRow.getByRole("img", { name: "🦖 1: Bob" })).toBeVisible();
 
   // The history carries them, so somebody who arrives later sees them too, and can join in.
   await enterRoom(carol, LOUNGE.name, "Carol");
@@ -538,10 +568,13 @@ test("a guest reacts to a message, everyone sees it, and a guest who joins later
   await expect(
     alicesRow.getByRole("img", { name: "👍 2: Bob, Carol" }),
   ).toBeVisible();
+  const countedChip = alicesRow.getByRole("img", { name: "👍 2: Bob, Carol" });
+  await expect(countedChip).toHaveText("👍2");
+  expect((await countedChip.boundingBox())!.width).toBeGreaterThan(28);
 
   // Taking one back removes it for everybody.
-  await bob.getByRole("button", { name: "🔥 1: Bob" }).click();
-  await expect(alicesRow.getByRole("img", { name: "🔥 1: Bob" })).toHaveCount(
+  await bob.getByRole("button", { name: "🦖 1: Bob" }).click();
+  await expect(alicesRow.getByRole("img", { name: "🦖 1: Bob" })).toHaveCount(
     0,
   );
 });

@@ -11,14 +11,12 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  QUICK_REACTIONS,
-  REACTION_EMOJIS,
-  type Reaction,
-} from "../chat/reactions";
-import { useGridNavigation } from "../gridNavigation";
+import { QUICK_REACTIONS, type Reaction } from "../chat/reactions";
 import { onMessageKey } from "../messageKeys";
-import { PANEL_SURFACE } from "./dropdown";
+import { isTouchScreen } from "../touch";
+import { PANEL_HEIGHT, PANEL_SURFACE } from "./dropdown";
+import { EmojiPane } from "./EmojiPane";
+import { FocusSearch } from "./FocusSearch";
 import { PersonMenu, type PersonMenuOptions } from "./PersonMenu";
 import { ReturnFocus, useSharedRef } from "./ReturnFocus";
 
@@ -45,13 +43,10 @@ const names = (reaction: Reaction) => {
 
 // The button that opens the grid of every emoji one can react with.
 function AddReaction({
-  isMine,
   onPick,
   buttonRef,
   className,
 }: {
-  // Whether the emoji, by its own account, is one the guest has already put on the message.
-  isMine: (emoji: string) => boolean;
   onPick: (emoji: string) => void;
   buttonRef?: Ref<HTMLButtonElement>;
   className: string;
@@ -73,15 +68,15 @@ function AddReaction({
       <PopoverPanel
         role="dialog"
         aria-label={t("reactions.add")}
-        anchor={{ to: "top start", gap: 6 }}
-        focus
-        className={`z-30 p-2 ${PANEL_SURFACE}`}
+        anchor={{ to: "top start", gap: 6, padding: 16 }}
+        focus={!isTouchScreen()}
+        className={`picker z-40 flex ${PANEL_HEIGHT} w-[min(22rem,calc(100vw-2rem))] flex-col p-3 ${PANEL_SURFACE}`}
       >
         {({ close }) => (
           <>
             <ReturnFocus to={button} />
-            <ReactionGrid
-              isMine={isMine}
+            <FocusSearch />
+            <EmojiPane
               onPick={(emoji) => {
                 onPick(emoji);
                 close();
@@ -91,41 +86,6 @@ function AddReaction({
         )}
       </PopoverPanel>
     </Popover>
-  );
-}
-
-// Every emoji one can react with; the arrow keys move between them.
-function ReactionGrid({
-  isMine,
-  onPick,
-}: {
-  isMine: (emoji: string) => boolean;
-  onPick: (emoji: string) => void;
-}) {
-  const { t } = useTranslation();
-  const keys = useGridNavigation();
-
-  return (
-    <div
-      ref={keys.ref}
-      onFocus={keys.onFocus}
-      onKeyDown={keys.onKeyDown}
-      className="grid grid-cols-8 gap-0.5"
-    >
-      {REACTION_EMOJIS.map((emoji) => (
-        <button
-          key={emoji}
-          type="button"
-          data-grid-item
-          aria-label={t("reactions.react", { emoji })}
-          aria-pressed={isMine(emoji)}
-          onClick={() => onPick(emoji)}
-          className="size-8 rounded-md text-xl hover:bg-neutral-700 aria-pressed:bg-indigo-500/30 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400"
-        >
-          {emoji}
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -208,7 +168,9 @@ export function MessageEntry({
       <span aria-hidden className="text-sm">
         {reaction.emoji}
       </span>
-      <span aria-hidden>{reaction.users.length}</span>
+      {reaction.users.length > 1 && (
+        <span aria-hidden>{reaction.users.length}</span>
+      )}
     </>
   );
   // What others gave to the guest's own message, which the guest cannot add to.
@@ -220,7 +182,7 @@ export function MessageEntry({
           role="img"
           title={names(reaction)}
           aria-label={chipLabel(reaction)}
-          className="flex h-6 items-center gap-1 rounded-full border border-neutral-700 bg-neutral-800 px-2 text-xs text-neutral-300"
+          className={`flex h-6 items-center justify-center gap-1 rounded-full border border-neutral-700 bg-neutral-800 text-xs text-neutral-300 ${reaction.users.length > 1 ? "min-w-7 px-2" : "w-7"}`}
         >
           {chipContent(reaction)}
         </span>
@@ -384,7 +346,6 @@ export function MessageEntry({
                   </button>
                 ))}
                 <AddReaction
-                  isMine={mineOf}
                   onPick={pick}
                   buttonRef={addRef}
                   className="grid size-7 place-items-center rounded-full text-neutral-300 outline-none hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-indigo-400"
@@ -426,7 +387,7 @@ export function MessageEntry({
               aria-pressed={isMine(reaction)}
               tabIndex={-1}
               onClick={() => pick(reaction.emoji)}
-              className={`flex h-6 items-center gap-1 rounded-full border px-2 text-xs focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400 ${
+              className={`flex h-6 items-center justify-center gap-1 rounded-full border text-xs focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400 ${reaction.users.length > 1 ? "min-w-7 px-2" : "w-7"} ${
                 isMine(reaction)
                   ? "border-indigo-400 bg-indigo-500/20 text-indigo-100"
                   : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
@@ -436,7 +397,6 @@ export function MessageEntry({
             </button>
           ))}
           <AddReaction
-            isMine={mineOf}
             onPick={pick}
             className="grid h-6 w-7 place-items-center rounded-full border border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
           />

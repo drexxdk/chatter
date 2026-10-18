@@ -132,16 +132,19 @@ describe("reacting to a message", () => {
     await user.click(
       row("from bob").getAllByRole("button", { name: "Add reaction" })[0],
     );
-    await user.click(
-      await screen.findByRole("button", { name: "React with 🔥" }),
-    );
+    const picker = await screen.findByRole("dialog", { name: "Add reaction" });
+    expect(
+      within(picker).getByRole("searchbox", { name: "Search emoji" }),
+    ).toBeVisible();
+    expect(within(picker).queryByRole("tab", { name: "GIFs" })).toBeNull();
+    await user.click(await screen.findByRole("button", { name: "🔥" }));
 
     expect(server.latest.emittedEvents("reaction:toggle")).toEqual([
       { messageId: "m1", emoji: "🔥" },
     ]);
     await waitFor(() =>
       expect(
-        screen.queryByRole("button", { name: "React with 🔥" }),
+        screen.queryByRole("button", { name: "🔥" }),
       ).not.toBeInTheDocument(),
     );
   });
@@ -155,7 +158,7 @@ describe("reacting to a message", () => {
     await user.keyboard("r");
 
     expect(
-      await screen.findByRole("button", { name: "React with 🔥" }),
+      await screen.findByRole("button", { name: "🔥" }),
     ).toBeInTheDocument();
   });
 
@@ -165,7 +168,7 @@ describe("reacting to a message", () => {
     await user.type(screen.getByLabelText("Message"), "rrr");
 
     expect(
-      screen.queryByRole("button", { name: "React with 🔥" }),
+      screen.queryByRole("button", { name: "🔥" }),
     ).not.toBeInTheDocument();
   });
 });
@@ -182,6 +185,22 @@ describe("the reactions a message has", () => {
     expect(chip).toHaveAttribute("aria-pressed", "false");
     expect(chip).toHaveAttribute("title", "Bob, Carol");
     expect(chip).toHaveTextContent("2");
+
+    update(server, "m1", [thumbs(CAROL)]);
+
+    await waitFor(() =>
+      expect(
+        row("from bob").getByRole("button", { name: "👍 1: Carol" }),
+      ).toHaveTextContent(/^👍$/),
+    );
+
+    update(server, "m1", [thumbs(BOB, CAROL)]);
+
+    await waitFor(() =>
+      expect(
+        row("from bob").getByRole("button", { name: "👍 2: Bob, Carol" }),
+      ).toHaveTextContent("2"),
+    );
   });
 
   it("are there when the guest joins", async () => {
@@ -191,7 +210,7 @@ describe("the reactions a message has", () => {
 
     expect(
       row("from bob").getByRole("button", { name: "👍 1: Carol" }),
-    ).toBeInTheDocument();
+    ).toHaveTextContent(/^👍$/);
   });
 
   it("mark the ones the guest made, which a click takes back", async () => {

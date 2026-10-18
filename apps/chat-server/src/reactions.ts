@@ -1,5 +1,6 @@
-// What a guest may react to a message with. A fixed set, so reactions stay emoji and the picker and the server agree;
-// the web client keeps the same list (apps/web/src/chat/reactions.ts). The first four are the quick ones.
+import emojiRegex from "emoji-regex";
+
+// Common reaction presets, mirrored by the web client. The first four are the quick ones.
 export const REACTION_EMOJIS = [
   "👍",
   "❤️",
@@ -54,7 +55,8 @@ export const REACTION_EMOJIS = [
 export function isReactionEmoji(value: unknown): value is string {
   return (
     typeof value === "string" &&
-    (REACTION_EMOJIS as readonly string[]).includes(value)
+    value.length <= 64 &&
+    emojiRegex().exec(value)?.[0] === value
   );
 }
 

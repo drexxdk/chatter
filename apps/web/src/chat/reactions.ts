@@ -1,7 +1,6 @@
 import { isRecord } from "../isRecord";
 
-// What a guest can react to a message with: the set the server accepts (apps/chat-server/src/reactions.ts keeps the
-// same list). The first four are the quick ones shown when a message is hovered.
+// Common reaction presets, mirrored by the server. The first four are the quick ones shown when a message is hovered.
 export const REACTION_EMOJIS = [
   "👍",
   "❤️",
