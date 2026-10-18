@@ -1,10 +1,29 @@
 import { describe, expect, it } from "vitest";
 
-import { gifOf, sendableGifUrl, splitGif } from "./gifs";
+import { gifOf, messageParts, sendableGifUrl, splitGif } from "./gifs";
 
 const GIF = "https://media1.giphy.com/media/abc123/200.gif";
 const MODERN =
   "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjEx=/xyz/200.gif";
+
+describe("messageParts", () => {
+  it("keeps text before, between, and after GIFs in order", () => {
+    expect(messageParts(`above\n${GIF}\nbelow\nmore\n${MODERN}\nlast`)).toEqual(
+      [
+        { text: "above", gif: null },
+        { text: "", gif: GIF },
+        { text: "below\nmore", gif: null },
+        { text: "", gif: MODERN },
+        { text: "last", gif: null },
+      ],
+    );
+  });
+
+  it("leaves untrusted URLs and inline URLs as text", () => {
+    const text = `https://example.com/a.gif\nlook ${GIF}`;
+    expect(messageParts(text)).toEqual([{ text, gif: null }]);
+  });
+});
 
 describe("gifOf", () => {
   it("recognises a picture from GIPHY, whatever the media host's number", () => {

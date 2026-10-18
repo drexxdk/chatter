@@ -18,6 +18,22 @@ export function sendableGifUrl(address: string): string | null {
   return GIF_URL.test(bare) ? bare : null;
 }
 
+export function messageParts(
+  text: string,
+): { text: string; gif: string | null }[] {
+  const parts: { text: string; gif: string | null }[] = [];
+  for (const line of text.trim().split("\n")) {
+    const gif = gifOf(line);
+    const previous = parts.at(-1);
+    if (!gif && previous && !previous.gif) {
+      previous.text += `\n${line}`;
+    } else {
+      parts.push({ text: gif ? "" : line, gif });
+    }
+  }
+  return parts;
+}
+
 // A message can carry a GIF after its words: the picture's address is the last line. Returns the words (possibly none)
 // and the picture, or the whole text and null when the last line is not a GIPHY picture.
 export function splitGif(text: string): { text: string; gif: string | null } {

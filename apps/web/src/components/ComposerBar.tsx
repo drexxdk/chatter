@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 
 import type { Partner } from "../chat/direct";
 import type { useComposer } from "../chat/useComposer";
-import { AttachedGif } from "./AttachedGif";
 import { ComposerPicker } from "./ComposerPicker";
 import { composerIconButton, ComposerSeparator } from "./composerControls";
 import { IdleWarning } from "./IdleWarning";
@@ -59,13 +58,6 @@ export function ComposerBar({
       <ScrollToEnd />
       {alert}
       {above}
-
-      {composer.gif && (
-        <AttachedGif
-          url={composer.gif}
-          onRemove={() => composer.setGif(null)}
-        />
-      )}
 
       {idleDeadline != null && <IdleWarning deadline={idleDeadline} />}
 
@@ -122,7 +114,7 @@ export function ComposerBar({
                 <ComposerPicker
                   disabled={disabled}
                   onEmoji={composer.addEmoji}
-                  onGif={composer.setGif}
+                  onGif={composer.addGif}
                   onClosed={composer.focusBox}
                 />
                 <ComposerSeparator />

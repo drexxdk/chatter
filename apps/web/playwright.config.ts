@@ -53,7 +53,10 @@ export default defineConfig({
       command: `npx vite --port ${E2E.webPort} --strictPort`,
       url: WEB_URL,
       reuseExistingServer: false,
-      env: { VITE_CHAT_SERVER_URL: CHAT_SERVER_URL },
+      env: {
+        VITE_CHAT_SERVER_URL: CHAT_SERVER_URL,
+        VITE_GIPHY_API_KEY: "e2e-test-key",
+      },
     },
   ],
 });

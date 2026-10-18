@@ -1,10 +1,10 @@
 import { LogOut } from "lucide-react";
 import clsx from "clsx";
-import { memo } from "react";
+import { Fragment, memo } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Avatar } from "../chat/avatar";
-import { splitGif } from "../chat/gifs";
+import { messageParts } from "../chat/gifs";
 import type { Reaction } from "../chat/reactions";
 import type { Role } from "../chat/useChat";
 import { NAV_STOP_CLASS, navStop } from "../rowNavigation";
@@ -119,14 +119,14 @@ function MessageGroupView({
     </p>
   );
 
-  // A message is words, a GIF, or words with a GIF after them.
   const bubble = (message: GroupMessage) => {
     if (message.banned) return words(message.text, true);
 
-    const { text, gif } = splitGif(message.text);
+    const parts = messageParts(message.text);
 
-    if (!gif) return words(message.text);
-    if (!text) return gifBubble(gif);
+    if (!parts.some((part) => part.gif)) return words(message.text);
+    const single = parts.length === 1 ? parts[0] : undefined;
+    if (single?.gif) return gifBubble(single.gif);
 
     return (
       <div
@@ -135,8 +135,15 @@ function MessageGroupView({
           mine ? "items-end" : "items-start",
         )}
       >
-        {words(text)}
-        {gifBubble(gif)}
+        {parts.map((part, index) => (
+          <Fragment key={index}>
+            {part.gif
+              ? gifBubble(part.gif)
+              : part.text.trim()
+                ? words(part.text)
+                : null}
+          </Fragment>
+        ))}
       </div>
     );
   };
@@ -197,7 +204,9 @@ function MessageGroupView({
             ? navStop(message.id, message.id === nav.stopId)
             : undefined;
           const reactable = reactions && !message.banned;
-          const hasGif = !message.banned && splitGif(message.text).gif !== null;
+          const hasGif =
+            !message.banned &&
+            messageParts(message.text).some((part) => part.gif);
           const shortcuts = [
             ...(reactable && !mine ? ["R"] : []),
             ...(hasGif ? ["P"] : []),

@@ -1,18 +1,16 @@
 import type { Editor } from "@tiptap/core";
+import { closeHistory } from "@tiptap/pm/history";
 import { useCallback, useRef, useState } from "react";
 
 import { MAX_MESSAGE_LENGTH } from "./limits";
+import { sendableGifUrl } from "./gifs";
 import { plainText } from "./plainText";
 
-// What a guest is writing: the words, which the message box keeps and reports here as they are sent (a mention with its
-// "@"), and a GIF they have added. Both go out as one message, the GIF as its last line.
 export function useComposer() {
-  const [text, setText] = useState("");
-  const [gif, setGifState] = useState<string | null>(null);
+  const [draft, setDraft] = useState({ text: "", message: "" });
   // The message box's editor, once it is there.
   const editor = useRef<Editor | null>(null);
-  // The GIF's address and the line break before it count towards the message's length.
-  const max = MAX_MESSAGE_LENGTH - (gif ? gif.length + 1 : 0);
+  const max = MAX_MESSAGE_LENGTH;
 
   const attach = useCallback((attached: Editor | null) => {
     editor.current = attached;
@@ -22,18 +20,30 @@ export function useComposer() {
     editor.current?.chain().insertContent(emoji).run();
   }
 
-  function setGif(url: string | null) {
-    setGifState(url);
-    if (!url || !editor.current) return;
-
-    // Room for the picture is made by cutting the words short rather than by refusing it.
-    const room = MAX_MESSAGE_LENGTH - url.length - 1;
+  function addGif(address: string) {
+    const url = sendableGifUrl(address);
     const box = editor.current;
+    const gifNode = box?.schema.nodes.gif;
+    if (!url || !box || !gifNode) return;
 
-    while (plainText(box.state.doc).length > room) {
-      const end = box.state.doc.content.size - 1;
-      box.commands.deleteRange({ from: end - 1, to: end });
+    const transaction = box.state.tr.replaceSelectionWith(
+      gifNode.create({ src: url }),
+    );
+    while (plainText(transaction.doc).length > max) {
+      let lastText: { from: number; to: number } | undefined;
+      transaction.doc.descendants((node, position) => {
+        if (node.isText && node.text) {
+          const size = Array.from(node.text).at(-1)!.length;
+          lastText = {
+            from: position + node.nodeSize - size,
+            to: position + node.nodeSize,
+          };
+        }
+      });
+      if (!lastText) return;
+      transaction.delete(lastText.from, lastText.to);
     }
+    box.view.dispatch(closeHistory(transaction).scrollIntoView());
   }
 
   // Back in the box after the picker closed, with the cursor where it was left.
@@ -42,20 +52,18 @@ export function useComposer() {
   }
 
   return {
-    text,
-    setText,
-    gif,
-    setGif,
+    text: draft.text,
+    setText: (text: string, message = text) => setDraft({ text, message }),
+    addGif,
     max,
     attach,
     addEmoji,
     focusBox,
     // What is sent; empty when there is nothing to send.
-    message: [text.trim(), gif].filter(Boolean).join("\n"),
+    message: draft.message.trim(),
     clear: () => {
       editor.current?.commands.clearContent(true);
-      setText("");
-      setGifState(null);
+      setDraft({ text: "", message: "" });
     },
   };
 }

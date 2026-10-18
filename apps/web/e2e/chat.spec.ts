@@ -160,6 +160,88 @@ test("header dropdowns stay within the composer and viewport bounds", async ({
   }
 });
 
+for (const width of [390, 1280]) {
+  test(`GIFs stay inside the editor with editable text above and below at ${width}px`, async ({
+    browser,
+  }, testInfo) => {
+    const guest = await newGuest(browser);
+    await guest.setViewportSize({ width, height: 844 });
+    const gif = "https://media1.giphy.com/media/inline-test/200.gif";
+    await guest.route("https://api.giphy.com/**", (route) =>
+      route.fulfill({
+        json: {
+          data: [
+            {
+              id: "inline-test",
+              title: "Inline test",
+              images: {
+                fixed_width: { url: gif, width: "200", height: "150" },
+                fixed_height: { url: gif, width: "200", height: "150" },
+              },
+            },
+          ],
+          pagination: { total_count: 1, count: 1, offset: 0 },
+        },
+      }),
+    );
+    await guest.route(
+      "https://media1.giphy.com/media/inline-test/**",
+      (route) =>
+        route.fulfill({
+          contentType: "image/png",
+          body: Buffer.from(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jB3sAAAAASUVORK5CYII=",
+            "base64",
+          ),
+        }),
+    );
+    await enterRoom(guest, LOUNGE.name, "GIF Guest");
+
+    const box = guest.getByRole("textbox", { name: "Message", exact: true });
+    const above = `Above ${width} ${Date.now()}`;
+    const below = `Below ${width}`;
+    await box.fill(above);
+    await guest.getByRole("button", { name: "Emoji and GIFs" }).click();
+    await guest.getByRole("tab", { name: "GIFs", exact: true }).click();
+    await guest.getByRole("button", { name: "Add GIF: Inline test" }).click();
+    await expect(box).toBeFocused();
+    await guest.keyboard.type(below);
+    const image = box.getByRole("img", { name: "GIF", exact: true });
+    await expect(image).toBeVisible();
+    await expect(image).toHaveJSProperty("naturalWidth", 1);
+    const layout = await box.evaluate((element) => {
+      const paragraph = element.querySelector("p")!;
+      const first = document.createRange();
+      first.selectNodeContents(paragraph.firstChild!);
+      const last = document.createRange();
+      last.selectNodeContents(paragraph.lastChild!);
+      const gifBounds = element.querySelector("img")!.getBoundingClientRect();
+      return {
+        aboveBottom: first.getBoundingClientRect().bottom,
+        belowTop: last.getBoundingClientRect().top,
+        gifTop: gifBounds.top,
+        gifBottom: gifBounds.bottom,
+        scrollHeight: element.scrollHeight,
+        height: element.clientHeight,
+      };
+    });
+    expect(layout.aboveBottom).toBeLessThanOrEqual(layout.gifTop);
+    expect(layout.belowTop).toBeGreaterThanOrEqual(layout.gifBottom);
+    expect(layout.scrollHeight).toBeLessThanOrEqual(layout.height + 1);
+    await guest.screenshot({
+      path: testInfo.outputPath(`inline-gif-${width}.png`),
+    });
+    await guest.getByRole("button", { name: "Send", exact: true }).click();
+    const sent = guest
+      .getByRole("log")
+      .locator("[data-nav-id]")
+      .filter({ hasText: above });
+    await expect(sent).toContainText(below);
+    await expect(sent.getByRole("img", { name: "GIF" })).toBeVisible();
+    await expect(box.getByRole("img")).toHaveCount(0);
+  });
+}
+
 test("two guests chat in real time and see each other come and go", async ({
   browser,
 }) => {

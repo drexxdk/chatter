@@ -14,6 +14,7 @@ import { App } from "./test/app";
 import i18n from "./i18n";
 import { editorOf, fillBox, selectText } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
+import { plainText } from "./chat/plainText";
 
 const ROOMS = [{ id: 1, name: "General", slug: "general", maxMembers: 100 }];
 const BARE = "https://media1.giphy.com/media/abc123/200.gif";
@@ -312,6 +313,23 @@ describe("GIFs", () => {
     expect(screen.getByRole("textbox", { name: "Message" })).toHaveDraft("");
   });
 
+  it("inserts into the editor at the cursor and sends text on both sides", async () => {
+    const { user, server } = await enter();
+    const box = screen.getByRole("textbox", { name: "Message" });
+    await user.type(box, "abovebelow");
+    selectText(box, 5);
+    await addDancing(user);
+    expect(within(box).getByRole("img", { name: "GIF" })).toBeInTheDocument();
+    await waitFor(() => expect(box).toHaveFocus());
+    await user.keyboard("after ");
+    await send(user);
+    await waitFor(() =>
+      expect(server.latest.emittedEvents("message:send")).toEqual([
+        { text: `above\n${BARE}\nafter below` },
+      ]),
+    );
+  });
+
   it("can be taken out again before sending", async () => {
     const { user, server } = await enter();
     await user.type(screen.getByRole("textbox", { name: "Message" }), "look");
@@ -327,6 +345,38 @@ describe("GIFs", () => {
     );
   });
 
+  it("undoes GIF insertion without removing the existing words and can redo it", async () => {
+    const { user } = await enter();
+    const box = screen.getByRole("textbox", { name: "Message" });
+    await user.type(box, "abovebelow");
+    selectText(box, 5);
+    await addDancing(user);
+    act(() => {
+      editorOf(box).commands.undo();
+    });
+    expect(box).toHaveDraft("abovebelow");
+    expect(within(box).queryByRole("img", { name: "GIF" })).toBeNull();
+    act(() => {
+      editorOf(box).commands.redo();
+    });
+    expect(plainText(editorOf(box).state.doc)).toBe(`above\n${BARE}\nbelow`);
+    expect(
+      await within(box).findByRole("img", { name: "GIF" }),
+    ).toBeInTheDocument();
+  });
+
+  it("deletes the GIF with Backspace and preserves the surrounding words", async () => {
+    const { user } = await enter();
+    const box = screen.getByRole("textbox", { name: "Message" });
+    await user.type(box, "abovebelow");
+    selectText(box, 5);
+    await addDancing(user);
+    await waitFor(() => expect(box).toHaveFocus());
+    await user.keyboard("{Backspace}");
+    expect(box).toHaveDraft("abovebelow");
+    expect(within(box).queryByRole("img", { name: "GIF" })).toBeNull();
+  });
+
   it("leaves room for the picture in the message", async () => {
     const { user } = await enter();
     const box = screen.getByRole("textbox", { name: "Message" });
@@ -335,11 +385,11 @@ describe("GIFs", () => {
     await addDancing(user);
 
     await waitFor(() =>
-      expect(box.textContent).toHaveLength(500 - BARE.length - 1),
+      expect(box.textContent).toHaveLength(500 - BARE.length - 2),
     );
     // Nothing more fits.
     fillBox(box, "y");
-    expect(box.textContent).toHaveLength(500 - BARE.length - 1);
+    expect(box.textContent).toHaveLength(500 - BARE.length - 2);
   });
 
   it("searches for what is typed", async () => {
@@ -406,6 +456,23 @@ describe("GIFs", () => {
     expect(log.getByText("look at this")).toBeInTheDocument();
     expect(log.getByRole("img", { name: "GIF" })).toHaveAttribute("src", VIDEO);
     expect(screen.queryByText(BARE)).toBeNull();
+  });
+
+  it("renders words above and below a received GIF in order", async () => {
+    const { server } = await enter();
+    act(() =>
+      server.latest.serverEmit("message:new", message(`above\n${BARE}\nbelow`)),
+    );
+    const log = within(screen.getByRole("log"));
+    const image = log.getByRole("img", { name: "GIF" });
+    expect(
+      log.getByText("above").compareDocumentPosition(image) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      image.compareDocumentPosition(log.getByText("below")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });
 
