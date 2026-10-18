@@ -344,6 +344,7 @@ export function ChatRoom({
 
   // A click on a person in the list: they are who the message box writes to privately, or nobody again if they already were.
   function toggleRecipient(partner: Partner) {
+    if (!canWriteTo(partner.guestId)) return;
     if (replyTo?.guestId === partner.guestId) chooseRecipient(null);
     else selectPerson(partner);
   }

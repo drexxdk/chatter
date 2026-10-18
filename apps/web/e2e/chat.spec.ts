@@ -830,13 +830,19 @@ async function reportFrom(
     .getByRole("log")
     .getByRole("listitem")
     .filter({ hasText: words });
-  await row.hover();
+  const messageId = await row
+    .locator("[data-nav-id]")
+    .filter({ hasText: words })
+    .getAttribute("data-nav-id");
+  expect(messageId).toBeTruthy();
+  await row.getByText(words, { exact: true }).hover();
   await row.getByRole("button", { name: `Actions for ${author}` }).click();
   await page.getByRole("menuitem", { name: "Report message" }).click();
   const dialog = page.getByRole("dialog", { name: "Report this message" });
   await dialog.getByRole("radio", { name: reason }).check();
   await dialog.getByRole("button", { name: "Report" }).click();
   await expect(dialog).toHaveCount(0);
+  return messageId;
 }
 
 test("a guest reports a message: it is hidden for them, and the admin keeps it to be judged", async ({
@@ -850,12 +856,15 @@ test("a guest reports a message: it is hidden for them, and the admin keeps it t
   await send(alice, words);
   await expect(bob.getByRole("log").getByText(words)).toBeVisible();
 
-  await reportFrom(bob, "Alice", words, "Spam");
+  const messageId = await reportFrom(bob, "Alice", words, "Spam");
 
   // One report is not enough to hide it for the others, but the reporter does not see it again.
   await expect(bob.getByRole("log").getByText(words)).toHaveCount(0);
   await expect(
-    bob.getByRole("log").getByText("Message hidden after being reported"),
+    bob
+      .getByRole("log")
+      .locator(`[data-nav-id="${messageId}"]`)
+      .getByText("Message hidden after being reported"),
   ).toBeVisible();
   await expect(alice.getByRole("log").getByText(words)).toBeVisible();
 
@@ -908,12 +917,20 @@ test("a moderator's report hides a message for everybody at once", async ({
     await send(alice, words);
     await expect(moderator.getByRole("log").getByText(words)).toBeVisible();
 
-    await reportFrom(moderator, "Alice", words, "Harassment or hate");
+    const messageId = await reportFrom(
+      moderator,
+      "Alice",
+      words,
+      "Harassment or hate",
+    );
 
     for (const page of [alice, bob, moderator]) {
       await expect(page.getByRole("log").getByText(words)).toHaveCount(0);
       await expect(
-        page.getByRole("log").getByText("Message hidden after being reported"),
+        page
+          .getByRole("log")
+          .locator(`[data-nav-id="${messageId}"]`)
+          .getByText("Message hidden after being reported"),
       ).toBeVisible();
     }
 
@@ -922,7 +939,10 @@ test("a moderator's report hides a message for everybody at once", async ({
     await enterRoom(carol, LOUNGE.name, "Carol");
     await expect(carol.getByRole("log").getByText(words)).toHaveCount(0);
     await expect(
-      carol.getByRole("log").getByText("Message hidden after being reported"),
+      carol
+        .getByRole("log")
+        .locator(`[data-nav-id="${messageId}"]`)
+        .getByText("Message hidden after being reported"),
     ).toBeVisible();
 
     await expect

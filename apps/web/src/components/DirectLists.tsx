@@ -85,6 +85,7 @@ function PeopleListView({
           avatar,
           ...(member.picture ? { picture: member.picture } : {}),
         };
+        const blocked = blockedIds.includes(member.guestId);
         const blockedBy = blockedByIds.includes(member.guestId);
         const selected = selectedId === member.guestId;
 
@@ -108,7 +109,7 @@ function PeopleListView({
               >
                 <button
                   type="button"
-                  disabled={blockedBy}
+                  disabled={blocked || blockedBy}
                   aria-pressed={selected}
                   title={t("person.message", { name: member.nickname })}
                   onClick={() => onSelect(partner)}
@@ -120,7 +121,7 @@ function PeopleListView({
                   </span>
                   <GenderMark avatar={avatar} picture={member.picture} />
                   <AgeBadge age={member.age} />
-                  {blockedIds.includes(member.guestId) && <BlockedTag />}
+                  {blocked && <BlockedTag />}
                   {blockedBy && <BlockedByTag />}
                 </button>
                 <button

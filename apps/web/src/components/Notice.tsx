@@ -9,7 +9,7 @@ const notice = cva("rounded-md border px-3 py-2 text-sm", {
       error: "border-red-500/40 bg-red-500/10 text-red-200",
       neutral: "border-neutral-600 bg-neutral-800 text-neutral-200",
     },
-    withIcon: { true: "flex flex-wrap items-center gap-x-2" },
+    withIcon: { true: "flex items-center gap-x-2" },
   },
   defaultVariants: { tone: "warning" },
 });
@@ -38,13 +38,7 @@ export function Notice({
   return (
     <div {...props} className={notice({ tone, withIcon: boxed, className })}>
       {Icon && <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />}
-      {boxed ? (
-        <span className={onDismiss ? "min-w-0 flex-1" : undefined}>
-          {children}
-        </span>
-      ) : (
-        children
-      )}
+      {boxed ? <span className="min-w-0 flex-1">{children}</span> : children}
       {onDismiss && (
         <button
           type="button"

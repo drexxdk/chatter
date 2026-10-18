@@ -39,16 +39,24 @@ describe("direct messages", () => {
       expect(
         (await screen.findAllByRole("button", { name: "Unblock Bob" })).length,
       ).toBeGreaterThanOrEqual(2);
-      expect(
-        screen.getByText(
-          "You blocked Bob. Their messages no longer reach you, and you can't write to them until you unblock them.",
-        ),
-      ).toBeInTheDocument();
+      const blockedNotice = screen.getByText(
+        "You blocked Bob. Their messages no longer reach you, and you can't write to them until you unblock them.",
+      );
+      expect(blockedNotice).toHaveClass("min-w-0", "flex-1");
+      expect(blockedNotice.parentElement).not.toHaveClass("flex-wrap");
+      expect(blockedNotice.previousElementSibling).toHaveClass("shrink-0");
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),
       ).toBeLocked();
       expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
       expect(screen.queryByRole("button", { name: "Block Bob" })).toBeNull();
+
+      const recipient = people().getByRole("button", { name: /^Bob/ });
+      expect(recipient).toBeDisabled();
+      await user.click(recipient);
+      await user.click(recipient);
+      expect(recipient).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getByText("Writing to the room")).toBeInTheDocument();
 
       await user.click(
         screen.getAllByRole("button", { name: "Unblock Bob" })[0],
@@ -65,6 +73,7 @@ describe("direct messages", () => {
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),
       ).not.toBeLocked();
+      expect(recipient).not.toBeDisabled();
     });
 
     it("stops saying that a blocked person leaves or joins the room, and starts again once unblocked", async () => {
