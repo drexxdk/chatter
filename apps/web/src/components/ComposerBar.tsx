@@ -1,5 +1,5 @@
 import { Megaphone, SendHorizontal } from "lucide-react";
-import type { SubmitEvent, ReactNode } from "react";
+import { useState, type SubmitEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Partner } from "../chat/direct";
@@ -52,6 +52,7 @@ export function ComposerBar({
   actions,
 }: ComposerBarProps) {
   const { t } = useTranslation();
+  const [anchor, setAnchor] = useState<HTMLFormElement | null>(null);
 
   return (
     <div className="sticky bottom-0 z-20 space-y-2 bg-neutral-950 pb-3 pt-2">
@@ -61,7 +62,7 @@ export function ComposerBar({
 
       {idleDeadline != null && <IdleWarning deadline={idleDeadline} />}
 
-      <form onSubmit={onSubmit} className="relative">
+      <form ref={setAnchor} onSubmit={onSubmit} className="relative">
         {/* One box that looks like the text box and holds the controls, as in Teams; a click anywhere in it types. */}
         <div
           onClick={(event) => {
@@ -88,7 +89,7 @@ export function ComposerBar({
                 ?.focus();
             }
           }}
-          className="flex cursor-text items-end rounded-md border border-neutral-700 bg-neutral-900 focus-within:border-indigo-400"
+          className="composer-focus flex cursor-text items-end rounded-md border border-neutral-700 bg-neutral-900"
         >
           <label id={"${id}-label"} className="sr-only">
             {label}
@@ -112,6 +113,7 @@ export function ComposerBar({
             {actions ?? (
               <>
                 <ComposerPicker
+                  anchor={anchor}
                   disabled={disabled}
                   onEmoji={composer.addEmoji}
                   onGif={composer.addGif}

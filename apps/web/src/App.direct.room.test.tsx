@@ -18,6 +18,30 @@ beforeEach(() => {
 });
 
 describe("direct messages", () => {
+  it("closes the people panel on an outside click but keeps it open for inside clicks", async () => {
+    const { user } = await enter();
+    const toggle = screen.getByRole("button", {
+      name: "People and direct messages",
+    });
+    await user.click(toggle);
+    const panel = screen.getByRole("region", {
+      name: "People and direct messages",
+    });
+    await user.click(
+      within(panel).getByRole("searchbox", { name: "Search people" }),
+    );
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("textbox", { name: "Message" }));
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("region", { name: "People and direct messages" }),
+    ).not.toBeInTheDocument();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
   describe("in the room's own chat", () => {
     const roomLog = () => within(screen.getByRole("log"));
     const clickMessage = (

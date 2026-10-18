@@ -36,6 +36,7 @@ function Cell({
   emoji,
   tabIndex: _managed,
   onFocus,
+  onKeyDown,
   ...props
 }: Picker.EmojiRenderProps) {
   const isStop = useSyncExternalStore(
@@ -51,6 +52,14 @@ function Cell({
       onFocus={(event) => {
         setStop(emoji.unified);
         onFocus?.(event);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === " ") {
+          event.preventDefault();
+          if (!event.repeat) event.currentTarget.click();
+          return;
+        }
+        onKeyDown?.(event);
       }}
     />
   );

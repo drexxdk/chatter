@@ -107,6 +107,36 @@ async function leaveRoom(page: Page) {
   ).toBeVisible();
 }
 
+async function expectPickerAligned(page: Page) {
+  const toggle = page.getByRole("button", {
+    name: "Emoji and GIFs",
+    exact: true,
+  });
+  await toggle.click();
+  const picker = page.getByRole("dialog", {
+    name: "Emoji and GIFs",
+    exact: true,
+  });
+  await expect(picker).toBeVisible();
+  const composer = toggle.locator("xpath=ancestor::form");
+  await expect
+    .poll(async () => {
+      const panel = await picker.boundingBox();
+      const box = await composer.boundingBox();
+      return panel && box
+        ? Math.abs(panel.x + panel.width - box.x - box.width)
+        : Infinity;
+    })
+    .toBeLessThan(1);
+  const bounds = await picker.boundingBox();
+  const box = await composer.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.y).toBeGreaterThanOrEqual(0);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(box!.y);
+  await picker.press("Escape");
+  await expect(picker).toHaveCount(0);
+}
+
 test("private chat back returns to the room and leaving is an action in the room menu", async ({
   browser,
 }) => {
@@ -123,12 +153,58 @@ test("private chat back returns to the room and leaving is an action in the room
   await expect(
     alice.getByRole("heading", { name: "Direct message with Bob" }),
   ).toBeVisible();
+  await expectPickerAligned(alice);
   await alice.getByRole("button", { name: "Back to the room" }).click();
   await expect(alice.getByRole("log", { name: LOUNGE.name })).toBeVisible();
   await alice
     .getByRole("button", { name: "Open private chat with Bob" })
     .click();
   await leaveRoom(alice);
+});
+
+test("the composer highlights keyboard focus but not pointer focus", async ({
+  browser,
+}) => {
+  const guest = await newGuest(browser);
+  await enterRoom(guest, LOUNGE.name, "Focus Guest");
+  const input = guest.getByRole("textbox", { name: "Message", exact: true });
+  const box = input.locator("xpath=ancestor::form").locator(":scope > div");
+  const neutral = "rgb(66, 66, 66)";
+  const focus = "rgb(173, 173, 173)";
+  const picker = guest.getByRole("button", {
+    name: "Emoji and GIFs",
+    exact: true,
+  });
+
+  await input.click();
+  await expect(input).toBeFocused();
+  await expect(box).toHaveCSS("border-top-color", neutral);
+  await expect(box).toHaveCSS("outline-style", "none");
+  const bounds = await box.boundingBox();
+  await input.press("Tab");
+  await expect(picker).toBeFocused();
+  await expect(picker).toHaveCSS("outline-width", "2px");
+  await expect(picker).toHaveCSS("outline-color", focus);
+  await guest.keyboard.press("Shift+Tab");
+  await expect(input).toBeFocused();
+  await expect(box).toHaveCSS("border-top-color", neutral);
+  await expect(box).toHaveCSS("outline-style", "solid");
+  await expect(box).toHaveCSS("outline-width", "2px");
+  await expect(box).toHaveCSS("outline-color", focus);
+  expect(await box.boundingBox()).toEqual(bounds);
+  await input.press("Tab");
+  await picker.press("Enter");
+  const search = guest.getByRole("dialog").getByRole("searchbox");
+  await expect(search).toBeFocused();
+  await expect(search).toHaveCSS("outline-width", "2px");
+  await expect(search).toHaveCSS("outline-color", focus);
+  await search.click();
+  await expect(search).toHaveCSS("outline-style", "none");
+  await search.press("Escape");
+  await input.click();
+  await expect(input).toBeFocused();
+  await expect(box).toHaveCSS("border-top-color", neutral);
+  await expect(box).toHaveCSS("outline-style", "none");
 });
 
 test("header dropdowns stay within the composer and viewport bounds", async ({
@@ -171,21 +247,47 @@ test("header dropdowns stay within the composer and viewport bounds", async ({
             composer!.x + composer!.width + 1,
           );
           if (name !== LOUNGE.name) {
-            expect(
-              Math.abs(
-                bounds!.x + bounds!.width - composer!.x - composer!.width,
-              ),
-            ).toBeLessThan(1);
+            await expect
+              .poll(async () => {
+                const panel = await dropdown.boundingBox();
+                const box = await guest
+                  .locator("#message")
+                  .locator("xpath=ancestor::form")
+                  .boundingBox();
+                return panel && box
+                  ? Math.abs(panel.x + panel.width - box.x - box.width)
+                  : Infinity;
+              })
+              .toBeLessThan(1);
           }
         }
         await guest.keyboard.press("Escape");
       }
 
       if (peopleOpen) {
-        await guest
-          .getByRole("button", { name: "People and direct messages" })
-          .click();
+        await expect(
+          guest.getByRole("button", { name: "People and direct messages" }),
+        ).toHaveAttribute("aria-expanded", "false");
       }
+    }
+
+    if (viewport.width < 768) {
+      const toggle = guest.getByRole("button", {
+        name: "People and direct messages",
+      });
+      await toggle.click();
+      const panel = guest.locator("#room-panel-sheet");
+      await panel.getByRole("searchbox", { name: "Search people" }).click();
+      await expect(panel).toBeVisible();
+      await guest
+        .getByRole("textbox", { name: "Message", exact: true })
+        .click();
+      await expect(panel).toHaveCount(0);
+      await toggle.click();
+      await expectPickerAligned(guest);
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    } else {
+      await expectPickerAligned(guest);
     }
   }
 });
@@ -391,7 +493,22 @@ test("a guest reacts to a message, everyone sees it, and a guest who joins later
 
   // The quick reactions show when the message is hovered.
   const bobsRow = bob.getByRole("listitem").filter({ hasText: text });
+  const bar = bobsRow.locator("[data-bar]");
+  const avatar = await bobsRow.locator("img").first().boundingBox();
+  const bubble = await bobsRow.getByText(text, { exact: true }).boundingBox();
+  expect(avatar).not.toBeNull();
+  expect(bubble).not.toBeNull();
+  for (const point of [
+    { x: avatar!.x + avatar!.width / 2, y: avatar!.y + avatar!.height - 2 },
+    { x: (avatar!.x + avatar!.width + bubble!.x) / 2, y: bubble!.y + 3 },
+  ]) {
+    await bob.mouse.move(point.x, point.y, { steps: 5 });
+    await expect(bar).toBeHidden();
+  }
   await bobsRow.getByText(text).hover();
+  await expect(bar).toBeVisible();
+  await bobsRow.getByRole("button", { name: "React with 👍" }).hover();
+  await expect(bar).toBeVisible();
   await bobsRow.getByRole("button", { name: "React with 👍" }).click();
 
   // The author sees what others added, but cannot react to their own message.
@@ -428,28 +545,35 @@ test("a guest reacts to a message, everyone sees it, and a guest who joins later
     0,
   );
 });
-test("an emoji chosen from the picker is added to the message and sent with it", async ({
-  browser,
-}) => {
-  const alice = await newGuest(browser);
-  const bob = await newGuest(browser);
-  await enterRoom(alice, LOUNGE.name, "Alice");
-  await enterRoom(bob, LOUNGE.name, "Bob");
-  const text = `emoji ${Date.now()}`;
+for (const activation of ["click", "Enter", "Space"] as const) {
+  test(`an emoji chosen from the picker is added to the message and sent with it (${activation})`, async ({
+    browser,
+  }) => {
+    const alice = await newGuest(browser);
+    const bob = await newGuest(browser);
+    await enterRoom(alice, LOUNGE.name, "Alice");
+    await enterRoom(bob, LOUNGE.name, "Bob");
+    const text = `emoji ${Date.now()}`;
 
-  const box = alice.getByRole("textbox", { name: "Message" });
-  await box.fill(text);
-  await alice.getByRole("button", { name: /^Emoji/ }).click();
-  await alice.getByRole("searchbox", { name: "Search emoji" }).fill("pizza");
-  await alice.getByRole("gridcell").filter({ hasText: "🍕" }).click();
+    const box = alice.getByRole("textbox", { name: "Message" });
+    await box.fill(text);
+    await alice.getByRole("button", { name: /^Emoji/ }).click();
+    await alice.getByRole("searchbox", { name: "Search emoji" }).fill("pizza");
+    const emoji = alice.getByRole("gridcell").filter({ hasText: "🍕" });
+    if (activation === "click") {
+      await emoji.click();
+    } else {
+      await emoji.press(activation);
+    }
 
-  // Added to what is being written, not sent.
-  await expect(box).toHaveText(`${text}🍕`);
-  await expect(bob.getByRole("log")).not.toContainText("🍕");
+    // Added to what is being written, not sent.
+    await expect(box).toHaveText(`${text}🍕`);
+    await expect(bob.getByRole("log")).not.toContainText(`${text}🍕`);
 
-  await send(alice, `${text}🍕 yum`);
-  await expect(bob.getByRole("log")).toContainText(`${text}🍕 yum`);
-});
+    await send(alice, `${text}🍕 yum`);
+    await expect(bob.getByRole("log")).toContainText(`${text}🍕 yum`);
+  });
+}
 
 test("messages sent while a guest was disconnected appear once they reconnect", async ({
   browser,
@@ -792,6 +916,10 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
     ).toBeVisible();
 
     // The send button's menu turns the box into an announcement's, and goes back to a message once it is sent.
+    for (const width of [390, 1280]) {
+      await moderator.setViewportSize({ width, height: 844 });
+      await expectPickerAligned(moderator);
+    }
     const startAnnouncing = async () => {
       await moderator
         .getByRole("button", { name: "Choose how to send" })

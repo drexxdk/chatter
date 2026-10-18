@@ -8,6 +8,14 @@ import {
   TabPanel,
   TabPanels,
 } from "@headlessui/react";
+import {
+  autoUpdate,
+  flip,
+  offset,
+  shift,
+  size,
+  useFloating,
+} from "@floating-ui/react";
 import clsx from "clsx";
 import { Smile } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -26,11 +34,13 @@ const TAB_CLASS =
 // The message box's emoji button and what it opens, as in Teams: a panel above it with the emoji and, when GIPHY is
 // set up, a tab of GIFs. Both are added to the message being written rather than sent.
 export function ComposerPicker({
+  anchor,
   disabled,
   onEmoji,
   onGif,
   onClosed,
 }: {
+  anchor: HTMLFormElement | null;
   disabled: boolean;
   onEmoji: (emoji: string) => void;
   onGif: (url: string) => void;
@@ -41,6 +51,22 @@ export function ComposerPicker({
   const withGifs = gifApiKey() !== undefined;
   const touch = isTouchScreen();
   const label = t(withGifs ? "picker.open" : "picker.openEmoji");
+  const { refs, floatingStyles } = useFloating({
+    elements: { reference: anchor },
+    placement: "top-end",
+    whileElementsMounted: autoUpdate,
+    middleware: [
+      offset(8),
+      flip(),
+      shift({ padding: 0 }),
+      size({
+        padding: 16,
+        apply({ availableHeight, elements }) {
+          elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`;
+        },
+      }),
+    ],
+  });
 
   return (
     <Popover className="shrink-0">
@@ -53,13 +79,12 @@ export function ComposerPicker({
         <Smile aria-hidden="true" className="h-5 w-5" />
       </PopoverButton>
       <PopoverPanel
+        ref={refs.setFloating}
+        style={floatingStyles}
+        portal
         role="dialog"
         aria-label={label}
-        anchor={{ to: "top end", gap: 8, offset: 37, padding: 16 }}
         focus={!touch}
-        // As tall as the room above allows (Headless UI caps the height to it) up to 26rem, and as far
-        // right as the message box: past the send button beside this one (w-9) and the box's border. Only one thing
-        // scrolls; see `.picker` in index.css.
         className={`picker z-40 flex ${PANEL_HEIGHT} w-[min(22rem,calc(100vw-2rem))] flex-col ${PANEL_SURFACE}`}
       >
         {({ close }) => {

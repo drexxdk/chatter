@@ -37,7 +37,7 @@ export function PicturePicker({
         {shown.map((option, index) => (
           <label
             key={option}
-            className={`flex aspect-square cursor-pointer items-center justify-center rounded-full p-1 focus-within:ring-2 focus-within:ring-indigo-400 ${
+            className={`flex aspect-square cursor-pointer items-center justify-center rounded-full p-1 focus-within:ring-2 focus-within:ring-focus ${
               value === option
                 ? "bg-indigo-500/10 ring-2 ring-indigo-400"
                 : "hover:bg-neutral-800"
@@ -88,7 +88,7 @@ export function AvatarPicker({
         {AVATARS.map((option) => (
           <label
             key={option}
-            className={`flex min-w-0 cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-sm focus-within:ring-2 focus-within:ring-indigo-400 ${
+            className={`flex min-w-0 cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-sm focus-within:ring-2 focus-within:ring-focus ${
               value === option
                 ? "border-indigo-400 bg-indigo-500/10"
                 : "border-neutral-700"

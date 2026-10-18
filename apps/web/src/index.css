@@ -10,6 +10,7 @@
   --color-neutral-600: #5c5c5c;
   --color-neutral-500: #8a8a8a;
   --color-neutral-400: #adadad;
+  --color-focus: var(--color-neutral-400);
   /* What the guest sent, after Teams' dark theme: a muted, dark indigo rather than a bright one. */
   --color-sent: #2f3057;
 }
@@ -223,7 +224,7 @@ html:has(#room-panel-sheet) {
 /* Focus is the outline the rest of the site has, round the emoji and the section buttons. */
 .emoji-pane [data-epr-part="emoji"]:focus-visible,
 .emoji-pane [data-epr-part="category-tab"]:focus-visible {
-  outline: 2px solid var(--color-indigo-400);
+  outline: 2px solid var(--color-focus);
   outline-offset: -2px;
 }
 
@@ -269,6 +270,16 @@ html:has(#room-panel-sheet) {
     scrollbar-width: thin;
     scrollbar-color: var(--color-neutral-600) transparent;
   }
+}
+
+:focus-visible,
+[data-focus] {
+  outline-color: var(--color-focus);
+  outline-width: 2px;
+}
+
+html:not([data-pointer]) .composer-focus:has(:focus-visible) {
+  outline: 2px solid var(--color-focus);
 }
 
 /* No focus ring after a click or tap; see inputMode.ts. */

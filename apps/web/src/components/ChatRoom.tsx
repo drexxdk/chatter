@@ -134,6 +134,21 @@ export function ChatRoom({
   const [replyTo, setReplyTo] = useState<Partner | null>(null);
   // The panel of people and conversations, where the screen has no room to keep it beside the messages.
   const [panelOpen, setPanelOpen] = useState(false);
+  useEffect(() => {
+    if (!panelOpen) return;
+    const dismiss = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (
+        document.getElementById("room-panel-sheet")?.contains(target) ||
+        document.getElementById("room-panel-toggle")?.contains(target)
+      )
+        return;
+      setPanelOpen(false);
+    };
+    document.addEventListener("pointerdown", dismiss, true);
+    return () => document.removeEventListener("pointerdown", dismiss, true);
+  }, [panelOpen]);
   const unread = direct.threads.reduce((sum, thread) => sum + thread.unread, 0);
 
   // The panel is a slide-in on a narrow screen only; a screen that becomes wide has the panel beside the messages.
