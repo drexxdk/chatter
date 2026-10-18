@@ -307,6 +307,7 @@
     "membersOfMax": "In this room ({count} of {max})",
     "people": "People in this room",
     "panel": "People and direct messages",
+    "peopleButton": "People",
     "closePanel": "Close",
     "you": "you",
     "empty": "No messages yet. Say hello!",
@@ -334,7 +335,10 @@
     "dismiss": "Dismiss",
     "label": "Announce to everyone",
     "placeholder": "Write an announcement for everyone",
-    "send": "Announce"
+    "send": "Announce",
+    "mode": "Choose how to send",
+    "asMessage": "Send as a message",
+    "asAnnouncement": "Send as an announcement"
   },
   "avatar": {
     "legend": "Gender",
@@ -378,15 +382,12 @@
     "writingTo": "Writing privately to {name}",
     "closeBar": "Stop writing privately",
     "openWith": "Open private chat with {name}",
-    "recipient": "Send to",
     "search": "Search people",
     "filter": "Filter people",
     "noMatches": "Nobody matches.",
     "muteFrom": "Stop notifications from {name}",
     "unmuteFrom": "Turn on notifications from {name}",
-    "all": "All",
-    "replyPlaceholder": "Write a private message to {name}",
-    "stopReply": "Stop writing privately to {name} and send to all"
+    "replyPlaceholder": "Write a private message to {name}"
   },
   "account": {
     "title": "Account",

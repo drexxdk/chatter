@@ -122,7 +122,7 @@ describe("reacting to a message", () => {
       { messageId: "m1", emoji: "❤️" },
     ]);
     expect(
-      screen.queryByRole("button", { name: /^Send to: Bob/ }),
+      screen.queryByText("Writing privately to Bob"),
     ).not.toBeInTheDocument();
   });
 
@@ -344,7 +344,7 @@ describe("on a touch screen", () => {
     fireEvent.click(stopOf("from bob"));
 
     expect(
-      screen.queryByRole("button", { name: /^Send to: Bob/ }),
+      screen.queryByText("Writing privately to Bob"),
     ).not.toBeInTheDocument();
   });
 
@@ -358,7 +358,7 @@ describe("on a touch screen", () => {
 
     expect(barOf("from bob")).not.toHaveAttribute("data-held");
     expect(
-      screen.queryByRole("button", { name: /^Send to: Bob/ }),
+      screen.queryByText("Writing privately to Bob"),
     ).not.toBeInTheDocument();
   });
 

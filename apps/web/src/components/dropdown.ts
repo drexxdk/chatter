@@ -20,4 +20,6 @@ export const MENU_ITEM =
 // The header's dropdowns: fixed (a portal in the document would make the page scroll to the option), just below the
 // header's 2.25rem buttons (in its 3.5rem), and no taller than reaches the bottom edge of the message box.
 export const HEADER_DROPDOWN =
-  "fixed top-[2.875rem] z-50 mt-1 max-h-[calc(100dvh-3.875rem)]";
+  "fixed top-[2.875rem] z-50 mt-1 max-h-[calc(100dvh-3.875rem)] max-w-[calc(100%-2*var(--page-gutter)-var(--fixed-scrollbar-inset,0px))]";
+
+export const HEADER_MENU = `${HEADER_DROPDOWN} right-[calc(var(--page-gutter)+var(--fixed-scrollbar-inset,0px))] w-64 space-y-1 ${MENU_SURFACE}`;

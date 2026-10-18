@@ -99,6 +99,67 @@ async function send(page: Page, text: string) {
   await page.getByRole("button", { name: "Send", exact: true }).click();
 }
 
+test("header dropdowns stay within the composer and viewport bounds", async ({
+  browser,
+}) => {
+  const guest = await newGuest(browser);
+  await enterRoom(guest, LOUNGE.name, "Menu Guest");
+
+  for (const viewport of [
+    { width: 273, height: 360 },
+    { width: 390, height: 844 },
+    { width: 1280, height: 720 },
+  ]) {
+    await guest.setViewportSize(viewport);
+    for (const peopleOpen of viewport.width < 768 ? [false, true] : [false]) {
+      if (peopleOpen) {
+        await guest
+          .getByRole("button", { name: "People and direct messages" })
+          .click();
+      }
+
+      for (const name of ["Account menu: Menu Guest", LOUNGE.name]) {
+        await guest.getByRole("button", { name, exact: true }).click();
+        const dropdown = guest.getByRole(
+          name === LOUNGE.name ? "listbox" : "menu",
+        );
+        await expect(dropdown).toBeVisible();
+        const bounds = await dropdown.boundingBox();
+        const composer = await guest
+          .locator("#message")
+          .locator("xpath=ancestor::form")
+          .boundingBox();
+        expect(bounds).not.toBeNull();
+        expect(composer).not.toBeNull();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+        expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(
+          composer!.y + composer!.height + 1,
+        );
+        if (viewport.width < 768) {
+          expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(
+            composer!.x + composer!.width + 1,
+          );
+          if (name !== LOUNGE.name) {
+            expect(
+              Math.abs(
+                bounds!.x + bounds!.width - composer!.x - composer!.width,
+              ),
+            ).toBeLessThan(1);
+          }
+        }
+        await guest.keyboard.press("Escape");
+      }
+
+      if (peopleOpen) {
+        await guest
+          .getByRole("button", { name: "People and direct messages" })
+          .click();
+      }
+    }
+  }
+});
+
 test("two guests chat in real time and see each other come and go", async ({
   browser,
 }) => {
@@ -598,7 +659,9 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
   try {
     const alice = await newGuest(browser);
     await enterRoom(alice, LOUNGE.name, "Alice");
-    await expect(alice.getByLabel("Announce to everyone")).toHaveCount(0);
+    await expect(
+      alice.getByRole("button", { name: "Choose how to send" }),
+    ).toHaveCount(0);
 
     const moderator = await newGuest(browser);
     await moderator.goto("/");
@@ -616,7 +679,19 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
       moderator.getByRole("button", { name: `Account menu: ${name}` }),
     ).toBeVisible();
 
-    await moderator.getByLabel("Announce to everyone").fill(words);
+    // The send button's menu turns the box into an announcement's, and goes back to a message once it is sent.
+    const startAnnouncing = async () => {
+      await moderator
+        .getByRole("button", { name: "Choose how to send" })
+        .click();
+      await moderator
+        .getByRole("menuitem", { name: "Send as an announcement" })
+        .click();
+    };
+    await startAnnouncing();
+    await moderator
+      .getByRole("textbox", { name: "Announce to everyone" })
+      .fill(words);
     await moderator.getByRole("button", { name: "Announce" }).click();
 
     await expect(announcementOn(alice)).toContainText(words);
@@ -630,14 +705,17 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
     await expect(announcementOn(bob)).toContainText(words);
 
     // A second one straight away is refused, and the words are kept for later.
-    await moderator.getByLabel("Announce to everyone").fill("Too soon");
+    await startAnnouncing();
+    await moderator
+      .getByRole("textbox", { name: "Announce to everyone" })
+      .fill("Too soon");
     await moderator.getByRole("button", { name: "Announce" }).click();
     await expect(moderator.getByRole("alert")).toContainText(
       /You can announce again in \d+ s\./,
     );
-    await expect(moderator.getByLabel("Announce to everyone")).toHaveValue(
-      "Too soon",
-    );
+    await expect(
+      moderator.getByRole("textbox", { name: "Announce to everyone" }),
+    ).toHaveText("Too soon");
     await expect(announcementOn(alice)).not.toContainText("Too soon");
 
     await alice.getByRole("button", { name: "Dismiss" }).click();

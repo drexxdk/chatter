@@ -306,6 +306,7 @@
     "members": "In diesem Raum ({count})",
     "membersOfMax": "In diesem Raum ({count} von {max})",
     "panel": "Personen und Direktnachrichten",
+    "peopleButton": "Personen",
     "closePanel": "Schließen",
     "people": "Personen in diesem Raum",
     "you": "du",
@@ -334,7 +335,10 @@
     "dismiss": "Schließen",
     "label": "An alle ankündigen",
     "placeholder": "Schreibe eine Ankündigung für alle",
-    "send": "Ankündigen"
+    "send": "Ankündigen",
+    "mode": "Sendeart wählen",
+    "asMessage": "Als Nachricht senden",
+    "asAnnouncement": "Als Ankündigung senden"
   },
   "avatar": {
     "legend": "Geschlecht",
@@ -378,15 +382,12 @@
     "writingTo": "Schreibt privat an {name}",
     "closeBar": "Nicht mehr privat schreiben",
     "openWith": "Privaten Chat mit {name} öffnen",
-    "recipient": "Senden an",
     "search": "Personen suchen",
     "filter": "Personen filtern",
     "noMatches": "Niemand passt.",
     "muteFrom": "Benachrichtigungen von {name} ausschalten",
     "unmuteFrom": "Benachrichtigungen von {name} einschalten",
-    "all": "Alle",
-    "replyPlaceholder": "Private Nachricht an {name} schreiben",
-    "stopReply": "Nicht mehr privat an {name} schreiben, sondern an alle senden"
+    "replyPlaceholder": "Private Nachricht an {name} schreiben"
   },
   "account": {
     "title": "Konto",

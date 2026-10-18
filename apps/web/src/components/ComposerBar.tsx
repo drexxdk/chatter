@@ -1,4 +1,4 @@
-import { SendHorizontal } from "lucide-react";
+import { Megaphone, SendHorizontal } from "lucide-react";
 import type { SubmitEvent, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -10,6 +10,7 @@ import { composerIconButton, ComposerSeparator } from "./composerControls";
 import { IdleWarning } from "./IdleWarning";
 import { MessageInput } from "./MessageInput";
 import { ScrollToEnd } from "./ScrollToEnd";
+import { SendModeMenu } from "./SendModeMenu";
 
 interface ComposerBarProps {
   composer: ReturnType<typeof useComposer>;
@@ -26,13 +27,11 @@ interface ComposerBarProps {
   mentionable?: Partner[];
   // Above the bar's controls: what went wrong with the last send.
   alert?: ReactNode;
-  // Notes above and below the form.
+  // Notes above the form.
   above?: ReactNode;
-  below?: ReactNode;
-  // Before the box, in the form.
-  leading?: ReactNode;
-  // How leading is laid out, for a page that shows it only some of the time.
-  leadingClassName?: string;
+  // For a moderator: what is written can go out as an announcement, which the send button then says, and a menu beside
+  // it chooses between that and a message.
+  announce?: { active: boolean; onChange: (active: boolean) => void };
   // In place of the picker and the send button.
   actions?: ReactNode;
 }
@@ -50,9 +49,7 @@ export function ComposerBar({
   mentionable,
   alert,
   above,
-  below,
-  leading,
-  leadingClassName = "flex items-center",
+  announce,
   actions,
 }: ComposerBarProps) {
   const { t } = useTranslation();
@@ -99,57 +96,75 @@ export function ComposerBar({
                 ?.focus();
             }
           }}
-          className="cursor-text rounded-md border border-neutral-700 bg-neutral-900 focus-within:border-indigo-400"
+          className="flex cursor-text items-end rounded-md border border-neutral-700 bg-neutral-900 focus-within:border-indigo-400"
         >
           <label id={"${id}-label"} className="sr-only">
             {label}
           </label>
-          <MessageInput
-            id={id}
-            labelledBy={"${id}-label"}
-            composer={composer}
-            placeholder={placeholder}
-            disabled={disabled}
-            people={mentionable}
-          />
+          <div className="min-w-0 flex-1">
+            <MessageInput
+              id={id}
+              labelledBy={"${id}-label"}
+              composer={composer}
+              placeholder={placeholder}
+              disabled={disabled}
+              people={mentionable}
+            />
+          </div>
+          {/* On the box's last line, whatever its height; clipped to the box's corners (its own radius less its border). */}
           <div
             data-controls
-            className="flex cursor-text items-center justify-end"
+            className="flex shrink-0 cursor-default items-center self-end overflow-hidden rounded-r-[5px]"
           >
-            {/* The group's top and left lines meet the box's own border, which is its bottom and right; clipped to the box's corner. */}
-            <div className="flex cursor-default items-center overflow-hidden rounded-br-[5px] rounded-tl-md border-l border-t border-neutral-700">
-              {leading && (
-                <div className={leadingClassName}>
-                  {leading}
-                  <ComposerSeparator />
-                </div>
-              )}
-              {actions ?? (
-                <>
-                  <ComposerPicker
-                    disabled={disabled}
-                    onEmoji={composer.addEmoji}
-                    onGif={composer.setGif}
-                    onClosed={composer.focusBox}
-                  />
-                  <ComposerSeparator />
-                  <button
-                    key="send"
-                    type="submit"
-                    disabled={disabled || !composer.message}
-                    aria-label={t("room.send")}
-                    className={`${composerIconButton} enabled:text-indigo-400 enabled:hover:text-indigo-300`}
-                  >
+            <ComposerSeparator />
+            {actions ?? (
+              <>
+                <ComposerPicker
+                  disabled={disabled}
+                  onEmoji={composer.addEmoji}
+                  onGif={composer.setGif}
+                  onClosed={composer.focusBox}
+                />
+                <ComposerSeparator />
+                <button
+                  key="send"
+                  type="submit"
+                  disabled={
+                    disabled ||
+                    !(announce?.active
+                      ? composer.text.trim()
+                      : composer.message)
+                  }
+                  aria-label={t(
+                    announce?.active ? "announcement.send" : "room.send",
+                  )}
+                  className={`${composerIconButton} ${
+                    announce?.active
+                      ? "enabled:text-green-400 enabled:hover:text-green-300"
+                      : "enabled:text-indigo-400 enabled:hover:text-indigo-300"
+                  }`}
+                >
+                  {announce?.active ? (
+                    <Megaphone aria-hidden="true" className="h-5 w-5" />
+                  ) : (
                     <SendHorizontal aria-hidden="true" className="h-5 w-5" />
-                  </button>
-                </>
-              )}
-            </div>
+                  )}
+                </button>
+                {announce && (
+                  <>
+                    <ComposerSeparator />
+                    <SendModeMenu
+                      announce={announce.active}
+                      disabled={disabled}
+                      onChange={announce.onChange}
+                    />
+                  </>
+                )}
+              </>
+            )}
           </div>
         </div>
       </form>
-
-      {below}
     </div>
   );
 }

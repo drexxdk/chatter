@@ -160,9 +160,7 @@ describe("the keyboard in the messages", () => {
 
     await user.keyboard(" {Enter}");
 
-    expect(
-      screen.getByRole("button", { name: /^Send to: All/ }),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/^Writing privately to /)).toBeNull();
   });
 
   it("goes from the message box back to the messages with Escape", async () => {

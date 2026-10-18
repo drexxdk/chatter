@@ -21,7 +21,7 @@ import { useTranslation } from "react-i18next";
 
 import type { Room } from "../api";
 import type { CrowdState } from "../chat/types";
-import { HEADER_DROPDOWN, MENU_ITEM, MENU_SURFACE } from "./dropdown";
+import { HEADER_MENU, MENU_ITEM } from "./dropdown";
 
 const item = `${MENU_ITEM} gap-3 px-2 py-2`;
 const heading = "px-2 py-1 text-xs font-semibold uppercase text-neutral-500";
@@ -66,12 +66,8 @@ export function AdminMenu({
         >
           <FlaskConical aria-hidden="true" className="h-5 w-5" />
         </MenuButton>
-        {/* At the button's right edge: a portal in the document makes the page scroll to the item. */}
         <div className="absolute right-0 w-0">
-          <MenuItems
-            modal={false}
-            className={`${HEADER_DROPDOWN} w-64 -translate-x-full space-y-1 ${MENU_SURFACE}`}
-          >
+          <MenuItems modal={false} className={HEADER_MENU}>
             <MenuSection>
               <MenuHeading className={`${heading} flex justify-between`}>
                 <span>{t("admin.crowd.title")}</span>

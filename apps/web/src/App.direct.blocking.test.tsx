@@ -156,27 +156,19 @@ describe("direct messages", () => {
         ).toBeInTheDocument();
       });
 
-      it("cannot be chosen to write to, in the dropdown or by clicking their message", async () => {
-        const { user, server } = await enter();
+      it("cannot be chosen to write to, in the people list or by clicking their message", async () => {
+        const { server } = await enter();
         act(() =>
           server.latest.serverEmit("message:new", message({ text: "hello" })),
         );
         youWereBlocked(server);
 
-        await user.click(screen.getByRole("button", { name: /^Send to:/ }));
-        const drawer = within(
-          await screen.findByRole("dialog", { name: "Send to" }),
-        );
-        const row = drawer
+        const row = within(
+          screen.getByRole("list", { name: "People in this room" }),
+        )
           .getAllByRole("button", { name: /^Bob/ })
           .find((button) => button.textContent?.includes("Blocked you"));
         expect(row).toBeDisabled();
-        await user.keyboard("{Escape}");
-        await waitFor(() =>
-          expect(
-            screen.queryByRole("dialog", { name: "Send to" }),
-          ).not.toBeInTheDocument(),
-        );
 
         expect(
           within(screen.getByRole("log")).getAllByText("Bob").at(-1),
@@ -328,14 +320,12 @@ describe("direct messages", () => {
         within(screen.getByRole("log")).getAllByText("Bob").at(-1),
       ).not.toHaveClass("cursor-pointer");
 
-      await user.click(screen.getByRole("button", { name: /^Send to:/ }));
-      const drawer = within(
-        await screen.findByRole("dialog", { name: "Send to" }),
-      );
-      const blockedRow = drawer
+      const blockedRow = within(
+        screen.getByRole("list", { name: "People in this room" }),
+      )
         .getAllByRole("button", { name: /^Bob/ })
         .find((button) => button.textContent?.includes("Blocked"));
-      expect(blockedRow).toBeDisabled();
+      expect(blockedRow).toBeInTheDocument();
     });
 
     it("can be unblocked from the conversation list", async () => {

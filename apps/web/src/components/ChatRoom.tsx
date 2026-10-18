@@ -7,7 +7,14 @@ import {
   useState,
   type SubmitEvent,
 } from "react";
-import { ArrowLeft, ArrowRight, Ban, MessageSquare, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Ban,
+  MessageSquare,
+  Users,
+  X,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type {
@@ -18,7 +25,6 @@ import type {
   Member,
   Session,
 } from "../chat/useChat";
-import { AnnounceForm } from "./AnnounceForm";
 import { PLAIN_AVATAR } from "../chat/avatar";
 import { isStatus, type Partner } from "../chat/direct";
 import { runs } from "../chat/runs";
@@ -37,7 +43,6 @@ import { useKept } from "../useKept";
 import { DirectChat } from "./DirectChat";
 import { BlockedTag } from "./DirectLists";
 import { ComposerBar } from "./ComposerBar";
-import { composerIconButton, ComposerSeparator } from "./composerControls";
 import { Timestamp } from "./Timestamp";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageGroup, StatusRow } from "./MessageRow";
@@ -45,7 +50,6 @@ import { MessageLog } from "./MessageLog";
 import { Notice } from "./Notice";
 import { MentionsProvider, type MentionsValue } from "./Mentions";
 import type { PersonMenuOptions } from "./PersonMenu";
-import { RecipientPicker } from "./RecipientPicker";
 import { ReportDialog } from "./ReportDialog";
 import { RoomPanel } from "./RoomPanel";
 
@@ -124,10 +128,37 @@ export function ChatRoom({
   );
   // Who the room's input writes to privately, when a private message was clicked.
   const [replyTo, setReplyTo] = useState<Partner | null>(null);
+  // The panel of people and conversations, where the screen has no room to keep it beside the messages.
+  const [panelOpen, setPanelOpen] = useState(false);
+  const unread = direct.threads.reduce((sum, thread) => sum + thread.unread, 0);
+
+  // The panel is a slide-in on a narrow screen only; a screen that becomes wide has the panel beside the messages.
+  useEffect(() => {
+    if (!panelOpen || typeof matchMedia !== "function") return;
+
+    const wide = matchMedia("(min-width: 48rem)");
+    const close = () => {
+      if (wide.matches) setPanelOpen(false);
+    };
+    close();
+    wide.addEventListener("change", close);
+
+    return () => wide.removeEventListener("change", close);
+  }, [panelOpen]);
   const [replyFailure, setReplyFailure] = useState<
     ActionResult & { ok: false }
   >();
   useRetryCountdown(replyFailure, setReplyFailure);
+  // A moderator can send what is written as an announcement, to everybody and not to the one written to privately.
+  const isModerator = session.role === "moderator";
+  const [announce, setAnnounce] = useState(false);
+  const [announceFailure, setAnnounceFailure] = useState<
+    AnnounceResult & { ok: false }
+  >();
+  useRetryCountdown(announceFailure, setAnnounceFailure);
+  const announceWaiting =
+    announceFailure?.error === "rate_limited" &&
+    announceFailure.retryAfterSeconds;
   const replyPresent =
     !replyTo || members.some((member) => member.guestId === replyTo.guestId);
   // Somebody who has been blocked is not written to until they are unblocked.
@@ -225,15 +256,40 @@ export function ChatRoom({
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
+
+    if (announce && isModerator) {
+      const text = composer.text.trim();
+      if (!text) return;
+
+      const result = await onAnnounce(text);
+      if (result.ok) {
+        composer.clear();
+        setAnnounceFailure(undefined);
+        setAnnounce(false);
+      } else {
+        setAnnounceFailure(result);
+      }
+      return;
+    }
+
     const value = composer.message;
     if (!value || replyBlocked || replyBlockedBy) return;
 
     if (await deliver(value)) composer.clear();
   }
 
+  function chooseSendMode(active: boolean) {
+    setAnnounce(active);
+    setAnnounceFailure(undefined);
+    if (active) startReply(null);
+    focusMessageBox();
+  }
+
   function startReply(partner: Partner | null) {
     setReplyTo(partner);
     setReplyFailure(undefined);
+    // Writing to one person is not an announcement to everybody.
+    if (partner) setAnnounce(false);
   }
 
   // Everybody else in the room, plus the chosen person if they have left, so the choice does not silently change.
@@ -641,18 +697,22 @@ export function ChatRoom({
               composer={composer}
               id="message"
               label={
-                replyTo
-                  ? t("dm.label", { name: replyTo.nickname })
-                  : t("room.messageLabel")
+                announce
+                  ? t("announcement.label")
+                  : replyTo
+                    ? t("dm.label", { name: replyTo.nickname })
+                    : t("room.messageLabel")
               }
               placeholder={
-                replyBlockedBy && replyTo
-                  ? t("dm.blockedByPlaceholder", { name: replyTo.nickname })
-                  : replyBlocked && replyTo
-                    ? t("dm.blockedPlaceholder", { name: replyTo.nickname })
-                    : replyTo
-                      ? t("dm.replyPlaceholder", { name: replyTo.nickname })
-                      : t("room.messagePlaceholder")
+                announce
+                  ? t("announcement.placeholder")
+                  : replyBlockedBy && replyTo
+                    ? t("dm.blockedByPlaceholder", { name: replyTo.nickname })
+                    : replyBlocked && replyTo
+                      ? t("dm.blockedPlaceholder", { name: replyTo.nickname })
+                      : replyTo
+                        ? t("dm.replyPlaceholder", { name: replyTo.nickname })
+                        : t("room.messagePlaceholder")
               }
               disabled={!canWrite}
               onSubmit={handleSubmit}
@@ -665,89 +725,145 @@ export function ChatRoom({
               alert={
                 <ErrorAlert
                   code={
-                    replyFailure
-                      ? replyWaiting
-                        ? "rate_limited_wait"
-                        : replyFailure.error
-                      : error === "rate_limited" && retryAfterSeconds
-                        ? "rate_limited_wait"
-                        : error
+                    announceFailure
+                      ? announceWaiting
+                        ? "announce_wait"
+                        : announceFailure.error
+                      : replyFailure
+                        ? replyWaiting
+                          ? "rate_limited_wait"
+                          : replyFailure.error
+                        : error === "rate_limited" && retryAfterSeconds
+                          ? "rate_limited_wait"
+                          : error
                   }
                   values={{
-                    seconds: replyFailure
-                      ? replyFailure.retryAfterSeconds
-                      : retryAfterSeconds,
+                    seconds: announceFailure
+                      ? announceFailure.retryAfterSeconds
+                      : replyFailure
+                        ? replyFailure.retryAfterSeconds
+                        : retryAfterSeconds,
                     name: replyTo?.nickname,
                   }}
                   onDismiss={() => {
                     setReplyFailure(undefined);
+                    setAnnounceFailure(undefined);
                     onClearError();
                   }}
                 />
               }
-              leadingClassName="flex items-center md:hidden"
-              leading={
-                <>
-                  <RecipientPicker
-                    recipients={recipients}
-                    value={replyTo}
-                    onChange={chooseRecipient}
-                    threads={direct.threads}
-                    onOpenThread={openConversation}
-                    onSetMuted={direct.setMuted}
-                    blockedIds={direct.blockedIds}
-                    blockedByIds={direct.blockedByIds}
-                    onSetBlocked={direct.setBlocked}
-                  />
-                  {replyTo && (
-                    <>
-                      <ComposerSeparator />
-                      <button
-                        type="button"
-                        onClick={() => chooseRecipient(null)}
-                        title={t("dm.stopReply", { name: replyTo.nickname })}
-                        aria-label={t("dm.stopReply", {
-                          name: replyTo.nickname,
-                        })}
-                        className={composerIconButton}
-                      >
-                        <X aria-hidden="true" className="h-5 w-5" />
-                      </button>
-                    </>
-                  )}
-                </>
+              announce={
+                isModerator
+                  ? { active: announce, onChange: chooseSendMode }
+                  : undefined
               }
               above={
                 <>
-                  {replyTo && (
-                    <div className="hidden items-center gap-2 rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-sm text-sky-200 md:flex">
-                      <MessageSquare
-                        aria-hidden="true"
-                        className="h-4 w-4 shrink-0"
+                  {panelOpen && (
+                    <div
+                      id="room-panel-sheet"
+                      role="region"
+                      aria-label={t("room.panel")}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Escape" || event.defaultPrevented) {
+                          return;
+                        }
+
+                        event.stopPropagation();
+                        setPanelOpen(false);
+                        document.getElementById("room-panel-toggle")?.focus();
+                      }}
+                      className="sheet absolute inset-x-0 bottom-full z-10 mb-0 h-[calc(100dvh-var(--header-height)-100%-0.5rem)] overflow-y-auto rounded-md border border-neutral-700 bg-neutral-900 p-3 shadow-lg md:hidden"
+                    >
+                      <RoomPanel
+                        members={members}
+                        maxMembers={maxMembers}
+                        selfGuestId={session.guestId}
+                        threads={direct.threads}
+                        selectedId={replyTo?.guestId ?? null}
+                        onSelect={(partner) => {
+                          setPanelOpen(false);
+                          toggleRecipient(partner);
+                        }}
+                        onOpen={(partner) => {
+                          setPanelOpen(false);
+                          openConversation(partner);
+                        }}
+                        blockedIds={direct.blockedIds}
+                        blockedByIds={direct.blockedByIds}
+                        onSetBlocked={direct.setBlocked}
+                        onSetMuted={direct.setMuted}
                       />
-                      <span className="min-w-0 flex-1 truncate">
-                        {t("dm.writingTo", { name: replyTo.nickname })}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => openConversation(replyTo)}
-                        title={t("person.openChat")}
-                        aria-label={t("person.openChat")}
-                        className="shrink-0 rounded p-1 hover:bg-sky-500/20"
-                      >
-                        <ArrowRight aria-hidden="true" className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => chooseRecipient(null)}
-                        title={t("dm.closeBar")}
-                        aria-label={t("dm.closeBar")}
-                        className="shrink-0 rounded p-1 hover:bg-sky-500/20"
-                      >
-                        <X aria-hidden="true" className="h-4 w-4" />
-                      </button>
                     </div>
                   )}
+
+                  {/* Who is being written to, as on a wide screen, with the button that shows the panel beside it where there is no room for the panel to stay. */}
+                  <div className="flex min-h-10 items-center gap-2">
+                    <button
+                      type="button"
+                      id="room-panel-toggle"
+                      onClick={() => setPanelOpen((open) => !open)}
+                      aria-expanded={panelOpen}
+                      aria-controls="room-panel-sheet"
+                      title={t("room.panel")}
+                      aria-label={`${t("room.panel")}${
+                        unread > 0
+                          ? `, ${t("dm.unread", { count: unread })}`
+                          : ""
+                      }`}
+                      className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-neutral-300 outline-none hover:bg-neutral-800 hover:text-neutral-100 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400 aria-expanded:bg-neutral-800 aria-expanded:text-neutral-100 md:hidden"
+                    >
+                      <Users aria-hidden="true" className="h-5 w-5" />
+                      {unread > 0 && (
+                        <span
+                          aria-hidden="true"
+                          className="absolute -right-1 -top-1.5 rounded-full bg-amber-400 px-1.5 text-xs font-bold text-neutral-950"
+                        >
+                          {unread}
+                        </span>
+                      )}
+                    </button>
+
+                    {replyTo ? (
+                      <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-sm text-sky-200">
+                        <MessageSquare
+                          aria-hidden="true"
+                          className="hidden h-4 w-4 shrink-0 md:block"
+                        />
+                        <span
+                          className="min-w-0 flex-1 wrap-break-word"
+                          aria-live="polite"
+                        >
+                          {t("dm.writingTo", { name: replyTo.nickname })}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openConversation(replyTo)}
+                          title={t("person.openChat")}
+                          aria-label={t("person.openChat")}
+                          className="shrink-0 rounded p-1 hover:bg-sky-500/20"
+                        >
+                          <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => chooseRecipient(null)}
+                          title={t("dm.closeBar")}
+                          aria-label={t("dm.closeBar")}
+                          className="shrink-0 rounded p-1 hover:bg-sky-500/20"
+                        >
+                          <X aria-hidden="true" className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span
+                        className="min-w-0 text-sm text-neutral-400"
+                        aria-live="polite"
+                      >
+                        {t("info.everyoneHeading")}
+                      </span>
+                    )}
+                  </div>
 
                   {replyTo && !replyPresent && (
                     <Notice role="status">
@@ -776,11 +892,6 @@ export function ChatRoom({
                     </Notice>
                   )}
                 </>
-              }
-              below={
-                session.role === "moderator" && (
-                  <AnnounceForm disabled={!connected} onAnnounce={onAnnounce} />
-                )
               }
             />
           </div>

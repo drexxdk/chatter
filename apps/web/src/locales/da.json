@@ -306,6 +306,7 @@
     "members": "I dette rum ({count})",
     "membersOfMax": "I dette rum ({count} af {max})",
     "panel": "Personer og direkte beskeder",
+    "peopleButton": "Personer",
     "closePanel": "Luk",
     "people": "Personer i dette rum",
     "you": "dig",
@@ -334,7 +335,10 @@
     "dismiss": "Luk",
     "label": "Meddel alle",
     "placeholder": "Skriv en meddelelse til alle",
-    "send": "Meddel"
+    "send": "Meddel",
+    "mode": "Vælg hvordan der sendes",
+    "asMessage": "Send som besked",
+    "asAnnouncement": "Send som meddelelse"
   },
   "avatar": {
     "legend": "Køn",
@@ -378,15 +382,12 @@
     "writingTo": "Skriver privat til {name}",
     "closeBar": "Stop med at skrive privat",
     "openWith": "Åbn privat samtale med {name}",
-    "recipient": "Send til",
     "search": "Søg efter personer",
     "filter": "Filtrer personer",
     "noMatches": "Ingen matcher.",
     "muteFrom": "Stop besked om nye beskeder fra {name}",
     "unmuteFrom": "Giv besked om nye beskeder fra {name}",
-    "all": "Alle",
-    "replyPlaceholder": "Skriv en privat besked til {name}",
-    "stopReply": "Stop med at skrive privat til {name} og send til alle"
+    "replyPlaceholder": "Skriv en privat besked til {name}"
   },
   "account": {
     "title": "Konto",

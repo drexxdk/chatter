@@ -33,22 +33,20 @@ describe("direct messages", () => {
 
       return user.click(names.at(-1)!);
     };
-    const recipient = () => screen.getByRole("button", { name: /^Send to:/ });
-    const chooseRecipient = async (
+    // Who the box writes to is shown above it; people are chosen in the panel.
+    const writingTo = (name?: string) =>
+      name
+        ? screen.queryByText(`Writing privately to ${name}`)
+        : screen.queryByText(/^Writing privately to /);
+    const chooseRecipient = (
       user: ReturnType<typeof setup>["user"],
       name: string,
-    ) => {
-      await user.click(recipient());
-      const drawer = within(
-        await screen.findByRole("dialog", { name: "Send to" }),
+    ) =>
+      user.click(
+        within(
+          screen.getByRole("list", { name: "People in this room" }),
+        ).getByRole("button", { name: new RegExp(`^${name}`) }),
       );
-      await user.click(drawer.getByRole("button", { name }));
-      await waitFor(() =>
-        expect(
-          screen.queryByRole("dialog", { name: "Send to" }),
-        ).not.toBeInTheDocument(),
-      );
-    };
 
     it("shows a received message marked as direct, without opening the conversation", async () => {
       const { server } = await enter();
@@ -80,7 +78,7 @@ describe("direct messages", () => {
       await clickMessage(user, "Bob");
 
       expect(pane("Bob")).toBeNull();
-      expect(recipient()).toHaveAccessibleName(/^Send to: Bob/);
+      expect(writingTo("Bob")).toBeInTheDocument();
 
       await user.type(
         screen.getByRole("textbox", { name: "Message to Bob" }),
@@ -99,9 +97,20 @@ describe("direct messages", () => {
     it("sends to everybody by default, and to one person when chosen from the slide-out", async () => {
       const { user, server } = await enter();
 
-      expect(recipient()).toHaveAccessibleName(/^Send to: All/);
+      expect(writingTo()).toBeNull();
+      expect(screen.getByText("Writing to the room")).toBeInTheDocument();
+      const peopleButton = screen.getByRole("button", {
+        name: "People and direct messages",
+      });
+      expect(peopleButton).toHaveTextContent("");
+      expect(peopleButton).toHaveAttribute(
+        "title",
+        "People and direct messages",
+      );
 
       await chooseRecipient(user, "Carol");
+      expect(writingTo("Carol")).toBeInTheDocument();
+      expect(screen.queryByText("Writing to the room")).toBeNull();
       await user.type(
         screen.getByRole("textbox", { name: "Message to Carol" }),
         "psst",
@@ -115,39 +124,41 @@ describe("direct messages", () => {
 
       await chooseRecipient(user, "Carol");
 
+      expect(screen.getByText("Writing to the room")).toBeInTheDocument();
       expect(
         screen.getByRole("textbox", { name: "Message" }),
       ).toBeInTheDocument();
     });
 
-    it("narrows the people in the dropdown by name, avatar and moderators", async () => {
+    it("narrows the people in the panel by name, avatar and moderators", async () => {
       const { user } = await enter();
-      await user.click(recipient());
-      const drawer = within(
-        await screen.findByRole("dialog", { name: "Send to" }),
+      const panel = within(
+        screen.getByRole("complementary", {
+          name: "People and direct messages",
+        }),
       );
       const names = () =>
-        drawer
+        panel
           .getAllByRole("button")
           .map((button) => button.textContent)
           .filter((name) => ["Bob", "Carol", "Ada Mod"].includes(name ?? ""));
 
       expect(names()).toEqual(["Bob", "Carol", "Ada Mod"]);
 
-      await user.click(drawer.getByRole("button", { name: "Female" }));
+      await user.click(panel.getByRole("button", { name: "Female" }));
       expect(names()).toEqual(["Carol"]);
 
-      await user.click(drawer.getByRole("button", { name: "Female" }));
-      await user.click(drawer.getByRole("button", { name: "Moderator" }));
+      await user.click(panel.getByRole("button", { name: "Female" }));
+      await user.click(panel.getByRole("button", { name: "Moderator" }));
       expect(names()).toEqual(["Ada Mod"]);
 
-      await user.click(drawer.getByRole("button", { name: "Moderator" }));
-      await user.type(drawer.getByRole("searchbox"), "bo");
+      await user.click(panel.getByRole("button", { name: "Moderator" }));
+      await user.type(panel.getByRole("searchbox"), "bo");
       expect(names()).toEqual(["Bob"]);
 
-      await user.clear(drawer.getByRole("searchbox"));
-      await user.type(drawer.getByRole("searchbox"), "zzz");
-      expect(drawer.getByText("Nobody matches.")).toBeInTheDocument();
+      await user.clear(panel.getByRole("searchbox"));
+      await user.type(panel.getByRole("searchbox"), "zzz");
+      expect(panel.getAllByText("Nobody matches.")).not.toHaveLength(0);
     });
 
     it("changes who the guest writes to from the menu on another person's message", async () => {
@@ -157,7 +168,7 @@ describe("direct messages", () => {
 
       await clickMessage(user, "Bob");
 
-      expect(recipient()).toHaveAccessibleName(/^Send to: Bob/);
+      expect(writingTo("Bob")).toBeInTheDocument();
       expect(pane("Bob")).toBeNull();
     });
 
@@ -170,7 +181,7 @@ describe("direct messages", () => {
       await clickMessage(user, "Bob");
 
       expect(screen.queryByRole("menu")).toBeNull();
-      expect(recipient()).toHaveAccessibleName(/^Send to: Bob/);
+      expect(writingTo("Bob")).toBeInTheDocument();
     });
     it("makes the chat one tab stop, with the arrow keys moving between every message", async () => {
       const { user, server } = await enter();
@@ -221,7 +232,7 @@ describe("direct messages", () => {
       expect(rows()[0]).toHaveFocus();
 
       await user.keyboard("{ArrowDown}{Enter} ");
-      expect(recipient()).toHaveAccessibleName(/^Send to: All/);
+      expect(writingTo()).toBeNull();
     });
 
     it("returns to the newest message when the chat is tabbed back into", async () => {
@@ -293,15 +304,15 @@ describe("direct messages", () => {
       ).toBeNull();
 
       await clickMessage(user, "Bob");
-      expect(recipient()).toHaveAccessibleName(/^Send to: Bob/);
+      expect(writingTo("Bob")).toBeInTheDocument();
 
       await user.click(
         screen.getByRole("button", {
-          name: "Stop writing privately to Bob and send to all",
+          name: "Stop writing privately",
         }),
       );
 
-      expect(recipient()).toHaveAccessibleName(/^Send to: All/);
+      expect(writingTo()).toBeNull();
       expect(
         screen.getByRole("textbox", { name: "Message" }),
       ).toBeInTheDocument();
@@ -351,7 +362,7 @@ describe("direct messages", () => {
 
       await clickMessage(user, "Ada Mod");
 
-      expect(recipient()).toHaveAccessibleName(/^Send to: Ada Mod/);
+      expect(writingTo("Ada Mod")).toBeInTheDocument();
     });
   });
 });

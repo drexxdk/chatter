@@ -22,26 +22,30 @@ beforeEach(() => {
 
 describe("direct messages", () => {
   describe("the lists", () => {
-    it("opens the conversations in the dropdown next to the recipient, which closes when one is chosen", async () => {
+    it("opens the panel above the box from the People button, and closes it when a conversation is chosen", async () => {
       const { user, server } = await enter();
       receive(server, dm());
 
-      await user.click(screen.getByRole("button", { name: /^Send to:/ }));
-      const drawer = within(
-        await screen.findByRole("dialog", { name: "Send to" }),
+      const toggle = screen.getByRole("button", {
+        name: /^People and direct messages/,
+      });
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+      const sheet = within(
+        screen.getByRole("region", { name: "People and direct messages" }),
       );
       await user.click(
-        drawer
+        sheet
           .getByRole("list", { name: "Direct messages" })
           .querySelector("button")!,
       );
 
       expect(pane("Bob")).toBeInTheDocument();
-      await waitFor(() =>
-        expect(
-          screen.queryByRole("dialog", { name: "Send to" }),
-        ).not.toBeInTheDocument(),
-      );
+      expect(
+        screen.queryByRole("region", { name: "People and direct messages" }),
+      ).toBeNull();
     });
 
     it("shows the people in the room as buttons, and no direct messages yet", async () => {
@@ -337,7 +341,9 @@ describe("direct messages", () => {
         threads().getByRole("button", { name: /^Carol/ }),
       ).toHaveAccessibleName(/1 unread message/);
       expect(
-        screen.getByRole("button", { name: /^Send to:.*1 unread message/ }),
+        screen.getByRole("button", {
+          name: /^People and direct messages, 1 unread message/,
+        }),
       ).toBeInTheDocument();
     });
 
@@ -399,7 +405,9 @@ describe("direct messages", () => {
       await user.keyboard("{Escape}");
 
       expect(
-        screen.getByRole("button", { name: /^Send to:.*1 unread message/ }),
+        screen.getByRole("button", {
+          name: /^People and direct messages, 1 unread message/,
+        }),
       ).toBeInTheDocument();
       expect(
         threads().getByRole("button", { name: /^Bob/ }),

@@ -572,26 +572,72 @@ describe("announcements", () => {
   });
 
   describe("making them", () => {
+    const box = () =>
+      screen.getByRole("textbox", { name: "Announce to everyone" });
+    // The send button's menu chooses between a message and an announcement.
+    const startAnnouncing = async (
+      user: ReturnType<typeof userEvent.setup>,
+    ) => {
+      await user.click(
+        screen.getByRole("button", { name: "Choose how to send" }),
+      );
+      await user.click(
+        await screen.findByRole("menuitem", {
+          name: "Send as an announcement",
+        }),
+      );
+    };
+
     it("is not offered to guests", async () => {
       await enterAsGuest();
 
+      expect(
+        screen.queryByRole("button", { name: "Choose how to send" }),
+      ).toBeNull();
       expect(screen.queryByLabelText("Announce to everyone")).toBeNull();
-      expect(screen.queryByRole("button", { name: "Announce" })).toBeNull();
     });
 
-    it("is offered to moderators", async () => {
+    it("is offered to moderators, who send messages until they choose otherwise", async () => {
       await enterAsModerator();
 
-      expect(screen.getByLabelText("Announce to everyone")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Choose how to send" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("textbox", { name: "Message" }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument();
     });
 
-    it("sends what the moderator wrote and clears the box", async () => {
-      const { user, server } = await enterAsModerator();
+    it("turns the box and the send button into an announcement's when chosen, and back", async () => {
+      const { user } = await enterAsModerator();
 
-      await user.type(
-        screen.getByLabelText("Announce to everyone"),
-        "  Maintenance at noon  ",
+      await startAnnouncing(user);
+
+      expect(box()).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Announce" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+
+      await user.click(
+        screen.getByRole("button", { name: "Choose how to send" }),
       );
+      await user.click(
+        await screen.findByRole("menuitem", { name: "Send as a message" }),
+      );
+
+      expect(
+        screen.getByRole("textbox", { name: "Message" }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument();
+    });
+
+    it("sends what the moderator wrote and clears the box, going back to messages", async () => {
+      const { user, server } = await enterAsModerator();
+      await startAnnouncing(user);
+
+      await user.type(box(), "  Maintenance at noon  ");
       await user.click(screen.getByRole("button", { name: "Announce" }));
 
       await waitFor(() =>
@@ -600,17 +646,21 @@ describe("announcements", () => {
         ]),
       );
       await waitFor(() =>
-        expect(screen.getByLabelText("Announce to everyone")).toHaveValue(""),
+        expect(
+          screen.getByRole("textbox", { name: "Message" }),
+        ).toHaveTextContent(""),
       );
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(server.latest.emittedEvents("message:send")).toEqual([]);
     });
 
     it("sends nothing when the box is empty", async () => {
       const { user, server } = await enterAsModerator();
+      await startAnnouncing(user);
 
-      await user.type(screen.getByLabelText("Announce to everyone"), "   ");
-      await user.click(screen.getByRole("button", { name: "Announce" }));
+      await user.type(box(), "   ");
 
+      expect(screen.getByRole("button", { name: "Announce" })).toBeDisabled();
       expect(server.latest.emittedEvents("announce:send")).toEqual([]);
     });
 
@@ -621,16 +671,15 @@ describe("announcements", () => {
         error: "rate_limited",
         retryAfterMs: 41_200,
       });
+      await startAnnouncing(user);
 
-      await user.type(screen.getByLabelText("Announce to everyone"), "Again");
+      await user.type(box(), "Again");
       await user.click(screen.getByRole("button", { name: "Announce" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
         "You can announce again in 42 s.",
       );
-      expect(screen.getByLabelText("Announce to everyone")).toHaveValue(
-        "Again",
-      );
+      expect(box()).toHaveTextContent("Again");
     });
 
     it("explains other failures, and keeps the words", async () => {
@@ -639,16 +688,15 @@ describe("announcements", () => {
         ok: false,
         error: "unavailable",
       });
+      await startAnnouncing(user);
 
-      await user.type(screen.getByLabelText("Announce to everyone"), "Hello");
+      await user.type(box(), "Hello");
       await user.click(screen.getByRole("button", { name: "Announce" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
         "temporarily unavailable",
       );
-      expect(screen.getByLabelText("Announce to everyone")).toHaveValue(
-        "Hello",
-      );
+      expect(box()).toHaveTextContent("Hello");
     });
 
     it("clears the explanation once the next try works", async () => {
@@ -658,8 +706,9 @@ describe("announcements", () => {
         { ok: true },
       ];
       server.latest.acks["announce:send"] = () => responses.shift();
+      await startAnnouncing(user);
 
-      await user.type(screen.getByLabelText("Announce to everyone"), "Hello");
+      await user.type(box(), "Hello");
       await user.click(screen.getByRole("button", { name: "Announce" }));
       await screen.findByRole("alert");
       await user.click(screen.getByRole("button", { name: "Announce" }));
@@ -667,6 +716,29 @@ describe("announcements", () => {
       await waitFor(() =>
         expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
       );
+    });
+
+    it("is dropped when somebody is chosen to write to privately", async () => {
+      const { user, server } = await enterAsModerator();
+      act(() =>
+        server.latest.serverEmit("room:presence", {
+          roomSlug: "general",
+          members: [
+            { guestId: "guest-me", nickname: "Ada Mod", role: "moderator" },
+            { guestId: "guest-bob", nickname: "Bob", role: "guest" },
+          ],
+        }),
+      );
+      await startAnnouncing(user);
+
+      await user.click(
+        within(
+          screen.getByRole("list", { name: "People in this room" }),
+        ).getAllByRole("button", { name: /^Bob/ })[0],
+      );
+
+      expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument();
+      expect(screen.queryByLabelText("Announce to everyone")).toBeNull();
     });
   });
 });

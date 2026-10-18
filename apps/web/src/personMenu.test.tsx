@@ -67,9 +67,7 @@ describe("the options button of a message", () => {
     );
 
     expect(screen.queryByRole("menu")).toBeNull();
-    expect(
-      screen.getByRole("button", { name: /^Send to: Bob/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Writing privately to Bob")).toBeInTheDocument();
   });
 
   it("offers to write to the person, open the private chat, or block them", async () => {
@@ -100,7 +98,7 @@ describe("the options button of a message", () => {
     );
 
     expect(
-      await screen.findByRole("button", { name: /^Send to: Bob/ }),
+      await screen.findByText("Writing privately to Bob"),
     ).toBeInTheDocument();
   });
 

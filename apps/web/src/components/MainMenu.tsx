@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
 import { LANGUAGES, setLanguage } from "../i18n";
 import { AvatarIcon } from "./Avatar";
-import { HEADER_DROPDOWN, MENU_ITEM, MENU_SURFACE } from "./dropdown";
+import { HEADER_MENU, MENU_ITEM } from "./dropdown";
 
 const FLAGS: Record<string, typeof GB> = {
   en: GB,
@@ -90,12 +90,8 @@ export function MainMenu({
             <MenuIcon aria-hidden="true" className="h-5 w-5" />
           </MenuButton>
         )}
-        {/* At the button's right edge: a portal in the document makes the page scroll to the item. */}
         <div className="absolute right-0 w-0">
-          <MenuItems
-            modal={false}
-            className={`${HEADER_DROPDOWN} w-64 -translate-x-full space-y-1 ${MENU_SURFACE}`}
-          >
+          <MenuItems modal={false} className={HEADER_MENU}>
             {profile && (
               <>
                 <div className="flex items-center gap-3 px-2 py-2">

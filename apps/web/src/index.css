@@ -57,7 +57,9 @@ html {
    dialog starts to close). Without the scrollbar the page has no gutter either, so it is given padding as wide as the
    scrollbar was (see scrollbarWidth.ts): the page stays where it is, and the dialog, which then fills the window, has
    its own scrollbar where the page's was. Headless UI's own padding is measured against the gutter and is not wanted. */
-html:has(#headlessui-portal-root [role="dialog"]) {
+html:has(#headlessui-portal-root [role="dialog"]),
+html:has(#room-panel-sheet) {
+  --fixed-scrollbar-inset: var(--scrollbar-width, 0px);
   overflow: hidden;
   scrollbar-gutter: auto;
   padding-right: var(--scrollbar-width, 0px) !important;
@@ -92,19 +94,6 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   overflow-y: auto;
 }
 
-/* The recipient dropdown: the people scroll under the search box and the filters, with room for at least a few of them, and
-   the conversations under them are as tall as they need, no more than part of the panel and no less than their heading and
-   a line. When the panel has no room for all that (under 24rem inside its padding, which is what the query measures) the whole
-   panel scrolls instead, with everything in full. */
-.picker-people {
-  min-height: 5rem;
-}
-
-.picker-threads {
-  min-height: 4.5rem;
-  max-height: 40%;
-}
-
 @container picker (height < 17.75rem) {
   .picker-fill {
     flex: none;
@@ -116,22 +105,21 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   }
 }
 
-@container picker (height < 24rem) {
-  .picker-people {
-    flex: none;
-    min-height: 0;
-    overflow: visible;
-  }
+/* The panel on a narrow screen slides in above the message box. */
+.sheet {
+  animation: sheet-in 200ms ease-out;
+}
 
-  .picker-threads {
-    flex: none;
-    min-height: 0;
-    max-height: none;
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
   }
+}
 
-  .picker-threads .panel-list {
-    flex: none;
-    overflow: visible;
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    animation: none;
   }
 }
 
@@ -142,6 +130,13 @@ html:has(#headlessui-portal-root [role="dialog"]) {
    open one grows from that, so that opening and closing is a slide. */
 .panel {
   container: panel / size;
+  overscroll-behavior: contain;
+}
+
+/* The slide-in panel is the same, and is not as tall as the window, so it goes on scrolling its lists one by one for as
+   long as there is room for a few of their rows (16rem), not only for the sidebar's 24rem. */
+.sheet {
+  container: sheet / size;
   overscroll-behavior: contain;
 }
 
@@ -176,6 +171,20 @@ html:has(#headlessui-portal-root [role="dialog"]) {
 }
 
 @container panel (height < 24rem) {
+  .panel-section,
+  .panel-section[data-open] {
+    flex: none;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .panel-list {
+    flex: none;
+    overflow: visible;
+  }
+}
+
+@container sheet (height < 16rem) {
   .panel-section,
   .panel-section[data-open] {
     flex: none;
