@@ -4380,6 +4380,37 @@ describe("admin tools", () => {
     });
   });
 
+  it("takes a private message to somebody who is not there, and has them answer", async () => {
+    const { socket } = await signIn(7, "Ada Admin");
+    await emit(socket, "room:join", { slug: "admin-lab" });
+    const present = waitFor<Presence>(
+      socket,
+      "room:presence",
+      (presence) => presence.members.length === 2,
+    );
+    await emit(socket, "admin:fake:add");
+    const fake = (await present).members.find((m) =>
+      m.guestId.startsWith("fake-"),
+    );
+    const heard: { fromGuestId: string; text: string }[] = [];
+    socket.on("dm:new", (message) => heard.push(message));
+    const answered = waitFor<{ fromGuestId: string }>(
+      socket,
+      "dm:new",
+      (message) => message.fromGuestId === fake?.guestId,
+    );
+
+    expect(
+      await emit(socket, "dm:send", { toGuestId: fake?.guestId, text: "hi" }),
+    ).toEqual({ ok: true });
+
+    expect(heard[0]).toMatchObject({ text: "hi" });
+    expect((await answered).fromGuestId).toBe(fake?.guestId);
+    expect(
+      await emit(socket, "dm:send", { toGuestId: "fake-gone", text: "hi" }),
+    ).toEqual({ ok: false, error: "user_not_found" });
+  });
+
   it("refuses the tools outside a test room, and to everybody who is not an admin", async () => {
     const admin = await signIn(7, "Ada Admin");
     const moderator = await signIn(8, "Grace");

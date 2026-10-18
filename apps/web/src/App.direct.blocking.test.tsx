@@ -227,7 +227,7 @@ describe("direct messages", () => {
         await user.click(screen.getByRole("button", { name: "Send" }));
 
         expect(await screen.findByRole("alert")).toHaveTextContent(
-          "This person has blocked you, so your message could not be sent.",
+          "Bob has blocked you, so your message could not be sent.",
         );
         await waitFor(() =>
           expect(

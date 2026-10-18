@@ -11,7 +11,7 @@ import {
   isAdminRoom,
   type FakeMember,
 } from "./adminRooms.js";
-import { createCrowd, MAX_CROWD, type Crowd } from "./crowd.js";
+import { createCrowd, crowdReply, MAX_CROWD, type Crowd } from "./crowd.js";
 import {
   avatarSchema,
   parseAvatar,
@@ -886,25 +886,33 @@ export function createSocketServer(
 
       if (firstWait > 0) return refuse(firstWait);
 
+      // Somebody who is not there (see adminRooms.ts) has no connection to look up or to send to.
+      const fake = (fakeMembers.get(slug) ?? []).find(
+        (who) => who.guestId === toGuestId,
+      );
       let recipient;
 
-      try {
-        recipient = await findInRoom(slug, toGuestId);
-      } catch (error) {
-        log.error("Failed to look up the recipient", error);
-        return reply({ ok: false, error: "unavailable" });
+      if (!fake) {
+        try {
+          recipient = await findInRoom(slug, toGuestId);
+        } catch (error) {
+          log.error("Failed to look up the recipient", error);
+          return reply({ ok: false, error: "unavailable" });
+        }
+
+        if (!recipient) return reply({ ok: false, error: "user_not_found" });
       }
 
-      if (!recipient) return reply({ ok: false, error: "user_not_found" });
       if (data.roomSlug !== slug)
         return reply({ ok: false, error: "not_in_room" });
 
-      const recipientData = recipient.data as SocketData;
+      const recipientData = fake ?? (recipient?.data as SocketData);
 
       // Somebody who has been blocked is told so, and nothing is sent or counted.
       if (
+        recipient &&
         ROLE_RULES[data.role].blockable &&
-        recipientData.blockedGuestIds.includes(data.guestId)
+        (recipientData as SocketData).blockedGuestIds.includes(data.guestId)
       ) {
         return reply({ ok: false, error: "blocked_by_recipient" });
       }
@@ -942,10 +950,41 @@ export function createSocketServer(
         sentAt: new Date(now).toISOString(),
       };
 
-      recipient.emit("dm:new", message);
+      recipient?.emit("dm:new", message);
       socket.emit("dm:new", message);
       reply({ ok: true });
+
+      if (fake) answerAsFake(slug, fake);
     });
+
+    // Somebody who is not there answers a private message after a moment, if they and the guest are still in the room.
+    function answerAsFake(slug: string, who: FakeMember) {
+      setTimeout(
+        () => {
+          const here = (fakeMembers.get(slug) ?? []).some(
+            (fake) => fake.guestId === who.guestId,
+          );
+
+          if (!here || data.roomSlug !== slug || !socket.connected) return;
+
+          socket.emit("dm:new", {
+            id: crypto.randomUUID(),
+            fromGuestId: who.guestId,
+            fromNickname: who.nickname,
+            fromRole: who.role,
+            fromAvatar: who.avatar,
+            fromPicture: who.picture,
+            toGuestId: data.guestId,
+            toNickname: data.nickname,
+            toAvatar: data.avatar,
+            ...(data.picture === undefined ? {} : { toPicture: data.picture }),
+            text: crowdReply(),
+            sentAt: new Date().toISOString(),
+          });
+        },
+        1500 + Math.random() * 3500,
+      ).unref();
+    }
 
     // Direct messages are not stored, so there is nothing to keep a reaction in: it is passed on to both people, whose
     // clients each apply it to their own copy of the message.
@@ -994,19 +1033,26 @@ export function createSocketServer(
       }
 
       let recipient;
+      const fake = (fakeMembers.get(slug) ?? []).some(
+        (who) => who.guestId === toGuestId,
+      );
 
-      try {
-        recipient = await findInRoom(slug, toGuestId);
-      } catch (error) {
-        log.error("Failed to look up the recipient", error);
-        return reply({ ok: false, error: "unavailable" });
+      if (!fake) {
+        try {
+          recipient = await findInRoom(slug, toGuestId);
+        } catch (error) {
+          log.error("Failed to look up the recipient", error);
+          return reply({ ok: false, error: "unavailable" });
+        }
+
+        if (!recipient) return reply({ ok: false, error: "user_not_found" });
       }
 
-      if (!recipient) return reply({ ok: false, error: "user_not_found" });
       if (data.roomSlug !== slug)
         return reply({ ok: false, error: "not_in_room" });
 
       if (
+        recipient &&
         ROLE_RULES[data.role].blockable &&
         (recipient.data as SocketData).blockedGuestIds.includes(data.guestId)
       ) {
@@ -1024,7 +1070,7 @@ export function createSocketServer(
         toGuestId,
       };
 
-      recipient.emit("dm:reaction", update);
+      recipient?.emit("dm:reaction", update);
       socket.emit("dm:reaction", update);
       reply({ ok: true });
     });

@@ -850,6 +850,7 @@ export function App({
               showMovements={showMovements}
               error={chat.error}
               retryAfterSeconds={chat.retryAfterSeconds}
+              onClearError={chat.clearError}
               onSend={chat.sendMessage}
               onReact={chat.react}
               onReport={chat.reportMessage}
@@ -864,7 +865,7 @@ export function App({
           ) : (
             <div className="space-y-4">
               {!pendingRoom && !moderatorOpen && (
-                <ErrorAlert code={chat.error} />
+                <ErrorAlert code={chat.error} onDismiss={chat.clearError} />
               )}
               <Lobby
                 state={

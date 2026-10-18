@@ -2,6 +2,7 @@
   "app": { "title": "Chatter" },
   "language": { "label": "Language" },
   "menu": { "open": "Menu" },
+  "notice": { "dismiss": "Close message" },
   "tabs": {
     "title": "You are already in a chat room",
     "body": "You can only be in one chat room at a time, and you are in one in another tab or window.",
@@ -412,11 +413,11 @@
   },
   "errors": {
     "replaced": "You opened the chat in another window, so this one was closed.",
-    "user_not_found": "That person is not in this room any more.",
+    "user_not_found": "{name} is not in this room any more.",
     "invalid_recipient": "You can only write to somebody else in this room.",
     "too_many_blocked": "You have blocked as many people as you can.",
-    "recipient_blocked": "You have blocked this person. Unblock them to write to them.",
-    "blocked_by_recipient": "This person has blocked you, so your message could not be sent.",
+    "recipient_blocked": "You have blocked {name}. Unblock them to write to them.",
+    "blocked_by_recipient": "{name} has blocked you, so your message could not be sent.",
     "invalid_reaction": "That reaction could not be added.",
     "message_not_found": "That message is no longer available.",
     "own_message": "You cannot report your own message.",

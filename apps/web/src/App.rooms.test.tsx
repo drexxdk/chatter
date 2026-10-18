@@ -306,6 +306,10 @@ describe("joining a room", () => {
     expect(
       screen.getByRole("heading", { name: "Public rooms" }),
     ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Close message" }));
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
 

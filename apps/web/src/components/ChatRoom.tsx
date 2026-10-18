@@ -79,6 +79,8 @@ interface ChatRoomProps {
   showMovements: boolean;
   error: string | null;
   retryAfterSeconds: number | null;
+  // Removes the room's error, when the guest closes its message.
+  onClearError: () => void;
   onSend: (text: string) => Promise<boolean>;
   onReact: (messageId: string, emoji: string) => void;
   onReport: (messageId: string, reason: ReportReason) => Promise<ActionResult>;
@@ -100,6 +102,7 @@ export function ChatRoom({
   showMovements,
   error,
   retryAfterSeconds,
+  onClearError,
   onSend,
   onReact,
   onReport,
@@ -414,7 +417,11 @@ export function ChatRoom({
             )}
 
             {direct.active && blockFailure && (
-              <ErrorAlert code={blockFailure.error} />
+              <ErrorAlert
+                code={blockFailure.error}
+                values={{ name: direct.active.nickname }}
+                onDismiss={() => setBlockFailure(undefined)}
+              />
             )}
 
             {!connected && (
@@ -670,6 +677,11 @@ export function ChatRoom({
                     seconds: replyFailure
                       ? replyFailure.retryAfterSeconds
                       : retryAfterSeconds,
+                    name: replyTo?.nickname,
+                  }}
+                  onDismiss={() => {
+                    setReplyFailure(undefined);
+                    onClearError();
                   }}
                 />
               }

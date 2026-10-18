@@ -2,6 +2,7 @@
   "app": { "title": "Chatter" },
   "language": { "label": "Sprache" },
   "menu": { "open": "Menü" },
+  "notice": { "dismiss": "Meldung schließen" },
   "tabs": {
     "title": "Du bist bereits in einem Chatraum",
     "body": "Du kannst nur in einem Chatraum gleichzeitig sein. Du bist schon in einem anderen Tab oder Fenster in einem Chatraum.",
@@ -412,11 +413,11 @@
   },
   "errors": {
     "replaced": "Du hast den Chat in einem anderen Fenster geöffnet, daher wurde dieses geschlossen.",
-    "user_not_found": "Diese Person ist nicht mehr in diesem Raum.",
+    "user_not_found": "{name} ist nicht mehr in diesem Raum.",
     "invalid_recipient": "Du kannst nur jemand anderem in diesem Raum schreiben.",
     "too_many_blocked": "Du hast so viele Personen blockiert, wie möglich.",
-    "recipient_blocked": "Du hast diese Person blockiert. Hebe die Blockierung auf, um ihr zu schreiben.",
-    "blocked_by_recipient": "Diese Person hat dich blockiert, deine Nachricht konnte nicht gesendet werden.",
+    "recipient_blocked": "Du hast {name} blockiert. Hebe die Blockierung auf, um {name} zu schreiben.",
+    "blocked_by_recipient": "{name} hat dich blockiert, deine Nachricht konnte nicht gesendet werden.",
     "invalid_reaction": "Diese Reaktion konnte nicht hinzugefügt werden.",
     "message_not_found": "Diese Nachricht ist nicht mehr verfügbar.",
     "own_message": "Du kannst deine eigene Nachricht nicht melden.",

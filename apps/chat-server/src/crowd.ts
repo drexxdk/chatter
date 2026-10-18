@@ -158,6 +158,10 @@ function sayAnything(recent: string[]): string {
 const pickReaction = () =>
   chance(0.7) ? pick(REACTION_EMOJIS.slice(0, 4)) : pick(REACTION_EMOJIS);
 
+// What somebody of the crowd answers when written to in private.
+export const crowdReply = () =>
+  chance(0.3) ? pick(content.sayings.greetings) : pick(content.sayings.talk);
+
 export function createCrowd(
   host: CrowdHost,
   options: { rampMs?: number } = {},

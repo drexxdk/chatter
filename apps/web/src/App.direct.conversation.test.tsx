@@ -257,7 +257,7 @@ describe("direct messages", () => {
       await user.click(screen.getByRole("button", { name: "Send" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
-        "That person is not in this room any more.",
+        "Bob is not in this room any more.",
       );
     });
 

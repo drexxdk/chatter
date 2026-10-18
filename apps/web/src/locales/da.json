@@ -2,6 +2,7 @@
   "app": { "title": "Chatter" },
   "language": { "label": "Sprog" },
   "menu": { "open": "Menu" },
+  "notice": { "dismiss": "Luk beskeden" },
   "tabs": {
     "title": "Du er allerede i et chatrum",
     "body": "Du kan kun være i ét chatrum ad gangen, og du er i et i en anden fane eller et andet vindue.",
@@ -412,11 +413,11 @@
   },
   "errors": {
     "replaced": "Du har åbnet chatten i et andet vindue, så dette blev lukket.",
-    "user_not_found": "Vedkommende er ikke længere i rummet.",
+    "user_not_found": "{name} er ikke længere i rummet.",
     "invalid_recipient": "Du kan kun skrive til en anden i dette rum.",
     "too_many_blocked": "Du har blokeret så mange, som du kan.",
-    "recipient_blocked": "Du har blokeret denne person. Fjern blokeringen for at skrive til vedkommende.",
-    "blocked_by_recipient": "Denne person har blokeret dig, så din besked kunne ikke sendes.",
+    "recipient_blocked": "Du har blokeret {name}. Fjern blokeringen for at skrive til vedkommende.",
+    "blocked_by_recipient": "{name} har blokeret dig, så din besked kunne ikke sendes.",
     "invalid_reaction": "Reaktionen kunne ikke tilføjes.",
     "message_not_found": "Den besked er ikke længere tilgængelig.",
     "own_message": "Du kan ikke anmelde din egen besked.",

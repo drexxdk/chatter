@@ -145,7 +145,11 @@ export function DirectChat({
             code={
               failure ? (waiting ? "rate_limited_wait" : failure.error) : null
             }
-            values={{ seconds: failure?.retryAfterSeconds }}
+            values={{
+              seconds: failure?.retryAfterSeconds,
+              name: partner.nickname,
+            }}
+            onDismiss={() => setFailure(undefined)}
           />
         }
         above={
