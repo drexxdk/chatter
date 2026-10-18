@@ -43,6 +43,7 @@ import { ModeratorDialog } from "./components/ModeratorDialog";
 import { PageFrame } from "./components/PageFrame";
 import { ProfileDialog, type ProfileSubject } from "./components/ProfileDialog";
 import { RoomSwitcher } from "./components/RoomSwitcher";
+import { RoomSearch } from "./components/RoomSearch";
 import { SideDrawer } from "./components/SideDrawer";
 import { TabNotice } from "./components/TabNotice";
 import { ViewTransition } from "./components/ViewTransition";
@@ -738,7 +739,7 @@ export function App({
         header={
           <>
             {chat.roomSlug && chat.session ? (
-              <div className="flex min-w-0 items-center gap-1">
+              <div className="flex min-w-0 max-w-[calc(100%-8rem)] items-center gap-1 sm:max-w-[35%]">
                 <h1 className="sr-only">{t("app.title")}</h1>
                 <RoomSwitcher
                   // The room you are in is counted from who is in it now, which is newer than the list.
@@ -769,6 +770,16 @@ export function App({
               >
                 {t("app.title")}
               </h1>
+            )}
+            {chat.roomSlug && chat.session && !chat.direct.active && (
+              <RoomSearch
+                key={chat.roomSlug}
+                roomSlug={chat.roomSlug}
+                roomName={currentRoom?.name ?? chat.roomSlug}
+                messages={chat.messages}
+                threads={chat.direct.threads}
+                ownGuestIds={chat.ownGuestIds}
+              />
             )}
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
               {chat.session?.admin && (

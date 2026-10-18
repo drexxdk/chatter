@@ -13,6 +13,7 @@ import {
   anyPicture,
 } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
+import { ME, bob, dm, fromMe, receive } from "./test/direct";
 
 beforeEach(() => {
   stubRooms();
@@ -731,6 +732,256 @@ describe("inside a room", () => {
     unmount();
 
     expect(server.latest.disconnected).toBe(true);
+  });
+});
+
+describe("room search", () => {
+  async function enter(history: unknown[]) {
+    const server = makeFakeServer();
+    server.acks["room:join"] = () => ({ ok: true, history });
+    const result = setup(server);
+    await joinRoom(result.user);
+    await screen.findByRole("combobox", { name: "Search messages" });
+    return result;
+  }
+
+  it("searches room text and senders without exposing hidden or other-room messages", async () => {
+    const { user } = await enter([
+      message({ text: "Coffee with Bob", sentAt: at(1) }),
+      message({ nickname: "Carol", text: "More COFFEE", sentAt: at(2) }),
+      message({ roomSlug: "music", text: "Coffee elsewhere" }),
+      { ...message({ text: "Coffee removed" }), banned: true },
+      { ...message({ text: "Coffee reported" }), hidden: true },
+    ]);
+    const field = screen.getByRole("combobox", { name: "Search messages" });
+    expect(field).toHaveAttribute("aria-expanded", "false");
+    await user.click(field);
+    expect(screen.queryByRole("listbox")).toBeNull();
+    await user.type(field, "cOfFeE");
+    const dropdown = await screen.findByRole("region", {
+      name: "Search in General",
+    });
+    const results = within(dropdown).getByRole("listbox", {
+      name: "Message results",
+    });
+    expect(within(results).getAllByRole("option")).toHaveLength(2);
+    expect(within(results).getAllByRole("option")[0]).toHaveTextContent(
+      "More COFFEE",
+    );
+
+    expect(within(dropdown).getByRole("status")).toHaveTextContent("2 results");
+    expect(results.querySelectorAll("mark")).toHaveLength(2);
+    expect(results).not.toHaveTextContent(/elsewhere|removed|reported/);
+
+    await user.clear(field);
+    await user.type(field, "bob");
+
+    const senderResults = screen.getByRole("listbox", {
+      name: "Message results",
+    });
+    expect(within(senderResults).getAllByRole("option")).toHaveLength(1);
+    expect(senderResults).toHaveTextContent("Coffee with Bob");
+    expect(
+      within(
+        screen.getByRole("region", { name: "Search in General" }),
+      ).getByRole("status"),
+    ).toHaveTextContent("1 result");
+  });
+
+  it("focuses with the keyboard and hides results for empty or whitespace-only queries", async () => {
+    const { user } = await enter([message({ text: "Something to find" })]);
+    await user.keyboard("{Control>}f{/Control}");
+    const field = screen.getByRole("combobox", { name: "Search messages" });
+    await waitFor(() => expect(field).toHaveFocus());
+    expect(screen.queryByRole("listbox")).toBeNull();
+    await user.type(field, "no such message");
+    expect(screen.getByText("No messages found.")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Clear search" }));
+
+    expect(field).toHaveValue("");
+    expect(field).toHaveFocus();
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(field).toHaveAttribute("aria-expanded", "false");
+    await user.type(field, "   ");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    await user.clear(field);
+    await user.type(field, "something");
+    expect(screen.getByRole("listbox")).toHaveTextContent("Something to find");
+    await user.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("region", { name: "Search in General" }),
+    ).toBeNull();
+    expect(field).toHaveFocus();
+    expect(field).toHaveAttribute("aria-expanded", "false");
+    await user.click(field);
+    expect(screen.getByRole("listbox")).toBeVisible();
+    await user.click(screen.getByRole("log"));
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("searches words around images without matching or previewing image URLs", async () => {
+    const gif = "https://media1.giphy.com/media/URL_ONLY_TOKEN/200.gif";
+    const { user, server } = await enter([
+      message({ text: `Coffee above\n${gif}\nCoffee below` }),
+      message({ text: gif }),
+    ]);
+    receive(server, dm({ text: `Private coffee\n${gif}\nAfter the image` }));
+    const field = screen.getByRole("combobox", { name: "Search messages" });
+    await user.type(field, "URL_ONLY_TOKEN");
+    expect(screen.getByText("No messages found.")).toBeVisible();
+    await user.clear(field);
+    await user.type(field, "coffee");
+    const results = screen.getByRole("listbox");
+    expect(within(results).getAllByRole("option")).toHaveLength(2);
+    expect(results).toHaveTextContent("Coffee above");
+    expect(results).toHaveTextContent("Coffee below");
+    expect(results).toHaveTextContent("After the image");
+    expect(results).not.toHaveTextContent(/giphy|URL_ONLY_TOKEN|https:/);
+  });
+
+  it("searches sent and received private messages and jumps to the selected message", async () => {
+    const { user, server } = await enter([
+      message({ text: "Coffee in the room" }),
+      message({
+        guestId: ME,
+        nickname: "Alice",
+        text: "Coffee publicly from Alice",
+      }),
+      message({
+        guestId: "guest-mod",
+        nickname: "Ada Mod",
+        role: "moderator",
+        text: "Coffee moderated",
+      }),
+    ]);
+    const incoming = dm({ text: "Coffee privately from Bob" });
+    receive(server, incoming);
+    receive(server, fromMe(bob, "Coffee privately from Alice"));
+    const target = document.querySelector<HTMLElement>(
+      `[data-nav-id="${incoming.id}"]`,
+    )!;
+    target.scrollIntoView = vi.fn();
+    await user.type(
+      screen.getByRole("combobox", { name: "Search messages" }),
+      "coffee",
+    );
+    const results = screen.getByRole("listbox");
+    expect(within(results).getAllByRole("option")).toHaveLength(5);
+    expect(
+      within(results).queryByRole("img", { name: "Private message" }),
+    ).toBeNull();
+    const incomingResult = within(results).getByRole("option", {
+      name: /Coffee privately from Bob/,
+    });
+    const outgoingResult = within(results).getByRole("option", {
+      name: /Coffee privately from Alice/,
+    });
+    const publicResult = within(results).getByRole("option", {
+      name: /Coffee publicly from Alice/,
+    });
+    const moderatorResult = within(results).getByRole("option", {
+      name: /Coffee moderated/,
+    });
+    expect(incomingResult.closest("li")).toHaveAttribute("data-side", "left");
+    expect(outgoingResult.closest("li")).toHaveAttribute("data-side", "right");
+    expect(
+      within(incomingResult).getByText("Direct message from Bob"),
+    ).toBeVisible();
+    expect(
+      within(outgoingResult).getByText("Direct message to Bob"),
+    ).toBeVisible();
+    expect(incomingResult.querySelector("time")).toHaveTextContent(
+      "a few seconds ago",
+    );
+    expect(incomingResult.querySelector("time")).toHaveTextContent(
+      target.closest("li")!.querySelector("time")!.textContent!,
+    );
+    expect(publicResult.closest("li")).toHaveAttribute("data-side", "right");
+    expect(
+      within(results)
+        .getByRole("option", { name: /Coffee in the room/ })
+        .closest("li"),
+    ).toHaveAttribute("data-side", "left");
+    for (const result of [incomingResult, outgoingResult]) {
+      expect(result.querySelector('[class~="bg-amber-400/10"]')).toHaveClass(
+        "border-dashed",
+        "border-amber-400/60",
+      );
+      expect(within(result).getByText("Private message")).toHaveClass(
+        "sr-only",
+      );
+    }
+    expect(publicResult.querySelector(".bg-sent")).toBeInTheDocument();
+    expect(
+      moderatorResult.querySelector('[class~="bg-green-900/30"]'),
+    ).toHaveClass("text-green-300");
+    await user.click(
+      within(results).getByRole("option", {
+        name: /Coffee privately from Bob/,
+      }),
+    );
+    expect(screen.queryByRole("listbox")).toBeNull();
+    await waitFor(() => expect(target).toHaveFocus());
+    expect(target).toHaveAttribute("data-search-match");
+  });
+
+  it("jumps to a result with Enter and highlights the original message", async () => {
+    const item = message({ text: "Find this message" });
+    const { user } = await enter([item]);
+    const target = document.querySelector<HTMLElement>(
+      `[data-nav-id="${item.id}"]`,
+    )!;
+    target.scrollIntoView = vi.fn();
+    await user.type(
+      screen.getByRole("combobox", { name: "Search messages" }),
+      "find",
+    );
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("option")).toHaveFocus();
+    await user.keyboard("{Enter}");
+
+    expect(screen.queryByRole("listbox")).toBeNull();
+    await waitFor(() => expect(target).toHaveFocus());
+    expect(target).toHaveAttribute("data-search-match");
+    expect(target.scrollIntoView).toHaveBeenCalledWith({
+      block: "center",
+      behavior: "instant",
+    });
+  });
+
+  it("resets the query and results when switching rooms", async () => {
+    const { user } = await enter([
+      message({ text: "General message" }),
+      message({ roomSlug: "music", text: "Music message" }),
+    ]);
+    await user.type(
+      screen.getByRole("combobox", { name: "Search messages" }),
+      "general",
+    );
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    await leaveRoom(user);
+    expect(
+      screen.queryByRole("combobox", { name: "Search messages" }),
+    ).toBeNull();
+    await user.click(await screen.findByRole("button", { name: "Join Music" }));
+    const field = await screen.findByRole("combobox", {
+      name: "Search messages",
+    });
+    await user.click(field);
+    expect(field).toHaveValue("");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    await user.type(field, "message");
+    const dropdown = await screen.findByRole("region", {
+      name: "Search in Music",
+    });
+    expect(within(dropdown).getByRole("listbox")).toHaveTextContent(
+      "Music message",
+    );
+    expect(within(dropdown).getByRole("listbox")).not.toHaveTextContent(
+      "General message",
+    );
   });
 });
 

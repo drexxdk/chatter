@@ -282,6 +282,10 @@ html:not([data-pointer]) .composer-focus:has(:focus-visible) {
   outline: 2px solid var(--color-focus);
 }
 
+[data-search-match] {
+  box-shadow: 0 0 0 2px var(--color-focus);
+}
+
 /* No focus ring after a click or tap; see inputMode.ts. */
 html[data-pointer] :focus-visible {
   outline: none;

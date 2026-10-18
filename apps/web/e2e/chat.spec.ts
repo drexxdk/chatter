@@ -162,6 +162,163 @@ test("private chat back returns to the room and leaving is an action in the room
   await leaveRoom(alice);
 });
 
+test("room search finds public and private text without image URLs on mobile and desktop", async ({
+  browser,
+}, testInfo) => {
+  const alice = await newGuest(browser);
+  const bob = await newGuest(browser);
+  await enterRoom(alice, LOUNGE.name, "Alice");
+  await enterRoom(bob, LOUNGE.name, "Bob");
+  const query = `search ${Date.now()}`;
+  const publicText = `${query} public message ${"longword".repeat(8)}`;
+  const privateText = `${query} private message`;
+  const outgoingText = `${query} outgoing private message`;
+  const imageUrl = "https://media1.giphy.com/media/URL_ONLY_TOKEN/200.gif";
+  await send(alice, `${publicText}\n${imageUrl}`);
+  await bob
+    .getByRole("button", { name: "Open private chat with Alice" })
+    .click();
+  await bob
+    .getByRole("textbox", { name: "Message to Alice" })
+    .fill(`${privateText}\n${imageUrl}`);
+  await bob.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(alice.getByRole("log")).toContainText(privateText);
+  await alice
+    .getByRole("button", { name: "Open private chat with Bob" })
+    .click();
+  await alice
+    .getByRole("textbox", { name: "Message to Bob" })
+    .fill(outgoingText);
+  await alice.getByRole("button", { name: "Send", exact: true }).click();
+  await alice.getByRole("button", { name: "Back to the room" }).click();
+  await expect(alice.getByRole("log")).toContainText(outgoingText);
+
+  const search = alice.getByRole("combobox", { name: "Search messages" });
+  await search.fill("URL_ONLY_TOKEN");
+  await expect(
+    alice.getByRole("region", { name: `Search in ${LOUNGE.name}` }),
+  ).toContainText("No messages found.");
+
+  for (const width of [273, 390, 1280]) {
+    await alice.setViewportSize({ width, height: 844 });
+    const field = alice.getByRole("combobox", { name: "Search messages" });
+    await field.clear();
+    await field.click();
+    await expect(
+      alice.getByRole("listbox", { name: "Message results" }),
+    ).toHaveCount(0);
+    await expect(field).toHaveAttribute("aria-expanded", "false");
+    await field.fill("   ");
+    await expect(
+      alice.getByRole("listbox", { name: "Message results" }),
+    ).toHaveCount(0);
+    await field.fill(query.toUpperCase());
+    const dropdown = alice.getByRole("region", {
+      name: `Search in ${LOUNGE.name}`,
+    });
+    const results = dropdown.getByRole("listbox", { name: "Message results" });
+    await expect(results.getByRole("option")).toHaveCount(3);
+    await expect(results).toContainText(publicText);
+    await expect(results).toContainText(privateText);
+    await expect(results).not.toContainText(/URL_ONLY_TOKEN|giphy/);
+    await expect(
+      results.getByRole("img", { name: "Private message" }),
+    ).toHaveCount(0);
+    const publicResult = results
+      .getByRole("option")
+      .filter({ hasText: publicText });
+    const privateResult = results
+      .getByRole("option")
+      .filter({ hasText: privateText });
+    const outgoingResult = results
+      .getByRole("option")
+      .filter({ hasText: outgoingText });
+    await expect(
+      outgoingResult.getByText("Direct message to Bob", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      privateResult.getByText("Direct message from Bob", { exact: true }),
+    ).toBeVisible();
+    await expect(outgoingResult).toHaveCSS("justify-content", "flex-end");
+    await expect(publicResult).toHaveCSS("justify-content", "flex-end");
+    await expect(privateResult).toHaveCSS("justify-content", "flex-start");
+    await expect(
+      privateResult.getByText("Private message", { exact: true }),
+    ).toHaveClass("sr-only");
+    const publicBubble = alice
+      .getByRole("log")
+      .locator("[data-nav-id]")
+      .filter({ hasText: publicText })
+      .locator('[class~="bg-sent"]');
+    const privateBubble = alice
+      .getByRole("log")
+      .locator("[data-nav-id]")
+      .filter({ hasText: privateText })
+      .locator('[class~="bg-amber-400/10"]');
+    await expect(publicResult.locator('[class~="bg-sent"]')).toHaveCSS(
+      "background-color",
+      await publicBubble.evaluate(
+        (element) => getComputedStyle(element).backgroundColor,
+      ),
+    );
+    await expect(privateResult.locator('[class~="bg-amber-400/10"]')).toHaveCSS(
+      "background-color",
+      await privateBubble.evaluate(
+        (element) => getComputedStyle(element).backgroundColor,
+      ),
+    );
+    await expect(privateResult.locator('[class~="border-dashed"]')).toHaveCSS(
+      "border-top-style",
+      "dashed",
+    );
+    await expect(results.locator("mark")).toHaveText([query, query, query]);
+    const bounds = await dropdown.boundingBox();
+    const inputBounds = await field.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    expect(bounds!.y).toBeGreaterThanOrEqual(
+      inputBounds!.y + inputBounds!.height,
+    );
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
+    expect(
+      await dropdown.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true);
+    expect(
+      await alice.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await alice.screenshot({
+      path: testInfo.outputPath(`room-search-${width}.png`),
+    });
+    const selectedText =
+      width === 273 ? publicText : width === 390 ? privateText : outgoingText;
+    const result = results
+      .getByRole("option")
+      .filter({ hasText: selectedText });
+    if (width === 390) {
+      await result.click();
+    } else {
+      await field.press("ArrowDown");
+      if (width === 273) {
+        await alice.keyboard.press("ArrowDown");
+        await alice.keyboard.press("ArrowDown");
+      }
+      await expect(result).toBeFocused();
+      await alice.keyboard.press("Enter");
+    }
+    await expect(dropdown).toHaveCount(0);
+    const original = alice
+      .getByRole("log")
+      .locator("[data-nav-id]")
+      .filter({ hasText: selectedText });
+    await expect(original).toBeFocused();
+    await expect(original).toHaveAttribute("data-search-match", "");
+  }
+});
+
 test("the composer highlights keyboard focus but not pointer focus", async ({
   browser,
 }) => {

@@ -2,6 +2,17 @@
   "app": { "title": "Chatter" },
   "language": { "label": "Sprog" },
   "menu": { "open": "Menu" },
+  "roomSearch": {
+    "open": "Søg i dette rum",
+    "title": "Søg i {room}",
+    "field": "Søg i beskeder",
+    "placeholder": "Søg i {room}",
+    "clear": "Ryd søgning",
+    "private": "Privat besked",
+    "results": "Beskedresultater",
+    "count": "{count, plural, one {# resultat} other {# resultater}}",
+    "none": "Ingen beskeder fundet."
+  },
   "notice": { "dismiss": "Luk beskeden" },
   "tabs": {
     "title": "Du er allerede i et chatrum",

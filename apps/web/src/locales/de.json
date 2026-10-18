@@ -2,6 +2,17 @@
   "app": { "title": "Chatter" },
   "language": { "label": "Sprache" },
   "menu": { "open": "Menü" },
+  "roomSearch": {
+    "open": "Diesen Raum durchsuchen",
+    "title": "In {room} suchen",
+    "field": "Nachrichten durchsuchen",
+    "placeholder": "In {room} suchen",
+    "clear": "Suche löschen",
+    "private": "Private Nachricht",
+    "results": "Nachrichtenergebnisse",
+    "count": "{count, plural, one {# Ergebnis} other {# Ergebnisse}}",
+    "none": "Keine Nachrichten gefunden."
+  },
   "notice": { "dismiss": "Meldung schließen" },
   "tabs": {
     "title": "Du bist bereits in einem Chatraum",
