@@ -1596,8 +1596,10 @@ test("a private message can be reacted to, and the sender sees it", async ({
     .getByRole("log", { name: LOUNGE.name })
     .getByRole("listitem")
     .filter({ hasText: "a secret" });
-  await line.getByText("a secret").hover();
-  await line.getByRole("button", { name: "React with ❤️" }).click();
+  await line.locator("[data-nav-id]").press("ArrowRight");
+  const heart = line.getByRole("button", { name: "React with ❤️" });
+  await expect(heart).toBeVisible();
+  await heart.press("Enter");
 
   await expect(line.getByRole("button", { name: /^❤️ 1/ })).toBeVisible();
   await expect(
