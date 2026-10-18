@@ -441,6 +441,27 @@ describe("announcements", () => {
   }
 
   describe("seeing them", () => {
+    it("keeps the moderator's announcement in the chat after dismissing the banner and ignores repeats", async () => {
+      const { user, server } = await enterAsModerator();
+      const sent = announcement();
+      act(() => server.latest.serverEmit("announcement:new", sent));
+      const log = within(screen.getByRole("log"));
+      expect(log.getByText(sent.text)).toBeInTheDocument();
+      expect(log.getByText("Announcement from Ada Mod")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Dismiss" }));
+      expect(banner()).not.toBeInTheDocument();
+      act(() => server.latest.serverEmit("announcement:new", sent));
+      expect(log.getAllByText(sent.text)).toHaveLength(1);
+      act(() =>
+        server.latest.serverEmit(
+          "announcement:new",
+          announcement({ id: "ann-2", text: "Second announcement" }),
+        ),
+      );
+      expect(log.getByText(sent.text)).toBeInTheDocument();
+      expect(log.getByText("Second announcement")).toBeInTheDocument();
+    });
+
     it("shows an announcement, and who made it, in a way that stands out", async () => {
       const { server } = await enterAsGuest();
 

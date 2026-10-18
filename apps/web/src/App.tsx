@@ -859,6 +859,7 @@ export function App({
               onReact={chat.react}
               onReport={chat.reportMessage}
               onAnnounce={chat.sendAnnouncement}
+              announcements={chat.announcements}
               direct={chat.direct}
               idleDeadline={chat.idleDeadline}
             />

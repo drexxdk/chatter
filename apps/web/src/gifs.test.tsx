@@ -15,6 +15,7 @@ import i18n from "./i18n";
 import { editorOf, fillBox, selectText } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 import { plainText } from "./chat/plainText";
+import { MessageGroup } from "./components/MessageRow";
 
 const ROOMS = [{ id: 1, name: "General", slug: "general", maxMembers: 100 }];
 const BARE = "https://media1.giphy.com/media/abc123/200.gif";
@@ -465,6 +466,12 @@ describe("GIFs", () => {
     );
     const log = within(screen.getByRole("log"));
     const image = log.getByRole("img", { name: "GIF" });
+    const bubble = log.getByText("above").parentElement!;
+    expect(bubble).toHaveClass("rounded-2xl", "bg-neutral-800");
+    expect(log.getByText("below").parentElement).toBe(bubble);
+    expect(bubble).toContainElement(image);
+    expect(log.getByText("above")).not.toHaveClass("rounded-2xl");
+    expect(log.getByText("below")).not.toHaveClass("rounded-2xl");
     expect(
       log.getByText("above").compareDocumentPosition(image) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -475,6 +482,59 @@ describe("GIFs", () => {
     ).toBeTruthy();
   });
 });
+
+it.each([
+  {
+    name: "sent",
+    mine: true,
+    direct: false,
+    moderator: false,
+    style: "bg-sent",
+  },
+  {
+    name: "private",
+    mine: true,
+    direct: true,
+    moderator: false,
+    style: "border-dashed",
+  },
+  {
+    name: "moderator",
+    mine: false,
+    direct: false,
+    moderator: true,
+    style: "bg-green-900/30",
+  },
+])(
+  "uses one $name bubble for text and GIFs",
+  ({ mine, direct, moderator, style }) => {
+    render(
+      <ul>
+        <MessageGroup
+          mine={mine}
+          nickname="Bob"
+          avatar="other"
+          role={moderator ? "moderator" : "guest"}
+          direct={direct ? { label: "Direct message to Bob" } : undefined}
+          messages={[
+            {
+              id: "mixed-gif",
+              text: `above\n${BARE}\nbelow`,
+              sentAt: new Date().toISOString(),
+            },
+          ]}
+        />
+      </ul>,
+    );
+    const bubble = screen.getByText("above").parentElement!;
+    expect(bubble).toHaveClass("rounded-2xl", style);
+    expect(screen.getByText("below").parentElement).toBe(bubble);
+    expect(bubble).toContainElement(screen.getByRole("img", { name: "GIF" }));
+    expect(bubble.querySelectorAll(".border-dashed")).toHaveLength(0);
+    expect(screen.getByText("above")).not.toHaveClass("rounded-2xl");
+    expect(screen.getByText("below")).not.toHaveClass("rounded-2xl");
+  },
+);
 
 describe("a GIF in a message", () => {
   const play = vi.spyOn(HTMLMediaElement.prototype, "play");

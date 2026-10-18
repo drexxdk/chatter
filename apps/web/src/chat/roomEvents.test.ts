@@ -132,9 +132,11 @@ const names = (items: ReturnType<typeof timeline>) =>
   items.map((item) =>
     item.kind === "event"
       ? item.event.id
-      : item.kind === "notice"
-        ? item.status.id
-        : item.message.id,
+      : item.kind === "announcement"
+        ? item.announcement.id
+        : item.kind === "notice"
+          ? item.status.id
+          : item.message.id,
   );
 
 describe("timeline", () => {
@@ -150,6 +152,25 @@ describe("timeline", () => {
   const old = (id: string, second: number): ChatMessage => ({
     ...said(id),
     sentAt: `2026-10-04T12:00:0${second}.000Z`,
+  });
+
+  it("keeps announcements between the messages sent before and after them", () => {
+    expect(
+      names(
+        timeline(
+          [old("before", 1), old("after", 3)],
+          [],
+          [
+            {
+              id: "announcement",
+              text: "Notice",
+              name: "Ada Mod",
+              sentAt: "2026-10-04T12:00:02.000Z",
+            },
+          ],
+        ),
+      ),
+    ).toEqual(["before", "announcement", "after"]);
   });
 
   it("sets the history's events among the history's messages by their time", () => {

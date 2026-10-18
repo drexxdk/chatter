@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Ban,
+  Megaphone,
   MessageSquare,
   Users,
   X,
@@ -19,6 +20,7 @@ import { useTranslation } from "react-i18next";
 
 import type {
   ActionResult,
+  Announcement,
   AnnounceResult,
   ChatMessage,
   DirectApi,
@@ -78,6 +80,7 @@ interface ChatRoomProps {
   connected: boolean;
   members: Member[];
   messages: ChatMessage[];
+  announcements: Announcement[];
   events: RoomEvent[];
   // Whether the room's log also tells who came and went.
   showMovements: boolean;
@@ -102,6 +105,7 @@ export function ChatRoom({
   connected,
   members,
   messages,
+  announcements,
   events,
   showMovements,
   error,
@@ -123,7 +127,7 @@ export function ChatRoom({
   } | null>(null);
   const shownReport = useKept(reporting);
   const items = withDirect(
-    timeline(messages, showMovements ? events : []),
+    timeline(messages, showMovements ? events : [], announcements),
     direct.threads,
   );
   // Who the room's input writes to privately, when a private message was clicked.
@@ -175,7 +179,11 @@ export function ChatRoom({
   // Every message is a stop for the arrow keys, the only way to move through a long chat without a mouse; the notices
   // between them have nothing to read or do.
   const navIds = items.flatMap((item) =>
-    item.kind === "event" || item.kind === "notice" ? [] : [item.message.id],
+    item.kind === "announcement"
+      ? [`announcement:${item.announcement.id}`]
+      : item.kind === "event" || item.kind === "notice"
+        ? []
+        : [item.message.id],
   );
   const rows = useRowNavigation(navIds);
 
@@ -517,6 +525,36 @@ export function ChatRoom({
             >
               {runs(items, runAuthor).map((run) => {
                 const first = run[0];
+
+                if (first.kind === "announcement") {
+                  const announcement = first.announcement;
+                  const id = `announcement:${announcement.id}`;
+                  return (
+                    <li
+                      key={id}
+                      data-kind="announcement"
+                      {...navStop(id, id === rows.stopId)}
+                      className={`rounded-md border border-green-500/50 bg-green-500/10 px-4 py-3 ${NAV_STOP_CLASS}`}
+                    >
+                      <div className="mb-1 flex items-center gap-2 text-xs text-green-400">
+                        <Megaphone
+                          aria-hidden="true"
+                          className="h-4 w-4 shrink-0"
+                        />
+                        <span className="font-semibold">
+                          {t("announcement.from", { name: announcement.name })}
+                        </span>
+                        <Timestamp
+                          sentAt={announcement.sentAt}
+                          className="text-neutral-500"
+                        />
+                      </div>
+                      <p className="whitespace-pre-wrap wrap-anywhere font-bold text-green-300">
+                        {announcement.text}
+                      </p>
+                    </li>
+                  );
+                }
 
                 if (first.kind === "event") {
                   return (

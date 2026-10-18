@@ -6,7 +6,7 @@ import {
   type Partner,
 } from "./direct";
 import { isRecord } from "../isRecord";
-import type { ChatMessage } from "./types";
+import type { Announcement, ChatMessage } from "./types";
 
 // Somebody came into the room or went out of it, as the server told. `seq` says where it fell among the messages that
 // arrived live, which the clocks of different computers could not; what came with the history has none, and is set
@@ -22,6 +22,7 @@ export interface RoomEvent {
 }
 export type TimelineItem =
   | { kind: "message"; message: ChatMessage }
+  | { kind: "announcement"; announcement: Announcement }
   | { kind: "event"; event: RoomEvent }
   | { kind: "direct"; message: DirectMessage; partner: Partner }
   // Somebody blocked the guest or took it back, which the room's timeline says as well as the conversation.
@@ -88,6 +89,7 @@ export function mergeEvents(
 export function timeline(
   messages: ChatMessage[],
   events: RoomEvent[],
+  announcements: Announcement[] = [],
 ): TimelineItem[] {
   const items: TimelineItem[] = [];
   const earlier = events.filter((event) => event.seq === undefined);
@@ -131,15 +133,24 @@ export function timeline(
     items.push({ kind: "event", event });
   }
 
+  for (const announcement of announcements) {
+    const item: TimelineItem = { kind: "announcement", announcement };
+    let index = items.length;
+    while (index > 0 && timeOf(items[index - 1]!) > timeOf(item)) index--;
+    items.splice(index, 0, item);
+  }
+
   return items;
 }
 const timeOf = (item: TimelineItem) =>
   Date.parse(
     item.kind === "event"
       ? item.event.sentAt
-      : item.kind === "notice"
-        ? item.status.sentAt
-        : item.message.sentAt,
+      : item.kind === "announcement"
+        ? item.announcement.sentAt
+        : item.kind === "notice"
+          ? item.status.sentAt
+          : item.message.sentAt,
   );
 
 // The guest's private messages, sent and received, set into the room's timeline by the time they were sent.

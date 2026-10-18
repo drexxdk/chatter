@@ -1,6 +1,6 @@
 import { LogOut } from "lucide-react";
 import clsx from "clsx";
-import { Fragment, memo } from "react";
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Avatar } from "../chat/avatar";
@@ -98,18 +98,23 @@ function MessageGroupView({
       <GifImage url={url} />
     );
 
+  const bubbleStyle = direct
+    ? "border border-dashed border-amber-400/60 bg-amber-400/10"
+    : moderator
+      ? "border border-green-500/40 bg-green-900/30 font-bold text-green-300"
+      : mine
+        ? "rounded-br-sm bg-sent text-white"
+        : "rounded-bl-sm bg-neutral-800";
+
   const words = (text: string, banned?: boolean) => (
     /* Rendered as text, never as HTML. */
     <p
-      className={`whitespace-pre-wrap wrap-anywhere rounded-2xl px-3 py-2 ${
-        direct
-          ? `border border-dashed border-amber-400/60 bg-amber-400/10 py-1 ${banned ? "font-semibold italic text-red-400" : ""}`
-          : moderator
-            ? "border border-green-500/40 bg-green-900/30 font-bold text-green-300"
-            : mine
-              ? "rounded-br-sm bg-sent text-white"
-              : "rounded-bl-sm bg-neutral-800"
-      }`}
+      className={clsx(
+        "whitespace-pre-wrap wrap-anywhere rounded-2xl px-3 py-2",
+        bubbleStyle,
+        direct && "py-1",
+        direct && banned && "font-semibold italic text-red-400",
+      )}
     >
       {banned ? (
         t("room.bannedMessage")
@@ -131,19 +136,22 @@ function MessageGroupView({
     return (
       <div
         className={clsx(
-          "flex flex-col gap-1",
-          mine ? "items-end" : "items-start",
+          "flex max-w-full flex-col items-start gap-1 rounded-2xl p-1",
+          bubbleStyle,
         )}
       >
-        {parts.map((part, index) => (
-          <Fragment key={index}>
-            {part.gif
-              ? gifBubble(part.gif)
-              : part.text.trim()
-                ? words(part.text)
-                : null}
-          </Fragment>
-        ))}
+        {parts.map((part, index) =>
+          part.gif ? (
+            <GifImage key={index} url={part.gif} />
+          ) : part.text.trim() ? (
+            <p
+              key={index}
+              className="max-w-full whitespace-pre-wrap wrap-anywhere px-2 py-1"
+            >
+              <MentionedText text={part.text} onDark={mine} />
+            </p>
+          ) : null,
+        )}
       </div>
     );
   };

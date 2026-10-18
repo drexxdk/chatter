@@ -145,6 +145,9 @@ export function useChat(
   const membersRef = useRef<Member[]>([]);
   const selfGuestIdRef = useRef<string | null>(null);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
+  const [announcements, setAnnouncements] = useState<
+    (Announcement & { roomSlug: string })[]
+  >([]);
   // Only an admin in a test room is told of this.
   const [crowd, setCrowd] = useState<CrowdState | null>(null);
   // How many are in each test room, the people who are not there too; what the list of rooms shows.
@@ -213,6 +216,7 @@ export function useChat(
     setRoomSlug(null);
     setMembers([]);
     setMessages([]);
+    setAnnouncements([]);
     setRoomEvents([]);
   }, []);
 
@@ -396,11 +400,19 @@ export function useChat(
         socket.on("announcement:new", (value: unknown) => {
           const next = parseAnnouncement(value);
 
-          if (
-            isCurrent() &&
-            next &&
-            next.id !== dismissedAnnouncementRef.current
-          ) {
+          if (!isCurrent() || !next) return;
+          const currentRoom = roomRef.current;
+          if (currentRoom) {
+            setAnnouncements((previous) =>
+              previous.some((known) => known.id === next.id)
+                ? previous
+                : [...previous, { ...next, roomSlug: currentRoom }].slice(
+                    -MAX_MESSAGES,
+                  ),
+            );
+          }
+
+          if (next.id !== dismissedAnnouncementRef.current) {
             setAnnouncement(next);
           }
         });
@@ -767,6 +779,9 @@ export function useChat(
       setRoomEvents((existing) =>
         existing.filter((event) => event.roomSlug === slug),
       );
+      setAnnouncements((existing) =>
+        existing.filter((announcement) => announcement.roomSlug === slug),
+      );
       addRoomEvents(eventsFromHistory(ack.history, slug));
       setMessages((existing) =>
         mergeHistory(
@@ -1090,6 +1105,7 @@ export function useChat(
     error,
     retryAfterSeconds,
     announcement,
+    announcements,
     idleDeadline,
     direct,
     connect,

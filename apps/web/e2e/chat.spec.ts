@@ -776,6 +776,16 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
       .fill(words);
     await moderator.getByRole("button", { name: "Announce" }).click();
 
+    await expect(moderator.getByRole("log")).toContainText(words);
+    await expect(moderator.getByRole("log")).toContainText(
+      `Announcement from ${name}`,
+    );
+    await moderator.getByRole("button", { name: "Dismiss" }).click();
+    await expect(announcementOn(moderator)).toHaveCount(0);
+    await expect(
+      moderator.getByRole("log").getByText(words, { exact: true }),
+    ).toHaveCount(1);
+
     await expect(announcementOn(alice)).toContainText(words);
     await expect(announcementOn(alice)).toContainText(
       `Announcement from ${name}`,
