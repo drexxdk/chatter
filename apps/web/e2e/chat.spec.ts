@@ -1009,25 +1009,24 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
   }
 });
 
-// Who reports from the "…" button of somebody's message.
+// Who reports from somebody's message actions.
 async function reportFrom(
   page: Page,
   author: string,
   words: string,
   reason: string,
 ) {
-  // The bar with the button is only shown over the message, so the mouse goes there first.
   const row = page
     .getByRole("log")
     .getByRole("listitem")
     .filter({ hasText: words });
-  const messageId = await row
-    .locator("[data-nav-id]")
-    .filter({ hasText: words })
-    .getAttribute("data-nav-id");
+  const message = row.locator("[data-nav-id]").filter({ hasText: words });
+  const messageId = await message.getAttribute("data-nav-id");
   expect(messageId).toBeTruthy();
-  await row.getByText(words, { exact: true }).hover();
-  await row.getByRole("button", { name: `Actions for ${author}` }).click();
+  await message.press("Shift+F10");
+  await expect(
+    row.getByRole("button", { name: `Actions for ${author}` }),
+  ).toHaveAttribute("aria-expanded", "true");
   await page.getByRole("menuitem", { name: "Report message" }).click();
   const dialog = page.getByRole("dialog", { name: "Report this message" });
   await dialog.getByRole("radio", { name: reason }).check();
