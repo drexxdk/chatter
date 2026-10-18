@@ -2,7 +2,15 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ROOMS, stubRooms, setup, joinRoom, at, message } from "./test/app";
+import {
+  ROOMS,
+  stubRooms,
+  setup,
+  joinRoom,
+  leaveRoom,
+  at,
+  message,
+} from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
 beforeEach(() => {
@@ -490,7 +498,7 @@ describe("announcements", () => {
       const { user, server } = await enterAsGuest();
       act(() => server.latest.serverEmit("announcement:new", announcement()));
 
-      await user.click(screen.getByRole("button", { name: "Leave room" }));
+      await leaveRoom(user);
 
       await screen.findByRole("heading", { name: "Public rooms" });
       expect(banner()).toBeInTheDocument();
@@ -553,7 +561,7 @@ describe("announcements", () => {
       act(() => server.latest.serverEmit("announcement:new", announcement()));
       act(() => server.latest.serverEmit("disconnect", "transport close"));
 
-      await user.click(screen.getByRole("button", { name: "Leave room" }));
+      await leaveRoom(user);
 
       await screen.findByRole("heading", { name: "Public rooms" });
       expect(banner()).not.toBeInTheDocument();

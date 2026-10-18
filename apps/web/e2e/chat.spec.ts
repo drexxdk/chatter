@@ -99,6 +99,38 @@ async function send(page: Page, text: string) {
   await page.getByRole("button", { name: "Send", exact: true }).click();
 }
 
+async function leaveRoom(page: Page) {
+  await page.locator("#room-heading").getByRole("button").click();
+  await page.getByRole("menuitem", { name: "Leave room", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Public rooms" }),
+  ).toBeVisible();
+}
+
+test("private chat back returns to the room and leaving is an action in the room menu", async ({
+  browser,
+}) => {
+  const alice = await newGuest(browser);
+  const bob = await newGuest(browser);
+  await enterRoom(alice, LOUNGE.name, "Alice");
+  await enterRoom(bob, LOUNGE.name, "Bob");
+  await expect(alice.getByRole("button", { name: "Leave room" })).toHaveCount(
+    0,
+  );
+  await alice
+    .getByRole("button", { name: "Open private chat with Bob" })
+    .click();
+  await expect(
+    alice.getByRole("heading", { name: "Direct message with Bob" }),
+  ).toBeVisible();
+  await alice.getByRole("button", { name: "Back to the room" }).click();
+  await expect(alice.getByRole("log", { name: LOUNGE.name })).toBeVisible();
+  await alice
+    .getByRole("button", { name: "Open private chat with Bob" })
+    .click();
+  await leaveRoom(alice);
+});
+
 test("header dropdowns stay within the composer and viewport bounds", async ({
   browser,
 }) => {
@@ -120,9 +152,7 @@ test("header dropdowns stay within the composer and viewport bounds", async ({
 
       for (const name of ["Account menu: Menu Guest", LOUNGE.name]) {
         await guest.getByRole("button", { name, exact: true }).click();
-        const dropdown = guest.getByRole(
-          name === LOUNGE.name ? "listbox" : "menu",
-        );
+        const dropdown = guest.getByRole("menu");
         await expect(dropdown).toBeVisible();
         const bounds = await dropdown.boundingBox();
         const composer = await guest
@@ -272,7 +302,7 @@ test("two guests chat in real time and see each other come and go", async ({
   await send(alice, "Hi Bob!");
   await expect(bob.getByRole("log")).toContainText("Hi Bob!");
 
-  await bob.getByRole("button", { name: "Leave room" }).click();
+  await leaveRoom(bob);
   await expect(
     alice.getByRole("heading", { name: "In this room (1 of 5)" }),
   ).toBeVisible();
@@ -1146,7 +1176,7 @@ test("a guest's chosen avatar is shown to others, and a conversation says when t
   ).toHaveAttribute("data-side", "right");
 
   // When Bea leaves the room, the conversation says so, with a time; when she returns, it says that too.
-  await bob.getByRole("button", { name: "Leave room" }).click();
+  await leaveRoom(bob);
   await expect(conversation.getByText("Bea left the room.")).toBeVisible();
   await bob.getByRole("button", { name: `Join ${LOUNGE.name}` }).click();
   await expect(conversation.getByText("Bea rejoined the room.")).toBeVisible();
@@ -1259,7 +1289,7 @@ test("a reload leaves a conversation closed when the other person is no longer i
     bob.getByRole("log", { name: "Direct message with Alice" }),
   ).toContainText("hello Bob");
 
-  await alice.getByRole("button", { name: "Leave room" }).click();
+  await leaveRoom(alice);
   await expect(bob.getByText("Alice left the room.").first()).toBeVisible();
   await bob.reload();
 
@@ -1293,7 +1323,7 @@ test("the room says who comes and goes, unless a guest switches that off", async
   await enterRoom(bob, LOUNGE.name, "Bob");
   await expect(room).toContainText("Bob joined the room.");
 
-  await bob.getByRole("button", { name: "Leave room" }).click();
+  await leaveRoom(bob);
   // Departures are announced only after the grace period, in case the guest comes straight back.
   await expect(room).toContainText("Bob left the room.", { timeout: 25_000 });
 
@@ -1323,7 +1353,7 @@ test("a nickname somebody in the room has is refused, and free again once they l
     other.getByRole("button", { name: /^Account menu:/ }),
   ).toHaveCount(0);
 
-  await alice.getByRole("button", { name: "Leave room" }).click();
+  await leaveRoom(alice);
   await other.getByRole("button", { name: "Continue" }).click();
   await expect(
     other.getByRole("button", { name: "Account menu: alice" }),

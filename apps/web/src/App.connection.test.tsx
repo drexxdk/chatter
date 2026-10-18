@@ -1,11 +1,12 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_RECONNECT_DELAYS_MS } from "./chat/useChat";
 import {
   stubRooms,
   setup,
   joinRoom,
+  leaveRoom,
   at,
   message,
   anyPicture,
@@ -215,18 +216,20 @@ describe("losing the connection", () => {
   });
 
   it("lets the guest leave while reconnecting and stops trying", async () => {
-    const server = makeFakeServer();
-    // Long enough that leaving always comes first, even on a busy machine.
-    const { user } = await enterRoom(server, [1_000, 1_000]);
-
-    dropConnection(server);
-    await user.click(screen.getByRole("button", { name: "Leave room" }));
-
-    expect(
-      await screen.findByRole("heading", { name: "Public rooms" }),
-    ).toBeInTheDocument();
-    await new Promise((resolve) => setTimeout(resolve, 1_300));
-    expect(server.createSocket).toHaveBeenCalledTimes(1);
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const server = makeFakeServer();
+      const { user } = await enterRoom(server, [60_000, 60_000]);
+      dropConnection(server);
+      await leaveRoom(user);
+      expect(
+        await screen.findByRole("heading", { name: "Public rooms" }),
+      ).toBeInTheDocument();
+      await act(() => vi.advanceTimersByTimeAsync(60_000));
+      expect(server.createSocket).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("stops trying when the app unmounts", async () => {
@@ -242,7 +245,7 @@ describe("losing the connection", () => {
 
   it("does not try to reconnect a guest who was only in the lobby", async () => {
     const { user, server } = await enterRoom();
-    await user.click(screen.getByRole("button", { name: "Leave room" }));
+    await leaveRoom(user);
     await screen.findByRole("heading", { name: "Public rooms" });
 
     dropConnection(server);

@@ -1,10 +1,5 @@
-import {
-  Listbox,
-  ListboxButton,
-  ListboxOption,
-  ListboxOptions,
-} from "@headlessui/react";
-import { ChevronDown } from "lucide-react";
+import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
+import { ChevronDown, LogOut } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -37,6 +32,7 @@ export function RoomSwitcher({
   name,
   disabled,
   onSelect,
+  onLeave,
   onOpen,
 }: {
   rooms: Room[];
@@ -44,6 +40,7 @@ export function RoomSwitcher({
   name: string;
   disabled: boolean;
   onSelect: (room: Room) => void;
+  onLeave: () => void;
   // Called when the list opens, to bring the numbers of people up to date.
   onOpen?: () => void;
 }) {
@@ -52,31 +49,22 @@ export function RoomSwitcher({
 
   return (
     <h2 id="room-heading" className="min-w-0 text-xl font-semibold">
-      <Listbox
-        value={slug}
-        disabled={disabled || rooms.length < 2}
-        onChange={(next: string) => {
-          const room = rooms.find((candidate) => candidate.slug === next);
-          if (room && room.slug !== slug) onSelect(room);
-        }}
-      >
+      <Menu>
         {({ open }) => (
           <>
             <WhenOpened open={open} onOpen={onOpen} />
-            <ListboxButton className="flex max-w-full items-center gap-1.5 rounded-md px-2 py-1 hover:bg-neutral-800 outline-none data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400 disabled:hover:bg-transparent">
+            <MenuButton className="flex max-w-full items-center gap-1.5 rounded-md px-2 py-1 hover:bg-neutral-800 outline-none data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400">
               <RoomIcon slug={slug} />
               <span className="truncate">{name}</span>
-              {rooms.length > 1 && (
-                <ChevronDown
-                  aria-hidden="true"
-                  className="h-5 w-5 shrink-0 text-neutral-400"
-                />
-              )}
-            </ListboxButton>
+              <ChevronDown
+                aria-hidden="true"
+                className="h-5 w-5 shrink-0 text-neutral-400"
+              />
+            </MenuButton>
             {/* At the page's left edge. The header is what the box is placed against, so the heading must not be positioned
             itself. */}
             <div className="absolute left-(--page-gutter) w-0">
-              <ListboxOptions
+              <MenuItems
                 modal={false}
                 className={`${HEADER_DROPDOWN} min-w-48 text-sm font-normal ${MENU_SURFACE}`}
               >
@@ -96,35 +84,53 @@ export function RoomSwitcher({
                       {t(GROUP_LABELS[group])}
                     </div>
                     {inGroup.map((room) => (
-                      <ListboxOption
-                        key={room.slug}
-                        value={room.slug}
-                        style={roomVars(room.slug)}
-                        // The room you are in is tinted and ringed in its accent, which shows on the plain rooms too. The ring
-                        // is inside the box, or the next room's hover would paint over its lower edge.
-                        className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 data-focus:bg-neutral-800 data-selected:bg-(--room-accent)/15 data-selected:font-medium data-selected:text-(--room-accent) data-selected:ring-1 data-selected:ring-inset data-selected:ring-(--room-accent)/40"
-                      >
-                        <RoomIcon slug={room.slug} className="h-4 w-4" />
-                        <span className="flex-1">{room.name}</span>
-                        {typeof room.memberCount === "number" && (
-                          <span
-                            aria-hidden="true"
-                            className="pl-3 text-xs font-normal text-neutral-400 tabular-nums"
-                          >
-                            {typeof room.maxMembers === "number"
-                              ? `${room.memberCount}/${room.maxMembers}`
-                              : room.memberCount}
-                          </span>
-                        )}
-                      </ListboxOption>
+                      <MenuItem key={room.slug} disabled={disabled}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (room.slug !== slug) onSelect(room);
+                          }}
+                          aria-current={room.slug === slug ? "page" : undefined}
+                          data-selected={room.slug === slug ? "" : undefined}
+                          style={roomVars(room.slug)}
+                          // The room you are in is tinted and ringed in its accent, which shows on the plain rooms too. The ring
+                          // is inside the box, or the next room's hover would paint over its lower edge.
+                          className="flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left data-focus:bg-neutral-800 data-disabled:cursor-default data-disabled:opacity-50 data-selected:bg-(--room-accent)/15 data-selected:font-medium data-selected:text-(--room-accent) data-selected:ring-1 data-selected:ring-inset data-selected:ring-(--room-accent)/40"
+                        >
+                          <RoomIcon slug={room.slug} className="h-4 w-4" />
+                          <span className="flex-1">{room.name}</span>
+                          {typeof room.memberCount === "number" && (
+                            <span
+                              aria-hidden="true"
+                              className="pl-3 text-xs font-normal text-neutral-400 tabular-nums"
+                            >
+                              {typeof room.maxMembers === "number"
+                                ? `${room.memberCount}/${room.maxMembers}`
+                                : room.memberCount}
+                            </span>
+                          )}
+                        </button>
+                      </MenuItem>
                     ))}
                   </div>
                 ))}
-              </ListboxOptions>
+                <div className="mt-1 border-t border-neutral-800 pt-1">
+                  <MenuItem>
+                    <button
+                      type="button"
+                      onClick={onLeave}
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-red-300 data-focus:bg-neutral-800"
+                    >
+                      <LogOut aria-hidden="true" className="h-4 w-4 shrink-0" />
+                      {t("room.leave")}
+                    </button>
+                  </MenuItem>
+                </div>
+              </MenuItems>
             </div>
           </>
         )}
-      </Listbox>
+      </Menu>
     </h2>
   );
 }

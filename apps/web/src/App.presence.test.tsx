@@ -6,6 +6,7 @@ import {
   stubRooms,
   setup,
   joinRoom,
+  leaveRoom,
   message,
   at,
   anyPicture,
@@ -512,7 +513,7 @@ describe("who comes and goes", () => {
     const { user, server } = await enter();
     came(server, CAROL);
 
-    await user.click(screen.getByRole("button", { name: "Leave room" }));
+    await leaveRoom(user);
     await screen.findByRole("heading", { name: "Public rooms" });
     await user.click(screen.getByRole("button", { name: "Join Music" }));
     await screen.findByRole("button", { name: "Account menu: Alice" });

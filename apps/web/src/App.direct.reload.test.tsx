@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { stubRooms, setup, joinRoom } from "./test/app";
+import { stubRooms, setup, joinRoom, leaveRoom } from "./test/app";
 import {
   bob,
   carol,
@@ -23,6 +23,23 @@ beforeEach(() => {
 });
 
 describe("direct messages", () => {
+  it("returns from a private chat without leaving, with leaving available only in the room menu", async () => {
+    const { user, server } = await enter();
+    receive(server, dm());
+    await user.click(threads().getByRole("button", { name: /^Bob/ }));
+    expect(
+      screen.queryByRole("button", { name: "Leave room" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Back to the room" }));
+    expect(screen.getByRole("log", { name: "General" })).toBeVisible();
+    expect(server.latest.emittedEvents("room:leave")).toHaveLength(0);
+    await leaveRoom(user);
+    expect(
+      await screen.findByRole("heading", { name: "Public rooms" }),
+    ).toBeInTheDocument();
+    expect(server.latest.emittedEvents("room:leave")).toHaveLength(1);
+  });
+
   describe("status messages", () => {
     const statuses = () =>
       log("Bob")
@@ -114,10 +131,10 @@ describe("direct messages", () => {
       const { user, server } = await enter();
       receive(server, dm());
 
-      await user.click(screen.getByRole("button", { name: "Leave room" }));
+      await leaveRoom(user);
       await screen.findByRole("heading", { name: "Public rooms" });
       await user.click(screen.getByRole("button", { name: "Join General" }));
-      await screen.findByRole("button", { name: "Account menu: Alice" });
+      await screen.findByRole("log", { name: "General" });
       await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(statuses()).toHaveLength(0);
@@ -127,10 +144,10 @@ describe("direct messages", () => {
       const { user, server } = await enter();
       receive(server, dm());
 
-      await user.click(screen.getByRole("button", { name: "Leave room" }));
+      await leaveRoom(user);
       await screen.findByRole("heading", { name: "Public rooms" });
       await user.click(screen.getByRole("button", { name: "Join Music" }));
-      await screen.findByRole("button", { name: "Account menu: Alice" });
+      await screen.findByRole("log", { name: "Music" });
       await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(statuses()).toHaveLength(0);
@@ -506,7 +523,7 @@ describe("direct messages", () => {
       const { user, server } = await enter();
       receive(server, dm());
 
-      await user.click(screen.getByRole("button", { name: "Leave room" }));
+      await leaveRoom(user);
       await screen.findByRole("heading", { name: "Public rooms" });
       await user.click(screen.getByRole("button", { name: "Join Music" }));
       await screen.findByRole("button", { name: "Account menu: Alice" });
@@ -521,7 +538,7 @@ describe("direct messages", () => {
       receive(server, dm());
       await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
-      await user.click(screen.getByRole("button", { name: "Leave room" }));
+      await leaveRoom(user);
       await screen.findByRole("heading", { name: "Public rooms" });
       await user.click(screen.getByRole("button", { name: "Join Music" }));
       await screen.findByRole("button", { name: "Account menu: Alice" });
@@ -538,7 +555,7 @@ describe("direct messages", () => {
       receive(server, dm());
 
       act(() => server.latest.serverEmit("disconnect", "transport close"));
-      await user.click(screen.getByRole("button", { name: "Leave room" }));
+      await leaveRoom(user);
       await screen.findByRole("heading", { name: "Public rooms" });
       await joinRoom(user);
       await screen.findByRole("button", { name: "Account menu: Alice" });

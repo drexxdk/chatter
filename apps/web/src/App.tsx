@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   Link,
@@ -741,14 +740,6 @@ export function App({
             {chat.roomSlug && chat.session ? (
               <div className="flex min-w-0 items-center gap-1">
                 <h1 className="sr-only">{t("app.title")}</h1>
-                <button
-                  type="button"
-                  onClick={() => void chat.leaveRoom()}
-                  aria-label={t("room.leave")}
-                  className="shrink-0 rounded-md p-2 hover:bg-neutral-800"
-                >
-                  <ArrowLeft aria-hidden="true" className="h-5 w-5" />
-                </button>
                 <RoomSwitcher
                   // The room you are in is counted from who is in it now, which is newer than the list.
                   rooms={knownRooms.map((room) =>
@@ -760,6 +751,7 @@ export function App({
                   name={currentRoom?.name ?? chat.roomSlug}
                   disabled={chat.status !== "connected"}
                   onSelect={(room) => void handleSelect(room)}
+                  onLeave={() => void chat.leaveRoom()}
                   onOpen={refreshRooms}
                 />
               </div>

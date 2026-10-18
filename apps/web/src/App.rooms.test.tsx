@@ -6,6 +6,7 @@ import {
   stubRooms,
   setup,
   joinRoom,
+  leaveRoom,
   at,
   message,
   fillBox,
@@ -138,6 +139,45 @@ describe("lobby", () => {
     });
   });
 
+  it("keeps leaving the room inside the room menu instead of beside the private-chat back button", async () => {
+    const { user, server } = setup();
+    await joinRoom(user);
+    await screen.findByRole("button", { name: "Account menu: Alice" });
+    expect(
+      screen.queryByRole("button", { name: "Leave room" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: "Leave room" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "General" }));
+    const leave = await screen.findByRole("menuitem", { name: "Leave room" });
+    expect(leave.querySelector(".lucide-log-out")).toBeInTheDocument();
+    await user.click(leave);
+    expect(
+      await screen.findByRole("heading", { name: "Public rooms" }),
+    ).toBeInTheDocument();
+    expect(server.latest.emittedEvents("room:leave")).toHaveLength(1);
+  });
+
+  it("can leave through the menu with only one room while reconnecting", async () => {
+    stubRooms(async () => ({ ok: true, json: async () => [ROOMS[0]] }));
+    const { user, server } = setup(makeFakeServer(), [60_000]);
+    await joinRoom(user);
+    await screen.findByRole("button", { name: "Account menu: Alice" });
+    act(() => server.latest.serverEmit("disconnect", "transport close"));
+    await user.click(screen.getByRole("button", { name: "General" }));
+    expect(screen.getByRole("menuitem", { name: /General/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    const leave = screen.getByRole("menuitem", { name: "Leave room" });
+    expect(leave).not.toBeDisabled();
+    await user.click(leave);
+    expect(
+      await screen.findByRole("heading", { name: "Public rooms" }),
+    ).toBeInTheDocument();
+  });
+
   it("fetches the numbers again when back in the lobby from a room", async () => {
     const { user } = setup();
     await joinRoom(user);
@@ -147,10 +187,10 @@ describe("lobby", () => {
       json: async () => [{ ...ROOMS[0], memberCount: 5 }],
     }));
 
-    await user.click(screen.getByRole("button", { name: "Leave room" }));
+    await leaveRoom(user);
 
     expect(await screen.findByText("5 people here now")).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("shows an error and lets the user retry when rooms fail to load", async () => {
@@ -573,7 +613,7 @@ describe("inside a room", () => {
   it("leaves the room and reuses the connection for the next room", async () => {
     const { user, server } = await enterRoom();
 
-    await user.click(screen.getByRole("button", { name: "Leave room" }));
+    await leaveRoom(user);
     expect(
       await screen.findByRole("heading", { name: "Public rooms" }),
     ).toBeInTheDocument();
@@ -597,7 +637,7 @@ describe("inside a room", () => {
 
     await waitFor(() => expect(document.title).toBe("General \u2013 Chatter"));
 
-    await user.click(screen.getByRole("button", { name: "Leave room" }));
+    await leaveRoom(user);
     await screen.findByRole("heading", { name: "Public rooms" });
     expect(document.title).toBe("Chatter");
 
@@ -609,7 +649,7 @@ describe("inside a room", () => {
     const { user, server } = await enterRoom();
 
     await user.click(screen.getByRole("button", { name: "General" }));
-    await user.click(await screen.findByRole("option", { name: /Music/ }));
+    await user.click(await screen.findByRole("menuitem", { name: /Music/ }));
 
     expect(
       await screen.findByRole("heading", { name: "Music", level: 2 }),
@@ -627,14 +667,14 @@ describe("inside a room", () => {
     await user.click(screen.getByRole("button", { name: "General" }));
 
     expect(
-      await screen.findByRole("option", { name: /Music/ }),
+      await screen.findByRole("menuitem", { name: /Music/ }),
     ).toHaveTextContent("0/30");
     // The room you are in is shown by its own look, not by a checkmark, and is counted from who is in it now.
-    expect(screen.getByRole("option", { name: /General/ })).toHaveAttribute(
-      "aria-selected",
-      "true",
+    expect(screen.getByRole("menuitem", { name: /General/ })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
-    expect(screen.getByRole("option", { name: /General/ })).toHaveTextContent(
+    expect(screen.getByRole("menuitem", { name: /General/ })).toHaveTextContent(
       /^General\d+\/100$/,
     );
   });
@@ -782,7 +822,7 @@ describe("message history", () => {
       message({ text: "earlier one", sentAt: at(1) }),
     ]);
 
-    await user.click(screen.getByRole("button", { name: "Leave room" }));
+    await leaveRoom(user);
     await screen.findByRole("heading", { name: "Public rooms" });
     await user.click(screen.getByRole("button", { name: "Join Music" }));
     await screen.findByRole("heading", { name: "Music", level: 2 });

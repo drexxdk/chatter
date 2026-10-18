@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Editor } from "@tiptap/core";
 import type { ComponentProps } from "react";
@@ -95,6 +95,13 @@ export async function joinRoom(
   );
   await user.type(await screen.findByLabelText("Nickname"), nickname);
   await user.click(screen.getByRole("button", { name: "Continue" }));
+}
+
+export async function leaveRoom(user: ReturnType<typeof userEvent.setup>) {
+  const heading = document.getElementById("room-heading");
+  expect(heading).not.toBeNull();
+  await user.click(within(heading!).getByRole("button"));
+  await user.click(screen.getByRole("menuitem", { name: "Leave room" }));
 }
 
 // A fixed clock for messages whose order matters.

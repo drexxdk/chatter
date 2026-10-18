@@ -6,6 +6,7 @@ import {
   stubRooms,
   setup,
   joinRoom,
+  leaveRoom,
   at,
   message,
   anyPicture,
@@ -38,7 +39,7 @@ describe("keeping your place", () => {
       await joinRoom(user);
       await screen.findByRole("button", { name: "Account menu: Alice" });
 
-      await user.click(screen.getByRole("button", { name: "Leave room" }));
+      await leaveRoom(user);
 
       await screen.findByRole("heading", { name: "Public rooms" });
       expect(path()).toBe("/");
@@ -48,7 +49,7 @@ describe("keeping your place", () => {
       const { user } = setup();
       await joinRoom(user);
       await screen.findByRole("button", { name: "Account menu: Alice" });
-      await user.click(screen.getByRole("button", { name: "Leave room" }));
+      await leaveRoom(user);
 
       await user.click(
         await screen.findByRole("button", { name: "Join Music" }),
@@ -92,7 +93,7 @@ describe("keeping your place", () => {
       await joinRoom(user);
       await screen.findByRole("button", { name: "Account menu: Alice" });
 
-      await user.click(screen.getByRole("button", { name: "Leave room" }));
+      await leaveRoom(user);
 
       await screen.findByRole("heading", { name: "Public rooms" });
       expect(
@@ -105,7 +106,7 @@ describe("keeping your place", () => {
       const { user } = setup();
       await joinRoom(user);
       await screen.findByRole("button", { name: "Account menu: Alice" });
-      await user.click(screen.getByRole("button", { name: "Leave room" }));
+      await leaveRoom(user);
       await screen.findByRole("heading", { name: "Public rooms" });
 
       await user.click(
@@ -347,7 +348,7 @@ describe("keeping your place", () => {
         await screen.findByRole("button", { name: "Account menu: Alice" });
 
         act(() => server.latest.serverEmit("disconnect", "transport close"));
-        await user.click(screen.getByRole("button", { name: "Leave room" }));
+        await leaveRoom(user);
         await screen.findByRole("heading", { name: "Public rooms" });
 
         expect(sessionStorage.getItem(SAVED)).toBeNull();
@@ -561,7 +562,7 @@ describe("keeping your place", () => {
       await screen.findByRole("button", { name: "Account menu: Alice" });
 
       act(() => server.latest.serverEmit("disconnect", "transport close"));
-      await user.click(screen.getByRole("button", { name: "Leave room" }));
+      await leaveRoom(user);
 
       await screen.findByRole("heading", { name: "Public rooms" });
       expect(sessionStorage.getItem(SAVED)).toBeNull();
@@ -573,7 +574,7 @@ describe("keeping your place", () => {
       await joinRoom(user);
       await screen.findByRole("button", { name: "Account menu: Alice" });
 
-      await user.click(screen.getByRole("button", { name: "Leave room" }));
+      await leaveRoom(user);
       await screen.findByRole("heading", { name: "Public rooms" });
 
       expect(JSON.parse(sessionStorage.getItem(SAVED) ?? "null")).toEqual({

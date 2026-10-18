@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TabCoordinator } from "./activeTab";
 import { saveSession } from "./session";
-import { App, joinRoom, stubRooms } from "./test/app";
+import { App, joinRoom, leaveRoom, stubRooms } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
 // Another tab of the browser, as far as this one can tell.
@@ -113,7 +113,7 @@ describe("one room for the whole browser", () => {
 
     expect(coordinator.setInRoom).toHaveBeenLastCalledWith(true);
 
-    await user.click(screen.getByRole("button", { name: "Leave room" }));
+    await leaveRoom(user);
 
     await waitFor(() =>
       expect(coordinator.setInRoom).toHaveBeenLastCalledWith(false),
