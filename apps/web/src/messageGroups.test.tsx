@@ -277,8 +277,7 @@ describe("in a private conversation", () => {
   it("does not look clickable on a private message from somebody who has left", async () => {
     const { server } = await enter();
     act(() => server.latest.serverEmit("dm:new", dm("psst", 1)));
-    const label = () =>
-      within(rows()[0]).getByText("Direct message from Bob");
+    const label = () => within(rows()[0]).getByText("Direct message from Bob");
 
     expect(label()).toHaveClass("cursor-pointer", "hover:underline");
 

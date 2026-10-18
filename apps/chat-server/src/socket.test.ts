@@ -4399,9 +4399,9 @@ describe("admin tools", () => {
     );
 
     await emit(socket, "admin:fake:add", { slug: "admin-lab" });
-    expect(
-      await emit(socket, "admin:fake:add", { slug: "admin-lab" }),
-    ).toEqual({ ok: true });
+    expect(await emit(socket, "admin:fake:add", { slug: "admin-lab" })).toEqual(
+      { ok: true },
+    );
 
     expect(await counted).toEqual({ roomSlug: "admin-lab", count: 2 });
     expect(await emit(socket, "admin:fake:add", { slug: "general" })).toEqual({

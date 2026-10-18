@@ -1736,7 +1736,9 @@ export function createSocketServer(
           void io
             .in(roomKey(slug))
             .fetchSockets()
-            .then((members) => (members.length === 0 ? dropShow(slug) : undefined))
+            .then((members) =>
+              members.length === 0 ? dropShow(slug) : undefined,
+            )
             .catch((error) => log.error("Presence update failed", error));
         }
       }

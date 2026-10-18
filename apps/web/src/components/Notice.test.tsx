@@ -57,7 +57,9 @@ describe("Notice", () => {
       </Notice>,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "Close message" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Close message" }),
+    );
 
     expect(onDismiss).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Broken")).toBeInTheDocument();

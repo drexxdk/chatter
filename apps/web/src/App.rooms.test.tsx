@@ -626,9 +626,9 @@ describe("inside a room", () => {
 
     await user.click(screen.getByRole("button", { name: "General" }));
 
-    expect(await screen.findByRole("option", { name: /Music/ })).toHaveTextContent(
-      "0/30",
-    );
+    expect(
+      await screen.findByRole("option", { name: /Music/ }),
+    ).toHaveTextContent("0/30");
     // The room you are in is shown by its own look, not by a checkmark, and is counted from who is in it now.
     expect(screen.getByRole("option", { name: /General/ })).toHaveAttribute(
       "aria-selected",
@@ -659,8 +659,9 @@ describe("inside a room", () => {
 
     await user.click(heading);
 
-    expect(await screen.findByRole("list", { name: "People in this room" }))
-      .toBeInTheDocument();
+    expect(
+      await screen.findByRole("list", { name: "People in this room" }),
+    ).toBeInTheDocument();
   });
 
   it("explains an inactivity disconnect and returns to the lobby", async () => {

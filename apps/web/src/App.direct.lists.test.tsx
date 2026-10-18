@@ -418,14 +418,24 @@ describe("direct messages", () => {
         }),
       );
 
-      await user.type(screen.getByRole("searchbox", { name: "Search people" }), "bo");
+      await user.type(
+        screen.getByRole("searchbox", { name: "Search people" }),
+        "bo",
+      );
 
-      expect(threads().getByRole("button", { name: /^Bob/ })).toBeInTheDocument();
+      expect(
+        threads().getByRole("button", { name: /^Bob/ }),
+      ).toBeInTheDocument();
       expect(threads().queryByRole("button", { name: /^Carol/ })).toBeNull();
 
-      await user.type(screen.getByRole("searchbox", { name: "Search people" }), "zz");
+      await user.type(
+        screen.getByRole("searchbox", { name: "Search people" }),
+        "zz",
+      );
 
-      expect(screen.queryByRole("list", { name: "Direct messages" })).toBeNull();
+      expect(
+        screen.queryByRole("list", { name: "Direct messages" }),
+      ).toBeNull();
       expect(screen.getAllByText("Nobody matches.")).toHaveLength(2);
     });
 

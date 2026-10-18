@@ -85,7 +85,11 @@ export function App({
   const navigate = useNavigate();
   const navigationType = useNavigationType();
   const chat = useChat(createSocket, { reconnectDelaysMs });
-  const { state: roomsState, retry, refresh: refreshRooms } = useRooms(!chat.roomSlug);
+  const {
+    state: roomsState,
+    retry,
+    refresh: refreshRooms,
+  } = useRooms(!chat.roomSlug);
   const { state: legalState, retry: retryLegal } = useLegal();
   // The version of the terms the guest has to have accepted; null while the chat-server has not said.
   const termsVersion =

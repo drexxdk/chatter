@@ -496,7 +496,9 @@ test("a guest has to say they are 18 or older and accept the terms, which can be
     page.getByRole("heading", { name: LOUNGE.name, level: 2 }),
   ).toBeVisible();
 
-  // The browser remembers it: the next time the box is already ticked.
+  // The browser remembers it: the next time the box is already ticked. (The tab's own session is cleared, as in a new
+  // tab, or the lobby would simply put the guest back in the room.)
+  await page.evaluate(() => sessionStorage.clear());
   await page.goto("/");
   await page.getByRole("button", { name: `Join ${LOUNGE.name}` }).click();
   await expect(
@@ -529,9 +531,6 @@ test("a moderator signs in, and guests see their messages stand out", async ({
     const moderator = await newGuest(browser);
     await moderator.goto("/");
     await moderator
-      .getByRole("button", { name: `Join ${LOUNGE.name}` })
-      .click();
-    await moderator
       .getByRole("button", { name: "Sign in as moderator" })
       .click();
 
@@ -545,6 +544,10 @@ test("a moderator signs in, and guests see their messages stand out", async ({
 
     await moderator.getByLabel("Password").fill(password);
     await moderator.getByRole("button", { name: "Sign in" }).click();
+    // Signing in leaves the moderator in the lobby; the room is joined from there.
+    await moderator
+      .getByRole("button", { name: `Join ${LOUNGE.name}` })
+      .click();
     await expect(
       moderator.getByRole("button", { name: `Account menu: ${name}` }),
     ).toBeVisible();
@@ -600,14 +603,15 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
     const moderator = await newGuest(browser);
     await moderator.goto("/");
     await moderator
-      .getByRole("button", { name: `Join ${LOUNGE.name}` })
-      .click();
-    await moderator
       .getByRole("button", { name: "Sign in as moderator" })
       .click();
     await moderator.getByRole("textbox", { name: "Email" }).fill(email);
     await moderator.getByLabel("Password").fill(password);
     await moderator.getByRole("button", { name: "Sign in" }).click();
+    // Signing in leaves the moderator in the lobby; the room is joined from there.
+    await moderator
+      .getByRole("button", { name: `Join ${LOUNGE.name}` })
+      .click();
     await expect(
       moderator.getByRole("button", { name: `Account menu: ${name}` }),
     ).toBeVisible();
@@ -718,14 +722,15 @@ test("a moderator's report hides a message for everybody at once", async ({
     const moderator = await newGuest(browser);
     await moderator.goto("/");
     await moderator
-      .getByRole("button", { name: `Join ${LOUNGE.name}` })
-      .click();
-    await moderator
       .getByRole("button", { name: "Sign in as moderator" })
       .click();
     await moderator.getByRole("textbox", { name: "Email" }).fill(email);
     await moderator.getByLabel("Password").fill(password);
     await moderator.getByRole("button", { name: "Sign in" }).click();
+    // Signing in leaves the moderator in the lobby; the room is joined from there.
+    await moderator
+      .getByRole("button", { name: `Join ${LOUNGE.name}` })
+      .click();
     await expect(
       moderator.getByRole("button", { name: `Account menu: ${name}` }),
     ).toBeVisible();
@@ -778,14 +783,15 @@ test("a moderator whose account is removed is signed out", async ({
     const moderator = await newGuest(browser);
     await moderator.goto("/");
     await moderator
-      .getByRole("button", { name: `Join ${LOUNGE.name}` })
-      .click();
-    await moderator
       .getByRole("button", { name: "Sign in as moderator" })
       .click();
     await moderator.getByRole("textbox", { name: "Email" }).fill(email);
     await moderator.getByLabel("Password").fill(password);
     await moderator.getByRole("button", { name: "Sign in" }).click();
+    // Signing in leaves the moderator in the lobby; the room is joined from there.
+    await moderator
+      .getByRole("button", { name: `Join ${LOUNGE.name}` })
+      .click();
     await expect(
       moderator.getByRole("heading", { name: LOUNGE.name, level: 2 }),
     ).toBeVisible();
@@ -826,9 +832,11 @@ test("two guests write to each other privately, and a blocked guest is not heard
 
   // Alice finds Bob in the room and writes to him; the room itself hears nothing.
   await expect(
-    people(alice).getByRole("button", { name: "Bob" }),
+    people(alice).getByRole("button", { name: /^Bob/ }),
   ).toBeVisible();
-  await people(alice).getByRole("button", { name: "Bob" }).click();
+  await people(alice)
+    .getByRole("button", { name: "Open private chat with Bob" })
+    .click();
   await write(alice, "Bob", "psst, Bob");
   await expect(conversation(alice, "Bob")).toContainText("psst, Bob");
 
@@ -903,15 +911,19 @@ test("a guest's chosen avatar is shown to others, and a conversation says when t
 }) => {
   const alice = await newGuest(browser);
   const bob = await newGuest(browser);
-  await bob.goto("/");
-  await bob.getByRole("button", { name: `Join ${LOUNGE.name}` }).click();
-  await bob.getByRole("radio", { name: "Female" }).check({ force: true });
-  await bob.getByRole("textbox", { name: "Nickname" }).fill("Bea");
-  await acceptTerms(bob);
-  await bob.getByRole("button", { name: "Continue" }).click();
+  await enterRoom(bob, LOUNGE.name, "Bea");
+  // The avatar is chosen in the profile once in the room, not when joining.
+  await bob.getByRole("button", { name: "Account menu: Bea" }).click();
+  await bob.getByRole("menuitem", { name: "Your profile" }).click();
+  const profile = bob.getByRole("dialog", { name: "Your profile" });
+  await profile.getByRole("button", { name: "Edit profile" }).click();
+  await profile.getByRole("radio", { name: "Female" }).check({ force: true });
+  await profile.getByRole("button", { name: "Save" }).click();
   await expect(
-    bob.getByRole("button", { name: "Account menu: Bea" }),
+    profile.getByRole("button", { name: "Edit profile" }),
   ).toBeVisible();
+  await bob.keyboard.press("Escape");
+  await expect(profile).toHaveCount(0);
   await enterRoom(alice, LOUNGE.name, "Alice");
 
   // Her avatar is next to what she says, and in the list of people.
@@ -925,14 +937,14 @@ test("a guest's chosen avatar is shown to others, and a conversation says when t
   await expect(
     alice
       .getByRole("list", { name: "People in this room" })
-      .getByRole("button", { name: "Bea" })
+      .getByRole("button", { name: /^Bea/ })
       .getByTitle("Female"),
   ).toBeVisible();
 
   // A private conversation: Alice's words are on her right, Bea's on her left.
   await alice
     .getByRole("list", { name: "People in this room" })
-    .getByRole("button", { name: "Bea" })
+    .getByRole("button", { name: "Open private chat with Bea" })
     .click();
   await alice.getByRole("textbox", { name: "Message to Bea" }).fill("hi Bea");
   await alice.getByRole("button", { name: "Send", exact: true }).click();
@@ -959,7 +971,7 @@ test("a private message can be reacted to, and the sender sees it", async ({
   await enterRoom(bob, LOUNGE.name, "Bob");
   await alice
     .getByRole("list", { name: "People in this room" })
-    .getByRole("button", { name: "Bob" })
+    .getByRole("button", { name: "Open private chat with Bob" })
     .click();
   await alice.getByRole("textbox", { name: "Message to Bob" }).fill("a secret");
   await alice.getByRole("button", { name: "Send", exact: true }).click();
@@ -996,7 +1008,9 @@ test("a private conversation carries on when one of the two reloads the page", a
     await page.getByRole("button", { name: "Send", exact: true }).click();
   };
 
-  await people(alice).getByRole("button", { name: "Bob" }).click();
+  await people(alice)
+    .getByRole("button", { name: "Open private chat with Bob" })
+    .click();
   await write(alice, "Bob", "before the reload");
   await bob
     .getByRole("list", { name: "Direct messages" })
@@ -1041,7 +1055,7 @@ test("a reload leaves a conversation closed when the other person is no longer i
 
   await alice
     .getByRole("list", { name: "People in this room" })
-    .getByRole("button", { name: "Bob" })
+    .getByRole("button", { name: "Open private chat with Bob" })
     .click();
   await alice
     .getByRole("textbox", { name: "Message to Bob" })
@@ -1056,7 +1070,7 @@ test("a reload leaves a conversation closed when the other person is no longer i
   ).toContainText("hello Bob");
 
   await alice.getByRole("button", { name: "Leave room" }).click();
-  await expect(bob.getByText("Alice left the room.")).toBeVisible();
+  await expect(bob.getByText("Alice left the room.").first()).toBeVisible();
   await bob.reload();
 
   // The room is shown, not the conversation, which is still in the list.
