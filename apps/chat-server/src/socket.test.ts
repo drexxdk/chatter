@@ -2114,6 +2114,32 @@ describe("who comes into a room and who goes out of it", () => {
 });
 
 describe("the warning before an inactivity disconnect", () => {
+  it("is not for a moderator, who is not disconnected either", async () => {
+    getModerators.mockResolvedValue([{ id: 8, name: "Grace" }]);
+    const secret = "a-secret-that-is-long-enough-for-tests";
+    const { io, port } = await startServer({
+      authTokenSecret: secret,
+      inactivityTimeoutMs: 300,
+      idleWarningBeforeMs: 150,
+    });
+    const token = signToken(
+      { sub: 8, name: "Grace", role: "moderator" },
+      { secret, ttlMs: 3_600_000 },
+    );
+    const { socket } = await connect({ token }, port);
+    const onWarning = vi.fn();
+    const onKicked = vi.fn();
+    socket?.on("idle:warning", onWarning);
+    socket?.on("kicked", onKicked);
+
+    await new Promise((resolve) => setTimeout(resolve, 700));
+
+    expect(socket?.connected).toBe(true);
+    expect(onWarning).not.toHaveBeenCalled();
+    expect(onKicked).not.toHaveBeenCalled();
+    await io.close();
+  });
+
   it("comes once, with how long is left, and then the guest is disconnected", async () => {
     const { io, port } = await startServer({
       inactivityTimeoutMs: 400,

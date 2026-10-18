@@ -10,6 +10,8 @@ export const ROLE_RULES: Record<
   {
     ignoresIpBans: boolean;
     ignoresConnectionCap: boolean;
+    // Whether the role stays connected however long nothing is done.
+    ignoresInactivity: boolean;
     // Whether a guest can stop this role's direct messages from reaching them.
     blockable: boolean;
     canAnnounce: boolean;
@@ -18,6 +20,7 @@ export const ROLE_RULES: Record<
   guest: {
     ignoresIpBans: false,
     ignoresConnectionCap: false,
+    ignoresInactivity: false,
     blockable: true,
     canAnnounce: false,
   },
@@ -25,12 +28,14 @@ export const ROLE_RULES: Record<
   member: {
     ignoresIpBans: false,
     ignoresConnectionCap: false,
+    ignoresInactivity: false,
     blockable: true,
     canAnnounce: false,
   },
   moderator: {
     ignoresIpBans: true,
     ignoresConnectionCap: true,
+    ignoresInactivity: true,
     blockable: false,
     canAnnounce: true,
   },

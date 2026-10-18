@@ -35,15 +35,17 @@ describe("ROLE_RULES", () => {
     expect(ROLE_RULES.guest).toEqual({
       ignoresIpBans: false,
       ignoresConnectionCap: false,
+      ignoresInactivity: false,
       blockable: true,
       canAnnounce: false,
     });
   });
 
-  it("lets moderators announce and ignore bans on a shared address", () => {
+  it("lets moderators announce, ignore bans on a shared address, and stay connected when idle", () => {
     expect(ROLE_RULES.moderator).toEqual({
       ignoresIpBans: true,
       ignoresConnectionCap: true,
+      ignoresInactivity: true,
       blockable: false,
       canAnnounce: true,
     });

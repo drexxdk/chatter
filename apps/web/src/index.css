@@ -135,28 +135,33 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   }
 }
 
-/* The side panel of a room has one scrollbar, never two. While it is tall enough for both of its lists (the minimum each
-   has is under, about 24.25rem), they scroll in their own boxes; below that the panel scrolls as a whole, with the lists
-   shown in full. (`size` containment is what lets the panel's height be asked about; it is as tall as the window.) */
+/* The side panel of a room has one scrollbar, never two. A section is as tall as its content, and when the open ones have
+   more than the panel has room for they share it equally, their lists scrolling in their own boxes. When the panel is too
+   short for that to be of use, it scrolls as a whole instead, with the lists shown in full. (`size` containment is what
+   lets the panel's height be asked about; it is as tall as the window.) A closed section is only its heading, and an
+   open one grows from that, so that opening and closing is a slide. */
 .panel {
   container: panel / size;
   overscroll-behavior: contain;
 }
 
-.panel-people {
+.panel-section {
   display: flex;
-  flex: 1 1 0%;
+  flex: 0 1 0%;
   flex-direction: column;
-  gap: 0.5rem;
-  min-height: 14rem;
+  min-height: 1.75rem;
+  transition: flex-grow 200ms ease;
 }
 
-/* Half of the panel, less half the gap between the sections and half of what the people have over the conversations above their
-   lists (the search box and the filters, about 37px), so that when both lists have more than there is room for they are the
-   same height. */
-.panel-threads {
-  max-height: calc(50% - 28.5px);
-  min-height: 9rem;
+.panel-section[data-open] {
+  flex-grow: 1;
+  max-height: max-content;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-section {
+    transition: none;
+  }
 }
 
 /* Positioned, so that text for screen readers only (which is absolute) is clipped with the list. */
@@ -170,9 +175,9 @@ html:has(#headlessui-portal-root [role="dialog"]) {
   overscroll-behavior: contain;
 }
 
-@container panel (height < 24.5rem) {
-  .panel-people,
-  .panel-threads {
+@container panel (height < 24rem) {
+  .panel-section,
+  .panel-section[data-open] {
     flex: none;
     min-height: 0;
     max-height: none;

@@ -778,10 +778,12 @@ export function createSocketServer(
       .catch((error) => log.error("Failed to read the announcement", error));
 
     // Any client event counts as activity. A guest who has done nothing for a while is warned once, shortly before they
-    // go, and told when the warning no longer holds because they did something.
+    // go, and told when the warning no longer holds because they did something. A moderator is never sent away.
     let idleTimers: NodeJS.Timeout[] = [];
     let warned = false;
     const resetIdleTimer = () => {
+      if (ROLE_RULES[data.role].ignoresInactivity) return;
+
       idleTimers.forEach(clearTimeout);
 
       if (warned) {

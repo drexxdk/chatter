@@ -639,6 +639,30 @@ describe("inside a room", () => {
     );
   });
 
+  it("has the people and the direct messages open, each of which can be closed and opened from its heading", async () => {
+    const { user } = await enterRoom();
+    const people = () =>
+      screen.queryByRole("list", { name: "People in this room" });
+    const heading = await screen.findByRole("button", {
+      name: /In this room/,
+    });
+
+    expect(heading).toHaveAttribute("aria-expanded", "true");
+    expect(people()).toBeInTheDocument();
+    expect(screen.getByText("No direct messages yet.")).toBeInTheDocument();
+
+    await user.click(heading);
+
+    await waitFor(() => expect(people()).not.toBeInTheDocument());
+    expect(heading).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("No direct messages yet.")).toBeInTheDocument();
+
+    await user.click(heading);
+
+    expect(await screen.findByRole("list", { name: "People in this room" }))
+      .toBeInTheDocument();
+  });
+
   it("explains an inactivity disconnect and returns to the lobby", async () => {
     const { server } = await enterRoom();
 

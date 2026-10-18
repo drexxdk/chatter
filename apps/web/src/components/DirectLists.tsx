@@ -259,6 +259,7 @@ export function ThreadList({
 // The conversations with the switch for being told about new messages in any of them, above the list.
 export function ThreadSection({
   className = "",
+  showHeading = true,
   threads,
   notify,
   blockedIds,
@@ -269,6 +270,8 @@ export function ThreadSection({
 }: {
   // For where the section is given a height to share out: its list then scrolls.
   className?: string;
+  // Off where the section has a heading of its own.
+  showHeading?: boolean;
   threads: DirectThread[];
   notify: boolean;
   blockedIds: string[];
@@ -281,9 +284,11 @@ export function ThreadSection({
 
   return (
     <div className={`flex flex-col gap-2 ${className}`}>
-      <h3 className="text-sm font-semibold text-neutral-300">
-        {t("dm.heading")}
-      </h3>
+      {showHeading && (
+        <h3 className="text-sm font-semibold text-neutral-300">
+          {t("dm.heading")}
+        </h3>
+      )}
       <Field className="flex items-center justify-between gap-2 text-sm text-neutral-300">
         <Label>{t("dm.notify")}</Label>
         <Switch
