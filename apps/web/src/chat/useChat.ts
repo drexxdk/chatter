@@ -25,7 +25,6 @@ import {
   type RoomEvent,
 } from "./roomEvents";
 import { isRecord } from "../isRecord";
-import { loadNotifyDirect, saveNotifyDirect } from "../preferences";
 import { MAX_GUEST_IDS } from "../session";
 import { parseAge, type ProfileChanges } from "../profile";
 import { parseAvatar, PLAIN_AVATAR, type Avatar } from "./avatar";
@@ -141,9 +140,6 @@ export function useChat(
   // Who the guest has open, whether or not anything has been said yet.
   const [partner, setPartner] = useState<Partner | null>(null);
   const [blockedIds, setBlockedIds] = useState<string[]>([]);
-  // Whether a new direct message counts as unread; switched off, nothing is counted and nothing lights up.
-  const [notify, setNotifyState] = useState(loadNotifyDirect);
-  const notifyRef = useRef(notify);
   const partnerRef = useRef<Partner | null>(null);
   const blockedRef = useRef<string[]>([]);
   const membersRef = useRef<Member[]>([]);
@@ -442,7 +438,7 @@ export function useChat(
               previous,
               other,
               message,
-              !mine && !viewing && notifyRef.current,
+              !mine && !viewing,
             );
 
             return mine ? markRead(next, other.guestId) : next;
@@ -917,22 +913,6 @@ export function useChat(
     );
   }, []);
 
-  const setNotify = useCallback((on: boolean) => {
-    notifyRef.current = on;
-    setNotifyState(on);
-    saveNotifyDirect(on);
-
-    if (!on) {
-      setThreads((previous) =>
-        previous.some((thread) => thread.unread)
-          ? previous.map((thread) =>
-              thread.unread ? { ...thread, unread: 0 } : thread,
-            )
-          : previous,
-      );
-    }
-  }, []);
-
   const closeDirect = useCallback(() => {
     partnerRef.current = null;
     setPartner(null);
@@ -1078,8 +1058,6 @@ export function useChat(
     close: closeDirect,
     markRead: markDirectRead,
     setMuted,
-    notify,
-    setNotify,
     send: sendDirect,
     react: reactDirect,
     setBlocked,

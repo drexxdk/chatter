@@ -22,8 +22,6 @@ export function RecipientPicker({
   onChange,
   threads,
   onOpenThread,
-  notify,
-  onNotifyChange,
   onSetMuted,
   blockedIds,
   blockedByIds,
@@ -34,9 +32,7 @@ export function RecipientPicker({
   onChange: (guestId: string | null) => void;
   threads: DirectThread[];
   onOpenThread: (partner: Partner) => void;
-  notify: boolean;
   onSetMuted: (guestId: string, muted: boolean) => void;
-  onNotifyChange: (notify: boolean) => void;
   blockedIds: string[];
   // Whoever has blocked the guest is greyed out and cannot be chosen.
   blockedByIds: string[];
@@ -176,9 +172,7 @@ export function RecipientPicker({
               <ThreadSection
                 className="picker-threads"
                 threads={threads}
-                notify={notify}
                 blockedIds={blockedIds}
-                onNotifyChange={onNotifyChange}
                 onOpen={(partner) => {
                   onOpenThread(partner);
                   close();

@@ -52,8 +52,6 @@ export function RoomPanel({
   threads,
   onSelect,
   onOpen,
-  notify,
-  onNotifyChange,
   onSetMuted,
   blockedIds,
   blockedByIds,
@@ -68,8 +66,6 @@ export function RoomPanel({
   threads: DirectApi["threads"];
   onSelect: (partner: Partner) => void;
   onOpen: (partner: Partner) => void;
-  notify: boolean;
-  onNotifyChange: (notify: boolean) => void;
   onSetMuted: (guestId: string, muted: boolean) => void;
   blockedIds: string[];
   blockedByIds: string[];
@@ -114,9 +110,7 @@ export function RoomPanel({
           className="min-h-0 flex-1"
           showHeading={false}
           threads={threads}
-          notify={notify}
           blockedIds={blockedIds}
-          onNotifyChange={onNotifyChange}
           onOpen={onOpen}
           onSetMuted={onSetMuted}
           onSetBlocked={onSetBlocked}

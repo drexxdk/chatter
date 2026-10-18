@@ -406,38 +406,6 @@ describe("direct messages", () => {
       ).toHaveAccessibleName(/1 unread message/);
     });
 
-    it("can be switched off for everybody, which clears what is unread and remembers the choice", async () => {
-      const { user, server } = await enter();
-      receive(server, dm());
-      const notify = () =>
-        screen.getByRole("switch", { name: "Notify me about direct messages" });
-
-      expect(notify()).toBeChecked();
-
-      await user.click(notify());
-
-      expect(notify()).not.toBeChecked();
-      expect(
-        threads().getByRole("button", { name: /^Bob/ }),
-      ).not.toHaveAccessibleName(/unread/);
-      expect(localStorage.getItem("chatter.notifyDirect")).toBe("false");
-
-      receive(server, dm({ text: "again" }));
-
-      expect(
-        threads().getByRole("button", { name: /^Bob/ }),
-      ).not.toHaveAccessibleName(/unread/);
-      expect(
-        screen.getByRole("button", { name: /^Send to:/ }),
-      ).not.toHaveAccessibleName(/unread/);
-      expect(
-        screen.getByRole("log").querySelectorAll("[data-nav-id]"),
-      ).toHaveLength(2);
-      expect(
-        screen.getByRole("button", { name: "Stop notifications from Bob" }),
-      ).toBeDisabled();
-    });
-
     it("can be switched off for one person, and back on", async () => {
       const { user, server } = await enter();
       receive(server, dm());

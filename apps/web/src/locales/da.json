@@ -382,7 +382,6 @@
     "search": "Søg efter personer",
     "filter": "Filtrer personer",
     "noMatches": "Ingen matcher.",
-    "notify": "Giv mig besked om direkte beskeder",
     "muteFrom": "Stop besked om nye beskeder fra {name}",
     "unmuteFrom": "Giv besked om nye beskeder fra {name}",
     "all": "Alle",

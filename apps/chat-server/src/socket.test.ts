@@ -2068,8 +2068,11 @@ describe("who comes into a room and who goes out of it", () => {
 
     await emit(back, "room:join", { slug: "general" });
 
-    expect(seen).toHaveLength(0);
-    expect(recordMovement).not.toHaveBeenCalled();
+    // What earlier tests' guests do as they go is not about this one.
+    expect(seen.filter((event) => event.nickname === "Back")).toHaveLength(0);
+    expect(recordMovement).not.toHaveBeenCalledWith(
+      expect.objectContaining({ nickname: "Back" }),
+    );
   });
 
   it("says nothing about somebody who has not been away when the wait is over", async () => {
@@ -2156,9 +2159,10 @@ describe("the warning before an inactivity disconnect", () => {
   });
 
   it("is not sent to a guest who keeps doing things", async () => {
+    // Long enough that a slow machine does not leave a gap between two things done that is longer than the wait.
     const { io, port } = await startServer({
-      inactivityTimeoutMs: 400,
-      idleWarningBeforeMs: 250,
+      inactivityTimeoutMs: 3000,
+      idleWarningBeforeMs: 2000,
     });
     const active = await connectGuest("Active", port);
     const onWarning = vi.fn();

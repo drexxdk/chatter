@@ -382,7 +382,6 @@
     "search": "Search people",
     "filter": "Filter people",
     "noMatches": "Nobody matches.",
-    "notify": "Notify me about direct messages",
     "muteFrom": "Stop notifications from {name}",
     "unmuteFrom": "Turn on notifications from {name}",
     "all": "All",

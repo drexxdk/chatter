@@ -694,8 +694,6 @@ export function ChatRoom({
                     onChange={chooseRecipient}
                     threads={direct.threads}
                     onOpenThread={openConversation}
-                    notify={direct.notify}
-                    onNotifyChange={direct.setNotify}
                     onSetMuted={direct.setMuted}
                     blockedIds={direct.blockedIds}
                     blockedByIds={direct.blockedByIds}
@@ -800,11 +798,9 @@ export function ChatRoom({
             selectedId={replyTo?.guestId ?? null}
             onSelect={toggleRecipientStable}
             onOpen={openConversationStable}
-            notify={direct.notify}
             blockedIds={direct.blockedIds}
             blockedByIds={direct.blockedByIds}
             onSetBlocked={direct.setBlocked}
-            onNotifyChange={direct.setNotify}
             onSetMuted={direct.setMuted}
           />
         </aside>

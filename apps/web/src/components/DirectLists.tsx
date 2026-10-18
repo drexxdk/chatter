@@ -1,4 +1,3 @@
-import { Field, Label, Switch } from "@headlessui/react";
 import { ArrowRight, Ban, Bell, BellOff } from "lucide-react";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
@@ -149,15 +148,12 @@ export const PeopleList = memo(PeopleListView);
 // one switches off being told about that person.
 export function ThreadList({
   threads,
-  notify,
   blockedIds,
   onOpen,
   onSetMuted,
   onSetBlocked,
 }: {
   threads: DirectThread[];
-  // Whether notifications are on at all; the bells have nothing to do while they are not.
-  notify: boolean;
   blockedIds: string[];
   onOpen: (partner: Partner) => void;
   onSetMuted: (guestId: string, muted: boolean) => void;
@@ -233,7 +229,6 @@ export function ThreadList({
             <button
               type="button"
               aria-pressed={thread.muted === true}
-              disabled={!notify}
               onClick={() => onSetMuted(thread.guestId, !thread.muted)}
               aria-label={t(thread.muted ? "dm.unmuteFrom" : "dm.muteFrom", {
                 name: thread.nickname,
@@ -256,14 +251,12 @@ export function ThreadList({
   );
 }
 
-// The conversations with the switch for being told about new messages in any of them, above the list.
+// The conversations, above which the heading (where there is one) is. Not used up as a whole: the list scrolls.
 export function ThreadSection({
   className = "",
   showHeading = true,
   threads,
-  notify,
   blockedIds,
-  onNotifyChange,
   onOpen,
   onSetMuted,
   onSetBlocked,
@@ -273,9 +266,7 @@ export function ThreadSection({
   // Off where the section has a heading of its own.
   showHeading?: boolean;
   threads: DirectThread[];
-  notify: boolean;
   blockedIds: string[];
-  onNotifyChange: (notify: boolean) => void;
   onOpen: (partner: Partner) => void;
   onSetMuted: (guestId: string, muted: boolean) => void;
   onSetBlocked: (guestId: string, blocked: boolean) => void;
@@ -289,20 +280,9 @@ export function ThreadSection({
           {t("dm.heading")}
         </h3>
       )}
-      <Field className="flex items-center justify-between gap-2 text-sm text-neutral-300">
-        <Label>{t("dm.notify")}</Label>
-        <Switch
-          checked={notify}
-          onChange={onNotifyChange}
-          className="group relative inline-flex h-5 w-9 shrink-0 items-center rounded-full bg-neutral-700 outline-none transition-colors data-checked:bg-indigo-500 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
-        >
-          <span className="size-4 translate-x-0.5 rounded-full bg-white transition-transform group-data-checked:translate-x-4.5" />
-        </Switch>
-      </Field>
       <div className="panel-list">
         <ThreadList
           threads={threads}
-          notify={notify}
           blockedIds={blockedIds}
           onOpen={onOpen}
           onSetMuted={onSetMuted}
