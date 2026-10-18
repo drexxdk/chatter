@@ -34,6 +34,7 @@ const accounts = vi.hoisted(() => ({
   nextId: 1,
 }));
 const getModeratorNames = vi.hoisted(() => vi.fn());
+const beforeCreateUser = vi.hoisted(() => vi.fn<() => Promise<void>>());
 
 vi.mock("./env.js", () => ({ env: testEnv }));
 vi.mock("./redis.js", () => ({
@@ -92,6 +93,7 @@ vi.mock("./payloadClient.js", async (importOriginal) => {
       ),
     fetchUser: async (id: number) => accounts.users.get(id),
     createUser: async (data: Record<string, unknown>) => {
+      await beforeCreateUser();
       const taken = [...accounts.users.values()];
 
       if (taken.some((user) => user.nicknameKey === data.nicknameKey)) {
@@ -166,6 +168,30 @@ const outcomeOf = (response: Response) =>
     new URL(response.headers.get("location") ?? "").hash.slice(1),
   );
 
+function pauseAccountCreation() {
+  let entered!: () => void;
+  let release!: () => void;
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const finished = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  beforeCreateUser.mockImplementationOnce(async () => {
+    entered();
+    await finished;
+  });
+  return { started, release };
+}
+
+function nextRequestRead() {
+  return new Promise<void>((resolve) => {
+    servers.at(-1)!.once("request", (request) => {
+      request.once("end", () => setImmediate(resolve));
+    });
+  });
+}
+
 // Goes through the provider as `who`, and returns what the web client is sent back with (the part after `#`).
 async function signInAs(who: string, returnPath = "/rooms/general") {
   const started = await get(
@@ -207,6 +233,7 @@ beforeEach(() => {
   accounts.names.clear();
   accounts.nextId = 1;
   getModeratorNames.mockReset().mockResolvedValue(["Ada Mod"]);
+  beforeCreateUser.mockReset().mockResolvedValue(undefined);
   onAccountRemoved.mockReset();
   testEnv.DEV_OAUTH = true;
   testEnv.GOOGLE_CLIENT_ID = undefined;
@@ -606,6 +633,37 @@ describe("making the account", () => {
     expect(asDisplayName.status).toBe(409);
     expect(await asDisplayName.json()).toEqual({ error: "reserved_nickname" });
   });
+
+  it("refuses overlapping registrations with swapped usernames and display names", async () => {
+    await start();
+    const firstTicket = (await signInAs("alice")).get("ticket");
+    const secondTicket = (await signInAs("bob")).get("ticket");
+    const paused = pauseAccountCreation();
+    const first = post("/auth/register", {
+      ticket: firstTicket,
+      ...details("alpha", "Beta"),
+    });
+    await paused.started;
+
+    const read = nextRequestRead();
+    const second = post("/auth/register", {
+      ticket: secondTicket,
+      ...details("beta", "Alpha"),
+    });
+    try {
+      await read;
+    } finally {
+      paused.release();
+    }
+
+    const [created, refused] = await Promise.all([first, second]);
+    expect(created.status).toBe(200);
+    expect(refused.status).toBe(409);
+    expect(await refused.json()).toEqual({ error: "reserved_username" });
+    expect(accounts.users.size).toBe(1);
+    expect(accounts.names.get("alpha")).toBe(1);
+    expect(accounts.names.get("beta")).toBe(1);
+  });
 });
 
 describe("the account's own data", () => {
@@ -798,6 +856,33 @@ describe("the account's own data", () => {
 
       expect(res.status).toBe(409);
       expect(await res.json()).toEqual({ error: "reserved_nickname" });
+    });
+
+    it("rechecks a rename after an overlapping registration claims the username", async () => {
+      await start();
+      const token = await signedIn();
+      const ticket = (await signInAs("bob")).get("ticket");
+      const paused = pauseAccountCreation();
+      const registration = post("/auth/register", {
+        ticket,
+        ...details("shared", "Bobby"),
+      });
+      await paused.started;
+
+      const read = nextRequestRead();
+      const rename = patch(token, { nickname: "Shared" });
+      try {
+        await read;
+      } finally {
+        paused.release();
+      }
+
+      const [created, refused] = await Promise.all([registration, rename]);
+      expect(created.status).toBe(200);
+      expect(refused.status).toBe(409);
+      expect(await refused.json()).toEqual({ error: "reserved_nickname" });
+      expect(accounts.users.get(1)).toMatchObject({ displayName: "Alice" });
+      expect(accounts.names.get("shared")).toBe(2);
     });
 
     it("refuses without a session", async () => {

@@ -1,5 +1,6 @@
 import { env } from "./env.js";
 import { log } from "./log.js";
+import { withMemberNamesLock } from "./memberNamesLock.js";
 import { normalizeName } from "./names.js";
 import { fetchUserNames } from "./payloadClient.js";
 import { redis } from "./redis.js";
@@ -74,10 +75,19 @@ async function syncMemberNames(): Promise<void> {
 
 // Polls Payload on an interval, so a guest's handshake never waits on it.
 export function startMemberNamesSync(): NodeJS.Timeout {
-  const sync = () =>
-    syncMemberNames().catch((error) =>
-      log.error("Failed to sync the account nicknames", error),
-    );
+  let syncing = false;
+  const sync = async () => {
+    if (syncing) return;
+    syncing = true;
+
+    try {
+      await withMemberNamesLock(syncMemberNames);
+    } catch (error) {
+      log.error("Failed to sync the account nicknames", error);
+    } finally {
+      syncing = false;
+    }
+  };
 
   void sync();
 

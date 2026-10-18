@@ -8,6 +8,7 @@ import { env } from "./env.js";
 import { validateNickname, validateUsername } from "./identity.js";
 import { log } from "./log.js";
 import { claimMemberName, isMemberName, releaseMemberName } from "./members.js";
+import { withMemberNamesLock } from "./memberNamesLock.js";
 import { saveMemberProfile } from "./memberProfile.js";
 import {
   getModeratorNames,
@@ -235,15 +236,20 @@ export function createAccountsRouter(options: {
         req.query.code,
         state.verifier,
       );
-      const user = await findUserByIdentity(`${provider}:${profile.id}`);
+      const user = await withMemberNamesLock(async () => {
+        const account = await findUserByIdentity(`${provider}:${profile.id}`);
+
+        if (account) {
+          await updateUser(account.id, {
+            lastLoginAt: new Date().toISOString(),
+          }).catch((error) => log.error("Failed to note the sign-in", error));
+          await claimNames(account);
+        }
+
+        return account;
+      });
 
       if (user) {
-        await updateUser(user.id, {
-          lastLoginAt: new Date().toISOString(),
-        }).catch((error) => log.error("Failed to note the sign-in", error));
-        // The names the cache has lost are given back to their owner.
-        await claimNames(user);
-
         return back({ token: tokenFor(user) }, state.returnPath);
       }
 
@@ -280,101 +286,103 @@ export function createAccountsRouter(options: {
     "/auth/register",
     limiter,
     express.json({ limit: "4kb" }),
-    async (req, res) => {
-      const body = registerBodySchema.safeParse(req.body ?? {});
-      const ticket = body.success
-        ? verifyTicket(body.data.ticket, { secret })
-        : undefined;
+    (req, res) =>
+      withMemberNamesLock(async () => {
+        const body = registerBodySchema.safeParse(req.body ?? {});
+        const ticket = body.success
+          ? verifyTicket(body.data.ticket, { secret })
+          : undefined;
 
-      if (!body.success || !secret || !ticket) {
-        return res.status(401).json({ error: "invalid_ticket" });
-      }
-
-      const age =
-        body.data.age === undefined || body.data.age === null
-          ? undefined
-          : parseAge(body.data.age);
-
-      if (
-        body.data.age !== undefined &&
-        body.data.age !== null &&
-        age === undefined
-      ) {
-        return res.status(400).json({ error: "invalid_profile" });
-      }
-
-      try {
-        const username = validateUsername(body.data.username);
-        const usernameRefusal = await nameRefusal(username);
-
-        if (usernameRefusal) {
-          return res
-            .status(usernameRefusal === "invalid" ? 400 : 409)
-            .json({ error: `${usernameRefusal}_username` });
+        if (!body.success || !secret || !ticket) {
+          return res.status(401).json({ error: "invalid_ticket" });
         }
 
-        const displayName = validateNickname(body.data.nickname);
-        const displayRefusal = await nameRefusal(displayName);
+        const age =
+          body.data.age === undefined || body.data.age === null
+            ? undefined
+            : parseAge(body.data.age);
 
-        if (displayRefusal) {
-          return res
-            .status(displayRefusal === "invalid" ? 400 : 409)
-            .json({ error: `${displayRefusal}_nickname` });
+        if (
+          body.data.age !== undefined &&
+          body.data.age !== null &&
+          age === undefined
+        ) {
+          return res.status(400).json({ error: "invalid_profile" });
         }
-
-        const picture = parsePicture(body.data.picture);
-
-        if (!picture) return res.status(400).json({ error: "invalid_profile" });
-
-        const identity = `${ticket.provider}:${ticket.providerUserId}`;
-        let user: UserRecord | undefined;
 
         try {
-          user = await createUser({
-            provider: ticket.provider,
-            providerUserId: ticket.providerUserId,
-            email: ticket.email,
-            emailVerified: ticket.emailVerified,
-            nickname: username as string,
-            nicknameKey: normalizeName(username as string),
-            displayName: displayName as string,
-            displayNameKey: normalizeName(displayName as string),
-            picture,
-            avatar: parseAvatar(body.data.avatar),
-            age,
+          const username = validateUsername(body.data.username);
+          const usernameRefusal = await nameRefusal(username);
+
+          if (usernameRefusal) {
+            return res
+              .status(usernameRefusal === "invalid" ? 400 : 409)
+              .json({ error: `${usernameRefusal}_username` });
+          }
+
+          const displayName = validateNickname(body.data.nickname);
+          const displayRefusal = await nameRefusal(displayName);
+
+          if (displayRefusal) {
+            return res
+              .status(displayRefusal === "invalid" ? 400 : 409)
+              .json({ error: `${displayRefusal}_nickname` });
+          }
+
+          const picture = parsePicture(body.data.picture);
+
+          if (!picture)
+            return res.status(400).json({ error: "invalid_profile" });
+
+          const identity = `${ticket.provider}:${ticket.providerUserId}`;
+          let user: UserRecord | undefined;
+
+          try {
+            user = await createUser({
+              provider: ticket.provider,
+              providerUserId: ticket.providerUserId,
+              email: ticket.email,
+              emailVerified: ticket.emailVerified,
+              nickname: username as string,
+              nicknameKey: normalizeName(username as string),
+              displayName: displayName as string,
+              displayNameKey: normalizeName(displayName as string),
+              picture,
+              avatar: parseAvatar(body.data.avatar),
+              age,
+            });
+          } catch (error) {
+            if (isTaken(error, "nicknameKey")) {
+              return res.status(409).json({ error: "reserved_username" });
+            }
+
+            if (isTaken(error, "displayNameKey")) {
+              return res.status(409).json({ error: "reserved_nickname" });
+            }
+
+            // The same ticket used twice: the account is there, so this is a sign-in.
+            if (!isTaken(error, "identity")) throw error;
+
+            user = await findUserByIdentity(identity);
+            if (!user) throw error;
+          }
+
+          await claimNames(user);
+
+          res.json({
+            token: tokenFor(user),
+            profile: profileOf(user),
+            provider: user.provider,
+            expiresAt: Date.now() + MEMBER_TOKEN_TTL_MS,
           });
         } catch (error) {
-          if (isTaken(error, "nicknameKey")) {
-            return res.status(409).json({ error: "reserved_username" });
-          }
-
-          if (isTaken(error, "displayNameKey")) {
-            return res.status(409).json({ error: "reserved_nickname" });
-          }
-
-          // The same ticket used twice: the account is there, so this is a sign-in.
-          if (!isTaken(error, "identity")) throw error;
-
-          user = await findUserByIdentity(identity);
-          if (!user) throw error;
+          log.error(
+            "Failed to make the account",
+            error instanceof Error ? error.message : "unknown error",
+          );
+          res.status(503).json({ error: "unavailable" });
         }
-
-        await claimNames(user);
-
-        res.json({
-          token: tokenFor(user),
-          profile: profileOf(user),
-          provider: user.provider,
-          expiresAt: Date.now() + MEMBER_TOKEN_TTL_MS,
-        });
-      } catch (error) {
-        log.error(
-          "Failed to make the account",
-          error instanceof Error ? error.message : "unknown error",
-        );
-        res.status(503).json({ error: "unavailable" });
-      }
-    },
+      }),
   );
 
   router.get("/me", limiter, async (req, res) => {
@@ -483,27 +491,31 @@ export function createAccountsRouter(options: {
 
   // Deletes the account: the entry in the admin goes, the nickname is free again, and whatever is connected as it is cut
   // off. What was said in a room is not theirs to take back (it is gone from the history within the hour).
-  router.delete("/me", limiter, async (req, res) => {
-    const user = await memberOf(req, res);
-    if (!user) return;
+  router.delete("/me", limiter, (req, res) =>
+    withMemberNamesLock(async () => {
+      const user = await memberOf(req, res);
+      if (!user) return;
 
-    try {
-      await deleteUser(user.id);
-      await releaseMemberName(user.id, user.nickname).catch(() => undefined);
-      await releaseMemberName(user.id, user.displayName).catch(() => undefined);
-      await Promise.resolve(options.onAccountRemoved?.(user.id)).catch(
-        (error) => log.error("Failed to cut off a deleted account", error),
-      );
+      try {
+        await deleteUser(user.id);
+        await releaseMemberName(user.id, user.nickname).catch(() => undefined);
+        await releaseMemberName(user.id, user.displayName).catch(
+          () => undefined,
+        );
+        await Promise.resolve(options.onAccountRemoved?.(user.id)).catch(
+          (error) => log.error("Failed to cut off a deleted account", error),
+        );
 
-      res.json({ ok: true });
-    } catch (error) {
-      log.error(
-        "Failed to delete the account",
-        error instanceof Error ? error.message : "unknown error",
-      );
-      res.status(503).json({ error: "unavailable" });
-    }
-  });
+        res.json({ ok: true });
+      } catch (error) {
+        log.error(
+          "Failed to delete the account",
+          error instanceof Error ? error.message : "unknown error",
+        );
+        res.status(503).json({ error: "unavailable" });
+      }
+    }),
+  );
 
   return router;
 }

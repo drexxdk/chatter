@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { withMemberNamesLock } from "./memberNamesLock.js";
+
 // A Redis that keeps hashes, which is all the list of names uses.
 const redisState = vi.hoisted(() => ({
   hashes: new Map<string, Map<string, string>>(),
@@ -88,6 +90,38 @@ describe("the nicknames of the accounts", () => {
 });
 
 describe("keeping the list right", () => {
+  it("does not overlap refreshes or overwrite a claim with an older snapshot", async () => {
+    vi.useFakeTimers();
+    let finish!: (names: { id: number; nicknameKey: string }[]) => void;
+    fetchUserNames.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+
+    const timer = startMemberNamesSync();
+    await vi.advanceTimersByTimeAsync(0);
+    const mutation = withMemberNamesLock(() => claimMemberName(2, "Bob"));
+
+    try {
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(fetchUserNames).toHaveBeenCalledTimes(1);
+      finish([{ id: 1, nicknameKey: "alice" }]);
+      await mutation;
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(await isMemberName("Alice")).toBe(true);
+      expect(await isMemberName("Bob")).toBe(true);
+      expect(await isMemberName("Bob", 2)).toBe(false);
+    } finally {
+      clearInterval(timer);
+      finish([]);
+      await mutation;
+      await vi.advanceTimersByTimeAsync(0);
+    }
+  });
+
   it("replaces the list with what the accounts say, after a moment", async () => {
     vi.useFakeTimers();
     await claimMemberName(9, "Gone");

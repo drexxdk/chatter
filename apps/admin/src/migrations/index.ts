@@ -6,6 +6,7 @@ import * as migration_20261012_190502_add_legal from './20261012_190502_add_lega
 import * as migration_20261013_052004_add_users from './20261013_052004_add_users'
 import * as migration_20261013_135258_add_user_display_name_picture from './20261013_135258_add_user_display_name_picture'
 import * as migration_20261013_144731_localize_room_text from './20261013_144731_localize_room_text'
+import * as migration_20261018_201837_add_user_name_claims from './20261018_201837_add_user_name_claims'
 
 export const migrations = [
   {
@@ -47,5 +48,10 @@ export const migrations = [
     up: migration_20261013_144731_localize_room_text.up,
     down: migration_20261013_144731_localize_room_text.down,
     name: '20261013_144731_localize_room_text',
+  },
+  {
+    up: migration_20261018_201837_add_user_name_claims.up,
+    down: migration_20261018_201837_add_user_name_claims.down,
+    name: '20261018_201837_add_user_name_claims',
   },
 ]

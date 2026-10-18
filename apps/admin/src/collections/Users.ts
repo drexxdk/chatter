@@ -17,6 +17,43 @@ export const Users: CollectionConfig = {
     update: ({ req }) => req.user?.role === 'service' || req.user?.role === 'super-admin',
     delete: ({ req }) => req.user?.role === 'service' || req.user?.role === 'super-admin',
   },
+  hooks: {
+    beforeValidate: [
+      ({ data, originalDoc }) => {
+        if (!data) return data
+
+        const nickname = data.nickname === undefined ? originalDoc?.nickname : data.nickname
+        const displayName =
+          data.displayName === undefined ? originalDoc?.displayName : data.displayName
+
+        if (
+          typeof nickname !== 'string' ||
+          (displayName != null && typeof displayName !== 'string')
+        )
+          return data
+
+        const normalize = (name: string) =>
+          name
+            .normalize('NFKC')
+            .toLowerCase()
+            .replace(/[\s._-]+/g, '')
+        const nicknameKey = normalize(nickname)
+        const displayNameKey = normalize(displayName || nickname)
+
+        return {
+          ...data,
+          nicknameKey,
+          displayNameKey,
+          nameClaims: [...new Set([nicknameKey, displayNameKey])].sort().map((key) => {
+            const existing = originalDoc?.nameClaims?.find(
+              (claim: { key: string; id?: string }) => claim.key === key,
+            )
+            return { key, ...(existing?.id ? { id: existing.id } : {}) }
+          }),
+        }
+      },
+    ],
+  },
   fields: [
     {
       name: 'provider',
@@ -58,7 +95,7 @@ export const Users: CollectionConfig = {
       admin: {
         readOnly: true,
         description:
-          'The username without case and punctuation: what makes it taken. Kept up to date by the chat-server.',
+          'The username without case and punctuation. Derived automatically when the account is saved.',
       },
     },
     {
@@ -76,8 +113,14 @@ export const Users: CollectionConfig = {
       admin: {
         readOnly: true,
         description:
-          'The display name without case, spaces and punctuation: what makes it taken. Kept up to date by the chat-server.',
+          'The display name without case, spaces and punctuation. Derived automatically when the account is saved.',
       },
+    },
+    {
+      name: 'nameClaims',
+      type: 'array',
+      admin: { hidden: true },
+      fields: [{ name: 'key', type: 'text', required: true, unique: true }],
     },
     {
       name: 'picture',

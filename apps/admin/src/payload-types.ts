@@ -253,7 +253,7 @@ export interface User {
    */
   nickname: string;
   /**
-   * The username without case and punctuation: what makes it taken. Kept up to date by the chat-server.
+   * The username without case and punctuation. Derived automatically when the account is saved.
    */
   nicknameKey: string;
   /**
@@ -261,9 +261,15 @@ export interface User {
    */
   displayName?: string | null;
   /**
-   * The display name without case, spaces and punctuation: what makes it taken. Kept up to date by the chat-server.
+   * The display name without case, spaces and punctuation. Derived automatically when the account is saved.
    */
   displayNameKey?: string | null;
+  nameClaims?:
+    | {
+        key: string;
+        id?: string | null;
+      }[]
+    | null;
   /**
    * The picture the account is shown by: a style and a seed, like lorelei:k3j9x2ab. Drawn by the web client.
    */
@@ -444,6 +450,12 @@ export interface UsersSelect<T extends boolean = true> {
   nicknameKey?: T;
   displayName?: T;
   displayNameKey?: T;
+  nameClaims?:
+    | T
+    | {
+        key?: T;
+        id?: T;
+      };
   picture?: T;
   avatar?: T;
   age?: T;

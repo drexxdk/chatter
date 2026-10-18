@@ -459,6 +459,40 @@ export const isTaken = (error: unknown, field: string): boolean =>
   error.status === 400 &&
   error.detail.includes(field);
 
+const nameClaimErrorSchema = z.object({
+  errors: z.array(
+    z.object({
+      data: z
+        .object({
+          errors: z.array(
+            z.object({
+              path: z.string().nullish(),
+              tableName: z.string().optional(),
+            }),
+          ),
+        })
+        .optional(),
+    }),
+  ),
+});
+
+function isNameClaimTaken(error: unknown): boolean {
+  if (!(error instanceof PayloadError) || error.status !== 400) return false;
+  try {
+    const result = nameClaimErrorSchema.safeParse(JSON.parse(error.detail));
+    return (
+      result.success &&
+      result.data.errors.some((entry) =>
+        entry.data?.errors.some(
+          (field) => field.path === "key" && field.tableName === "users",
+        ),
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function findUserByIdentity(
   identity: string,
 ): Promise<UserRecord | undefined> {
@@ -493,34 +527,58 @@ function parseDoc(body: unknown, what: string): UserRecord {
 }
 
 export async function createUser(user: NewUser): Promise<UserRecord> {
-  return parseDoc(
-    await payloadSend("POST", "/api/users", {
-      provider: user.provider,
-      providerUserId: user.providerUserId,
-      identity: `${user.provider}:${user.providerUserId}`,
-      email: user.email,
-      emailVerified: user.emailVerified ?? false,
-      nickname: user.nickname,
-      nicknameKey: user.nicknameKey,
-      displayName: user.displayName,
-      displayNameKey: user.displayNameKey,
-      picture: user.picture,
-      avatar: user.avatar,
-      age: user.age,
-      lastLoginAt: new Date().toISOString(),
-    }),
-    "create user",
-  );
+  try {
+    return parseDoc(
+      await payloadSend("POST", "/api/users", {
+        provider: user.provider,
+        providerUserId: user.providerUserId,
+        identity: `${user.provider}:${user.providerUserId}`,
+        email: user.email,
+        emailVerified: user.emailVerified ?? false,
+        nickname: user.nickname,
+        nicknameKey: user.nicknameKey,
+        displayName: user.displayName,
+        displayNameKey: user.displayNameKey,
+        picture: user.picture,
+        avatar: user.avatar,
+        age: user.age,
+        lastLoginAt: new Date().toISOString(),
+      }),
+      "create user",
+    );
+  } catch (error) {
+    if (!isNameClaimTaken(error)) throw error;
+
+    const key = encodeURIComponent(user.nicknameKey);
+    const owners = await payloadFetch(
+      `/api/users?where[or][0][nicknameKey][equals]=${key}&where[or][1][displayNameKey][equals]=${key}&limit=1&depth=0&select[id]=true`,
+      z.object({ docs: z.array(z.object({ id: z.number() })) }),
+    );
+    throw new PayloadError(
+      "Account name is already taken",
+      400,
+      owners.docs.length > 0 ? "nicknameKey" : "displayNameKey",
+    );
+  }
 }
 
 export async function updateUser(
   id: number,
   changes: UserChanges,
 ): Promise<UserRecord> {
-  return parseDoc(
-    await payloadSend("PATCH", `/api/users/${id}`, changes),
-    "update user",
-  );
+  try {
+    return parseDoc(
+      await payloadSend("PATCH", `/api/users/${id}`, changes),
+      "update user",
+    );
+  } catch (error) {
+    if (!isNameClaimTaken(error)) throw error;
+    throw new PayloadError(
+      "Account name is already taken",
+      400,
+      "displayNameKey",
+    );
+  }
 }
 
 export async function deleteUser(id: number): Promise<void> {
