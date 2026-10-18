@@ -11,7 +11,7 @@ export function MessageLog({
       role="log"
       aria-live="polite"
       aria-label={label}
-      className="flex min-h-40 flex-1 flex-col gap-2 bg-neutral-950 p-3 [&>*]:shrink-0 [&>:first-child]:mt-auto"
+      className="flex min-h-40 flex-1 flex-col gap-2 bg-neutral-950 py-3 [&>*]:shrink-0 [&>:first-child]:mt-auto"
     />
   );
 }

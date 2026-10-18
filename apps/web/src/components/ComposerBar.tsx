@@ -55,7 +55,7 @@ export function ComposerBar({
   const [anchor, setAnchor] = useState<HTMLFormElement | null>(null);
 
   return (
-    <div className="sticky bottom-0 z-20 space-y-2 bg-neutral-950 pb-3 pt-2">
+    <div className="sticky bottom-0 z-20 space-y-2 bg-neutral-950 pb-3 pt-2 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:-mx-(--page-gutter) before:border-t before:border-neutral-700 before:content-[''] md:before:mx-0">
       <ScrollToEnd />
       {alert}
       {above}

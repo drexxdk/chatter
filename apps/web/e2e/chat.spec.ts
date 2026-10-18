@@ -319,6 +319,85 @@ test("room search finds public and private text without image URLs on mobile and
   }
 });
 
+test("messages align with the composer and its divider spans the scrolling edge", async ({
+  browser,
+}, testInfo) => {
+  const alice = await newGuest(browser);
+  const bob = await newGuest(browser);
+  await enterRoom(alice, LOUNGE.name, "Alice");
+  await enterRoom(bob, LOUNGE.name, "Bob");
+  const incomingText = `Incoming layout ${Date.now()}`;
+  const outgoingText = `Outgoing layout ${Date.now()}`;
+  await send(bob, `${incomingText}\n${"More message text\n".repeat(20)}`);
+  await send(alice, outgoingText);
+  const log = alice.getByRole("log", { name: LOUNGE.name });
+  await expect(log).toContainText(incomingText);
+  const composer = alice
+    .getByRole("textbox", { name: "Message", exact: true })
+    .locator("xpath=ancestor::form");
+  const bar = composer.locator("..");
+
+  for (const width of [390, 1280]) {
+    await alice.setViewportSize({ width, height: 844 });
+    const formBounds = await composer.boundingBox();
+    const avatarBounds = await log
+      .locator('li[data-side="left"]')
+      .filter({ hasText: incomingText })
+      .locator("[data-avatar], [data-picture]")
+      .first()
+      .boundingBox();
+    const ownBounds = await log
+      .locator("[data-nav-id]")
+      .filter({ hasText: outgoingText })
+      .boundingBox();
+    expect(Math.abs(avatarBounds!.x - formBounds!.x)).toBeLessThan(1);
+    expect(
+      Math.abs(
+        ownBounds!.x + ownBounds!.width - formBounds!.x - formBounds!.width,
+      ),
+    ).toBeLessThan(1);
+    const divider = await bar.evaluate((element) => {
+      const style = getComputedStyle(element, "::before");
+      const bounds = element.getBoundingClientRect();
+      return {
+        border: style.borderTopWidth,
+        left:
+          bounds.left +
+          Number.parseFloat(style.left) +
+          Number.parseFloat(style.marginLeft),
+        width: Number.parseFloat(style.width),
+        bottom: bounds.bottom,
+      };
+    });
+    expect(divider.border).toBe("1px");
+    expect(divider.bottom).toBeLessThanOrEqual(844);
+    const left = width < 768 ? 0 : formBounds!.x;
+    const right =
+      width < 768
+        ? await alice
+            .locator("body")
+            .evaluate((element) => element.getBoundingClientRect().right)
+        : formBounds!.x + formBounds!.width;
+    expect(Math.abs(divider.left - left)).toBeLessThan(1);
+    expect(Math.abs(divider.left + divider.width - right)).toBeLessThan(1);
+    await alice.mouse.wheel(0, -300);
+    await alice.screenshot({
+      path: testInfo.outputPath(`message-layout-${width}.png`),
+    });
+    await alice.setViewportSize({ width, height: 300 });
+    await alice.evaluate(() => window.scrollTo(0, 0));
+    const latest = alice.getByRole("button", {
+      name: "Scroll to the latest messages",
+      exact: true,
+    });
+    await expect(latest).toBeVisible();
+    const buttonBounds = await latest.boundingBox();
+    const resizedForm = await composer.boundingBox();
+    expect(Math.abs(buttonBounds!.x - resizedForm!.x + 1)).toBeLessThan(1);
+    expect(buttonBounds!.width).toBe(38);
+  }
+});
+
 test("the composer highlights keyboard focus but not pointer focus", async ({
   browser,
 }) => {
