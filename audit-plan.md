@@ -30,12 +30,12 @@ from changes that need database migrations or broader integration work.
 
 ## 3. Reliable E2E Input
 
-- [ ] Replace multiline contenteditable `.fill()` with a shared paste or
+- [x] Replace multiline contenteditable `.fill()` with a shared paste or
       Shift+Enter helper. The one-paragraph TipTap schema drops subsequent lines
       from the block elements produced by `.fill()`.
-- [ ] Assert the complete sent fixture before testing image-URL exclusion or
+- [x] Assert the complete sent fixture before testing image-URL exclusion or
       multiline layout.
-- [ ] Consolidate repeated public/private composer helpers.
+- [x] Consolidate repeated public/private composer helpers.
 
 ## 4. Message Presentation
 
@@ -134,4 +134,22 @@ from changes that need database migrations or broader integration work.
   valid boundaries, atomic rejection, guest/member name checks, and unavailable
   dependencies. All 902 server tests passed; 15 Redis integration tests were
   skipped. Server typechecking, lint, and scoped formatting passed.
-- The shared-profile validation follow-up is not yet committed or deployed.
+- Shared-profile validation was committed as `da2869c` and pushed together with
+  the earlier cache, revocation, and concurrency commits. Deployment status was
+  not rechecked here.
+- 2026-10-19: Committed people-dropdown focus and scrollbar fixes as `4207b6b`
+  (not pushed). The mobile people panel uses the standard non-modal popover with
+  search focus, Escape, outside-click dismissal, and focus return; it no longer
+  locks page scrolling. Real modals still lock scrolling; emoji pickers do not.
+- Reliable E2E input: one composer helper inserts text and Shift+Enter hard
+  breaks, then checks the complete editor content before sending. It ignores
+  only ProseMirror's presentation-only trailing break. Public/private send
+  helpers are consolidated, and announcement/picker fixtures reuse the input
+  helper. This follow-up changes tests, not application behavior.
+- Search regressions now verify both public and private GIFs arrived before
+  checking URL exclusion. The layout regression verifies the entire delivered
+  multiline fixture, including its blank line, before checking geometry.
+- Verification: all 37 chat browser tests passed, including search/layout at
+  mobile and desktop sizes, private messaging, reloads, GIF/emoji pickers, and
+  announcements. Web typechecking, lint, and scoped formatting passed.
+- The E2E input follow-up is not yet committed or deployed.

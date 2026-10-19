@@ -3,6 +3,7 @@ import {
   test,
   type Browser,
   type BrowserContext,
+  type Locator,
   type Page,
 } from "@playwright/test";
 
@@ -94,8 +95,37 @@ async function enterRoom(page: Page, roomName: string, nickname: string) {
   ).toBeVisible();
 }
 
-async function send(page: Page, text: string) {
-  await page.getByRole("textbox", { name: "Message" }).fill(text);
+async function fillMessage(box: Locator, text: string) {
+  await box.fill("");
+  const lines = text.split("\n");
+  for (const [index, line] of lines.entries()) {
+    if (index > 0) await box.press("Shift+Enter");
+    if (line) await box.page().keyboard.insertText(line);
+  }
+  await expect
+    .poll(() =>
+      box.evaluate((element) => {
+        const content = element.cloneNode(true) as HTMLElement;
+        content
+          .querySelectorAll("br.ProseMirror-trailingBreak")
+          .forEach((line) => line.remove());
+        content
+          .querySelectorAll("br")
+          .forEach((line) => line.replaceWith("\n"));
+        return content.textContent;
+      }),
+    )
+    .toBe(text);
+}
+
+async function send(page: Page, text: string, recipient?: string) {
+  await fillMessage(
+    page.getByRole("textbox", {
+      name: recipient ? `Message to ${recipient}` : "Message",
+      exact: true,
+    }),
+    text,
+  );
   await page.getByRole("button", { name: "Send", exact: true }).click();
 }
 
@@ -262,21 +292,29 @@ test("room search finds public and private text without image URLs on mobile and
   const outgoingText = `${query} outgoing private message`;
   const imageUrl = "https://media1.giphy.com/media/URL_ONLY_TOKEN/200.gif";
   await send(alice, `${publicText}\n${imageUrl}`);
+  await expect(
+    alice
+      .getByRole("log")
+      .locator("[data-nav-id]")
+      .filter({ hasText: publicText })
+      .getByRole("img", { name: "GIF", exact: true }),
+  ).toBeVisible();
   await bob
     .getByRole("button", { name: "Open private chat with Alice" })
     .click();
-  await bob
-    .getByRole("textbox", { name: "Message to Alice" })
-    .fill(`${privateText}\n${imageUrl}`);
-  await bob.getByRole("button", { name: "Send", exact: true }).click();
+  await send(bob, `${privateText}\n${imageUrl}`, "Alice");
   await expect(alice.getByRole("log")).toContainText(privateText);
+  await expect(
+    alice
+      .getByRole("log")
+      .locator("[data-nav-id]")
+      .filter({ hasText: privateText })
+      .getByRole("img", { name: "GIF", exact: true }),
+  ).toBeVisible();
   await alice
     .getByRole("button", { name: "Open private chat with Bob" })
     .click();
-  await alice
-    .getByRole("textbox", { name: "Message to Bob" })
-    .fill(outgoingText);
-  await alice.getByRole("button", { name: "Send", exact: true }).click();
+  await send(alice, outgoingText, "Bob");
   await alice.getByRole("button", { name: "Back to the room" }).click();
   await expect(alice.getByRole("log")).toContainText(outgoingText);
 
@@ -415,10 +453,13 @@ test("messages align with the composer and its divider spans the scrolling edge"
   await enterRoom(bob, LOUNGE.name, "Bob");
   const incomingText = `Incoming layout ${Date.now()}`;
   const outgoingText = `Outgoing layout ${Date.now()}`;
-  await send(bob, `${incomingText}\n${"More message text\n".repeat(20)}`);
+  const incomingFixture = `${incomingText}\n\n${"More message text\n".repeat(20)}`;
+  await send(bob, incomingFixture);
   await send(alice, outgoingText);
   const log = alice.getByRole("log", { name: LOUNGE.name });
-  await expect(log).toContainText(incomingText);
+  await expect(
+    log.locator("[data-nav-id]").filter({ hasText: incomingText }).locator("p"),
+  ).toHaveJSProperty("textContent", incomingFixture.trim());
   const composer = alice
     .getByRole("textbox", { name: "Message", exact: true })
     .locator("xpath=ancestor::form");
@@ -655,7 +696,7 @@ for (const width of [390, 1280]) {
     const box = guest.getByRole("textbox", { name: "Message", exact: true });
     const above = `Above ${width} ${Date.now()}`;
     const below = `Below ${width}`;
-    await box.fill(above);
+    await fillMessage(box, above);
     await guest.getByRole("button", { name: "Emoji and GIFs" }).click();
     await guest.getByRole("tab", { name: "GIFs", exact: true }).click();
     await guest.getByRole("button", { name: "Add GIF: Inline test" }).click();
@@ -912,7 +953,7 @@ for (const activation of ["click", "Enter", "Space"] as const) {
     const text = `emoji ${Date.now()}`;
 
     const box = alice.getByRole("textbox", { name: "Message" });
-    await box.fill(text);
+    await fillMessage(box, text);
     await alice.getByRole("button", { name: /^Emoji/ }).click();
     await alice.getByRole("searchbox", { name: "Search emoji" }).fill("pizza");
     const emoji = alice.getByRole("gridcell").filter({ hasText: "🍕" });
@@ -1285,9 +1326,10 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
         .click();
     };
     await startAnnouncing();
-    await moderator
-      .getByRole("textbox", { name: "Announce to everyone" })
-      .fill(words);
+    await fillMessage(
+      moderator.getByRole("textbox", { name: "Announce to everyone" }),
+      words,
+    );
     await moderator.getByRole("button", { name: "Announce" }).click();
 
     await expect(moderator.getByRole("log")).toContainText(words);
@@ -1312,9 +1354,10 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
 
     // A second one straight away is refused, and the words are kept for later.
     await startAnnouncing();
-    await moderator
-      .getByRole("textbox", { name: "Announce to everyone" })
-      .fill("Too soon");
+    await fillMessage(
+      moderator.getByRole("textbox", { name: "Announce to everyone" }),
+      "Too soon",
+    );
     await moderator.getByRole("button", { name: "Announce" }).click();
     await expect(moderator.getByRole("alert")).toContainText(
       /You can announce again in \d+ s\./,
@@ -1528,10 +1571,6 @@ test("two guests write to each other privately, and a blocked guest is not heard
     page.getByRole("list", { name: "Direct messages" });
   const conversation = (page: Page, name: string) =>
     page.getByRole("log", { name: `Direct message with ${name}` });
-  const write = async (page: Page, to: string, text: string) => {
-    await page.getByRole("textbox", { name: `Message to ${to}` }).fill(text);
-    await page.getByRole("button", { name: "Send", exact: true }).click();
-  };
 
   // Alice finds Bob in the room and writes to him; the room itself hears nothing.
   await expect(
@@ -1540,7 +1579,7 @@ test("two guests write to each other privately, and a blocked guest is not heard
   await people(alice)
     .getByRole("button", { name: "Open private chat with Bob" })
     .click();
-  await write(alice, "Bob", "psst, Bob");
+  await send(alice, "psst, Bob", "Bob");
   await expect(conversation(alice, "Bob")).toContainText("psst, Bob");
 
   // Bob is told there is something new. The room's log shows it too, marked as private (and nobody else's does).
@@ -1554,7 +1593,7 @@ test("two guests write to each other privately, and a blocked guest is not heard
   await fromAlice.click();
   await expect(conversation(bob, "Alice")).toContainText("psst, Bob");
   await expect(fromAlice).not.toHaveAccessibleName(/unread/);
-  await write(bob, "Alice", "hi Alice");
+  await send(bob, "hi Alice", "Alice");
   await expect(conversation(alice, "Bob")).toContainText("hi Alice");
 
   // Bob has had enough. Alice is told, and can no longer write to him.
@@ -1649,8 +1688,7 @@ test("a guest's chosen avatar is shown to others, and a conversation says when t
     .getByRole("list", { name: "People in this room" })
     .getByRole("button", { name: "Open private chat with Bea" })
     .click();
-  await alice.getByRole("textbox", { name: "Message to Bea" }).fill("hi Bea");
-  await alice.getByRole("button", { name: "Send", exact: true }).click();
+  await send(alice, "hi Bea", "Bea");
   const conversation = alice.getByRole("log", {
     name: "Direct message with Bea",
   });
@@ -1676,8 +1714,7 @@ test("a private message can be reacted to, and the sender sees it", async ({
     .getByRole("list", { name: "People in this room" })
     .getByRole("button", { name: "Open private chat with Bob" })
     .click();
-  await alice.getByRole("textbox", { name: "Message to Bob" }).fill("a secret");
-  await alice.getByRole("button", { name: "Send", exact: true }).click();
+  await send(alice, "a secret", "Bob");
 
   const line = bob
     .getByRole("log", { name: LOUNGE.name })
@@ -1708,15 +1745,11 @@ test("a private conversation carries on when one of the two reloads the page", a
     page.getByRole("list", { name: "People in this room" });
   const conversation = (page: Page, name: string) =>
     page.getByRole("log", { name: `Direct message with ${name}` });
-  const write = async (page: Page, to: string, text: string) => {
-    await page.getByRole("textbox", { name: `Message to ${to}` }).fill(text);
-    await page.getByRole("button", { name: "Send", exact: true }).click();
-  };
 
   await people(alice)
     .getByRole("button", { name: "Open private chat with Bob" })
     .click();
-  await write(alice, "Bob", "before the reload");
+  await send(alice, "before the reload", "Bob");
   await bob
     .getByRole("list", { name: "Direct messages" })
     .getByRole("button", { name: /^Alice/ })
@@ -1742,11 +1775,11 @@ test("a private conversation carries on when one of the two reloads the page", a
   await expect(conversation(alice, "Bob")).toContainText(
     "Bob rejoined the room.",
   );
-  await write(alice, "Bob", "after the reload");
+  await send(alice, "after the reload", "Bob");
   await expect(alice.getByRole("alert")).toHaveCount(0);
   await expect(conversation(bob, "Alice")).toContainText("after the reload");
 
-  await write(bob, "Alice", "welcome back to me");
+  await send(bob, "welcome back to me", "Alice");
   await expect(conversation(alice, "Bob")).toContainText("welcome back to me");
 });
 
@@ -1762,10 +1795,7 @@ test("a reload leaves a conversation closed when the other person is no longer i
     .getByRole("list", { name: "People in this room" })
     .getByRole("button", { name: "Open private chat with Bob" })
     .click();
-  await alice
-    .getByRole("textbox", { name: "Message to Bob" })
-    .fill("hello Bob");
-  await alice.getByRole("button", { name: "Send", exact: true }).click();
+  await send(alice, "hello Bob", "Bob");
   await bob
     .getByRole("list", { name: "Direct messages" })
     .getByRole("button", { name: /^Alice/ })
