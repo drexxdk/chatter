@@ -46,7 +46,7 @@ from changes that need database migrations or broader integration work.
 
 ## 5. Contracts and Module Boundaries
 
-- [ ] Share selected event names, payload contracts, and validation rules; retain
+- [x] Share selected event names, payload contracts, and validation rules; retain
       the existing client/server parity tests.
 - [ ] Extract domain handlers from `socket.ts`, starting with account/profile
       mutations rather than splitting files solely by size.
@@ -175,5 +175,22 @@ from changes that need database migrations or broader integration work.
   composer draft-clear timing failure passed on an isolated rerun. The browser
   search regression passed at mobile and desktop widths. Web typechecking and
   lint passed.
-- Shared bubble presentation remains uncommitted and undeployed. Contract and
-  module-boundary work is next.
+- Committed shared bubble presentation as `36a7be1` (not pushed or deployed).
+- Shared contracts: `shared/chatProtocol.mjs` and its TypeScript declarations
+  now own message-length and name-validation rules, the `profile:update` event,
+  and profile request/reply types. Existing client/server import surfaces remain
+  available. The client uses the shared partial-update type; the server checks
+  its replies against the shared acknowledgement type while still validating
+  unknown input at runtime.
+- Retained all client/server parity checks, added shared avatar-type checks, and
+  pinned the existing message-length and profile-event boundaries independently
+  of their shared implementations. Other age, picture, avatar, and reaction
+  constants remain local with parity coverage; this is a selected-contract
+  extraction, not a wholesale protocol rewrite.
+- Verification: 171 focused validation, profile-dialog, and socket tests passed.
+  Both applications passed typechecking and lint. Both production container
+  images built successfully, and a non-root runtime probe imported the compiled
+  server's shared protocol module successfully.
+- Shared-contract changes remain uncommitted and undeployed. Extracting account
+  and profile handlers from `socket.ts` is next; `useChat` domain separation also
+  remains outstanding.

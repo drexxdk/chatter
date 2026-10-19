@@ -12,6 +12,7 @@ COPY apps/admin/package.json apps/admin/
 COPY apps/chat-server/package.json apps/chat-server/
 COPY apps/web/package.json apps/web/
 RUN npm ci --workspace apps/web --ignore-scripts
+COPY shared shared
 COPY apps/web apps/web
 ARG VITE_CHAT_SERVER_URL
 ENV VITE_CHAT_SERVER_URL=$VITE_CHAT_SERVER_URL

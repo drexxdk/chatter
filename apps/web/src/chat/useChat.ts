@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PROFILE_UPDATE_EVENT } from "../../../../shared/chatProtocol.mjs";
 
 import {
   addDirectMessage,
@@ -1011,7 +1012,7 @@ export function useChat(
   // The server answers with who the guest is now (it trims the name); a dropped connection is restored as that guest.
   const updateProfile = useCallback(
     async (changes: ProfileChanges): Promise<ActionResult> => {
-      const ack = await emitWithAck("profile:update", changes);
+      const ack = await emitWithAck(PROFILE_UPDATE_EVENT, changes);
 
       if (!ack.ok) return toResult(ack);
 

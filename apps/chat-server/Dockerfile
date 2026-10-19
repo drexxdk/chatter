@@ -11,6 +11,7 @@ COPY apps/admin/package.json apps/admin/
 COPY apps/chat-server/package.json apps/chat-server/
 COPY apps/web/package.json apps/web/
 RUN npm ci --workspace apps/chat-server --ignore-scripts
+COPY shared shared
 COPY apps/chat-server apps/chat-server
 RUN npm run build --workspace apps/chat-server
 
@@ -29,6 +30,7 @@ WORKDIR /app
 # needs is installed under apps/chat-server/node_modules instead.
 COPY --from=dependencies /app ./
 COPY --from=build /app/apps/chat-server/dist ./apps/chat-server/dist
+COPY --from=build /app/shared ./shared
 WORKDIR /app/apps/chat-server
 # Not root.
 USER node

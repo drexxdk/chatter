@@ -1,8 +1,9 @@
-// Mirrors validateNickname in apps/chat-server/src/identity.ts for instant feedback; the server stays authoritative.
-export const NICKNAME_PATTERN = /^[\p{L}\p{N} _.-]{2,24}$/u;
+import {
+  NICKNAME_PATTERN,
+  USERNAME_PATTERN,
+} from "../../../shared/chatProtocol.mjs";
 
-// An account's username: the same, without spaces.
-export const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{2,24}$/u;
+export { NICKNAME_PATTERN, USERNAME_PATTERN };
 
 // Trimmed, with every run of spaces made one.
 export function tidyName(raw: string): string {

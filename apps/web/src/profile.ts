@@ -25,12 +25,4 @@ export function readAge(
   return age === undefined ? { ok: false } : { ok: true, age };
 }
 
-// What a guest may change about themselves while in a room.
-export interface ProfileChanges {
-  nickname?: string;
-  avatar?: import("./chat/avatar").Avatar;
-  // Only an account has one.
-  picture?: string;
-  // null takes the age back.
-  age?: number | null;
-}
+export type { ProfileChanges } from "../../../shared/chatProtocol.mjs";

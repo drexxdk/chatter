@@ -2,6 +2,10 @@ import crypto from "crypto";
 import type { Server as HttpServer } from "http";
 import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
+import {
+  PROFILE_UPDATE_EVENT,
+  type ProfileUpdateAck,
+} from "../../../shared/chatProtocol.mjs";
 
 import { parseAge } from "./age.js";
 import {
@@ -1138,8 +1142,8 @@ export function createSocketServer(
     // A guest or a member changes who they are shown as: the name, the avatar and the age, each only when it is in the
     // payload (an age of null takes it back). Everything is checked before anything changes, and a member's change is
     // kept in their account. A moderator's name belongs to their account, so they cannot.
-    socket.on("profile:update", async (payload: unknown, ack?: Ack) => {
-      const reply = ackOf(ack);
+    socket.on(PROFILE_UPDATE_EVENT, async (payload: unknown, ack?: Ack) => {
+      const reply: (result: ProfileUpdateAck) => void = ackOf(ack);
 
       if (data.role === "moderator") {
         return reply({ ok: false, error: "forbidden" });
