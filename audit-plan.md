@@ -50,7 +50,7 @@ from changes that need database migrations or broader integration work.
       the existing client/server parity tests.
 - [x] Extract domain handlers from `socket.ts`, starting with account/profile
       mutations rather than splitting files solely by size.
-- [ ] Separate room, direct-message, and account responsibilities in `useChat`
+- [x] Separate room, direct-message, and account responsibilities in `useChat`
       where ownership and integration tests are clear.
 
 ## Verification and Delivery
@@ -205,6 +205,21 @@ from changes that need database migrations or broader integration work.
 - Verification: all 472 socket, account, and profile tests passed, including
   existing concurrency, quota, persistence-failure, and presence regressions.
   Server typechecking and lint passed.
-- Profile-handler extraction remains uncommitted and undeployed. Room and direct
-  handlers remain in `socket.ts`; separating `useChat` responsibilities is the
-  next planned item.
+- Committed profile-handler extraction as `c6289d2` (not pushed or deployed).
+- Client domain ownership: `useDirectChat` owns private conversations, unread and
+  mute/block state, private reactions, partner metadata, restoration, and incoming
+  private events. `useChatProfile` owns profile acknowledgements, session profile
+  updates, and the identity reused on reconnect. Both expose domain methods, not
+  mutable refs or setters. `useChat` retains room state and connection/reconnect
+  coordination, including stale-socket guards; its public API is unchanged.
+- Strengthened the conversation regression to assert private state changes keep
+  the same room socket. Room-switch tests now wait for the destination room log,
+  not an account-menu button also present in the lobby.
+- Verification: the 283-test integration run passed 282 tests initially; its one
+  room-switch synchronization failure led to the corrected wait, after which all
+  34 reload/room-switch tests passed. All five browser checks passed, covering
+  private messaging/blocking, reactions, reload, reconnect, and search at mobile
+  and desktop widths. Web typechecking and lint passed.
+- Client-domain separation remains uncommitted and undeployed. All scoped audit
+  items are complete; broader transport or handler decomposition remains separate
+  work rather than a requirement of this pass.

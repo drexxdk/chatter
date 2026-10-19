@@ -1,24 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PROFILE_UPDATE_EVENT } from "../../../../shared/chatProtocol.mjs";
 
-import {
-  addDirectMessage,
-  applyDirectReaction,
-  applyPresence,
-  markReturned,
-  markRead,
-  parseDirectMessage,
-  parseDirectReaction,
-  parsePartner,
-  redactDirect,
-  refreshPartners,
-  setBlockedBy,
-  dropBlockedByNotices,
-  isStatus,
-  type DirectEntry,
-  type DirectThread,
-  type Partner,
-} from "./direct";
+import { useDirectChat } from "./useDirectChat";
+import { useChatProfile } from "./useChatProfile";
 import {
   eventsFromHistory,
   mergeEvents,
@@ -27,9 +10,7 @@ import {
 } from "./roomEvents";
 import { isRecord } from "../isRecord";
 import { MAX_GUEST_IDS } from "../session";
-import { parseAge, type ProfileChanges } from "../profile";
-import { parseAvatar, PLAIN_AVATAR, type Avatar } from "./avatar";
-import { parsePicture } from "./picture";
+import type { Avatar } from "./avatar";
 import {
   applyHidden,
   applyRedaction,
@@ -102,13 +83,8 @@ export function useChat(
 ) {
   const socketRef = useRef<ChatSocket | null>(null);
   const roomRef = useRef<string | null>(null);
-  const nicknameRef = useRef<string | null>(null);
   // Proof that a moderator signed in, kept so a dropped connection can be restored without asking again.
   const tokenRef = useRef<string | null>(null);
-  // What the guest chose to be shown as; sent again when the connection is restored.
-  const avatarRef = useRef<Avatar | null>(null);
-  const pictureRef = useRef<string | null>(null);
-  const ageRef = useRef<number | null>(null);
   // Lets a new connection (a dropped one restored, or a reloaded page) be the same guest as the one before it.
   const resumeRef = useRef<Resume | null>(null);
   // Which room the last list of people was for, so a different room's list is not mistaken for people leaving.
@@ -133,18 +109,7 @@ export function useChat(
   const arrivalRef = useRef(0);
   // Guests banned while here: nothing about them is announced.
   const bannedGuestIdsRef = useRef(new Set<string>());
-  // A conversation restored after a reload stays open only if the other person turns out to be in the room.
-  const restoredPartnerRef = useRef<string | null>(null);
-  // Direct messages live only as long as the connection: guests are new people every time they connect.
-  const [threads, setThreads] = useState<DirectThread[]>([]);
-  const threadsRef = useRef<DirectThread[]>([]);
-  // Who the guest has open, whether or not anything has been said yet.
-  const [partner, setPartner] = useState<Partner | null>(null);
-  const [blockedIds, setBlockedIds] = useState<string[]>([]);
-  const partnerRef = useRef<Partner | null>(null);
-  const blockedRef = useRef<string[]>([]);
   const membersRef = useRef<Member[]>([]);
-  const selfGuestIdRef = useRef<string | null>(null);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [announcements, setAnnouncements] = useState<
     (Announcement & { roomSlug: string })[]
@@ -163,6 +128,52 @@ export function useChat(
   const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(
     null,
   );
+
+  const emitWithAck = useCallback(
+    (event: string, payload?: unknown): Promise<Ack> => {
+      const socket = socketRef.current;
+
+      if (!socket || reconnectingRef.current) {
+        return Promise.resolve({ ok: false, error: "connection_lost" });
+      }
+
+      return new Promise((resolve) => socket.emit(event, payload, resolve));
+    },
+    [],
+  );
+
+  // What an answer to a message or a reaction does to the error shown. It stays until the answer comes: clearing it first
+  // and showing it again makes the box under the messages shrink and grow, which moves the chat.
+  const settle = useCallback((ack: Ack) => {
+    if (ack.ok) {
+      setError(null);
+      setRetryAfterSeconds(null);
+      return;
+    }
+
+    setError(ack.error);
+    setRetryAfterSeconds(
+      ack.retryAfterMs ? Math.ceil(ack.retryAfterMs / 1000) : null,
+    );
+  }, []);
+
+  const {
+    direct,
+    getBlockedGuestIds,
+    restoreDirect,
+    resetDirect,
+    resetDirectRoom,
+    rejectDirectRestore,
+    restoreDirectSession,
+    applyDirectPresence,
+    receiveDirect,
+    receiveDirectReaction,
+    receiveDirectBlock,
+    redactDirectMessages,
+  } = useDirectChat({ emitWithAck, settle, membersRef, ownGuestIdsRef });
+
+  const { getConnectionProfile, rememberConnectionProfile, updateProfile } =
+    useChatProfile({ emitWithAck, setSession });
 
   // The wait counts down, and the error goes when it is over.
   useEffect(() => {
@@ -189,37 +200,34 @@ export function useChat(
     membersRef.current = members;
   }, [members]);
 
-  useEffect(() => {
-    threadsRef.current = threads;
-  }, [threads]);
-
   // The events known so far with these added; the same one can come both live and in the history.
-  const addRoomEvents = useCallback((added: RoomEvent[]) => {
-    const shown = added.filter(
-      (event) =>
-        !bannedGuestIdsRef.current.has(event.guestId) &&
-        !blockedRef.current.includes(event.guestId),
-    );
-    if (shown.length === 0) return;
+  const addRoomEvents = useCallback(
+    (added: RoomEvent[]) => {
+      const shown = added.filter(
+        (event) =>
+          !bannedGuestIdsRef.current.has(event.guestId) &&
+          !getBlockedGuestIds().includes(event.guestId),
+      );
+      if (shown.length === 0) return;
 
-    setRoomEvents((previous) =>
-      mergeEvents(previous, shown).slice(-MAX_ROOM_EVENTS),
-    );
-  }, []);
+      setRoomEvents((previous) =>
+        mergeEvents(previous, shown).slice(-MAX_ROOM_EVENTS),
+      );
+    },
+    [getBlockedGuestIds],
+  );
 
   const resetRoom = useCallback(() => {
     roomRef.current = null;
-    partnerRef.current = null;
+    resetDirectRoom();
     presenceRoomRef.current = null;
-    restoredPartnerRef.current = null;
     bannedGuestIdsRef.current = new Set();
-    setPartner(null);
     setRoomSlug(null);
     setMembers([]);
     setMessages([]);
     setAnnouncements([]);
     setRoomEvents([]);
-  }, []);
+  }, [resetDirectRoom]);
 
   const cancelReconnect = useCallback(() => {
     reconnectRunRef.current += 1;
@@ -240,19 +248,15 @@ export function useChat(
     setCrowd(null);
     setAdminCounts({});
     setIdleDeadline(null);
-    setThreads([]);
-    blockedRef.current = [];
-    setBlockedIds([]);
+    resetDirect();
     resetRoom();
-  }, [resetRoom]);
+  }, [resetDirect, resetRoom]);
 
   // Resolves with null once the server has accepted the guest, or with the reason it was not.
   const openSocket = useCallback(
     (nickname: string, onDrop: DropHandler): Promise<string | null> => {
       const token = tokenRef.current;
-      const avatar = avatarRef.current;
-      const picture = pictureRef.current;
-      const age = ageRef.current;
+      const { avatar, picture, age } = getConnectionProfile();
       const resume = resumeRef.current;
       // Trailing arguments that are not needed are left off, so a plain guest's call is just the nickname.
       const args: [string, string?, Avatar?, Resume?, number?, string?] = [
@@ -271,21 +275,14 @@ export function useChat(
       return new Promise((resolve) => {
         socket.on("session", (next: Session) => {
           if (!isCurrent()) return;
-          selfGuestIdRef.current = next.guestId;
           // Same guest as before: whoever they were talking to saw them leave and come back.
-          if (resume?.guestId === next.guestId) {
-            setThreads((previous) =>
-              markReturned(previous, new Date().toISOString(), () =>
-                crypto.randomUUID(),
-              ),
-            );
-          }
+          restoreDirectSession(next.guestId, resume?.guestId === next.guestId);
           // Each connection gets a new secret; this is the one the next connection has to present.
           resumeRef.current = next.resumeSecret
             ? { guestId: next.guestId, secret: next.resumeSecret }
             : null;
           // The server forgets who was blocked when a connection ends, so a new one is told again.
-          for (const guestId of blockedRef.current) {
+          for (const guestId of getBlockedGuestIds()) {
             socket.emit("dm:block", { guestId });
           }
           setSession(next);
@@ -316,56 +313,7 @@ export function useChat(
               const silent = presenceRoomRef.current !== presence.roomSlug;
               presenceRoomRef.current = presence.roomSlug;
 
-              // The conversation from before the reload is only carried on with somebody who is here.
-              const restored = restoredPartnerRef.current;
-              if (restored) {
-                restoredPartnerRef.current = null;
-
-                if (
-                  !presence.members.some(
-                    (member) => member.guestId === restored,
-                  )
-                ) {
-                  partnerRef.current = null;
-                  setPartner(null);
-                }
-              }
-              setThreads((previous) =>
-                refreshPartners(
-                  applyPresence(
-                    previous,
-                    new Set(presence.members.map((member) => member.guestId)),
-                    new Date().toISOString(),
-                    silent,
-                    () => crypto.randomUUID(),
-                    blockedRef.current,
-                  ),
-                  presence.members,
-                ),
-              );
-
-              const open = partnerRef.current;
-              const now = open
-                ? presence.members.find(
-                    (member) => member.guestId === open.guestId,
-                  )
-                : undefined;
-
-              if (
-                open &&
-                now &&
-                (now.nickname !== open.nickname ||
-                  (now.avatar ?? PLAIN_AVATAR) !== open.avatar ||
-                  parsePicture(now.picture) !== open.picture)
-              ) {
-                partnerRef.current = {
-                  ...open,
-                  nickname: now.nickname,
-                  avatar: now.avatar ?? PLAIN_AVATAR,
-                  picture: parsePicture(now.picture),
-                };
-                setPartner(partnerRef.current);
-              }
+              applyDirectPresence(presence.members, silent);
             }
           },
         );
@@ -419,43 +367,7 @@ export function useChat(
         });
 
         socket.on("dm:new", (value: unknown) => {
-          const message = parseDirectMessage(value);
-          if (!isCurrent() || !message) return;
-
-          const mine = message.fromGuestId === selfGuestIdRef.current;
-          const known = membersRef.current.find(
-            (member) => member.guestId === message.toGuestId,
-          );
-          const other: Partner = mine
-            ? {
-                guestId: message.toGuestId,
-                nickname: message.toNickname,
-                role: known?.role ?? "guest",
-                avatar: message.toAvatar,
-                ...(message.toPicture ? { picture: message.toPicture } : {}),
-              }
-            : {
-                guestId: message.fromGuestId,
-                nickname: message.fromNickname,
-                role: message.fromRole,
-                avatar: message.fromAvatar,
-                ...(message.fromPicture
-                  ? { picture: message.fromPicture }
-                  : {}),
-              };
-          const viewing = partnerRef.current?.guestId === other.guestId;
-
-          // Writing back to somebody means their messages have been read.
-          setThreads((previous) => {
-            const next = addDirectMessage(
-              previous,
-              other,
-              message,
-              !mine && !viewing,
-            );
-
-            return mine ? markRead(next, other.guestId) : next;
-          });
+          if (isCurrent()) receiveDirect(value);
         });
 
         socket.on("room:event", (value: unknown) => {
@@ -480,49 +392,20 @@ export function useChat(
         });
 
         socket.on("dm:reaction", (value: unknown) => {
-          const update = parseDirectReaction(value);
-          if (!isCurrent() || !update) return;
-
-          setThreads((previous) =>
-            applyDirectReaction(previous, update, selfGuestIdRef.current),
-          );
+          if (isCurrent()) receiveDirectReaction(value);
         });
 
         socket.on("dm:blocked", (value: unknown) => {
-          const blocker = parsePartner(value);
-          if (!isCurrent() || !blocker) return;
-
-          setThreads((previous) =>
-            setBlockedBy(
-              previous,
-              blocker,
-              true,
-              new Date().toISOString(),
-              () => crypto.randomUUID(),
-              blockedRef.current.includes(blocker.guestId),
-            ),
-          );
+          if (isCurrent()) receiveDirectBlock(value, true);
         });
 
         socket.on("dm:unblocked", (value: unknown) => {
-          const blocker = parsePartner(value);
-          if (!isCurrent() || !blocker) return;
-
-          setThreads((previous) =>
-            setBlockedBy(
-              previous,
-              blocker,
-              false,
-              new Date().toISOString(),
-              () => crypto.randomUUID(),
-              blockedRef.current.includes(blocker.guestId),
-            ),
-          );
+          if (isCurrent()) receiveDirectBlock(value, false);
         });
 
         socket.on("message:redacted", (notice: unknown) => {
           if (!isCurrent()) return;
-          setThreads((previous) => redactDirect(previous, notice));
+          redactDirectMessages(notice);
           // Their name goes from the messages, so it must not stay in the lines about them coming and going.
           const banned = strings(isRecord(notice) ? notice.guestIds : []);
           banned.delete("");
@@ -605,20 +488,19 @@ export function useChat(
         });
       });
     },
-    [addRoomEvents, closeSocket, createSocket],
-  );
-
-  const emitWithAck = useCallback(
-    (event: string, payload?: unknown): Promise<Ack> => {
-      const socket = socketRef.current;
-
-      if (!socket || reconnectingRef.current) {
-        return Promise.resolve({ ok: false, error: "connection_lost" });
-      }
-
-      return new Promise((resolve) => socket.emit(event, payload, resolve));
-    },
-    [],
+    [
+      addRoomEvents,
+      applyDirectPresence,
+      closeSocket,
+      createSocket,
+      getBlockedGuestIds,
+      getConnectionProfile,
+      receiveDirect,
+      receiveDirectBlock,
+      receiveDirectReaction,
+      redactDirectMessages,
+      restoreDirectSession,
+    ],
   );
 
   // Guests get a new identity on every connection, so recovering means connecting again and rejoining the room.
@@ -683,7 +565,7 @@ export function useChat(
 
   const handleDrop = useCallback(
     function handleDrop(reason: string) {
-      const nickname = nicknameRef.current;
+      const { nickname } = getConnectionProfile();
 
       // Nothing to recover when the guest was only browsing the lobby.
       if (!DELIBERATE_DISCONNECTS.has(reason) && roomRef.current && nickname) {
@@ -693,7 +575,7 @@ export function useChat(
 
       resetConnection();
     },
-    [reconnect, resetConnection],
+    [getConnectionProfile, reconnect, resetConnection],
   );
 
   const connect = useCallback(
@@ -701,14 +583,7 @@ export function useChat(
       nickname: string,
       options: ConnectOptions = {},
     ): Promise<boolean> => {
-      const {
-        token,
-        avatar,
-        picture,
-        age,
-        previousGuestIds = [],
-        resume,
-      } = options;
+      const { token, previousGuestIds = [], resume } = options;
 
       cancelReconnect();
       closeSocket();
@@ -716,29 +591,10 @@ export function useChat(
       resumeRef.current = resume ?? null;
       ownGuestIdsRef.current = previousGuestIds;
       setOwnGuestIds(previousGuestIds);
-      setThreads(options.threads ?? []);
-      blockedRef.current = options.blockedIds ?? [];
-      setBlockedIds(blockedRef.current);
-      const open = options.threads?.find(
-        (thread) => thread.guestId === options.openGuestId,
-      );
-      partnerRef.current = open
-        ? {
-            guestId: open.guestId,
-            nickname: open.nickname,
-            role: open.role,
-            avatar: open.avatar,
-            ...(open.picture ? { picture: open.picture } : {}),
-          }
-        : null;
-      restoredPartnerRef.current = open ? open.guestId : null;
-      setPartner(partnerRef.current);
+      restoreDirect(options);
       setStatus("connecting");
-      nicknameRef.current = nickname;
+      rememberConnectionProfile(nickname, options);
       tokenRef.current = token ?? null;
-      avatarRef.current = avatar ?? null;
-      pictureRef.current = picture ?? null;
-      ageRef.current = age ?? null;
 
       const failure = await openSocket(nickname, handleDrop);
 
@@ -751,7 +607,14 @@ export function useChat(
       setStatus("connected");
       return true;
     },
-    [cancelReconnect, closeSocket, handleDrop, openSocket],
+    [
+      cancelReconnect,
+      closeSocket,
+      handleDrop,
+      openSocket,
+      rememberConnectionProfile,
+      restoreDirect,
+    ],
   );
 
   const joinRoom = useCallback(
@@ -769,11 +632,7 @@ export function useChat(
         roomRef.current = previous;
         setError(ack.error);
         // Whatever was restored for that room has nowhere to go.
-        if (restoredPartnerRef.current) {
-          restoredPartnerRef.current = null;
-          partnerRef.current = null;
-          setPartner(null);
-        }
+        rejectDirectRestore();
         return { ok: false, error: ack.error };
       }
 
@@ -794,7 +653,7 @@ export function useChat(
       setRoomSlug(slug);
       return { ok: true };
     },
-    [addRoomEvents, emitWithAck],
+    [addRoomEvents, emitWithAck, rejectDirectRestore],
   );
 
   const disconnect = useCallback(() => {
@@ -815,21 +674,6 @@ export function useChat(
     resetRoom();
   }, [cancelReconnect, disconnect, emitWithAck, resetRoom]);
 
-  // What an answer to a message or a reaction does to the error shown. It stays until the answer comes: clearing it first
-  // and showing it again makes the box under the messages shrink and grow, which moves the chat.
-  const settle = useCallback((ack: Ack) => {
-    if (ack.ok) {
-      setError(null);
-      setRetryAfterSeconds(null);
-      return;
-    }
-
-    setError(ack.error);
-    setRetryAfterSeconds(
-      ack.retryAfterMs ? Math.ceil(ack.retryAfterMs / 1000) : null,
-    );
-  }, []);
-
   const sendMessage = useCallback(
     async (text: string): Promise<boolean> => {
       const ack = await emitWithAck("message:send", { text });
@@ -844,37 +688,6 @@ export function useChat(
   const react = useCallback(
     async (messageId: string, emoji: string): Promise<void> => {
       settle(await emitWithAck("reaction:toggle", { messageId, emoji }));
-    },
-    [emitWithAck, settle],
-  );
-
-  // Adds the guest's reaction to a private message, or takes it back; both people are told, and each client keeps it.
-  const reactDirect = useCallback(
-    async (
-      partnerGuestId: string,
-      messageId: string,
-      emoji: string,
-    ): Promise<void> => {
-      const message = threadsRef.current
-        .find((thread) => thread.guestId === partnerGuestId)
-        ?.entries.find(
-          (entry: DirectEntry) => !isStatus(entry) && entry.id === messageId,
-        );
-      const had =
-        !!message &&
-        !isStatus(message) &&
-        !!message.reactions
-          ?.find((reaction) => reaction.emoji === emoji)
-          ?.users.some((user) => ownGuestIdsRef.current.includes(user.guestId));
-
-      settle(
-        await emitWithAck("dm:react", {
-          toGuestId: partnerGuestId,
-          messageId,
-          emoji,
-          on: !had,
-        }),
-      );
     },
     [emitWithAck, settle],
   );
@@ -904,140 +717,6 @@ export function useChat(
     [emitWithAck],
   );
 
-  const openDirect = useCallback((next: Partner) => {
-    partnerRef.current = next;
-    setPartner(next);
-    setThreads((previous) => markRead(previous, next.guestId));
-  }, []);
-
-  // Everything from this person has been seen, however many messages there are.
-  const markDirectRead = useCallback((guestId: string) => {
-    setThreads((previous) => markRead(previous, guestId));
-  }, []);
-
-  const setMuted = useCallback((guestId: string, muted: boolean) => {
-    setThreads((previous) =>
-      previous.map((thread) =>
-        thread.guestId === guestId
-          ? {
-              ...thread,
-              muted: muted || undefined,
-              unread: muted ? 0 : thread.unread,
-            }
-          : thread,
-      ),
-    );
-  }, []);
-
-  const closeDirect = useCallback(() => {
-    partnerRef.current = null;
-    setPartner(null);
-  }, []);
-
-  const sendDirect = useCallback(
-    async (toGuestId: string, text: string): Promise<ActionResult> => {
-      const result = toResult(
-        await emitWithAck("dm:send", { toGuestId, text }),
-      );
-
-      // The server says so when the other person has blocked the guest, whether or not it was told earlier.
-      if (!result.ok && result.error === "blocked_by_recipient") {
-        const member = membersRef.current.find(
-          (candidate) => candidate.guestId === toGuestId,
-        );
-
-        setThreads((previous) => {
-          const thread = previous.find(
-            (candidate) => candidate.guestId === toGuestId,
-          );
-          const partner: Partner | undefined = thread
-            ? {
-                guestId: toGuestId,
-                nickname: thread.nickname,
-                role: thread.role,
-                avatar: thread.avatar,
-                ...(thread.picture ? { picture: thread.picture } : {}),
-              }
-            : member
-              ? {
-                  guestId: toGuestId,
-                  nickname: member.nickname,
-                  role: member.role ?? "guest",
-                  avatar: member.avatar ?? PLAIN_AVATAR,
-                  ...(member.picture ? { picture: member.picture } : {}),
-                }
-              : undefined;
-
-          return partner
-            ? setBlockedBy(
-                previous,
-                partner,
-                true,
-                new Date().toISOString(),
-                () => crypto.randomUUID(),
-              )
-            : previous;
-        });
-      }
-
-      return result;
-    },
-    [emitWithAck],
-  );
-
-  const setBlocked = useCallback(
-    async (guestId: string, blocked: boolean): Promise<ActionResult> => {
-      const result = toResult(
-        await emitWithAck(blocked ? "dm:block" : "dm:unblock", { guestId }),
-      );
-
-      if (result.ok) {
-        blockedRef.current = blocked
-          ? [...blockedRef.current.filter((id) => id !== guestId), guestId]
-          : blockedRef.current.filter((id) => id !== guestId);
-        setBlockedIds(blockedRef.current);
-        // What they wrote before is not going to be answered from here.
-        if (blocked) {
-          setThreads((previous) =>
-            dropBlockedByNotices(markRead(previous, guestId), guestId),
-          );
-        }
-      }
-
-      return result;
-    },
-    [emitWithAck],
-  );
-
-  // The server answers with who the guest is now (it trims the name); a dropped connection is restored as that guest.
-  const updateProfile = useCallback(
-    async (changes: ProfileChanges): Promise<ActionResult> => {
-      const ack = await emitWithAck(PROFILE_UPDATE_EVENT, changes);
-
-      if (!ack.ok) return toResult(ack);
-
-      const profile = isRecord(ack.profile) ? ack.profile : {};
-      const nickname =
-        typeof profile.nickname === "string" && profile.nickname
-          ? profile.nickname
-          : (nicknameRef.current ?? "");
-      const avatar = parseAvatar(profile.avatar);
-      const picture = parsePicture(profile.picture);
-      const age = parseAge(profile.age);
-
-      nicknameRef.current = nickname;
-      pictureRef.current = picture ?? null;
-      avatarRef.current = avatar === PLAIN_AVATAR ? null : avatar;
-      ageRef.current = age ?? null;
-      setSession((current) =>
-        current ? { ...current, nickname, avatar, picture, age } : current,
-      );
-
-      return { ok: true };
-    },
-    [emitWithAck],
-  );
-
   const dismissAnnouncement = useCallback(() => {
     setAnnouncement((current) => {
       if (current) dismissedAnnouncementRef.current = current.id;
@@ -1053,31 +732,6 @@ export function useChat(
       toResult(await emitWithAck(event, payload)),
     [emitWithAck],
   );
-
-  const activeThread = partner
-    ? threads.find((thread) => thread.guestId === partner.guestId)
-    : undefined;
-  const direct = {
-    threads,
-    // The conversation that is open; it has no messages until something has been said.
-    active: partner
-      ? { ...partner, entries: activeThread?.entries ?? [] }
-      : null,
-    blockedIds,
-    // Who has blocked the guest: nothing written to them gets through. Not told about those the guest blocked too.
-    blockedByIds: threads
-      .filter(
-        (thread) => thread.blockedBy && !blockedIds.includes(thread.guestId),
-      )
-      .map((thread) => thread.guestId),
-    open: openDirect,
-    close: closeDirect,
-    markRead: markDirectRead,
-    setMuted,
-    send: sendDirect,
-    react: reactDirect,
-    setBlocked,
-  };
 
   useEffect(
     () => () => {

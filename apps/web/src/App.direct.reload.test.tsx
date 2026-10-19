@@ -526,7 +526,7 @@ describe("direct messages", () => {
       await leaveRoom(user);
       await screen.findByRole("heading", { name: "Public rooms" });
       await user.click(screen.getByRole("button", { name: "Join Music" }));
-      await screen.findByRole("button", { name: "Account menu: Alice" });
+      await screen.findByRole("log", { name: "Music" });
 
       expect(
         threads().getByRole("button", { name: /^Bob/ }),
@@ -541,7 +541,7 @@ describe("direct messages", () => {
       await leaveRoom(user);
       await screen.findByRole("heading", { name: "Public rooms" });
       await user.click(screen.getByRole("button", { name: "Join Music" }));
-      await screen.findByRole("button", { name: "Account menu: Alice" });
+      await screen.findByRole("log", { name: "Music" });
 
       expect(pane("Bob")).not.toBeInTheDocument();
     });

@@ -25,6 +25,7 @@ describe("direct messages", () => {
   describe("the conversation", () => {
     it("opens from a name in the people list, with what was said in it", async () => {
       const { user, server } = await enter();
+      const socket = server.latest;
       receive(server, dm({ text: "first" }));
       receive(server, fromMe(bob, "second"));
 
@@ -35,6 +36,7 @@ describe("direct messages", () => {
       expect(pane("Bob")).toBeInTheDocument();
       expect(log("Bob").getByText("first")).toBeInTheDocument();
       expect(log("Bob").getByText("second")).toBeInTheDocument();
+      expect(server.latest).toBe(socket);
     });
 
     it("opens from the list of conversations", async () => {
