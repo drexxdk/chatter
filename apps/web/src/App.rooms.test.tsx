@@ -968,6 +968,29 @@ describe("room search", () => {
     expect(
       moderatorResult.querySelector('[class~="bg-green-900/30"]'),
     ).toHaveClass("text-green-300");
+    for (const [result, text, variant] of [
+      [incomingResult, "Coffee privately from Bob", "private"],
+      [outgoingResult, "Coffee privately from Alice", "private"],
+      [publicResult, "Coffee publicly from Alice", "sent"],
+      [moderatorResult, "Coffee moderated", "moderator"],
+      [
+        within(results).getByRole("option", { name: /Coffee in the room/ }),
+        "Coffee in the room",
+        "received",
+      ],
+    ] as const) {
+      expect(result.closest("li")).toHaveAttribute(
+        "data-message-variant",
+        variant,
+      );
+      const original = screen
+        .getAllByText(text)
+        .find((element) => !results.contains(element));
+      expect(original?.closest("[data-message-variant]")).toHaveAttribute(
+        "data-message-variant",
+        variant,
+      );
+    }
     await user.click(
       within(results).getByRole("option", {
         name: /Coffee privately from Bob/,

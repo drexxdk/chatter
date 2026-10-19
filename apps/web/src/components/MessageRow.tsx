@@ -15,6 +15,7 @@ import { MessageEntry, type ReactionOptions } from "./MessageEntry";
 import { MentionedText } from "./Mentions";
 import type { PersonMenuOptions } from "./PersonMenu";
 import { Timestamp } from "./Timestamp";
+import { messagePresentation } from "./messagePresentation";
 
 export interface GroupMessage {
   id: string;
@@ -77,6 +78,7 @@ function MessageGroupView({
 }) {
   const { t } = useTranslation();
   const moderator = role === "moderator";
+  const appearance = messagePresentation({ mine, moderator, direct: !!direct });
   const last = messages[messages.length - 1];
   // What the name and the avatar do when clicked: choosing the person (not for somebody who cannot be written to now)
   // and, always, having seen what they wrote. Only the first looks like something that can be clicked.
@@ -91,20 +93,18 @@ function MessageGroupView({
 
   const gifBubble = (url: string) =>
     direct ? (
-      <div className="rounded-2xl border border-dashed border-amber-400/60 bg-amber-400/10 p-1">
+      <div className={`rounded-2xl p-1 ${appearance.bubble}`}>
         <GifImage url={url} />
       </div>
     ) : (
       <GifImage url={url} />
     );
 
-  const bubbleStyle = direct
-    ? "border border-dashed border-amber-400/60 bg-amber-400/10"
-    : moderator
-      ? "border border-green-500/40 bg-green-900/30 font-bold text-green-300"
-      : mine
-        ? "rounded-br-sm bg-sent text-white"
-        : "rounded-bl-sm bg-neutral-800";
+  const bubbleStyle = clsx(
+    appearance.bubble,
+    appearance.variant === "sent" && "rounded-br-sm",
+    appearance.variant === "received" && "rounded-bl-sm",
+  );
 
   const words = (text: string, banned?: boolean) => (
     /* Rendered as text, never as HTML. */
@@ -157,7 +157,8 @@ function MessageGroupView({
   };
   return (
     <li
-      data-side={mine ? "right" : "left"}
+      data-side={appearance.side}
+      data-message-variant={appearance.variant}
       {...(direct ? { "data-kind": "direct" } : {})}
       className={clsx(
         "@container -mx-2 flex min-w-0 items-start gap-2 rounded-lg px-2 py-1",
@@ -185,11 +186,11 @@ function MessageGroupView({
               onClick={mine ? undefined : clickPerson}
               className={`${
                 direct
-                  ? "font-semibold text-amber-300"
+                  ? "font-semibold"
                   : moderator
-                    ? "font-bold text-green-400"
+                    ? "font-bold"
                     : "font-semibold"
-              } ${pick && !mine ? "cursor-pointer hover:underline" : ""}`}
+              } ${appearance.label} ${pick && !mine ? "cursor-pointer hover:underline" : ""}`}
             >
               {direct ? direct.label : nickname}
             </span>

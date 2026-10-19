@@ -23,6 +23,7 @@ import { messageParts } from "../chat/gifs";
 import { useGridNavigation } from "../gridNavigation";
 import { AvatarIcon } from "./Avatar";
 import { Timestamp } from "./Timestamp";
+import { messagePresentation } from "./messagePresentation";
 
 type SearchMessage = Pick<
   ChatMessage,
@@ -317,18 +318,18 @@ export function RoomSearch({
               {results.map((message) => {
                 const mine = ownGuestIds.includes(message.guestId);
                 const moderator = message.role === "moderator";
-                const bubble = message.private
-                  ? "border border-dashed border-amber-400/60 bg-amber-400/10 text-neutral-100"
-                  : moderator
-                    ? "border border-green-500/40 bg-green-900/30 font-bold text-green-300"
-                    : mine
-                      ? "bg-sent text-white"
-                      : "bg-neutral-800 text-neutral-100";
+                const appearance = messagePresentation({
+                  mine,
+                  moderator,
+                  direct: message.private,
+                });
+                const bubble = `${appearance.bubble} ${appearance.variant === "private" || appearance.variant === "received" ? "text-neutral-100" : ""}`;
                 return (
                   <li
                     key={message.id}
                     role="presentation"
-                    data-side={mine ? "right" : "left"}
+                    data-side={appearance.side}
+                    data-message-variant={appearance.variant}
                     data-kind={message.private ? "direct" : "message"}
                     className="border-b border-neutral-800 last:border-0"
                   >
@@ -364,7 +365,7 @@ export function RoomSearch({
                             className={
                               mine && !message.private
                                 ? "sr-only"
-                                : `min-w-0 grow basis-24 wrap-anywhere text-sm font-semibold ${mine ? "text-right" : ""} ${message.private ? "text-amber-300" : moderator ? "text-green-400" : "text-neutral-200"}`
+                                : `min-w-0 grow basis-24 wrap-anywhere text-sm font-semibold ${mine ? "text-right" : ""} ${appearance.label || "text-neutral-200"}`
                             }
                           >
                             {highlighted(

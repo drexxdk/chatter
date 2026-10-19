@@ -41,7 +41,7 @@ from changes that need database migrations or broader integration work.
 
 - [x] Share canonical private-message participant metadata between chat and
       search, including renamed participants.
-- [ ] Share bubble variants and presentation selectors without coupling search
+- [x] Share bubble variants and presentation selectors without coupling search
       controls to timeline interaction state.
 
 ## 5. Contracts and Module Boundaries
@@ -164,5 +164,16 @@ from changes that need database migrations or broader integration work.
   notices, ban placeholders, historical snapshots, and chronological insertion.
   All 147 room/direct-message tests and the mobile/desktop search browser
   regression passed. Web typechecking, lint, and scoped formatting passed.
-- The private-participant metadata follow-up is not yet committed or deployed.
-  Shared bubble variants and presentation selectors remain the next item.
+- Committed private-participant metadata as `0d53a57` (not pushed or deployed).
+- Bubble presentation: chat and search now share variant precedence, bubble
+  colors, label colors, and side selection. Both expose the same
+  `data-message-variant` selector. Private styling takes precedence over moderator
+  styling, which takes precedence over sent/received styling. Geometry, GIF
+  wrappers, banned-message overrides, and interaction state remain local.
+- Added eight appearance cases and integration assertions comparing actual chat
+  and search rows. The focused room/private-message run passed 96 tests; one
+  composer draft-clear timing failure passed on an isolated rerun. The browser
+  search regression passed at mobile and desktop widths. Web typechecking and
+  lint passed.
+- Shared bubble presentation remains uncommitted and undeployed. Contract and
+  module-boundary work is next.
