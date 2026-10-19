@@ -13,7 +13,7 @@ export function FocusSearch() {
     // After the popup has had its own go at moving focus.
     const frame = requestAnimationFrame(() =>
       marker.current
-        ?.closest('[role="dialog"]')
+        ?.closest('[role="dialog"], [role="region"]')
         ?.querySelector<HTMLElement>('input[type="search"]')
         ?.focus(),
     );

@@ -13,7 +13,6 @@ import {
   Ban,
   Megaphone,
   MessageSquare,
-  Users,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -53,7 +52,7 @@ import { Notice } from "./Notice";
 import { MentionsProvider, type MentionsValue } from "./Mentions";
 import type { PersonMenuOptions } from "./PersonMenu";
 import { ReportDialog } from "./ReportDialog";
-import { RoomPanel } from "./RoomPanel";
+import { RoomPanel, RoomPanelDropdown } from "./RoomPanel";
 
 type MessageItem = Extract<TimelineItem, { kind: "message" }>;
 type DirectItem = Extract<TimelineItem, { kind: "direct" }>;
@@ -132,38 +131,8 @@ export function ChatRoom({
   );
   // Who the room's input writes to privately, when a private message was clicked.
   const [replyTo, setReplyTo] = useState<Partner | null>(null);
-  // The panel of people and conversations, where the screen has no room to keep it beside the messages.
-  const [panelOpen, setPanelOpen] = useState(false);
-  useEffect(() => {
-    if (!panelOpen) return;
-    const dismiss = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (
-        document.getElementById("room-panel-sheet")?.contains(target) ||
-        document.getElementById("room-panel-toggle")?.contains(target)
-      )
-        return;
-      setPanelOpen(false);
-    };
-    document.addEventListener("pointerdown", dismiss, true);
-    return () => document.removeEventListener("pointerdown", dismiss, true);
-  }, [panelOpen]);
   const unread = direct.threads.reduce((sum, thread) => sum + thread.unread, 0);
 
-  // The panel is a slide-in on a narrow screen only; a screen that becomes wide has the panel beside the messages.
-  useEffect(() => {
-    if (!panelOpen || typeof matchMedia !== "function") return;
-
-    const wide = matchMedia("(min-width: 48rem)");
-    const close = () => {
-      if (wide.matches) setPanelOpen(false);
-    };
-    close();
-    wide.addEventListener("change", close);
-
-    return () => wide.removeEventListener("change", close);
-  }, [panelOpen]);
   const [replyFailure, setReplyFailure] = useState<
     ActionResult & { ok: false }
   >();
@@ -813,70 +782,22 @@ export function ChatRoom({
               }
               above={
                 <>
-                  {panelOpen && (
-                    <div
-                      id="room-panel-sheet"
-                      role="region"
-                      aria-label={t("room.panel")}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Escape" || event.defaultPrevented) {
-                          return;
-                        }
-
-                        event.stopPropagation();
-                        setPanelOpen(false);
-                        document.getElementById("room-panel-toggle")?.focus();
-                      }}
-                      className="sheet absolute inset-x-0 bottom-full z-10 mb-0 h-[calc(100dvh-var(--header-height)-100%-0.5rem)] overflow-y-auto rounded-md border border-neutral-700 bg-neutral-900 p-3 shadow-lg md:hidden"
-                    >
-                      <RoomPanel
-                        members={members}
-                        maxMembers={maxMembers}
-                        selfGuestId={session.guestId}
-                        threads={direct.threads}
-                        selectedId={replyTo?.guestId ?? null}
-                        onSelect={(partner) => {
-                          setPanelOpen(false);
-                          toggleRecipient(partner);
-                        }}
-                        onOpen={(partner) => {
-                          setPanelOpen(false);
-                          openConversation(partner);
-                        }}
-                        blockedIds={direct.blockedIds}
-                        blockedByIds={direct.blockedByIds}
-                        onSetBlocked={direct.setBlocked}
-                        onSetMuted={direct.setMuted}
-                      />
-                    </div>
-                  )}
-
                   {/* Who is being written to, as on a wide screen, with the button that shows the panel beside it where there is no room for the panel to stay. */}
                   <div className="flex min-h-10 items-center gap-2">
-                    <button
-                      type="button"
-                      id="room-panel-toggle"
-                      onClick={() => setPanelOpen((open) => !open)}
-                      aria-expanded={panelOpen}
-                      aria-controls="room-panel-sheet"
-                      title={t("room.panel")}
-                      aria-label={`${t("room.panel")}${
-                        unread > 0
-                          ? `, ${t("dm.unread", { count: unread })}`
-                          : ""
-                      }`}
-                      className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-neutral-300 outline-none hover:bg-neutral-800 hover:text-neutral-100 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400 aria-expanded:bg-neutral-800 aria-expanded:text-neutral-100 md:hidden"
-                    >
-                      <Users aria-hidden="true" className="h-5 w-5" />
-                      {unread > 0 && (
-                        <span
-                          aria-hidden="true"
-                          className="absolute -right-1 -top-1.5 rounded-full bg-amber-400 px-1.5 text-xs font-bold text-neutral-950"
-                        >
-                          {unread}
-                        </span>
-                      )}
-                    </button>
+                    <RoomPanelDropdown
+                      unread={unread}
+                      members={members}
+                      maxMembers={maxMembers}
+                      selfGuestId={session.guestId}
+                      threads={direct.threads}
+                      selectedId={replyTo?.guestId ?? null}
+                      onSelect={toggleRecipient}
+                      onOpen={openConversation}
+                      blockedIds={direct.blockedIds}
+                      blockedByIds={direct.blockedByIds}
+                      onSetBlocked={direct.setBlocked}
+                      onSetMuted={direct.setMuted}
+                    />
 
                     {replyTo ? (
                       <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-sm text-sky-200">

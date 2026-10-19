@@ -58,8 +58,7 @@ html {
    dialog starts to close). Without the scrollbar the page has no gutter either, so it is given padding as wide as the
    scrollbar was (see scrollbarWidth.ts): the page stays where it is, and the dialog, which then fills the window, has
    its own scrollbar where the page's was. Headless UI's own padding is measured against the gutter and is not wanted. */
-html:has(#headlessui-portal-root [role="dialog"]),
-html:has(#room-panel-sheet) {
+html:has(#headlessui-portal-root [role="dialog"][aria-modal="true"]) {
   --fixed-scrollbar-inset: var(--scrollbar-width, 0px);
   overflow: hidden;
   scrollbar-gutter: auto;

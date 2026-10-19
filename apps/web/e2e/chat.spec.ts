@@ -137,6 +137,93 @@ async function expectPickerAligned(page: Page) {
   await expect(picker).toHaveCount(0);
 }
 
+test("the people dropdown focuses search and stays scrollable when resized", async ({
+  browser,
+}) => {
+  const guest = await newGuest(browser);
+  await enterRoom(guest, LOUNGE.name, "Resize Guest");
+  await expect(guest.getByRole("dialog")).toHaveCount(0);
+  await guest.addStyleTag({ content: "::-webkit-scrollbar { width: 12px; }" });
+  await guest.setViewportSize({ width: 390, height: 800 });
+  const root = guest.locator("html");
+  await expect(root).toHaveCSS("--scrollbar-width", "12px");
+
+  const toggle = guest.getByRole("button", {
+    name: "People and direct messages",
+    exact: true,
+  });
+  await toggle.click();
+  const panel = guest.locator("#room-panel-sheet");
+  const search = panel.getByRole("searchbox", { name: "Search people" });
+  await expect(panel).toBeVisible();
+  await expect(search).toBeFocused();
+  await expect(root).toHaveCSS("padding-right", "0px");
+  await expect(root).toHaveCSS("scrollbar-gutter", "stable");
+  await expect(root).not.toHaveCSS("overflow", "hidden");
+
+  for (const width of [400, 410, 390]) {
+    await guest.setViewportSize({ width, height: 800 });
+    await guest.evaluate(() => window.dispatchEvent(new Event("resize")));
+    await expect(root).toHaveCSS("--scrollbar-width", "12px");
+    await expect(root).toHaveCSS("padding-right", "0px");
+    await expect(root).toHaveCSS("scrollbar-gutter", "stable");
+    await expect(panel).toBeVisible();
+  }
+
+  await search.press("Escape");
+  await expect(panel).toHaveCount(0);
+  await expect(toggle).toBeFocused();
+  await toggle.press("Enter");
+  await expect(search).toBeFocused();
+  const message = guest.getByRole("textbox", { name: "Message", exact: true });
+  await message.click();
+  await expect(panel).toHaveCount(0);
+  await expect(message).toBeFocused();
+
+  await toggle.click();
+  await expect(search).toBeFocused();
+  await guest.setViewportSize({ width: 1280, height: 800 });
+  await expect(panel).toHaveCount(0);
+  await expect(root).toHaveCSS("scrollbar-gutter", "stable");
+  await expect(root).not.toHaveCSS("overflow", "hidden");
+  await expect(root).toHaveCSS("padding-right", "0px");
+});
+
+test("only modal dialogs lock page scrolling, not composer pickers", async ({
+  browser,
+}) => {
+  const guest = await newGuest(browser);
+  const root = guest.locator("html");
+  await guest.goto("/");
+  await guest.getByRole("button", { name: `Join ${LOUNGE.name}` }).click();
+  const join = guest.getByRole("dialog");
+  await expect(join).toHaveAttribute("aria-modal", "true");
+  await expect(root).toHaveCSS("overflow", "hidden");
+  await guest.getByRole("textbox", { name: "Nickname" }).fill("Scroll Guest");
+  await acceptTerms(guest);
+  await guest.getByRole("button", { name: "Continue" }).click();
+  await expect(join).toHaveCount(0);
+
+  for (const width of [1280, 390]) {
+    await guest.setViewportSize({ width, height: 800 });
+    await expect(root).toHaveCSS("scrollbar-gutter", "stable");
+    await guest
+      .getByRole("button", { name: "Emoji and GIFs", exact: true })
+      .click();
+    const picker = guest.getByRole("dialog", {
+      name: "Emoji and GIFs",
+      exact: true,
+    });
+    await expect(picker).toBeVisible();
+    await expect(picker).not.toHaveAttribute("aria-modal", "true");
+    await expect(root).not.toHaveCSS("overflow", "hidden");
+    await expect(root).toHaveCSS("scrollbar-gutter", "stable");
+    await picker.press("Escape");
+    await expect(picker).toHaveCount(0);
+    await expect(root).toHaveCSS("scrollbar-gutter", "stable");
+  }
+});
+
 test("private chat back returns to the room and leaving is an action in the room menu", async ({
   browser,
 }) => {

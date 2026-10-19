@@ -11,7 +11,11 @@ export function publishScrollbarWidth() {
 
   const update = () => {
     // With a dialog open there is no gutter to measure.
-    if (document.querySelector('#headlessui-portal-root [role="dialog"]')) {
+    if (
+      document.querySelector(
+        '#headlessui-portal-root [role="dialog"][aria-modal="true"]',
+      )
+    ) {
       return;
     }
 

@@ -18,6 +18,28 @@ beforeEach(() => {
 });
 
 describe("direct messages", () => {
+  it("focuses the people search and returns focus on Escape", async () => {
+    const { user } = await enter();
+    const toggle = screen.getByRole("button", {
+      name: "People and direct messages",
+    });
+    await user.click(toggle);
+    const panel = screen.getByRole("region", {
+      name: "People and direct messages",
+    });
+    await waitFor(() =>
+      expect(
+        within(panel).getByRole("searchbox", { name: "Search people" }),
+      ).toHaveFocus(),
+    );
+    await user.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("region", { name: "People and direct messages" }),
+    ).not.toBeInTheDocument();
+    expect(toggle).toHaveFocus();
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("closes the people panel on an outside click but keeps it open for inside clicks", async () => {
     const { user } = await enter();
     const toggle = screen.getByRole("button", {
