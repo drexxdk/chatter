@@ -48,7 +48,7 @@ from changes that need database migrations or broader integration work.
 
 - [x] Share selected event names, payload contracts, and validation rules; retain
       the existing client/server parity tests.
-- [ ] Extract domain handlers from `socket.ts`, starting with account/profile
+- [x] Extract domain handlers from `socket.ts`, starting with account/profile
       mutations rather than splitting files solely by size.
 - [ ] Separate room, direct-message, and account responsibilities in `useChat`
       where ownership and integration tests are clear.
@@ -191,6 +191,20 @@ from changes that need database migrations or broader integration work.
   Both applications passed typechecking and lint. Both production container
   images built successfully, and a non-root runtime probe imported the compiled
   server's shared protocol module successfully.
-- Shared-contract changes remain uncommitted and undeployed. Extracting account
-  and profile handlers from `socket.ts` is next; `useChat` domain separation also
-  remains outstanding.
+- Committed shared contracts as `f6fc907` (not pushed or deployed).
+- Profile handler extraction: `socketProfile.ts` now owns guest and member
+  profile updates, including synchronous quota reservation/refunds, per-account
+  serialization, persisted-profile rereads, validation, persistence, and replies.
+  `socket.ts` registers the event and provides narrowly typed room-lock,
+  name-occupancy, and presence callbacks. Connection state and profile data remain
+  live references, including while updates wait in the queue.
+- Moved the existing sliding-window calculation into `limits.ts` for use by
+  both the extracted profile handler and other socket rate limits. The algorithm,
+  quotas, lock order, and wire behavior are unchanged; no generic handler
+  framework or additional service layer was introduced.
+- Verification: all 472 socket, account, and profile tests passed, including
+  existing concurrency, quota, persistence-failure, and presence regressions.
+  Server typechecking and lint passed.
+- Profile-handler extraction remains uncommitted and undeployed. Room and direct
+  handlers remain in `socket.ts`; separating `useChat` responsibilities is the
+  next planned item.

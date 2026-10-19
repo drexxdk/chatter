@@ -2,10 +2,7 @@ import crypto from "crypto";
 import type { Server as HttpServer } from "http";
 import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
-import {
-  PROFILE_UPDATE_EVENT,
-  type ProfileUpdateAck,
-} from "../../../shared/chatProtocol.mjs";
+import { PROFILE_UPDATE_EVENT } from "../../../shared/chatProtocol.mjs";
 
 import { parseAge } from "./age.js";
 import {
@@ -42,10 +39,9 @@ import {
   memberGuestId,
   validateNickname,
 } from "./identity.js";
-import { MAX_MESSAGE_LENGTH } from "./limits.js";
+import { MAX_MESSAGE_LENGTH, slidingWindow } from "./limits.js";
 import { isMemberName } from "./members.js";
-import { saveMemberProfile, validateProfileUpdate } from "./memberProfile.js";
-import { withProfileLock } from "./profileLock.js";
+import { handleProfileUpdate } from "./socketProfile.js";
 import {
   getModerators,
   getModeratorNames,
@@ -90,9 +86,6 @@ const NEW_CONVERSATION_WINDOW_MS = 60_000;
 const MAX_BLOCKED = 100;
 const MAX_REMEMBERED_PARTNERS = 200;
 const MAX_GUEST_ID_LENGTH = 64;
-// Changing the name or the profile shows up for everybody in the room, so it is limited like starting conversations.
-const PROFILE_CHANGES_PER_WINDOW = 5;
-const PROFILE_CHANGE_WINDOW_MS = 60_000;
 // Reactions are cheap, but each one is rewritten into Redis and shown to the whole room.
 const REACTIONS_PER_WINDOW = 10;
 const REACTION_WINDOW_MS = 5_000;
@@ -190,21 +183,6 @@ function messageText(payload: unknown): string {
 // The ack a client gave, or one that does nothing: a client may emit without waiting for an answer.
 function ackOf(ack: unknown): Ack {
   return typeof ack === "function" ? (ack as Ack) : () => {};
-}
-
-// What is still inside a sliding window of times, and how long until there is room for one more (0 when there is).
-function slidingWindow(
-  times: number[],
-  now: number,
-  windowMs: number,
-  max: number,
-): { recent: number[]; waitMs: number } {
-  const recent = times.filter((time) => now - time < windowMs);
-
-  return {
-    recent,
-    waitMs: recent.length >= max ? (recent[0] ?? now) + windowMs - now : 0,
-  };
 }
 
 // Milliseconds until this connection may send another message of any kind; 0 when it may now. Messages in rooms and
@@ -1142,128 +1120,15 @@ export function createSocketServer(
     // A guest or a member changes who they are shown as: the name, the avatar and the age, each only when it is in the
     // payload (an age of null takes it back). Everything is checked before anything changes, and a member's change is
     // kept in their account. A moderator's name belongs to their account, so they cannot.
-    socket.on(PROFILE_UPDATE_EVENT, async (payload: unknown, ack?: Ack) => {
-      const reply: (result: ProfileUpdateAck) => void = ackOf(ack);
-
-      if (data.role === "moderator") {
-        return reply({ ok: false, error: "forbidden" });
-      }
-
-      const now = Date.now();
-      const profileWait = slidingWindow(
-        data.profileChangeTimes,
-        now,
-        PROFILE_CHANGE_WINDOW_MS,
-        PROFILE_CHANGES_PER_WINDOW,
-      );
-      data.profileChangeTimes = profileWait.recent;
-
-      if (profileWait.waitMs > 0) {
-        return reply({
-          ok: false,
-          error: "rate_limited",
-          retryAfterMs: profileWait.waitMs,
-        });
-      }
-
-      data.profileChangeTimes.push(now);
-      let committed = false;
-      const key =
-        data.memberId === undefined
-          ? `socket:${socket.id}`
-          : `member:${data.memberId}`;
-
-      try {
-        await withProfileLock(key, async () => {
-          if (!socket.connected) return;
-          const account =
-            data.memberId === undefined
-              ? undefined
-              : await fetchUser(data.memberId);
-          if (data.memberId !== undefined && !account) {
-            return reply({ ok: false, error: "invalid_token" });
-          }
-
-          const result = await validateProfileUpdate(
-            {
-              nickname: account?.displayName ?? data.nickname,
-              avatar: account?.avatar ?? data.avatar,
-              picture: account ? account.picture : data.picture,
-              age: account ? account.age : data.age,
-            },
-            payload,
-            data.memberId,
-          );
-          if (!result.ok) return reply({ ok: false, error: result.error });
-          const { nickname, avatar, picture, age } = result.profile;
-
-          const slug = data.roomSlug;
-          const apply = () => {
-            data.nickname = nickname;
-            data.avatar = avatar;
-            data.picture = picture;
-            data.age = age;
-          };
-          // The change for good: a member's is kept in their account first, so what the others see is never ahead of it.
-          const commit = async (): Promise<string | undefined> => {
-            if (data.memberId !== undefined) {
-              const failure = await saveMemberProfile(
-                data.memberId,
-                account?.nickname ?? data.username ?? "",
-                account?.displayName ?? data.nickname,
-                result.profile,
-              );
-
-              if (failure) return failure;
-            }
-
-            apply();
-            committed = true;
-            return undefined;
-          };
-
-          // A new name must not be one somebody else in the room has; checked and taken under the room's lock, so two
-          // people choosing the same name at once cannot both get it.
-          if (
-            slug &&
-            normalizeName(nickname) !== normalizeName(data.nickname)
-          ) {
-            const failure = await withRoomLock(slug, async () =>
-              (await nameInUse(slug, data, nickname))
-                ? "nickname_taken"
-                : commit(),
-            );
-
-            if (failure) return reply({ ok: false, error: failure });
-          } else {
-            const failure = await commit();
-
-            if (failure) return reply({ ok: false, error: failure });
-          }
-
-          reply({
-            ok: true,
-            profile: {
-              nickname,
-              avatar,
-              ...(picture === undefined ? {} : { picture }),
-              ...(age === undefined ? {} : { age }),
-            },
-          });
-
-          if (data.roomSlug) await emitPresence(data.roomSlug);
-        });
-      } catch (error) {
-        log.error("Failed to change the profile", error);
-        if (!committed) reply({ ok: false, error: "unavailable" });
-      } finally {
-        if (!committed) {
-          const reservation = data.profileChangeTimes.indexOf(now);
-          if (reservation !== -1)
-            data.profileChangeTimes.splice(reservation, 1);
-        }
-      }
-    });
+    socket.on(PROFILE_UPDATE_EVENT, (payload: unknown, ack?: Ack) =>
+      handleProfileUpdate(payload, ackOf(ack), {
+        socket,
+        data,
+        withRoomLock,
+        nameInUse: (slug, nickname) => nameInUse(slug, data, nickname),
+        emitPresence,
+      }),
+    );
 
     socket.on("room:join", async (payload: unknown, ack?: Ack) => {
       const reply = ackOf(ack);
