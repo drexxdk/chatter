@@ -239,6 +239,7 @@ export interface User {
    */
   provider: string;
   providerUserId: string;
+  passwordHash?: string | null;
   /**
    * The provider and the id there; one account for each.
    */
@@ -443,6 +444,7 @@ export interface ReportsSelect<T extends boolean = true> {
 export interface UsersSelect<T extends boolean = true> {
   provider?: T;
   providerUserId?: T;
+  passwordHash?: T;
   identity?: T;
   email?: T;
   emailVerified?: T;

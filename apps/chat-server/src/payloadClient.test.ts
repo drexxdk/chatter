@@ -10,6 +10,7 @@ import {
   fetchUser,
   fetchUserNames,
   findUserByIdentity,
+  findPasswordUser,
   isTaken,
   PayloadError,
   saveReport,
@@ -40,6 +41,18 @@ const ban = {
   reason: "spam",
   expiresAt: "2026-12-01T10:00:00.000Z",
 };
+
+describe("findPasswordUser", () => {
+  it("looks up only password accounts by their current normalized username", async () => {
+    const request = respondWith({ docs: [] });
+    expect(await findPasswordUser("alice")).toBeUndefined();
+    const [url] = request.mock.calls[0] as unknown as [string];
+    const query = new URL(url).searchParams;
+    expect(query.get("where[provider][equals]")).toBe("password");
+    expect(query.get("where[nicknameKey][equals]")).toBe("alice");
+    expect(query.get("limit")).toBe("1");
+  });
+});
 
 describe("fetchPublicRooms", () => {
   it("returns the rooms and sends the service key", async () => {

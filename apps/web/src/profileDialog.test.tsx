@@ -306,8 +306,6 @@ describe("a moderator's profile", () => {
         onClose={() => {}}
         onSave={async () => ({ ok: true })}
         account={null}
-        returnPath="/"
-        onSignOut={() => {}}
         onDelete={async () => {}}
         profile={{
           nickname: "Ada Mod",

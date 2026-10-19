@@ -64,6 +64,8 @@ const ERROR_CODES = [
   "reserved_username",
   "invalid_token",
   "invalid_credentials",
+  "invalid_password",
+  "password_mismatch",
   "not_a_moderator",
   "no_display_name",
   "moderator_login_disabled",

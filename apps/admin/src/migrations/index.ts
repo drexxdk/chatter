@@ -7,6 +7,7 @@ import * as migration_20261013_052004_add_users from './20261013_052004_add_user
 import * as migration_20261013_135258_add_user_display_name_picture from './20261013_135258_add_user_display_name_picture'
 import * as migration_20261013_144731_localize_room_text from './20261013_144731_localize_room_text'
 import * as migration_20261018_201837_add_user_name_claims from './20261018_201837_add_user_name_claims'
+import * as migration_20261019_174937_add_user_password from './20261019_174937_add_user_password'
 
 export const migrations = [
   {
@@ -53,5 +54,10 @@ export const migrations = [
     up: migration_20261018_201837_add_user_name_claims.up,
     down: migration_20261018_201837_add_user_name_claims.down,
     name: '20261018_201837_add_user_name_claims',
+  },
+  {
+    up: migration_20261019_174937_add_user_password.up,
+    down: migration_20261019_174937_add_user_password.down,
+    name: '20261019_174937_add_user_password',
   },
 ]

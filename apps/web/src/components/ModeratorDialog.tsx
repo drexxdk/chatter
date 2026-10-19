@@ -6,16 +6,18 @@ import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
 import { Modal } from "./Modal";
+import { AccountOptions } from "./AccountOptions";
 
 interface ModeratorDialogProps {
+  returnPath: string;
   signingIn: boolean;
   error: string | null;
   onSignIn: (email: string, password: string) => void;
   onCancel: () => void;
 }
 
-// The sign-in of the people who look after the chat, which is not part of joining a room.
 export function ModeratorDialog({
+  returnPath,
   signingIn,
   error,
   onSignIn,
@@ -34,15 +36,17 @@ export function ModeratorDialog({
   }
 
   return (
-    <Modal onClose={onCancel} title={t("nickname.moderatorTitle")} closable>
+    <Modal onClose={onCancel} title={t("nickname.signIn")} closable>
+      <AccountOptions returnPath={returnPath} divider={t("account.or")} />
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-3">
           <Field
             id="email"
-            label={t("nickname.email")}
-            type="email"
+            label={t("account.identifier")}
+            type="text"
             required
             autoFocus
+            disabled={signingIn}
             autoComplete="username"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
@@ -54,6 +58,7 @@ export function ModeratorDialog({
             type="password"
             required
             autoComplete="current-password"
+            disabled={signingIn}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             invalid={touched && !password}

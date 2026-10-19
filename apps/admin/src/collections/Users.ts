@@ -63,6 +63,16 @@ export const Users: CollectionConfig = {
     },
     { name: 'providerUserId', type: 'text', required: true, admin: { readOnly: true } },
     {
+      name: 'passwordHash',
+      type: 'text',
+      admin: { hidden: true },
+      access: {
+        read: ({ req }) => req.user?.role === 'service',
+        create: ({ req }) => req.user?.role === 'service',
+        update: ({ req }) => req.user?.role === 'service',
+      },
+    },
+    {
       name: 'identity',
       type: 'text',
       required: true,

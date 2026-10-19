@@ -108,6 +108,10 @@ vi.mock("./payloadClient.js", async (importOriginal) => {
       [...accounts.users.values()].find(
         (user) => identityOf(user) === identity,
       ),
+    findPasswordUser: async (key: string) =>
+      [...accounts.users.values()].find(
+        (user) => user.provider === "password" && user.nicknameKey === key,
+      ),
     fetchUser: async (id: number) => accounts.users.get(id),
     createUser: async (data: Record<string, unknown>) => {
       await beforeCreateUser();
@@ -144,6 +148,7 @@ vi.mock("./payloadClient.js", async (importOriginal) => {
 const { createApp } = await import("./app.js");
 const { signToken } = await import("./tokens.js");
 const { safeReturnPath } = await import("./accounts.js");
+const { claimGuestAccount } = await import("./passwordAccounts.js");
 
 const servers: http.Server[] = [];
 const onAccountRemoved = vi.fn();
@@ -269,6 +274,131 @@ afterEach(async () => {
         }),
     ),
   );
+});
+
+describe("password accounts", () => {
+  const password = "a long private password";
+  const profile = {
+    nickname: "Alice Guest",
+    avatar: "other" as const,
+    age: 24,
+  };
+  const claim = (changes = {}) =>
+    claimGuestAccount(
+      { username: "alice", password, confirmation: password, ...changes },
+      profile,
+      testEnv.AUTH_TOKEN_SECRET,
+    );
+
+  it("claims the server's guest profile and returns no credential hash", async () => {
+    const session = await claim();
+    expect(session).toMatchObject({
+      provider: "password",
+      profile: {
+        nickname: "Alice Guest",
+        username: "alice",
+        avatar: "other",
+        age: 24,
+      },
+    });
+    expect(session.profile).not.toHaveProperty("picture");
+    expect(session).not.toHaveProperty("passwordHash");
+    const user = accounts.users.get(1)!;
+    expect(user.passwordHash).toMatch(/^scrypt-v1:/);
+    expect(JSON.stringify(user)).not.toContain(password);
+    expect(accounts.names.get("aliceguest")).toBe(1);
+    expect(accounts.names.get("alice")).toBe(1);
+  });
+
+  it.each([
+    [{ confirmation: "different" }, "password_mismatch"],
+    [{ password: "short", confirmation: "short" }, "invalid_password"],
+    [{ username: "bad name" }, "invalid_username"],
+  ])(
+    "rejects invalid claim credentials before creating an account",
+    async (changes, code) => {
+      await expect(claim(changes)).rejects.toThrow(code);
+      expect(accounts.users.size).toBe(0);
+    },
+  );
+
+  it("does not let a guest claim another account's name", async () => {
+    accounts.names.set("aliceguest", 99);
+    await expect(claim()).rejects.toThrow("reserved_nickname");
+    expect(accounts.users.size).toBe(0);
+  });
+
+  it("allows only one concurrent claim of the same profile", async () => {
+    const results = await Promise.allSettled([claim(), claim()]);
+    expect(
+      results.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    expect(accounts.users.size).toBe(1);
+  });
+
+  it("signs in by normalized username, preserving profile and hiding the hash", async () => {
+    await claim();
+    await start();
+    const response = await post("/auth/password/login", {
+      username: "ALICE",
+      password,
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const session = await response.json();
+    expect(session).toMatchObject({
+      provider: "password",
+      profile: { nickname: "Alice Guest", username: "alice" },
+    });
+    expect(JSON.stringify(session)).not.toContain("scrypt");
+    expect(accounts.users.get(1)?.lastLoginAt).toBeTypeOf("string");
+  });
+
+  it("gives the same response for an unknown username and a wrong password", async () => {
+    await claim();
+    await start();
+    for (const username of ["alice", "unknown"]) {
+      const response = await post("/auth/password/login", {
+        username,
+        password: "wrong password",
+      });
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({ error: "invalid_credentials" });
+    }
+  });
+
+  it("uses the current username after an admin corrects it", async () => {
+    await claim();
+    const user = accounts.users.get(1)!;
+    accounts.users.set(1, {
+      ...user,
+      nickname: "alicia",
+      nicknameKey: "alicia",
+    });
+    await start();
+    expect(
+      (await post("/auth/password/login", { username: "alice", password }))
+        .status,
+    ).toBe(401);
+    const response = await post("/auth/password/login", {
+      username: "alicia",
+      password,
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      profile: { username: "alicia" },
+    });
+  });
+
+  it("rate limits password attempts", async () => {
+    await start({ authRateLimit: { max: 1, windowMs: 60_000 } });
+    await post("/auth/password/login", { username: "unknown", password });
+    const response = await post("/auth/password/login", {
+      username: "unknown",
+      password,
+    });
+    expect(response.status).toBe(429);
+  });
 });
 
 describe("the providers", () => {

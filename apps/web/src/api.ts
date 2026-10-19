@@ -186,6 +186,7 @@ const ACCOUNT_ERRORS = new Set([
   "invalid_username",
   "reserved_username",
   "invalid_profile",
+  "invalid_credentials",
   "unavailable",
 ]);
 
@@ -209,7 +210,7 @@ function parseAccountProfile(value: unknown): AccountSession["profile"] {
   };
 }
 
-function parseAccountSession(body: unknown): AccountSession {
+export function parseAccountSession(body: unknown): AccountSession {
   const fields = (body ?? {}) as Record<string, unknown>;
 
   if (
@@ -258,6 +259,25 @@ async function accountRequest(
 }
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+export interface PasswordClaim {
+  username: string;
+  password: string;
+  confirmation: string;
+}
+
+export async function signInPassword(
+  username: string,
+  password: string,
+): Promise<AccountSession> {
+  return parseAccountSession(
+    await accountRequest("/auth/password/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    }),
+  );
+}
 
 // Makes the account for somebody a provider has vouched for (the ticket), with who they want to be shown as: a
 // username of their own, the name the chat shows, and a picture.

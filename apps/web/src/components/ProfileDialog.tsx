@@ -1,4 +1,4 @@
-import { DoorOpen, Pencil, Save, X } from "lucide-react";
+import { Pencil, Save, UserPlus, X } from "lucide-react";
 import { useState, type ReactNode, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -32,9 +32,8 @@ export function ProfileDialog({
   profile,
   onSave,
   account,
-  returnPath,
-  onSignOut,
   onDelete,
+  onCreateAccount,
 }: {
   open: boolean;
   onClose: () => void;
@@ -42,10 +41,8 @@ export function ProfileDialog({
   onSave: (changes: ProfileChanges) => Promise<ActionResult>;
   // Who is signed in, or null for a guest, who can make an account by connecting a provider.
   account: Account | null;
-  // Where the browser comes back to after signing in with a provider.
-  returnPath: string;
-  onSignOut: () => void;
   onDelete: () => Promise<void>;
+  onCreateAccount?: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -55,9 +52,8 @@ export function ProfileDialog({
         profile={profile}
         onSave={onSave}
         account={account}
-        returnPath={returnPath}
-        onSignOut={onSignOut}
         onDelete={onDelete}
+        onCreateAccount={onCreateAccount}
       />
     </Modal>
   );
@@ -68,19 +64,16 @@ function ProfileBody({
   profile,
   onSave,
   account,
-  returnPath,
-  onSignOut,
   onDelete,
+  onCreateAccount,
 }: {
   profile: ProfileSubject;
   onSave: (changes: ProfileChanges) => Promise<ActionResult>;
   account: Account | null;
-  returnPath: string;
-  onSignOut: () => void;
   onDelete: () => Promise<void>;
+  onCreateAccount?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const { t } = useTranslation();
 
   if (editing) {
     return (
@@ -98,29 +91,10 @@ function ProfileBody({
         profile={profile}
         account={account}
         onEdit={() => setEditing(true)}
+        onCreateAccount={onCreateAccount}
       />
-      {profile.role !== "moderator" && (
-        <AccountSection
-          account={account}
-          returnPath={returnPath}
-          onSignOut={onSignOut}
-          onDelete={onDelete}
-          separated
-        />
-      )}
-      {/* An account has its own way out in its section. */}
-      {!account && (
-        <div
-          className={
-            profile.role === "moderator"
-              ? undefined
-              : "border-t border-neutral-800 pt-4"
-          }
-        >
-          <Button icon={DoorOpen} onClick={onSignOut}>
-            {t("account.signOut")}
-          </Button>
-        </div>
+      {profile.role === "member" && account && (
+        <AccountSection onDelete={onDelete} separated />
       )}
     </div>
   );
@@ -139,10 +113,12 @@ function ProfileSummary({
   profile,
   account,
   onEdit,
+  onCreateAccount,
 }: {
   profile: ProfileSubject;
   account: Account | null;
   onEdit: () => void;
+  onCreateAccount?: () => void;
 }) {
   const { t } = useTranslation();
   const moderator = profile.role === "moderator";
@@ -156,11 +132,16 @@ function ProfileSummary({
           picture={profile.picture}
           large
         />
-        <p
-          className={`min-w-0 text-lg font-bold wrap-break-word ${moderator ? "text-green-400" : ""}`}
-        >
-          {profile.nickname}
-        </p>
+        <div className="min-w-0">
+          <p
+            className={`text-lg font-bold wrap-break-word ${moderator ? "text-green-400" : ""}`}
+          >
+            {profile.nickname}
+          </p>
+          {profile.role === "guest" && (
+            <p className="text-xs text-neutral-400">{t("account.guest")}</p>
+          )}
+        </div>
       </div>
 
       {moderator ? (
@@ -185,9 +166,16 @@ function ProfileSummary({
               </Detail>
             )}
           </dl>
-          <Button icon={Pencil} onClick={onEdit}>
-            {t("profile.edit")}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button icon={Pencil} onClick={onEdit}>
+              {t("profile.edit")}
+            </Button>
+            {profile.role === "guest" && onCreateAccount && (
+              <Button icon={UserPlus} onClick={onCreateAccount}>
+                {t("account.claimTitle")}
+              </Button>
+            )}
+          </div>
         </>
       )}
     </div>

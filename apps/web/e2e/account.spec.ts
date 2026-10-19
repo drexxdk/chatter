@@ -79,6 +79,167 @@ const inRoom = (page: Page) =>
     page.getByRole("heading", { name: ROOM.name, level: 2 }),
   ).toBeVisible();
 
+for (const width of [375, 1280]) {
+  test(`guest account navigation is separate from their profile at ${width}px`, async ({
+    browser,
+  }) => {
+    const page = await newPage(browser);
+    await page.setViewportSize({ width, height: 900 });
+    const chatName = displayName(`Nav${width}`);
+    await joinAsGuest(page, chatName);
+    await inRoom(page);
+    await expect(
+      page
+        .getByRole("banner")
+        .getByRole("button", { name: "Sign in", exact: true }),
+    ).toHaveCount(0);
+    await page
+      .getByRole("button", { name: `Account menu: ${chatName}` })
+      .click();
+    await expect(
+      page.getByRole("menuitem", { name: "Sign in to an existing account" }),
+    ).toBeVisible();
+    await page
+      .getByRole("menuitem", { name: "Claim account", exact: true })
+      .click();
+    const creation = page.getByRole("dialog", {
+      name: "Claim account",
+      exact: true,
+    });
+    await expect(
+      creation.getByRole("link", { name: "Continue with Dev sign-in" }),
+    ).toBeVisible();
+    await expect(
+      creation.getByLabel("Password", { exact: true }),
+    ).toBeVisible();
+    await expect(creation.getByLabel("Confirm password")).toBeVisible();
+    await expect(
+      creation.getByRole("button", { name: "Use a password", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      creation.getByRole("button", { name: "Back", exact: true }),
+    ).toHaveCount(0);
+    await creation.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page
+      .getByRole("button", { name: `Account menu: ${chatName}` })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Your profile", exact: true })
+      .click();
+    const profile = page.getByRole("dialog", { name: "Your profile" });
+    await expect(profile.getByText("Guest", { exact: true })).toBeVisible();
+    await expect(profile.getByRole("link")).toHaveCount(0);
+    await expect(profile.locator("input")).toHaveCount(0);
+    await expect(
+      profile.getByRole("button", { name: "Sign out", exact: true }),
+    ).toHaveCount(0);
+    await profile
+      .getByRole("button", { name: "Claim account", exact: true })
+      .click();
+    await expect(creation.getByLabel("Confirm password")).toBeVisible();
+    await creation.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page
+      .getByRole("button", { name: `Account menu: ${chatName}` })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Sign in to an existing account" })
+      .click();
+    await expect(
+      page
+        .getByRole("dialog", { name: "Sign in", exact: true })
+        .getByRole("heading", { name: "Sign in", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: `Account menu: ${chatName}` })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "End guest session", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Public rooms" }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("banner")
+        .getByRole("button", { name: "Sign in", exact: true }),
+    ).toBeVisible();
+  });
+}
+
+test("a guest claims their profile with a password and can sign in again from the header", async ({
+  browser,
+}) => {
+  const page = await newPage(browser);
+  const chatName = displayName("Pass");
+  const handle = username("Pass");
+  const password = "a private password for this test";
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  await joinAsGuest(page, chatName);
+  await inRoom(page);
+  await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
+  await page.getByRole("menuitem", { name: "Your profile" }).click();
+  const profile = page.getByRole("dialog", { name: "Your profile" });
+  await profile
+    .getByRole("button", { name: "Claim account", exact: true })
+    .click();
+  const registration = page.getByRole("dialog", { name: "Claim account" });
+  await registration.getByLabel("Username", { exact: true }).fill(handle);
+  await registration.getByLabel("Password", { exact: true }).fill(password);
+  await registration
+    .getByLabel("Confirm password")
+    .fill("a different password");
+  await registration
+    .getByRole("button", { name: "Claim account", exact: true })
+    .click();
+  await expect(registration.getByRole("alert")).toContainText(
+    "The passwords do not match",
+  );
+  await registration.getByLabel("Confirm password").fill(password);
+  await registration
+    .getByRole("button", { name: "Claim account", exact: true })
+    .click();
+  await expect(
+    profile.getByText("Signed in with", { exact: true }),
+  ).toBeVisible();
+  await expect(profile.getByText("Password", { exact: true })).toBeVisible();
+  await profile.getByRole("button", { name: "Close" }).click();
+  await inRoom(page);
+  const [account] = await accountsNamed(handle);
+  expect(account).toMatchObject({
+    provider: "password",
+    nickname: handle,
+    displayName: chatName,
+  });
+  expect(account).not.toHaveProperty("passwordHash");
+  expect(
+    await page.evaluate(() => localStorage.getItem("chatter.account")),
+  ).not.toContain(password);
+
+  await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
+  await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  const login = page.getByRole("dialog", { name: "Sign in" });
+  await expect(
+    login.getByRole("link", { name: "Continue with Dev sign-in" }),
+  ).toBeVisible();
+  await login.getByLabel("Username or email").fill(handle.toUpperCase());
+  await login.getByLabel("Password", { exact: true }).fill(password);
+  await login.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: `Account menu: ${chatName}` }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: `Join ${ROOM.name}` }).click();
+  await inRoom(page);
+  expect(errors).toEqual([]);
+});
+
 test("a guest connects a provider and stays who they are, the names are theirs, and they can sign in again elsewhere", async ({
   browser,
 }) => {
@@ -91,6 +252,10 @@ test("a guest connects a provider and stays who they are, the names are theirs, 
   // The profile in the header is where a guest makes an account.
   await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
   await page.getByRole("menuitem", { name: "Your profile" }).click();
+  await page
+    .getByRole("dialog", { name: "Your profile" })
+    .getByRole("button", { name: "Claim account", exact: true })
+    .click();
   await signInWithProvider(page, "anna");
 
   // The form starts from who the guest was: the name they had, and a username made from it.

@@ -38,6 +38,7 @@ function stubBackend(
     me?: () => Answer;
     remove?: () => Answer;
     update?: (changes: Record<string, unknown>) => Answer;
+    login?: (credentials: Record<string, unknown>) => Answer;
   } = {},
 ) {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
@@ -49,6 +50,13 @@ function stubBackend(
     if (path === "/rooms") return Response.json(ROOMS);
     if (path === "/auth/providers") {
       return Response.json({ providers: options.providers ?? [] });
+    }
+    if (path === "/auth/password/login") {
+      return answer(
+        options.login?.(JSON.parse(String(init?.body))) ?? {
+          body: accountSession(),
+        },
+      );
     }
     if (path === "/me" && method === "GET") {
       return answer(options.me?.() ?? { body: accountSession() });
@@ -84,12 +92,124 @@ afterEach(() => {
 });
 
 describe("signing in from the lobby", () => {
-  it("has no login in the header: a guest is asked who they are when they join a room", async () => {
+  it("offers password and provider claiming together beside profile editing", async () => {
+    stubBackend({ providers: ["google"] });
+    const { user } = setup();
+    await joinRoom(user);
+    await user.click(
+      await screen.findByRole("button", { name: "Account menu: Alice" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Your profile" }),
+    );
+    let dialog = within(
+      await screen.findByRole("dialog", { name: "Your profile" }),
+    );
+    expect(dialog.getByText("Guest", { exact: true })).toBeVisible();
+    expect(dialog.queryByLabelText("Password")).toBeNull();
+    expect(dialog.queryByRole("link", { name: /Continue with/ })).toBeNull();
+    expect(dialog.queryByRole("button", { name: "Sign out" })).toBeNull();
+    const claim = dialog.getByRole("button", { name: "Claim account" });
+    expect(claim.parentElement).toBe(
+      dialog.getByRole("button", { name: "Edit profile" }).parentElement,
+    );
+    await user.click(claim);
+    dialog = within(
+      await screen.findByRole("dialog", { name: "Claim account" }),
+    );
+    expect(
+      await dialog.findByRole("link", { name: "Continue with Google" }),
+    ).toBeVisible();
+    const provider = dialog.getByRole("link", { name: "Continue with Google" });
+    const divider = dialog.getByText("or", { exact: true });
+    expect(
+      provider.compareDocumentPosition(divider) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      divider.compareDocumentPosition(dialog.getByLabelText("Username")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(dialog.queryByText(/continue with an account/i)).toBeNull();
+    expect(dialog.getByLabelText("Password")).toBeVisible();
+    expect(dialog.getByLabelText("Username")).toHaveValue("Alice");
+    expect(dialog.getByLabelText("Confirm password")).toBeVisible();
+    expect(dialog.queryByRole("button", { name: "Use a password" })).toBeNull();
+    expect(dialog.queryByRole("button", { name: "Back" })).toBeNull();
+    await user.click(dialog.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Account menu: Alice" }),
+    ).toBeVisible();
+    expect(loadAccount()).toBeNull();
+  });
+
+  it.each([true, false])(
+    "separates sign-in methods only when providers are enabled (%s)",
+    async (enabled) => {
+      stubBackend({ providers: enabled ? ["google"] : [] });
+      const { user } = setup();
+      await user.click(await screen.findByRole("button", { name: "Sign in" }));
+      const dialog = within(
+        await screen.findByRole("dialog", { name: "Sign in" }),
+      );
+      if (enabled) {
+        const provider = await dialog.findByRole("link", {
+          name: "Continue with Google",
+        });
+        const divider = dialog.getByText("or", { exact: true });
+        expect(
+          provider.compareDocumentPosition(divider) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(
+          divider.compareDocumentPosition(
+            dialog.getByLabelText("Username or email"),
+          ) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+      } else {
+        expect(
+          dialog.queryByRole("link", { name: /Continue with/ }),
+        ).toBeNull();
+        expect(dialog.queryByText("or", { exact: true })).toBeNull();
+      }
+      expect(dialog.queryByText("Continue with an account")).toBeNull();
+      expect(dialog.getByLabelText("Password")).toBeVisible();
+    },
+  );
+
+  it("treats a guest as an active identity and offers account sign-in only in their menu", async () => {
+    stubBackend();
+    const { user } = setup();
+    await joinRoom(user);
+    const header = within(screen.getByRole("banner"));
+    expect(header.queryByRole("button", { name: "Sign in" })).toBeNull();
+    await user.click(
+      header.getByRole("button", { name: "Account menu: Alice" }),
+    );
+    expect(await screen.findByText("Guest", { exact: true })).toBeVisible();
+    expect(
+      screen.getByRole("menuitem", { name: "End guest session" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("menuitem", { name: "Sign out" })).toBeNull();
+    await user.click(
+      screen.getByRole("menuitem", { name: "Sign in to an existing account" }),
+    );
+    expect(
+      await screen.findByRole("dialog", { name: "Sign in" }),
+    ).toBeVisible();
+  });
+
+  it("offers sign-in in the header and still permits guest entry", async () => {
     stubBackend({ providers: ["google"] });
     const { user } = setup();
     await screen.findByRole("heading", { name: "General" });
 
-    expect(screen.queryByRole("button", { name: "Login" })).toBeNull();
+    expect(
+      within(screen.getByRole("banner")).getByRole("button", {
+        name: "Sign in",
+      }),
+    ).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Join General" }));
 
@@ -131,21 +251,33 @@ describe("signing in from the lobby", () => {
     );
 
     const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.queryByRole("link", { name: /Continue with/ })).toBeNull();
+    await user.click(dialog.getByRole("button", { name: "Claim account" }));
+    const creation = within(
+      await screen.findByRole("dialog", { name: "Claim account" }),
+    );
     expect(
-      await dialog.findByRole("link", { name: "Continue with Google" }),
+      await creation.findByRole("link", { name: "Continue with Google" }),
     ).toHaveAttribute(
       "href",
       expect.stringContaining("return=%2Frooms%2Fgeneral"),
     );
-    expect(
-      dialog.getByText(/keep your name, avatar and age/),
-    ).toBeInTheDocument();
+    await user.click(creation.getByRole("button", { name: "Close" }));
+    await user.click(
+      screen.getByRole("button", { name: "Account menu: Alice" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Your profile" }),
+    );
+    const profile = within(
+      await screen.findByRole("dialog", { name: "Your profile" }),
+    );
     // A guest chooses a picture too, like an account, once they ask to change their profile.
-    await user.click(dialog.getByRole("button", { name: "Edit profile" }));
-    expect(dialog.getByRole("group", { name: "Avatar" })).toBeInTheDocument();
+    await user.click(profile.getByRole("button", { name: "Edit profile" }));
+    expect(profile.getByRole("group", { name: "Avatar" })).toBeInTheDocument();
   });
 
-  it("lets a guest sign out from their profile: the saved identity goes, the connection ends, and the lobby is the lobby of somebody who is not here", async () => {
+  it("ends a guest session from the menu, forgetting the identity and leaving the room", async () => {
     stubBackend({ providers: ["google"] });
     const { user, server } = setup();
     await joinRoom(user);
@@ -153,14 +285,7 @@ describe("signing in from the lobby", () => {
       await screen.findByRole("button", { name: "Account menu: Alice" }),
     );
     await user.click(
-      await screen.findByRole("menuitem", { name: "Your profile" }),
-    );
-    expect(loadSession()).not.toBeNull();
-
-    await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Sign out",
-      }),
+      await screen.findByRole("menuitem", { name: "End guest session" }),
     );
 
     expect(
@@ -174,6 +299,143 @@ describe("signing in from the lobby", () => {
       ).toBeNull(),
     );
     expect(screen.queryByRole("button", { name: /^Account menu:/ })).toBeNull();
+  });
+});
+
+describe("password sign-in and claiming", () => {
+  it("offers providers in the same sign-in dialog", async () => {
+    stubBackend({ providers: ["google", "discord"] });
+    const { user } = setup();
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
+    const dialog = within(
+      await screen.findByRole("dialog", { name: "Sign in" }),
+    );
+    expect(
+      await dialog.findByRole("link", { name: "Continue with Google" }),
+    ).toHaveAttribute("href", expect.stringContaining("/auth/google/start"));
+    expect(
+      await dialog.findByRole("link", { name: "Continue with Discord" }),
+    ).toBeVisible();
+    expect(dialog.getByLabelText("Username or email")).toBeVisible();
+  });
+
+  it("signs a member in by username and hides the header sign-in", async () => {
+    const login = vi.fn(() => ({
+      body: { ...accountSession(), provider: "password" },
+    }));
+    stubBackend({ login });
+    const { user } = setup();
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    await user.type(dialog.getByLabelText("Username or email"), "alice_w");
+    await user.type(
+      dialog.getByLabelText("Password"),
+      "a private long password",
+    );
+    await user.click(dialog.getByRole("button", { name: "Sign in" }));
+    expect(
+      await screen.findByRole("button", { name: "Account menu: Alice" }),
+    ).toBeVisible();
+    expect(login).toHaveBeenCalledWith({
+      username: "alice_w",
+      password: "a private long password",
+    });
+    expect(loadAccount()?.provider).toBe("password");
+    expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
+  });
+
+  it("requires matching passwords before submitting a guest claim", async () => {
+    stubBackend();
+    const { user, server } = setup();
+    await joinRoom(user);
+    await user.click(
+      await screen.findByRole("button", { name: "Account menu: Alice" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Your profile" }),
+    );
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Claim account",
+      }),
+    );
+    const dialog = within(
+      await screen.findByRole("dialog", { name: "Claim account" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("dialog", { name: "Claim account" }),
+      ).toHaveFocus(),
+    );
+    await user.type(
+      dialog.getByLabelText("Password"),
+      "a private long password",
+    );
+    expect(dialog.getByLabelText("Password")).toHaveValue(
+      "a private long password",
+    );
+    await user.type(
+      dialog.getByLabelText("Confirm password"),
+      "another password",
+    );
+    await user.click(dialog.getByRole("button", { name: "Claim account" }));
+    expect(await dialog.findByRole("alert")).toHaveTextContent(
+      "The passwords do not match",
+    );
+    expect(server.latest.emittedEvents("account:claim")).toEqual([]);
+    expect(loadAccount()).toBeNull();
+  });
+
+  it("converts a guest in place, remembers their account, and never stores the password", async () => {
+    stubBackend({
+      me: () => ({ body: { ...accountSession(), provider: "password" } }),
+    });
+    const { user, server } = setup();
+    await joinRoom(user);
+    const guest = server.latest;
+    guest.acks["account:claim"] = () => ({
+      ok: true,
+      account: { ...accountSession(), provider: "password" },
+    });
+    await user.click(
+      await screen.findByRole("button", { name: "Account menu: Alice" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Claim account" }),
+    );
+    const dialog = within(
+      await screen.findByRole("dialog", { name: "Claim account" }),
+    );
+    await user.type(
+      dialog.getByLabelText("Password"),
+      "a private long password",
+    );
+    await user.type(
+      dialog.getByLabelText("Confirm password"),
+      "a private long password",
+    );
+    await user.click(dialog.getByRole("button", { name: "Claim account" }));
+    await waitFor(() => expect(loadAccount()?.provider).toBe("password"));
+    expect(guest.emittedEvents("account:claim")).toEqual([
+      {
+        username: "Alice",
+        password: "a private long password",
+        confirmation: "a private long password",
+      },
+    ]);
+    await waitFor(() => expect(server.latest.role).toBe("member"));
+    expect(server.latest.emittedEvents("room:join")).toContainEqual({
+      slug: "general",
+    });
+    expect(JSON.stringify(loadAccount())).not.toContain(
+      "a private long password",
+    );
+    expect(JSON.stringify(loadSession())).not.toContain(
+      "a private long password",
+    );
+    expect(
+      await screen.findByRole("dialog", { name: "Your profile" }),
+    ).toBeVisible();
   });
 });
 
@@ -263,9 +525,7 @@ describe("somebody signed in", () => {
     expect(dialog.getByText("Signed in with")).toBeInTheDocument();
     expect(dialog.getByText("alice_w")).toBeInTheDocument();
     expect(dialog.getByText("Not specified")).toBeInTheDocument();
-    expect(
-      dialog.getByRole("button", { name: "Sign out" }),
-    ).toBeInTheDocument();
+    expect(dialog.queryByRole("button", { name: "Sign out" })).toBeNull();
     expect(dialog.queryByRole("link", { name: /Continue with/ })).toBeNull();
     // The profile can still be changed, like a guest's: the name the chat shows, and the picture.
     await user.click(dialog.getByRole("button", { name: "Edit profile" }));
@@ -425,13 +685,7 @@ describe("somebody signed in", () => {
         await screen.findByRole("button", { name: "Account menu: Alice" }),
       );
       await user.click(
-        await screen.findByRole("menuitem", { name: "Your profile" }),
-      );
-
-      await user.click(
-        within(await screen.findByRole("dialog")).getByRole("button", {
-          name: "Sign out",
-        }),
+        await screen.findByRole("menuitem", { name: "Sign out" }),
       );
 
       expect(
@@ -453,13 +707,7 @@ describe("somebody signed in", () => {
         await screen.findByRole("button", { name: "Account menu: Alice" }),
       );
       await user.click(
-        await screen.findByRole("menuitem", { name: "Your profile" }),
-      );
-
-      await user.click(
-        within(await screen.findByRole("dialog")).getByRole("button", {
-          name: "Sign out",
-        }),
+        await screen.findByRole("menuitem", { name: "Sign out" }),
       );
 
       await waitFor(() =>
@@ -497,7 +745,7 @@ describe("somebody signed in", () => {
       ).toBeInTheDocument();
       await user.click(dialog.getByRole("button", { name: "Cancel" }));
       expect(
-        dialog.getByRole("button", { name: "Sign out" }),
+        dialog.getByRole("button", { name: "Delete my account" }),
       ).toBeInTheDocument();
       expect(loadAccount()).not.toBeNull();
     });

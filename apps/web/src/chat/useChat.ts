@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useDirectChat } from "./useDirectChat";
 import { useChatProfile } from "./useChatProfile";
+import { AccountError, parseAccountSession, type PasswordClaim } from "../api";
 import {
   eventsFromHistory,
   mergeEvents,
@@ -771,6 +772,14 @@ export function useChat(
     reportMessage,
     sendAnnouncement,
     updateProfile,
+    claimAccount: async (input: PasswordClaim) => {
+      const ack = await emitWithAck("account:claim", input);
+      if (!ack.ok)
+        throw new AccountError(
+          ack.error === "rate_limited" ? "too_many_attempts" : ack.error,
+        );
+      return parseAccountSession(ack.account);
+    },
     dismissAnnouncement,
     disconnect,
     clearError,

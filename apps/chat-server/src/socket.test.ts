@@ -63,6 +63,11 @@ const {
   updateUser: vi.fn(),
 }));
 
+const claimGuestAccount = vi.hoisted(() => vi.fn());
+vi.mock("./passwordAccounts.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./passwordAccounts.js")>()),
+  claimGuestAccount,
+}));
 vi.mock("./redis.js", () => ({ pubClient: {}, subClient: {} }));
 vi.mock("./members.js", async () => {
   const { normalizeName } =
@@ -288,6 +293,7 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
+  claimGuestAccount.mockReset().mockResolvedValue({ token: "member-token" });
   isBanned.mockReset().mockResolvedValue(false);
   getCachedPublicRooms.mockReset().mockResolvedValue(ROOMS);
   recordMessage.mockReset().mockResolvedValue(undefined);
@@ -323,6 +329,99 @@ afterEach(async () => {
   clients = [];
   // Otherwise members left over from one test show up in the next test's presence lists.
   await waitForNoSockets();
+});
+
+describe("guest account claiming", () => {
+  const secret = "a-secret-that-is-long-enough-for-tests";
+  const input = {
+    username: "alice",
+    password: "a long private password",
+    confirmation: "a long private password",
+    nickname: "Someone Else",
+  };
+
+  it("uses the live socket profile rather than client-supplied profile fields", async () => {
+    const { port } = await startServer({ authTokenSecret: secret });
+    const socket = await connectGuest("Alice", port);
+    const result = await emit(socket, "account:claim", input);
+    expect(result).toEqual({ ok: true, account: { token: "member-token" } });
+    expect(claimGuestAccount).toHaveBeenCalledWith(
+      input,
+      expect.objectContaining({ nickname: "Alice", role: "guest" }),
+      secret,
+    );
+    expect(await emit(socket, "account:claim", input)).toEqual({
+      ok: false,
+      error: "forbidden",
+    });
+    expect(claimGuestAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses claiming when member sessions are disabled", async () => {
+    const { port } = await startServer({ authTokenSecret: "" });
+    const socket = await connectGuest("Alice", port);
+    expect(await emit(socket, "account:claim", input)).toEqual({
+      ok: false,
+      error: "forbidden",
+    });
+    expect(claimGuestAccount).not.toHaveBeenCalled();
+  });
+
+  it("does not let a moderator claim a guest profile", async () => {
+    const { port } = await startServer({ authTokenSecret: secret });
+    const token = signToken(
+      { sub: 7, name: "Ada Mod", role: "moderator" },
+      { secret, ttlMs: 60_000 },
+    );
+    const { socket } = await connect({ token }, port);
+    expect(socket).toBeDefined();
+    expect(await emit(socket!, "account:claim", input)).toEqual({
+      ok: false,
+      error: "forbidden",
+    });
+    expect(claimGuestAccount).not.toHaveBeenCalled();
+  });
+
+  it("rejects parallel claims before doing more password work", async () => {
+    let finish!: (value: unknown) => void;
+    claimGuestAccount.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { port } = await startServer({ authTokenSecret: secret });
+    const socket = await connectGuest("Alice", port);
+    const first = emit(socket, "account:claim", input);
+    await vi.waitFor(() => expect(claimGuestAccount).toHaveBeenCalledTimes(1));
+    expect(await emit(socket, "account:claim", input)).toEqual({
+      ok: false,
+      error: "forbidden",
+    });
+    finish({ token: "member-token" });
+    expect(await first).toMatchObject({ ok: true });
+  });
+
+  it("keeps the per-IP attempt limit across reconnects", async () => {
+    const { PasswordAccountError } = await import("./passwordAccounts.js");
+    claimGuestAccount.mockRejectedValue(
+      new PasswordAccountError("password_mismatch"),
+    );
+    const { port } = await startServer({ authTokenSecret: secret });
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const socket = await connectGuest("Alice", port);
+      expect(await emit(socket, "account:claim", input)).toMatchObject({
+        error: "password_mismatch",
+      });
+      socket.disconnect();
+    }
+    const socket = await connectGuest("Alice", port);
+    expect(await emit(socket, "account:claim", input)).toMatchObject({
+      ok: false,
+      error: "rate_limited",
+    });
+    expect(claimGuestAccount).toHaveBeenCalledTimes(5);
+  });
 });
 
 describe("handshake", () => {

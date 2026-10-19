@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { LogIn } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   Link,
@@ -13,8 +14,11 @@ import {
   fetchAccount,
   SignInError,
   signInModerator,
+  signInPassword,
   updateAccountProfile,
   type Room,
+  type AccountSession,
+  type PasswordClaim,
 } from "./api";
 import {
   accountOf,
@@ -30,8 +34,10 @@ import { useChat } from "./chat/useChat";
 import { AboutPage } from "./components/AboutPage";
 import { createTabCoordinator, type TabCoordinator } from "./activeTab";
 import { AdminMenu } from "./components/AdminMenu";
+import { CreateAccountDialog } from "./components/AccountSection";
 import { AnnouncementBanner } from "./components/AnnouncementBanner";
 import { ChatRoom } from "./components/ChatRoom";
+import { Button } from "./components/Button";
 import { ErrorAlert } from "./components/ErrorAlert";
 import { InfoPanel } from "./components/InfoPanel";
 import { LegalLinks } from "./components/LegalLinks";
@@ -116,6 +122,7 @@ export function App({
   const [infoOpen, setInfoOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [createAccountOpen, setCreateAccountOpen] = useState(false);
   // Who is signed in with a provider, kept in this browser; null for a guest.
   const [account, setAccount] = useState<Account | null>(loadAccount);
   const [showMovements, setShowMovements] = useState(loadShowMovements);
@@ -269,6 +276,7 @@ export function App({
     clearSession();
     setProfileOpen(false);
     setAccountOpen(false);
+    setCreateAccountOpen(false);
     chat.disconnect();
   }
 
@@ -291,6 +299,11 @@ export function App({
   function closeProfile() {
     setProfileOpen(false);
     setAccountOpen(false);
+  }
+
+  function openAccountCreation() {
+    closeProfile();
+    setCreateAccountOpen(true);
   }
 
   // Who the profile dialog shows: whoever is connected, in a room or not, and otherwise the account's.
@@ -365,12 +378,49 @@ export function App({
     if (joined.ok || joined.error !== NAME_TAKEN) setPendingRoom(null);
   }
 
+  async function acceptMember(session: AccountSession) {
+    const member = accountOf(session);
+    saveAccount(member);
+    setAccount(member);
+    const slug = chat.roomSlug;
+    const direct = loadDirect();
+    if (
+      !(await chat.connect(member.nickname, {
+        token: member.token,
+        previousGuestIds: chat.guestIds(),
+        threads: direct.threads,
+        blockedIds: direct.blockedIds,
+        openGuestId: direct.openGuestId,
+      }))
+    )
+      throw new AccountError("connection");
+    saveSession({
+      nickname: member.nickname,
+      token: member.token,
+      guestIds: chat.guestIds(),
+      ...resumeDetails(),
+    });
+    if (slug) await chat.joinRoom(slug);
+  }
+
+  async function claimAccount(input: PasswordClaim) {
+    await acceptMember(await chat.claimAccount(input));
+    setCreateAccountOpen(false);
+    setProfileOpen(true);
+  }
+
   async function handleSignIn(email: string, password: string) {
     setSignInError(null);
     chat.clearError();
     setSigningIn(true);
 
     try {
+      if (!email.includes("@")) {
+        await acceptMember(await signInPassword(email, password));
+        setModeratorOpen(false);
+        return;
+      }
+      const slug = chat.roomSlug;
       const moderator = await signInModerator(email, password);
 
       if (!(await chat.connect(moderator.name, { token: moderator.token })))
@@ -383,9 +433,14 @@ export function App({
         ...resumeDetails(),
       });
       saveModerator({ nickname: moderator.name, token: moderator.token });
+      if (slug) await chat.joinRoom(slug);
       setModeratorOpen(false);
     } catch (cause) {
-      setSignInError(cause instanceof SignInError ? cause.code : "connection");
+      setSignInError(
+        cause instanceof SignInError || cause instanceof AccountError
+          ? cause.code
+          : "connection",
+      );
     } finally {
       setSigningIn(false);
     }
@@ -782,6 +837,17 @@ export function App({
               />
             )}
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              {settled && !account && !chat.session && (
+                <Button
+                  icon={LogIn}
+                  onClick={() => {
+                    clearDialogErrors();
+                    setModeratorOpen(true);
+                  }}
+                >
+                  {t("nickname.signIn")}
+                </Button>
+              )}
               {chat.session?.admin && (
                 <AdminMenu
                   room={testRoom}
@@ -803,10 +869,18 @@ export function App({
                           detail:
                             chat.session.role === "member"
                               ? account?.username
-                              : undefined,
+                              : chat.session.role === "guest"
+                                ? t("account.guest")
+                                : undefined,
                           avatar: chat.session.avatar,
                           picture: chat.session.picture,
                           moderator: chat.session.role === "moderator",
+                          guest: chat.session.role === "guest",
+                          onCreateAccount: openAccountCreation,
+                          onSignIn: () => {
+                            clearDialogErrors();
+                            setModeratorOpen(true);
+                          },
                           onProfile: () => setProfileOpen(true),
                           onSignOut: signOut,
                         }
@@ -884,16 +958,7 @@ export function App({
                 onRetry={retry}
                 onSelect={(room) => void handleSelect(room)}
               />
-              <LegalLinks
-                onModeratorSignIn={
-                  chat.status === "connected"
-                    ? undefined
-                    : () => {
-                        clearDialogErrors();
-                        setModeratorOpen(true);
-                      }
-                }
-              />
+              <LegalLinks />
             </div>
           )}
         </ViewTransition>
@@ -914,9 +979,17 @@ export function App({
           profile={profile}
           onSave={saveProfile}
           account={account}
-          returnPath={location.pathname}
-          onSignOut={signOut}
           onDelete={deleteMyAccount}
+          onCreateAccount={openAccountCreation}
+        />
+      )}
+
+      {createAccountOpen && profile?.role === "guest" && (
+        <CreateAccountDialog
+          nickname={profile.nickname}
+          returnPath={location.pathname}
+          onClaim={claimAccount}
+          onClose={() => setCreateAccountOpen(false)}
         />
       )}
 
@@ -944,6 +1017,7 @@ export function App({
 
       {moderatorOpen && (
         <ModeratorDialog
+          returnPath={location.pathname}
           signingIn={signingIn}
           error={signInError ?? chat.error}
           onSignIn={(email, password) => void handleSignIn(email, password)}

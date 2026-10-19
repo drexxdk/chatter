@@ -18,11 +18,14 @@ export const providerName = (id: string) => PROVIDER_NAMES[id] ?? id;
 // A provider as the logo and the name, for saying which one somebody is signed in through.
 export function ProviderLabel({ provider }: { provider: string }) {
   const Icon = providerIcon(provider);
+  const { t } = useTranslation();
 
   return (
     <span className="inline-flex items-center gap-1.5">
       <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
-      {providerName(provider)}
+      {provider === "password"
+        ? t("nickname.password")
+        : providerName(provider)}
     </span>
   );
 }
@@ -55,7 +58,7 @@ export function AccountOptions({
   className,
 }: {
   returnPath: string;
-  intro: string;
+  intro?: string;
   // A line with this word between the buttons and whatever follows, shown only with the buttons.
   divider?: string;
   className?: string;
@@ -67,7 +70,7 @@ export function AccountOptions({
 
   return (
     <div className={`space-y-2 ${className ?? ""}`}>
-      <p className="text-sm text-neutral-400">{intro}</p>
+      {intro && <p className="text-sm text-neutral-400">{intro}</p>}
       <div className="flex flex-wrap gap-2">
         {providers.map((provider) => (
           <ButtonLink
@@ -85,7 +88,7 @@ export function AccountOptions({
         ))}
       </div>
       {divider && (
-        <p className="flex items-center gap-3 pt-2 text-sm text-neutral-400 before:h-px before:flex-1 before:bg-neutral-800 after:h-px after:flex-1 after:bg-neutral-800">
+        <p className="flex items-center gap-3 pt-2 text-sm text-neutral-400 before:h-px before:flex-1 before:bg-neutral-700 after:h-px after:flex-1 after:bg-neutral-700">
           {divider}
         </p>
       )}

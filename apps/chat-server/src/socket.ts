@@ -42,6 +42,8 @@ import {
 import { MAX_MESSAGE_LENGTH, slidingWindow } from "./limits.js";
 import { isMemberName } from "./members.js";
 import { handleProfileUpdate } from "./socketProfile.js";
+import { claimGuestAccount, PasswordAccountError } from "./passwordAccounts.js";
+import { withProfileLock } from "./profileLock.js";
 import {
   getModerators,
   getModeratorNames,
@@ -265,6 +267,7 @@ export function createSocketServer(
   const trustedProxyHops = options.trustedProxyHops ?? env.TRUST_PROXY_HOPS;
   // Live connections per hashed IP on this process; with several nodes the cap applies to each separately.
   const connectionsPerIp = new Map<string, number>();
+  const claimAttempts = new Map<string, number[]>();
   // The secret each connection was given for resuming its identity. Kept out of the socket's data on purpose: that
   // is copied between nodes, and this belongs to the one client it was sent to.
   const resumeSecrets = new WeakMap<object, string>();
@@ -699,6 +702,8 @@ export function createSocketServer(
 
   io.on("connection", (socket) => {
     const data = socket.data as SocketData;
+    let claiming = false;
+    let claimed = false;
 
     // First, so the slot reserved in the middleware is always given back.
     socket.on("disconnect", () => {
@@ -1120,6 +1125,56 @@ export function createSocketServer(
     // A guest or a member changes who they are shown as: the name, the avatar and the age, each only when it is in the
     // payload (an age of null takes it back). Everything is checked before anything changes, and a member's change is
     // kept in their account. A moderator's name belongs to their account, so they cannot.
+    socket.on("account:claim", async (payload: unknown, ack?: Ack) => {
+      const reply = ackOf(ack);
+      if (data.role !== "guest" || !authTokenSecret)
+        return reply({ ok: false, error: "forbidden" });
+      if (claiming || claimed) return reply({ ok: false, error: "forbidden" });
+      const now = Date.now();
+      for (const [ip, attempts] of claimAttempts) {
+        if ((attempts.at(-1) ?? 0) <= now - 60_000) claimAttempts.delete(ip);
+      }
+      const limit = slidingWindow(
+        claimAttempts.get(data.ipHash) ?? [],
+        now,
+        60_000,
+        5,
+      );
+      claimAttempts.set(data.ipHash, limit.recent);
+      if (limit.waitMs > 0)
+        return reply({
+          ok: false,
+          error: "rate_limited",
+          retryAfterMs: limit.waitMs,
+        });
+      limit.recent.push(now);
+      claiming = true;
+      try {
+        await withProfileLock(`socket:${socket.id}`, async () => {
+          if (!socket.connected) return;
+          const account = await claimGuestAccount(
+            payload,
+            data,
+            authTokenSecret,
+          );
+          claimed = true;
+          reply({ ok: true, account });
+        });
+      } catch (error) {
+        if (!(error instanceof PasswordAccountError))
+          log.error("Failed to claim guest account");
+        reply({
+          ok: false,
+          error:
+            error instanceof PasswordAccountError
+              ? error.message
+              : "unavailable",
+        });
+      } finally {
+        claiming = false;
+      }
+    });
+
     socket.on(PROFILE_UPDATE_EVENT, (payload: unknown, ack?: Ack) =>
       handleProfileUpdate(payload, ackOf(ack), {
         socket,

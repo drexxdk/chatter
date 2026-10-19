@@ -432,9 +432,7 @@ describe("signing in as a moderator", () => {
     const user = userEvent.setup();
     render(<App createSocket={makeFakeServer({ others: [] }).createSocket} />);
 
-    await user.click(
-      await screen.findByRole("button", { name: "Sign in as moderator" }),
-    );
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
 
     expect(screen.queryByRole("checkbox")).toBeNull();
   });

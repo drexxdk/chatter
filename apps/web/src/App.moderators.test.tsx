@@ -45,10 +45,8 @@ describe("moderators", () => {
   }
 
   async function openDialog(user: ReturnType<typeof userEvent.setup>) {
-    await user.click(
-      await screen.findByRole("button", { name: "Sign in as moderator" }),
-    );
-    await screen.findByLabelText("Email");
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
+    await screen.findByLabelText("Username or email");
   }
 
   async function signIn(
@@ -57,9 +55,13 @@ describe("moderators", () => {
     password = "correct horse",
   ) {
     await openDialog(user);
-    await user.type(screen.getByLabelText("Email"), email);
+    await user.type(screen.getByLabelText("Username or email"), email);
     await user.type(screen.getByLabelText("Password"), password);
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Sign in",
+      }),
+    );
   }
 
   // Signing in leaves the moderator in the lobby, connected; a room is joined from there.
@@ -75,7 +77,7 @@ describe("moderators", () => {
   }
 
   describe("the dialog", () => {
-    it("is opened from a link below the rooms, not from the dialog for joining one", async () => {
+    it("keeps the header sign-in separate from the dialog for joining a room", async () => {
       stubBackend(accepted);
       const { user } = setup();
       await user.click(
@@ -84,7 +86,7 @@ describe("moderators", () => {
       await screen.findByLabelText("Nickname");
 
       expect(
-        screen.queryByRole("button", { name: "Sign in as moderator" }),
+        screen.queryByRole("button", { name: "Sign in" }),
       ).not.toBeInTheDocument();
     });
 
@@ -93,7 +95,7 @@ describe("moderators", () => {
       const { user } = setup();
       await openDialog(user);
 
-      expect(screen.getByLabelText("Email")).toBeInTheDocument();
+      expect(screen.getByLabelText("Username or email")).toBeInTheDocument();
       expect(screen.getByLabelText("Password")).toHaveAttribute(
         "type",
         "password",
@@ -168,7 +170,7 @@ describe("moderators", () => {
       [
         "wrong credentials",
         refused(401, "invalid_credentials"),
-        "Wrong email or password.",
+        "Wrong username, email or password.",
       ],
       [
         "an account that cannot moderate",
@@ -204,7 +206,9 @@ describe("moderators", () => {
         await signIn(user);
 
         expect(await screen.findByRole("alert")).toHaveTextContent(text);
-        expect(screen.getByLabelText("Email")).toHaveValue("ada@example.com");
+        expect(screen.getByLabelText("Username or email")).toHaveValue(
+          "ada@example.com",
+        );
         expect(server.createSocket).not.toHaveBeenCalled();
       },
     );
@@ -433,10 +437,10 @@ describe("announcements", () => {
     );
     const result = setup();
     await result.user.click(
-      await screen.findByRole("button", { name: "Sign in as moderator" }),
+      await screen.findByRole("button", { name: "Sign in" }),
     );
     await result.user.type(
-      await screen.findByLabelText("Email"),
+      await screen.findByLabelText("Username or email"),
       "ada@example.com",
     );
     await result.user.type(screen.getByLabelText("Password"), "correct horse");

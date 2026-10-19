@@ -1225,11 +1225,13 @@ test("a moderator signs in, and guests see their messages stand out", async ({
     const moderator = await newGuest(browser);
     await moderator.goto("/");
     await moderator
-      .getByRole("button", { name: "Sign in as moderator" })
+      .getByRole("button", { name: "Sign in", exact: true })
       .click();
 
     // A wrong password is explained and nothing is joined.
-    await moderator.getByRole("textbox", { name: "Email" }).fill(email);
+    await moderator
+      .getByRole("textbox", { name: "Username or email" })
+      .fill(email);
     await moderator.getByLabel("Password").fill("not the password");
     await moderator.getByRole("button", { name: "Sign in" }).click();
     await expect(moderator.getByRole("dialog").getByRole("alert")).toHaveText(
@@ -1299,9 +1301,11 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
     const moderator = await newGuest(browser);
     await moderator.goto("/");
     await moderator
-      .getByRole("button", { name: "Sign in as moderator" })
+      .getByRole("button", { name: "Sign in", exact: true })
       .click();
-    await moderator.getByRole("textbox", { name: "Email" }).fill(email);
+    await moderator
+      .getByRole("textbox", { name: "Username or email" })
+      .fill(email);
     await moderator.getByLabel("Password").fill(password);
     await moderator.getByRole("button", { name: "Sign in" }).click();
     // Signing in leaves the moderator in the lobby; the room is joined from there.
@@ -1457,9 +1461,11 @@ test("a moderator's report hides a message for everybody at once", async ({
     const moderator = await newGuest(browser);
     await moderator.goto("/");
     await moderator
-      .getByRole("button", { name: "Sign in as moderator" })
+      .getByRole("button", { name: "Sign in", exact: true })
       .click();
-    await moderator.getByRole("textbox", { name: "Email" }).fill(email);
+    await moderator
+      .getByRole("textbox", { name: "Username or email" })
+      .fill(email);
     await moderator.getByLabel("Password").fill(password);
     await moderator.getByRole("button", { name: "Sign in" }).click();
     // Signing in leaves the moderator in the lobby; the room is joined from there.
@@ -1538,9 +1544,11 @@ test("a moderator whose account is removed is signed out", async ({
     await enterRoom(guest, LOUNGE.name, `Guest ${unique}`);
     await moderator.goto("/");
     await moderator
-      .getByRole("button", { name: "Sign in as moderator" })
+      .getByRole("button", { name: "Sign in", exact: true })
       .click();
-    await moderator.getByRole("textbox", { name: "Email" }).fill(email);
+    await moderator
+      .getByRole("textbox", { name: "Username or email" })
+      .fill(email);
     await moderator.getByLabel("Password").fill(password);
     await moderator.getByRole("button", { name: "Sign in" }).click();
     // Signing in leaves the moderator in the lobby; the room is joined from there.

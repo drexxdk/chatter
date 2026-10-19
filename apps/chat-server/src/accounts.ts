@@ -11,6 +11,8 @@ import { cacheMemberNames, isMemberName } from "./members.js";
 import { withMemberNamesLock } from "./memberNamesLock.js";
 import { saveMemberProfile, validateProfileUpdate } from "./memberProfile.js";
 import { withProfileLock } from "./profileLock.js";
+import { MEMBER_TOKEN_TTL_MS, profileOf } from "./memberSession.js";
+import { PasswordAccountError, signInPassword } from "./passwordAccounts.js";
 import {
   getModeratorNames,
   isReservedNickname,
@@ -39,7 +41,7 @@ import { signToken, verifyToken } from "./tokens.js";
 
 // How long an account stays signed in on a browser; /me hands out a fresh token each time the page opens, so somebody who
 // keeps coming back stays in.
-export const MEMBER_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000;
+export { MEMBER_TOKEN_TTL_MS, profileOf } from "./memberSession.js";
 // How long a person has to choose a nickname after the provider has vouched for them.
 const TICKET_TTL_MS = 15 * 60_000;
 const MAX_RETURN_PATH_LENGTH = 200;
@@ -71,16 +73,6 @@ export function safeReturnPath(value: unknown): string {
 }
 
 // What the browser is told about an account: `nickname` is the name the chat shows, `username` the handle that is theirs.
-export function profileOf(user: UserRecord) {
-  return {
-    nickname: user.displayName,
-    username: user.nickname,
-    ...(user.picture === undefined ? {} : { picture: user.picture }),
-    avatar: user.avatar,
-    ...(user.age === undefined ? {} : { age: user.age }),
-  };
-}
-
 // The names nobody may take: a moderator's, one that claims to be staff, and one an account has. A name that is not
 // valid (null) is refused as such.
 async function nameRefusal(
@@ -159,6 +151,25 @@ export function createAccountsRouter(options: {
   router.get("/auth/providers", listLimiter, (_req, res) => {
     res.json({ providers: enabledProviders(secret) });
   });
+
+  router.post(
+    "/auth/password/login",
+    limiter,
+    express.json({ limit: "4kb" }),
+    async (req, res) => {
+      if (!secret) return res.status(503).json({ error: "unavailable" });
+      try {
+        const session = await signInPassword(req.body, secret);
+        res.set("Cache-Control", "no-store").json(session);
+      } catch (error) {
+        if (error instanceof PasswordAccountError) {
+          return res.status(401).json({ error: "invalid_credentials" });
+        }
+        log.error("Password sign-in unavailable");
+        res.status(503).json({ error: "unavailable" });
+      }
+    },
+  );
 
   router.get("/auth/:provider/start", limiter, async (req, res) => {
     const provider = req.params.provider;

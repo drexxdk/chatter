@@ -10,8 +10,10 @@ import {
   DoorClosed,
   DoorOpen,
   Info,
+  LogIn,
   Menu as MenuIcon,
   User,
+  UserPlus,
 } from "lucide-react";
 import { Check } from "lucide-react";
 import { DE, DK, GB } from "country-flag-icons/react/3x2";
@@ -46,6 +48,9 @@ export interface MenuProfile {
   avatar?: Avatar;
   picture?: string;
   moderator?: boolean;
+  guest?: boolean;
+  onSignIn?: () => void;
+  onCreateAccount?: () => void;
   onProfile: () => void;
   onSignOut: () => void;
 }
@@ -125,6 +130,36 @@ export function MainMenu({
                       {t("profile.title")}
                     </button>
                   </MenuItem>
+                  {profile.guest && profile.onCreateAccount && (
+                    <MenuItem>
+                      <button
+                        type="button"
+                        onClick={profile.onCreateAccount}
+                        className={item}
+                      >
+                        <UserPlus
+                          aria-hidden="true"
+                          className="h-5 w-5 shrink-0"
+                        />
+                        {t("account.claimTitle")}
+                      </button>
+                    </MenuItem>
+                  )}
+                  {profile.guest && profile.onSignIn && (
+                    <MenuItem>
+                      <button
+                        type="button"
+                        onClick={profile.onSignIn}
+                        className={item}
+                      >
+                        <LogIn
+                          aria-hidden="true"
+                          className="h-5 w-5 shrink-0"
+                        />
+                        {t("account.signInExisting")}
+                      </button>
+                    </MenuItem>
+                  )}
                 </MenuSection>
               </>
             )}
@@ -186,7 +221,11 @@ export function MainMenu({
                     className={item}
                   >
                     <DoorOpen aria-hidden="true" className="h-5 w-5 shrink-0" />
-                    {t("account.signOut")}
+                    {t(
+                      profile.guest
+                        ? "account.endGuestSession"
+                        : "account.signOut",
+                    )}
                   </button>
                 </MenuItem>
               </MenuSection>

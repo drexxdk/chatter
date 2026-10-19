@@ -407,6 +407,7 @@ const userSchema = z
     id: z.number(),
     provider: z.string(),
     providerUserId: z.string(),
+    passwordHash: z.string().nullish(),
     email: z.string().nullish(),
     nickname: z.string().min(1),
     nicknameKey: z.string().min(1),
@@ -430,13 +431,14 @@ export type UserRecord = z.infer<typeof userSchema>;
 export interface NewUser {
   provider: string;
   providerUserId: string;
+  passwordHash?: string;
   email?: string;
   emailVerified?: boolean;
   nickname: string;
   nicknameKey: string;
   displayName: string;
   displayNameKey: string;
-  picture: string;
+  picture?: string;
   avatar: Avatar;
   age?: number;
 }
@@ -493,6 +495,22 @@ function isNameClaimTaken(error: unknown): boolean {
   }
 }
 
+export async function findPasswordUser(
+  usernameKey: string,
+): Promise<UserRecord | undefined> {
+  const query = new URLSearchParams({
+    "where[provider][equals]": "password",
+    "where[nicknameKey][equals]": usernameKey,
+    limit: "1",
+    depth: "0",
+  });
+  const data = await payloadFetch(
+    `/api/users?${query}`,
+    z.object({ docs: z.array(userSchema) }),
+  );
+  return data.docs[0];
+}
+
 export async function findUserByIdentity(
   identity: string,
 ): Promise<UserRecord | undefined> {
@@ -533,6 +551,7 @@ export async function createUser(user: NewUser): Promise<UserRecord> {
         provider: user.provider,
         providerUserId: user.providerUserId,
         identity: `${user.provider}:${user.providerUserId}`,
+        ...(user.passwordHash ? { passwordHash: user.passwordHash } : {}),
         email: user.email,
         emailVerified: user.emailVerified ?? false,
         nickname: user.nickname,

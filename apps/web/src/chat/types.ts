@@ -103,7 +103,7 @@ export const REPORT_REASONS = [
 export type ReportReason = (typeof REPORT_REASONS)[number];
 
 export type Ack =
-  | { ok: true; history?: unknown; profile?: unknown }
+  | { ok: true; history?: unknown; profile?: unknown; account?: unknown }
   | { ok: false; error: string; retryAfterMs?: number };
 
 export function toResult(ack: Ack): ActionResult {
