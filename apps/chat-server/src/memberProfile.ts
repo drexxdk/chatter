@@ -1,6 +1,6 @@
 import type { Avatar } from "./avatars.js";
 import { log } from "./log.js";
-import { claimMemberName, isMemberName, releaseMemberName } from "./members.js";
+import { cacheMemberNames, isMemberName } from "./members.js";
 import { withMemberNamesLock } from "./memberNamesLock.js";
 import { normalizeName } from "./names.js";
 import { isTaken, updateUser } from "./payloadClient.js";
@@ -43,12 +43,11 @@ export async function saveMemberProfile(
     }
 
     if (normalizeName(profile.nickname) !== normalizeName(oldNickname)) {
-      // The list is a copy; the account is what counts, so a failure here only waits for the next sync.
-      await claimMemberName(memberId, profile.nickname).catch(() => undefined);
-
-      if (normalizeName(oldNickname) !== normalizeName(username)) {
-        await releaseMemberName(memberId, oldNickname).catch(() => undefined);
-      }
+      await cacheMemberNames(
+        memberId,
+        [username, profile.nickname],
+        [oldNickname],
+      );
     }
 
     return undefined;

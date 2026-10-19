@@ -7,7 +7,7 @@ import { avatarSchema, parseAvatar, parsePicture } from "./avatars.js";
 import { env } from "./env.js";
 import { validateNickname, validateUsername } from "./identity.js";
 import { log } from "./log.js";
-import { claimMemberName, isMemberName, releaseMemberName } from "./members.js";
+import { cacheMemberNames, isMemberName } from "./members.js";
 import { withMemberNamesLock } from "./memberNamesLock.js";
 import { saveMemberProfile } from "./memberProfile.js";
 import {
@@ -95,12 +95,6 @@ async function nameRefusal(
   }
 
   return undefined;
-}
-
-// Both names are the account's, so neither the chat nor another account can take them.
-async function claimNames(user: UserRecord): Promise<void> {
-  await claimMemberName(user.id, user.nickname).catch(() => undefined);
-  await claimMemberName(user.id, user.displayName).catch(() => undefined);
 }
 
 export function createAccountsRouter(options: {
@@ -243,7 +237,10 @@ export function createAccountsRouter(options: {
           await updateUser(account.id, {
             lastLoginAt: new Date().toISOString(),
           }).catch((error) => log.error("Failed to note the sign-in", error));
-          await claimNames(account);
+          await cacheMemberNames(account.id, [
+            account.nickname,
+            account.displayName,
+          ]);
         }
 
         return account;
@@ -367,7 +364,7 @@ export function createAccountsRouter(options: {
             if (!user) throw error;
           }
 
-          await claimNames(user);
+          await cacheMemberNames(user.id, [user.nickname, user.displayName]);
 
           res.json({
             token: tokenFor(user),
@@ -498,10 +495,7 @@ export function createAccountsRouter(options: {
 
       try {
         await deleteUser(user.id);
-        await releaseMemberName(user.id, user.nickname).catch(() => undefined);
-        await releaseMemberName(user.id, user.displayName).catch(
-          () => undefined,
-        );
+        await cacheMemberNames(user.id, [], [user.nickname, user.displayName]);
         await Promise.resolve(options.onAccountRemoved?.(user.id)).catch(
           (error) => log.error("Failed to cut off a deleted account", error),
         );

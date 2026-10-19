@@ -13,7 +13,7 @@ from changes that need database migrations or broader integration work.
 - [x] Enforce the shared normalized username/display-name namespace in the
       database, transactionally, across every writer, using unique claims saved
       with each user.
-- [ ] Make cache-claim failure recovery explicit rather than silently accepting
+- [x] Make cache-claim failure recovery explicit rather than silently accepting
       failed claims after database writes.
 - [x] Derive normalized name keys at the Payload write boundary so admin edits
       cannot leave stale keys. Stop the admin watcher before schema changes and
@@ -86,7 +86,18 @@ from changes that need database migrations or broader integration work.
   passed. Both backend typechecks and lint passed; the migration drift check
   found no differences. Live HTTP checks confirmed service authentication,
   username/display-name conflicts, and the chat room API after restart.
-- Remaining: Redis is still a derived cache. Immediate cache-failure recovery,
-  prompt propagation of admin changes, and multi-server coordination of live
-  connections remain separate follow-up work; database account ownership no
-  longer depends on Redis or the process-local queue.
+- Production: deployed the matching backend code and applied the name-claim
+  migration. Both services were healthy; the unique index, backfilled claims,
+  live account conflicts, and public API were verified. No production reset was
+  needed. The ownership changes were subsequently committed and pushed as
+  `a8830a1`.
+- Cache recovery: registration, sign-in repairs, renames, and deletion now share
+  explicit error handling. Failed claims (including stale ownership) or releases
+  trigger an immediate database-backed rebuild. A failed rebuild is logged and
+  the periodic sync retries; successfully persisted writes remain successful.
+- Added five cache recovery regressions; all 437 focused cache/account/socket
+  tests passed. Avatar-only profile changes still avoid name-cache writes.
+- Remaining: Redis is still a derived cache. Prompt propagation of admin changes
+  and multi-server coordination of live connections remain separate follow-up
+  work; database account ownership no longer depends on Redis or the
+  process-local queue. The cache-recovery follow-up is not yet deployed.

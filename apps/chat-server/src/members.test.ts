@@ -47,18 +47,23 @@ vi.mock("./redis.js", () => {
 });
 
 const {
+  cacheMemberNames,
   claimMemberName,
   isMemberName,
   releaseMemberName,
   startMemberNamesSync,
 } = await import("./members.js");
+const { redis } = await import("./redis.js");
+const { log } = await import("./log.js");
 
 beforeEach(() => {
   redisState.hashes.clear();
   fetchUserNames.mockReset().mockResolvedValue([]);
+  vi.mocked(log.error).mockClear();
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -86,6 +91,83 @@ describe("the nicknames of the accounts", () => {
 
     await releaseMemberName(1, "Alice");
     expect(await isMemberName("Alice")).toBe(false);
+  });
+});
+
+describe("caching names after an account write", () => {
+  it("keeps the username while releasing only obsolete display names", async () => {
+    await claimMemberName(1, "Alice");
+    await claimMemberName(1, "Old Name");
+
+    await cacheMemberNames(1, ["Alice", "New Name"], ["ALICE", "Old Name"]);
+
+    expect(await isMemberName("Alice", 1)).toBe(false);
+    expect(await isMemberName("Alice")).toBe(true);
+    expect(await isMemberName("New Name")).toBe(true);
+    expect(await isMemberName("Old Name")).toBe(false);
+    expect(fetchUserNames).not.toHaveBeenCalled();
+    expect(log.error).not.toHaveBeenCalled();
+  });
+
+  it("repairs a stale owner from the authoritative database", async () => {
+    await claimMemberName(9, "Alice");
+    fetchUserNames.mockResolvedValue([{ id: 1, nicknameKey: "alice" }]);
+
+    await cacheMemberNames(1, ["Alice"]);
+
+    expect(await isMemberName("Alice", 1)).toBe(false);
+    expect(await isMemberName("Alice", 9)).toBe(true);
+    expect(fetchUserNames).toHaveBeenCalledTimes(1);
+    expect(log.error).toHaveBeenCalledTimes(1);
+  });
+
+  it("immediately rebuilds after a failed Redis claim", async () => {
+    fetchUserNames.mockResolvedValue([
+      { id: 1, nicknameKey: "alice", displayNameKey: "newname" },
+    ]);
+    vi.spyOn(redis, "hsetnx").mockRejectedValueOnce(
+      new Error("Redis unavailable"),
+    );
+
+    await cacheMemberNames(1, ["Alice", "New Name"]);
+
+    expect(await isMemberName("Alice")).toBe(true);
+    expect(await isMemberName("New Name", 1)).toBe(false);
+    expect(fetchUserNames).toHaveBeenCalledTimes(1);
+    expect(log.error).toHaveBeenCalledTimes(1);
+  });
+
+  it("repairs a failed release after account deletion", async () => {
+    await claimMemberName(1, "Alice");
+    vi.spyOn(redis, "hdel").mockRejectedValueOnce(
+      new Error("Redis unavailable"),
+    );
+
+    await cacheMemberNames(1, [], ["Alice"]);
+
+    expect(await isMemberName("Alice")).toBe(false);
+    expect(fetchUserNames).toHaveBeenCalledTimes(1);
+    expect(log.error).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fail the saved write if repair fails and recovers on the next sync", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(redis, "hsetnx").mockRejectedValueOnce(
+      new Error("Redis unavailable"),
+    );
+    fetchUserNames.mockRejectedValueOnce(new Error("Payload unavailable"));
+
+    await expect(cacheMemberNames(1, ["Alice"])).resolves.toBeUndefined();
+    expect(log.error).toHaveBeenCalledTimes(2);
+
+    fetchUserNames.mockResolvedValue([{ id: 1, nicknameKey: "alice" }]);
+    const timer = startMemberNamesSync();
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      expect(await isMemberName("Alice")).toBe(true);
+    } finally {
+      clearInterval(timer);
+    }
   });
 });
 

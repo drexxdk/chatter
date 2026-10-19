@@ -45,6 +45,42 @@ export async function releaseMemberName(
   }
 }
 
+export async function cacheMemberNames(
+  userId: number,
+  nicknames: string[],
+  previousNicknames: string[] = [],
+): Promise<void> {
+  const names = new Set(nicknames.map(normalizeName));
+
+  try {
+    for (const name of names) {
+      if (!(await claimMemberName(userId, name))) {
+        throw new Error(
+          "Cached account name ownership differs from the database",
+        );
+      }
+    }
+
+    for (const name of new Set(previousNicknames.map(normalizeName))) {
+      if (!names.has(name)) await releaseMemberName(userId, name);
+    }
+  } catch (error) {
+    log.error(
+      "Failed to cache account names; rebuilding from the database",
+      error,
+    );
+
+    try {
+      await syncMemberNames();
+    } catch (repairError) {
+      log.error(
+        "Failed to rebuild account names; periodic sync will retry",
+        repairError,
+      );
+    }
+  }
+}
+
 async function syncMemberNames(): Promise<void> {
   const names = await fetchUserNames();
   const fresh = `${KEY}:fresh`;

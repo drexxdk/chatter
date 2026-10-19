@@ -61,7 +61,7 @@ vi.mock("./members.js", async () => {
   const { normalizeName } =
     await vi.importActual<typeof import("./names.js")>("./names.js");
 
-  return {
+  const members = {
     isMemberName: async (nickname: string, exceptUserId?: number) => {
       const owner = accounts.names.get(normalizeName(nickname));
       return owner !== undefined && owner !== exceptUserId;
@@ -77,6 +77,22 @@ vi.mock("./members.js", async () => {
     releaseMemberName: async (userId: number, nickname: string) => {
       const key = normalizeName(nickname);
       if (accounts.names.get(key) === userId) accounts.names.delete(key);
+    },
+  };
+  return {
+    ...members,
+    cacheMemberNames: async (
+      userId: number,
+      nicknames: string[],
+      previous: string[] = [],
+    ) => {
+      const names = new Set(nicknames.map(normalizeName));
+      for (const nickname of nicknames)
+        await members.claimMemberName(userId, nickname);
+      for (const nickname of previous) {
+        if (!names.has(normalizeName(nickname)))
+          await members.releaseMemberName(userId, nickname);
+      }
     },
   };
 });

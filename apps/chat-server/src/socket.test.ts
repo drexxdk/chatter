@@ -64,11 +64,27 @@ const {
 }));
 
 vi.mock("./redis.js", () => ({ pubClient: {}, subClient: {} }));
-vi.mock("./members.js", () => ({
-  isMemberName,
-  claimMemberName,
-  releaseMemberName,
-}));
+vi.mock("./members.js", async () => {
+  const { normalizeName } =
+    await vi.importActual<typeof import("./names.js")>("./names.js");
+  return {
+    isMemberName,
+    claimMemberName,
+    releaseMemberName,
+    cacheMemberNames: async (
+      userId: number,
+      nicknames: string[],
+      previous: string[] = [],
+    ) => {
+      const names = new Set(nicknames.map(normalizeName));
+      for (const nickname of nicknames) await claimMemberName(userId, nickname);
+      for (const nickname of previous) {
+        if (!names.has(normalizeName(nickname)))
+          await releaseMemberName(userId, nickname);
+      }
+    },
+  };
+});
 // Payload is mocked for the accounts; the rest of the client (the report reasons, the error type) is real.
 vi.mock("./payloadClient.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./payloadClient.js")>()),
