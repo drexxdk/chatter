@@ -3,13 +3,13 @@ import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 
 import { parseAge } from "./age.js";
-import { avatarSchema, parseAvatar, parsePicture } from "./avatars.js";
+import { parseAvatar, parsePicture } from "./avatars.js";
 import { env } from "./env.js";
 import { validateNickname, validateUsername } from "./identity.js";
 import { log } from "./log.js";
 import { cacheMemberNames, isMemberName } from "./members.js";
 import { withMemberNamesLock } from "./memberNamesLock.js";
-import { saveMemberProfile } from "./memberProfile.js";
+import { saveMemberProfile, validateProfileUpdate } from "./memberProfile.js";
 import { withProfileLock } from "./profileLock.js";
 import {
   getModeratorNames,
@@ -410,60 +410,33 @@ export function createAccountsRouter(options: {
         const user = await memberOf(req, res);
         if (!user) return;
 
-        const fields: Record<string, unknown> =
-          typeof req.body === "object" && req.body !== null
-            ? (req.body as Record<string, unknown>)
-            : {};
-        let { displayName: nickname, avatar, picture, age } = user;
-
         try {
-          if ("nickname" in fields) {
-            const valid = validateNickname(fields.nickname);
-
-            if (!valid)
-              return res.status(400).json({ error: "invalid_nickname" });
-
-            if (
-              valid !== user.displayName &&
-              (isReservedNickname(valid, await getModeratorNames()) ||
-                (await isMemberName(valid, user.id)))
-            ) {
-              return res.status(409).json({ error: "reserved_nickname" });
-            }
-
-            nickname = valid;
+          const result = await validateProfileUpdate(
+            {
+              nickname: user.displayName,
+              avatar: user.avatar,
+              picture: user.picture,
+              age: user.age,
+            },
+            req.body,
+            user.id,
+          );
+          if (!result.ok) {
+            const status =
+              result.error === "reserved_nickname"
+                ? 409
+                : result.error === "unavailable"
+                  ? 503
+                  : 400;
+            return res.status(status).json({ error: result.error });
           }
-
-          if ("avatar" in fields) {
-            const parsed = avatarSchema.safeParse(fields.avatar);
-
-            if (!parsed.success) {
-              return res.status(400).json({ error: "invalid_profile" });
-            }
-
-            avatar = parsed.data;
-          }
-
-          if ("picture" in fields) {
-            picture = parsePicture(fields.picture);
-
-            if (!picture)
-              return res.status(400).json({ error: "invalid_profile" });
-          }
-
-          if ("age" in fields) {
-            age = fields.age === null ? undefined : parseAge(fields.age);
-
-            if (fields.age !== null && age === undefined) {
-              return res.status(400).json({ error: "invalid_profile" });
-            }
-          }
+          const { nickname, avatar, picture, age } = result.profile;
 
           const failure = await saveMemberProfile(
             user.id,
             user.nickname,
             user.displayName,
-            { nickname, avatar, picture, age },
+            result.profile,
           );
 
           if (failure) {

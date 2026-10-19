@@ -12,12 +12,7 @@ import {
   type FakeMember,
 } from "./adminRooms.js";
 import { createCrowd, crowdReply, MAX_CROWD, type Crowd } from "./crowd.js";
-import {
-  avatarSchema,
-  parseAvatar,
-  parsePicture,
-  type Avatar,
-} from "./avatars.js";
+import { parseAvatar, parsePicture, type Avatar } from "./avatars.js";
 import { isBanned } from "./bans.js";
 import {
   claimAnnouncementSlot,
@@ -45,7 +40,7 @@ import {
 } from "./identity.js";
 import { MAX_MESSAGE_LENGTH } from "./limits.js";
 import { isMemberName } from "./members.js";
-import { saveMemberProfile } from "./memberProfile.js";
+import { saveMemberProfile, validateProfileUpdate } from "./memberProfile.js";
 import { withProfileLock } from "./profileLock.js";
 import {
   getModerators,
@@ -1150,10 +1145,6 @@ export function createSocketServer(
         return reply({ ok: false, error: "forbidden" });
       }
 
-      const fields: Record<string, unknown> =
-        typeof payload === "object" && payload !== null
-          ? (payload as Record<string, unknown>)
-          : {};
       const now = Date.now();
       const profileWait = slidingWindow(
         data.profileChangeTimes,
@@ -1189,59 +1180,18 @@ export function createSocketServer(
             return reply({ ok: false, error: "invalid_token" });
           }
 
-          let nickname = account?.displayName ?? data.nickname;
-          let avatar = account?.avatar ?? data.avatar;
-          let picture = account ? account.picture : data.picture;
-          let age = account ? account.age : data.age;
-
-          if ("nickname" in fields) {
-            const valid = validateNickname(fields.nickname);
-
-            if (!valid) return reply({ ok: false, error: "invalid_nickname" });
-
-            if (valid !== nickname) {
-              try {
-                if (
-                  isReservedNickname(valid, await getModeratorNames()) ||
-                  (await isMemberName(valid, data.memberId))
-                ) {
-                  return reply({ ok: false, error: "reserved_nickname" });
-                }
-              } catch (error) {
-                log.error("Reserved names unavailable", error);
-                return reply({ ok: false, error: "unavailable" });
-              }
-            }
-
-            nickname = valid;
-          }
-
-          if ("avatar" in fields) {
-            const parsed = avatarSchema.safeParse(fields.avatar);
-
-            if (!parsed.success) {
-              return reply({ ok: false, error: "invalid_profile" });
-            }
-
-            avatar = parsed.data;
-          }
-
-          // Anybody may choose a picture; one that is not one is refused, as an avatar is.
-          if ("picture" in fields) {
-            const parsed = parsePicture(fields.picture);
-
-            if (!parsed) return reply({ ok: false, error: "invalid_profile" });
-
-            picture = parsed;
-          }
-
-          if ("age" in fields) {
-            age = fields.age === null ? undefined : parseAge(fields.age);
-
-            if (fields.age !== null && age === undefined) {
-              return reply({ ok: false, error: "invalid_profile" });
-            }
-          }
+          const result = await validateProfileUpdate(
+            {
+              nickname: account?.displayName ?? data.nickname,
+              avatar: account?.avatar ?? data.avatar,
+              picture: account ? account.picture : data.picture,
+              age: account ? account.age : data.age,
+            },
+            payload,
+            data.memberId,
+          );
+          if (!result.ok) return reply({ ok: false, error: result.error });
+          const { nickname, avatar, picture, age } = result.profile;
 
           const slug = data.roomSlug;
           const apply = () => {
@@ -1257,12 +1207,7 @@ export function createSocketServer(
                 data.memberId,
                 account?.nickname ?? data.username ?? "",
                 account?.displayName ?? data.nickname,
-                {
-                  nickname,
-                  avatar,
-                  picture,
-                  age,
-                },
+                result.profile,
               );
 
               if (failure) return failure;

@@ -26,7 +26,7 @@ from changes that need database migrations or broader integration work.
 - [x] Serialize profile updates per account/socket, reserve rate-limit capacity
       before asynchronous work, and avoid overwriting newer partial updates with
       stale snapshots.
-- [ ] Share profile validation and mutation behavior between REST and sockets.
+- [x] Share profile validation and mutation behavior between REST and sockets.
 
 ## 3. Reliable E2E Input
 
@@ -123,5 +123,15 @@ from changes that need database migrations or broader integration work.
   saved by another client. All 862 server tests passed; 15 Redis integration
   tests were skipped. Server typechecking, lint, and scoped formatting passed.
 - Profile concurrency remains process-local, matching the current single-server
-  deployment; cross-node coordination and shared REST/socket validation remain
-  separate work. The profile follow-up is not yet committed or deployed.
+  deployment; cross-node coordination remains separate work. Committed profile
+  concurrency as `6605c1b` (not pushed or deployed).
+- 2026-10-19: REST and socket profile edits now share one partial-profile merge
+  and validator alongside the existing shared persistence function. Nickname,
+  avatar, picture, age, name ownership, and unavailable-name handling use the same
+  rules. Transport-specific HTTP statuses, socket acknowledgements, room-name
+  checks, rate limits, and serialization remain at their existing boundaries.
+- Added 40 shared-validation cases covering omitted fields, explicit nulls,
+  valid boundaries, atomic rejection, guest/member name checks, and unavailable
+  dependencies. All 902 server tests passed; 15 Redis integration tests were
+  skipped. Server typechecking, lint, and scoped formatting passed.
+- The shared-profile validation follow-up is not yet committed or deployed.

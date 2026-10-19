@@ -1,0 +1,175 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { Profile } from "./memberProfile.js";
+
+vi.mock("./env.js", () => ({ env: {} }));
+vi.mock("./redis.js", () => ({ redis: {} }));
+vi.mock("./log.js", () => ({ log: { error: vi.fn() } }));
+vi.mock("./members.js", () => ({
+  isMemberName: vi.fn(),
+  cacheMemberNames: vi.fn(),
+}));
+vi.mock("./payloadClient.js", () => ({
+  updateUser: vi.fn(),
+  isTaken: vi.fn(),
+}));
+vi.mock("./names.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./names.js")>()),
+  getModeratorNames: vi.fn(),
+}));
+
+const { validateProfileUpdate } = await import("./memberProfile.js");
+const { isMemberName, cacheMemberNames } = await import("./members.js");
+const { getModeratorNames } = await import("./names.js");
+const { updateUser } = await import("./payloadClient.js");
+
+const current = Object.freeze<Profile>({
+  nickname: "Alice",
+  avatar: "female",
+  picture: "lorelei:abc12345",
+  age: 30,
+});
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  vi.mocked(getModeratorNames).mockResolvedValue(["Ada Mod"]);
+  vi.mocked(isMemberName).mockResolvedValue(false);
+});
+
+describe("shared profile validation", () => {
+  it("merges and normalizes a valid update without changing its input", async () => {
+    expect(
+      await validateProfileUpdate(
+        current,
+        {
+          nickname: " Alicia ",
+          avatar: "trans",
+          picture: "thumbs:zzzz9999",
+          age: null,
+        },
+        5,
+      ),
+    ).toEqual({
+      ok: true,
+      profile: {
+        nickname: "Alicia",
+        avatar: "trans",
+        picture: "thumbs:zzzz9999",
+        age: undefined,
+      },
+    });
+    expect(current).toEqual({
+      nickname: "Alice",
+      avatar: "female",
+      picture: "lorelei:abc12345",
+      age: 30,
+    });
+    expect(isMemberName).toHaveBeenCalledWith("Alicia", 5);
+  });
+
+  it.each([undefined, null, "ignored", 42, [], {}, { username: "other" }])(
+    "preserves omitted profile fields for %j",
+    async (payload) => {
+      expect(await validateProfileUpdate(current, payload, 5)).toEqual({
+        ok: true,
+        profile: current,
+      });
+      expect(getModeratorNames).not.toHaveBeenCalled();
+      expect(isMemberName).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    [{ nickname: "a" }, "invalid_nickname"],
+    [{ nickname: null }, "invalid_nickname"],
+    [{ nickname: undefined }, "invalid_nickname"],
+    [{ nickname: 42 }, "invalid_nickname"],
+    [{ avatar: "robot" }, "invalid_profile"],
+    [{ avatar: null }, "invalid_profile"],
+    [{ avatar: undefined }, "invalid_profile"],
+    [{ picture: "robot:abc12345" }, "invalid_profile"],
+    [{ picture: "lorelei:../x" }, "invalid_profile"],
+    [{ picture: null }, "invalid_profile"],
+    [{ picture: 42 }, "invalid_profile"],
+    [{ age: 17 }, "invalid_profile"],
+    [{ age: 100 }, "invalid_profile"],
+    [{ age: 30.5 }, "invalid_profile"],
+    [{ age: "30" }, "invalid_profile"],
+    [{ age: undefined }, "invalid_profile"],
+    [{ nickname: "Alicia", avatar: "male", age: 17 }, "invalid_profile"],
+  ])("refuses %j without saving any fields", async (payload, error) => {
+    expect(await validateProfileUpdate(current, payload, 5)).toEqual({
+      ok: false,
+      error,
+    });
+    expect(updateUser).not.toHaveBeenCalled();
+    expect(cacheMemberNames).not.toHaveBeenCalled();
+  });
+
+  it.each([18, 99, null])(
+    "accepts age %j and retains the other fields",
+    async (age) => {
+      expect(await validateProfileUpdate(current, { age }, 5)).toEqual({
+        ok: true,
+        profile: { ...current, age: age === null ? undefined : age },
+      });
+    },
+  );
+
+  it.each(["male", "female", "trans", "other"])(
+    "accepts the %s avatar",
+    async (avatar) => {
+      expect(await validateProfileUpdate(current, { avatar }, 5)).toEqual({
+        ok: true,
+        profile: { ...current, avatar },
+      });
+    },
+  );
+
+  it.each(["Ada Mod", "moderator", "system"])(
+    "refuses the reserved name %s",
+    async (nickname) => {
+      expect(await validateProfileUpdate(current, { nickname }, 5)).toEqual({
+        ok: false,
+        error: "reserved_nickname",
+      });
+    },
+  );
+
+  it.each([undefined, 5])(
+    "checks name ownership for member %j",
+    async (memberId) => {
+      vi.mocked(isMemberName).mockResolvedValueOnce(true);
+      expect(
+        await validateProfileUpdate(current, { nickname: "Bobby" }, memberId),
+      ).toEqual({ ok: false, error: "reserved_nickname" });
+      expect(isMemberName).toHaveBeenCalledWith("Bobby", memberId);
+    },
+  );
+
+  it("does not repeat name lookups for an unchanged name", async () => {
+    expect(
+      await validateProfileUpdate(current, { nickname: "Alice" }, 5),
+    ).toEqual({ ok: true, profile: current });
+    expect(getModeratorNames).not.toHaveBeenCalled();
+    expect(isMemberName).not.toHaveBeenCalled();
+  });
+
+  it.each(["moderators", "members"])(
+    "fails closed when %s cannot be checked",
+    async (lookup) => {
+      if (lookup === "moderators") {
+        vi.mocked(getModeratorNames).mockRejectedValueOnce(
+          new Error("offline"),
+        );
+      } else {
+        vi.mocked(isMemberName).mockRejectedValueOnce(new Error("offline"));
+      }
+
+      expect(
+        await validateProfileUpdate(current, { nickname: "Alicia" }, 5),
+      ).toEqual({ ok: false, error: "unavailable" });
+      expect(updateUser).not.toHaveBeenCalled();
+    },
+  );
+});
