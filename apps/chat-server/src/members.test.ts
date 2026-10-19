@@ -172,6 +172,83 @@ describe("caching names after an account write", () => {
 });
 
 describe("keeping the list right", () => {
+  it("passes complete account snapshots to access enforcement on every refresh", async () => {
+    vi.useFakeTimers();
+    const onMembers = vi.fn();
+    fetchUserNames.mockResolvedValue([
+      { id: 1, nicknameKey: "alice" },
+      { id: 2, nicknameKey: "bob" },
+    ]);
+
+    const timer = startMemberNamesSync(onMembers);
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      expect(onMembers).toHaveBeenLastCalledWith([1, 2]);
+
+      fetchUserNames.mockResolvedValue([{ id: 2, nicknameKey: "bob" }]);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(onMembers).toHaveBeenLastCalledWith([2]);
+
+      fetchUserNames.mockResolvedValue([]);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(onMembers).toHaveBeenLastCalledWith([]);
+      expect(onMembers).toHaveBeenCalledTimes(3);
+    } finally {
+      clearInterval(timer);
+    }
+  });
+
+  it("does not revoke access when Payload cannot supply a complete snapshot", async () => {
+    vi.useFakeTimers();
+    const onMembers = vi.fn();
+    fetchUserNames.mockRejectedValue(new Error("Payload unavailable"));
+
+    const timer = startMemberNamesSync(onMembers);
+    try {
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(onMembers).not.toHaveBeenCalled();
+    } finally {
+      clearInterval(timer);
+    }
+  });
+
+  it("enforces deleted accounts even if writing the Redis cache fails", async () => {
+    vi.useFakeTimers();
+    const onMembers = vi.fn();
+    fetchUserNames.mockResolvedValue([{ id: 2, nicknameKey: "bob" }]);
+    vi.spyOn(redis, "del").mockRejectedValueOnce(
+      new Error("Redis unavailable"),
+    );
+
+    const timer = startMemberNamesSync(onMembers);
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      expect(onMembers).toHaveBeenCalledWith([2]);
+    } finally {
+      clearInterval(timer);
+    }
+  });
+
+  it("keeps synchronizing names when access enforcement fails", async () => {
+    vi.useFakeTimers();
+    const onMembers = vi
+      .fn()
+      .mockRejectedValue(new Error("Socket unavailable"));
+    fetchUserNames.mockResolvedValue([{ id: 1, nicknameKey: "alice" }]);
+
+    const timer = startMemberNamesSync(onMembers);
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      expect(await isMemberName("Alice")).toBe(true);
+      expect(log.error).toHaveBeenCalledWith(
+        "Failed to enforce member access",
+        expect.any(Error),
+      );
+    } finally {
+      clearInterval(timer);
+    }
+  });
+
   it("does not overlap refreshes or overwrite a claim with an older snapshot", async () => {
     vi.useFakeTimers();
     let finish!: (names: { id: number; nicknameKey: string }[]) => void;

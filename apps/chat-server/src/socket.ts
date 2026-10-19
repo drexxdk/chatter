@@ -1778,6 +1778,22 @@ export async function removeAccountConnections(
   }
 }
 
+export async function enforceMembers(
+  io: Server,
+  memberIds: number[],
+): Promise<void> {
+  const allowed = new Set(memberIds);
+
+  for (const socket of io.sockets.sockets.values()) {
+    const { memberId } = socket.data as SocketData;
+
+    if (memberId === undefined || allowed.has(memberId)) continue;
+
+    socket.emit("kicked", { reason: "invalid_token" });
+    socket.disconnect(true);
+  }
+}
+
 // Cuts off signed-in accounts that may no longer moderate, even though their token has not expired. Like bans, every
 // node does this for its own connections.
 export async function enforceModerators(

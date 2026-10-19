@@ -8,6 +8,7 @@ import { createShutdown } from "./shutdown.js";
 import {
   createSocketServer,
   enforceBans,
+  enforceMembers,
   enforceModerators,
   removeAccountConnections,
   roomOccupancy,
@@ -33,7 +34,7 @@ const timers = [
   startBansSync((hashes) => enforceBans(io, hashes)),
   startReportsPrune(),
   startLegalSync(),
-  startMemberNamesSync(),
+  startMemberNamesSync((ids) => enforceMembers(io, ids)),
 ];
 
 const shutdown = createShutdown({

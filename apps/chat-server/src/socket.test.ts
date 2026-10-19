@@ -3894,7 +3894,8 @@ describe("resuming an identity", () => {
 });
 
 const { hashMember, memberGuestId } = await import("./identity.js");
-const { removeAccountConnections } = await import("./socket.js");
+const { enforceMembers, removeAccountConnections } =
+  await import("./socket.js");
 const { PayloadError } = await import("./payloadClient.js");
 
 describe("members", () => {
@@ -4127,6 +4128,75 @@ describe("members", () => {
     await removeAccountConnections(io, 5);
 
     expect(await kicked).toEqual({ reason: "invalid_token" });
+  });
+
+  describe("account access refreshes", () => {
+    async function connectedMembers() {
+      const { io, port, socket: alice } = await member();
+      fetchUser.mockResolvedValue({
+        ...account,
+        id: 6,
+        nickname: "bobb",
+        nicknameKey: "bobb",
+        displayName: "Bobby",
+        displayNameKey: "bobby",
+      });
+      const bob = await connect({ token: memberToken(6) }, port);
+      const guest = await connect({ nickname: "Guest" }, port);
+      if (!bob.socket || !guest.socket) throw new Error("sign-in failed");
+      await Promise.all([bob.session, guest.session]);
+      return { io, alice, bob: bob.socket, guest: guest.socket };
+    }
+
+    it("disconnects a deleted member and updates presence without removing other people", async () => {
+      const { io, alice, bob, guest } = await connectedMembers();
+      for (const socket of [alice, bob, guest]) {
+        await emit(socket, "room:join", { slug: "general" });
+      }
+      const kicked = waitFor<{ reason: string }>(alice, "kicked");
+      const disconnected = waitFor(alice, "disconnect");
+      const presence = waitFor<Presence>(
+        guest,
+        "room:presence",
+        (value) => value.members.length === 2,
+      );
+
+      await enforceMembers(io, [6]);
+
+      expect(await kicked).toEqual({ reason: "invalid_token" });
+      await disconnected;
+      expect(
+        (await presence).members.map((person) => person.nickname).sort(),
+      ).toEqual(["Bobby", "Guest"]);
+      expect(bob.connected).toBe(true);
+      expect(guest.connected).toBe(true);
+    });
+
+    it("disconnects all members but not guests when the account list is empty", async () => {
+      const { io, alice, bob, guest } = await connectedMembers();
+      const disconnected = [alice, bob].map((socket) =>
+        waitFor(socket, "disconnect"),
+      );
+
+      await enforceMembers(io, []);
+      await Promise.all(disconnected);
+
+      expect(alice.connected).toBe(false);
+      expect(bob.connected).toBe(false);
+      expect(guest.connected).toBe(true);
+    });
+
+    it("keeps members whose accounts still exist connected", async () => {
+      const { io, alice, bob, guest } = await connectedMembers();
+      await enforceMembers(io, [5, 6]);
+
+      for (const socket of [alice, bob, guest]) {
+        expect(
+          await emit(socket, "room:join", { slug: "general" }),
+        ).toMatchObject({ ok: true });
+        expect(socket.connected).toBe(true);
+      }
+    });
   });
 
   describe("a guest and the names of the accounts", () => {

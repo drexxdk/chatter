@@ -7,9 +7,8 @@ import { redis } from "./redis.js";
 
 // The names of the accounts, which nobody else may take (an account's username and its display name): a hash from the
 // normalized name to the account's id, so a
-// guest's handshake is one Redis call and the owner of a name is not mistaken for somebody else. The chat-server is the
-// only one that makes or renames accounts, so it keeps the hash up to date itself; the sync only heals it (an account
-// removed in the admin, a Redis that was emptied).
+// guest's handshake is one Redis call and the owner of a name is not mistaken for somebody else. The chat-server
+// keeps the hash up to date after account writes; the sync also picks up admin changes and accounts that were removed.
 const KEY = "chatter:member-names";
 
 // Whether a name belongs to an account other than `exceptUserId`.
@@ -81,8 +80,19 @@ export async function cacheMemberNames(
   }
 }
 
-async function syncMemberNames(): Promise<void> {
+async function syncMemberNames(
+  onMembers?: (accountIds: number[]) => unknown,
+): Promise<void> {
   const names = await fetchUserNames();
+
+  if (onMembers) {
+    try {
+      await onMembers(names.map((name) => name.id));
+    } catch (error) {
+      log.error("Failed to enforce member access", error);
+    }
+  }
+
   const fresh = `${KEY}:fresh`;
 
   await redis.del(fresh);
@@ -110,14 +120,16 @@ async function syncMemberNames(): Promise<void> {
 }
 
 // Polls Payload on an interval, so a guest's handshake never waits on it.
-export function startMemberNamesSync(): NodeJS.Timeout {
+export function startMemberNamesSync(
+  onMembers?: (accountIds: number[]) => unknown,
+): NodeJS.Timeout {
   let syncing = false;
   const sync = async () => {
     if (syncing) return;
     syncing = true;
 
     try {
-      await withMemberNamesLock(syncMemberNames);
+      await withMemberNamesLock(() => syncMemberNames(onMembers));
     } catch (error) {
       log.error("Failed to sync the account nicknames", error);
     } finally {

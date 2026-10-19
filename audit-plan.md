@@ -21,7 +21,7 @@ from changes that need database migrations or broader integration work.
 
 ## 2. Account Lifecycle and Profile Concurrency
 
-- [ ] Revoke existing member connections after account deletion through admin,
+- [x] Revoke existing member connections after account deletion through admin,
       not only self-service deletion.
 - [ ] Serialize profile updates per account/socket, reserve rate-limit capacity
       before asynchronous work, and avoid overwriting newer partial updates with
@@ -97,6 +97,15 @@ from changes that need database migrations or broader integration work.
   the periodic sync retries; successfully persisted writes remain successful.
 - Added five cache recovery regressions; all 437 focused cache/account/socket
   tests passed. Avatar-only profile changes still avoid name-cache writes.
+- 2026-10-19: Committed cache recovery as `9786706` (not pushed). Continued with
+  account-deletion revocation through the existing account sync. A complete
+  successful Payload snapshot now disconnects signed-in members whose accounts
+  were removed, including accounts deleted in admin. Guests and existing members
+  are unaffected, and room presence updates through the normal disconnect path.
+- Added regressions for deletion snapshots, failed Payload fetches, Redis-write
+  failure, enforcement failure isolation, socket revocation, and presence updates.
+  Revocation runs every ten sync intervals; self-service deletion remains
+  immediate. No schema change or migration is required for this follow-up.
 - Remaining: Redis is still a derived cache. Prompt propagation of admin changes
   and multi-server coordination of live connections remain separate follow-up
   work; database account ownership no longer depends on Redis or the

@@ -86,8 +86,9 @@ same form for all, with the chat-server's public address (`PUBLIC_API_URL`, for 
    shows their buttons by itself. Only a provider with both of its settings is on.
 
 People with an account are in the admin panel under **Users** (provider, email, nickname). To remove one, delete the entry:
-the nickname is free again within ten sync intervals at the latest, and anybody connected as it is cut off at their next
-sign-in. Guests who delete their own account from their profile do the same at once. To ban an account, copy the
+the next successful account sync frees the cached nickname and disconnects anybody signed in as that account. It runs
+every ten `SYNC_INTERVAL_MS` intervals (five minutes by default). A failed Payload fetch never revokes access based on
+an incomplete account list. Guests who delete their own account from their profile do the same at once. To ban an account, copy the
 `senderHash` of one of its reported messages in **Reports** into **Bans**: for an account it is the hash of the account,
 so the ban follows it from any address.
 
