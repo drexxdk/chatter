@@ -10,6 +10,7 @@ import { log } from "./log.js";
 import { cacheMemberNames, isMemberName } from "./members.js";
 import { withMemberNamesLock } from "./memberNamesLock.js";
 import { saveMemberProfile } from "./memberProfile.js";
+import { withProfileLock } from "./profileLock.js";
 import {
   getModeratorNames,
   isReservedNickname,
@@ -402,87 +403,92 @@ export function createAccountsRouter(options: {
     limiter,
     express.json({ limit: "4kb" }),
     async (req, res) => {
-      const user = await memberOf(req, res);
-      if (!user) return;
+      const authenticated = await memberOf(req, res);
+      if (!authenticated) return;
 
-      const fields: Record<string, unknown> =
-        typeof req.body === "object" && req.body !== null
-          ? (req.body as Record<string, unknown>)
-          : {};
-      let { displayName: nickname, avatar, picture, age } = user;
+      return withProfileLock(`member:${authenticated.id}`, async () => {
+        const user = await memberOf(req, res);
+        if (!user) return;
 
-      try {
-        if ("nickname" in fields) {
-          const valid = validateNickname(fields.nickname);
+        const fields: Record<string, unknown> =
+          typeof req.body === "object" && req.body !== null
+            ? (req.body as Record<string, unknown>)
+            : {};
+        let { displayName: nickname, avatar, picture, age } = user;
 
-          if (!valid)
-            return res.status(400).json({ error: "invalid_nickname" });
+        try {
+          if ("nickname" in fields) {
+            const valid = validateNickname(fields.nickname);
 
-          if (
-            valid !== user.displayName &&
-            (isReservedNickname(valid, await getModeratorNames()) ||
-              (await isMemberName(valid, user.id)))
-          ) {
-            return res.status(409).json({ error: "reserved_nickname" });
+            if (!valid)
+              return res.status(400).json({ error: "invalid_nickname" });
+
+            if (
+              valid !== user.displayName &&
+              (isReservedNickname(valid, await getModeratorNames()) ||
+                (await isMemberName(valid, user.id)))
+            ) {
+              return res.status(409).json({ error: "reserved_nickname" });
+            }
+
+            nickname = valid;
           }
 
-          nickname = valid;
-        }
+          if ("avatar" in fields) {
+            const parsed = avatarSchema.safeParse(fields.avatar);
 
-        if ("avatar" in fields) {
-          const parsed = avatarSchema.safeParse(fields.avatar);
+            if (!parsed.success) {
+              return res.status(400).json({ error: "invalid_profile" });
+            }
 
-          if (!parsed.success) {
-            return res.status(400).json({ error: "invalid_profile" });
+            avatar = parsed.data;
           }
 
-          avatar = parsed.data;
-        }
+          if ("picture" in fields) {
+            picture = parsePicture(fields.picture);
 
-        if ("picture" in fields) {
-          picture = parsePicture(fields.picture);
-
-          if (!picture)
-            return res.status(400).json({ error: "invalid_profile" });
-        }
-
-        if ("age" in fields) {
-          age = fields.age === null ? undefined : parseAge(fields.age);
-
-          if (fields.age !== null && age === undefined) {
-            return res.status(400).json({ error: "invalid_profile" });
+            if (!picture)
+              return res.status(400).json({ error: "invalid_profile" });
           }
+
+          if ("age" in fields) {
+            age = fields.age === null ? undefined : parseAge(fields.age);
+
+            if (fields.age !== null && age === undefined) {
+              return res.status(400).json({ error: "invalid_profile" });
+            }
+          }
+
+          const failure = await saveMemberProfile(
+            user.id,
+            user.nickname,
+            user.displayName,
+            { nickname, avatar, picture, age },
+          );
+
+          if (failure) {
+            return res
+              .status(failure === "reserved_nickname" ? 409 : 503)
+              .json({ error: failure });
+          }
+
+          res.json({
+            profile: profileOf({
+              ...user,
+              displayName: nickname,
+              avatar,
+              picture,
+              age,
+            }),
+          });
+        } catch (error) {
+          log.error(
+            "Failed to change the profile",
+            error instanceof Error ? error.message : "unknown error",
+          );
+          res.status(503).json({ error: "unavailable" });
         }
-
-        const failure = await saveMemberProfile(
-          user.id,
-          user.nickname,
-          user.displayName,
-          { nickname, avatar, picture, age },
-        );
-
-        if (failure) {
-          return res
-            .status(failure === "reserved_nickname" ? 409 : 503)
-            .json({ error: failure });
-        }
-
-        res.json({
-          profile: profileOf({
-            ...user,
-            displayName: nickname,
-            avatar,
-            picture,
-            age,
-          }),
-        });
-      } catch (error) {
-        log.error(
-          "Failed to change the profile",
-          error instanceof Error ? error.message : "unknown error",
-        );
-        res.status(503).json({ error: "unavailable" });
-      }
+      });
     },
   );
 

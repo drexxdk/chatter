@@ -3919,7 +3919,14 @@ describe("members", () => {
     );
 
   beforeEach(() => {
-    fetchUser.mockResolvedValue(account);
+    let stored = { ...account };
+    fetchUser.mockImplementation(async () => stored);
+    updateUser.mockImplementation(
+      async (_id: number, changes: Record<string, unknown>) => {
+        stored = { ...stored, ...changes };
+        return stored;
+      },
+    );
   });
 
   async function member(extra: Record<string, unknown> = {}) {
@@ -4229,6 +4236,124 @@ describe("members", () => {
   });
 
   describe("changing the profile", () => {
+    it("does not charge failed profile validation against successful changes", async () => {
+      const { socket } = await member();
+      for (let index = 0; index < 5; index++) {
+        expect(await emit(socket, "profile:update", { age: 17 })).toMatchObject(
+          { ok: false, error: "invalid_profile" },
+        );
+      }
+      for (let index = 0; index < 5; index++) {
+        expect(
+          await emit(socket, "profile:update", { age: 30 + index }),
+        ).toMatchObject({ ok: true });
+      }
+      expect(await emit(socket, "profile:update", { age: 41 })).toMatchObject({
+        ok: false,
+        error: "rate_limited",
+      });
+    });
+
+    it("merges socket changes with profile values already saved by another client", async () => {
+      const { socket } = await member();
+      await updateUser(5, {
+        displayName: "Alicia",
+        displayNameKey: "alicia",
+        avatar: "male",
+        age: 41,
+      });
+
+      expect(
+        await emit(socket, "profile:update", { picture: "thumbs:zzzz9999" }),
+      ).toMatchObject({
+        ok: true,
+        profile: {
+          nickname: "Alicia",
+          avatar: "male",
+          age: 41,
+          picture: "thumbs:zzzz9999",
+        },
+      });
+    });
+
+    it("preserves both fields when member profile updates overlap", async () => {
+      const { socket, io } = await member();
+      const save = updateUser.getMockImplementation()!;
+      let entered!: () => void;
+      let release!: () => void;
+      const started = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const finished = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      updateUser.mockImplementationOnce(async (...args: unknown[]) => {
+        entered();
+        await finished;
+        return save(...args);
+      });
+
+      const first = emit(socket, "profile:update", { avatar: "male" });
+      await started;
+      const received = new Promise<void>((resolve) => {
+        io.sockets.sockets
+          .get(socket.id!)!
+          .once("profile:update", () => resolve());
+      });
+      const second = emit(socket, "profile:update", { age: 41 });
+      try {
+        await received;
+      } finally {
+        release();
+      }
+
+      const [firstReply, secondReply] = await Promise.all([first, second]);
+      expect(firstReply).toMatchObject({
+        ok: true,
+        profile: { avatar: "male" },
+      });
+      expect(secondReply).toMatchObject({
+        ok: true,
+        profile: { avatar: "male", age: 41 },
+      });
+      expect(updateUser).toHaveBeenLastCalledWith(
+        5,
+        expect.objectContaining({ avatar: "male", age: 41 }),
+      );
+    });
+
+    it("counts in-flight profile updates against the rate limit", async () => {
+      const { socket } = await member();
+      let entered!: () => void;
+      let release!: () => void;
+      const started = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const finished = new Promise<string[]>((resolve) => {
+        release = () => resolve([]);
+      });
+      getModeratorNames.mockImplementationOnce(() => {
+        entered();
+        return finished;
+      });
+
+      const first = emit(socket, "profile:update", { nickname: "Alicia" });
+      await started;
+      const queued = Array.from({ length: 4 }, () =>
+        emit(socket, "profile:update", { avatar: "male" }),
+      );
+      try {
+        expect(await emit(socket, "profile:update", { age: 41 })).toMatchObject(
+          { ok: false, error: "rate_limited" },
+        );
+      } finally {
+        release();
+      }
+      for (const response of await Promise.all([first, ...queued])) {
+        expect(response).toMatchObject({ ok: true });
+      }
+    });
+
     it("is kept in the account, and the names that are taken are brought up to date", async () => {
       const { socket } = await member();
 

@@ -23,7 +23,7 @@ from changes that need database migrations or broader integration work.
 
 - [x] Revoke existing member connections after account deletion through admin,
       not only self-service deletion.
-- [ ] Serialize profile updates per account/socket, reserve rate-limit capacity
+- [x] Serialize profile updates per account/socket, reserve rate-limit capacity
       before asynchronous work, and avoid overwriting newer partial updates with
       stale snapshots.
 - [ ] Share profile validation and mutation behavior between REST and sockets.
@@ -109,4 +109,19 @@ from changes that need database migrations or broader integration work.
 - Remaining: Redis is still a derived cache. Prompt propagation of admin changes
   and multi-server coordination of live connections remain separate follow-up
   work; database account ownership no longer depends on Redis or the
-  process-local queue. The cache-recovery follow-up is not yet deployed.
+  process-local queue. The cache-recovery and revocation follow-ups are not yet
+  deployed.
+- 2026-10-19: Committed deletion revocation as `c7fc8d9` (not pushed). Profile
+  mutations now share a per-account queue across REST and sockets; guest profile
+  edits serialize per socket. Each member edit reads the current persisted
+  profile inside the queue before merging partial changes.
+- Socket profile requests reserve rate-limit capacity before asynchronous work
+  or queueing. Failed edits release their reservations; successful edits retain
+  the existing sliding-window quota. Disconnected sockets skip queued edits.
+- Added deterministic regressions for overlapping socket and HTTP edits,
+  in-flight quota accounting, failed-validation refunds, and profile values
+  saved by another client. All 862 server tests passed; 15 Redis integration
+  tests were skipped. Server typechecking, lint, and scoped formatting passed.
+- Profile concurrency remains process-local, matching the current single-server
+  deployment; cross-node coordination and shared REST/socket validation remain
+  separate work. The profile follow-up is not yet committed or deployed.

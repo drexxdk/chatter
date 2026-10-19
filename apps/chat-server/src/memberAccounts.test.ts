@@ -35,6 +35,7 @@ const accounts = vi.hoisted(() => ({
 }));
 const getModeratorNames = vi.hoisted(() => vi.fn());
 const beforeCreateUser = vi.hoisted(() => vi.fn<() => Promise<void>>());
+const beforeUpdateUser = vi.hoisted(() => vi.fn<() => Promise<void>>());
 
 vi.mock("./env.js", () => ({ env: testEnv }));
 vi.mock("./redis.js", () => ({
@@ -129,6 +130,7 @@ vi.mock("./payloadClient.js", async (importOriginal) => {
       return user;
     },
     updateUser: async (id: number, changes: Record<string, unknown>) => {
+      await beforeUpdateUser();
       const user = { ...accounts.users.get(id), ...changes };
       accounts.users.set(id, user as Record<string, unknown>);
       return user;
@@ -250,6 +252,7 @@ beforeEach(() => {
   accounts.nextId = 1;
   getModeratorNames.mockReset().mockResolvedValue(["Ada Mod"]);
   beforeCreateUser.mockReset().mockResolvedValue(undefined);
+  beforeUpdateUser.mockReset().mockResolvedValue(undefined);
   onAccountRemoved.mockReset();
   testEnv.DEV_OAUTH = true;
   testEnv.GOOGLE_CLIENT_ID = undefined;
@@ -782,6 +785,41 @@ describe("the account's own data", () => {
         },
         body: JSON.stringify(body),
       });
+
+    it("preserves both fields when HTTP profile updates overlap", async () => {
+      await start();
+      const token = await signedIn();
+      let entered!: () => void;
+      let release!: () => void;
+      const started = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const finished = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      beforeUpdateUser.mockImplementationOnce(async () => {
+        entered();
+        await finished;
+      });
+
+      const first = patch(token, { avatar: "male" });
+      await started;
+      const received = nextRequestRead();
+      const second = patch(token, { age: 41 });
+      try {
+        await received;
+      } finally {
+        release();
+      }
+
+      const [firstReply, secondReply] = await Promise.all([first, second]);
+      expect(firstReply.status).toBe(200);
+      expect(secondReply.status).toBe(200);
+      expect(await secondReply.json()).toMatchObject({
+        profile: { avatar: "male", age: 41 },
+      });
+      expect(accounts.users.get(1)).toMatchObject({ avatar: "male", age: 41 });
+    });
 
     it("changes what is in the body and keeps the rest", async () => {
       await start();

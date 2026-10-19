@@ -46,6 +46,7 @@ import {
 import { MAX_MESSAGE_LENGTH } from "./limits.js";
 import { isMemberName } from "./members.js";
 import { saveMemberProfile } from "./memberProfile.js";
+import { withProfileLock } from "./profileLock.js";
 import {
   getModerators,
   getModeratorNames,
@@ -1170,115 +1171,149 @@ export function createSocketServer(
         });
       }
 
-      let nickname = data.nickname;
-      let avatar = data.avatar;
-      let picture = data.picture;
-      let age = data.age;
+      data.profileChangeTimes.push(now);
+      let committed = false;
+      const key =
+        data.memberId === undefined
+          ? `socket:${socket.id}`
+          : `member:${data.memberId}`;
 
-      if ("nickname" in fields) {
-        const valid = validateNickname(fields.nickname);
-
-        if (!valid) return reply({ ok: false, error: "invalid_nickname" });
-
-        if (valid !== data.nickname) {
-          try {
-            if (
-              isReservedNickname(valid, await getModeratorNames()) ||
-              (await isMemberName(valid, data.memberId))
-            ) {
-              return reply({ ok: false, error: "reserved_nickname" });
-            }
-          } catch (error) {
-            log.error("Reserved names unavailable", error);
-            return reply({ ok: false, error: "unavailable" });
+      try {
+        await withProfileLock(key, async () => {
+          if (!socket.connected) return;
+          const account =
+            data.memberId === undefined
+              ? undefined
+              : await fetchUser(data.memberId);
+          if (data.memberId !== undefined && !account) {
+            return reply({ ok: false, error: "invalid_token" });
           }
-        }
 
-        nickname = valid;
-      }
+          let nickname = account?.displayName ?? data.nickname;
+          let avatar = account?.avatar ?? data.avatar;
+          let picture = account ? account.picture : data.picture;
+          let age = account ? account.age : data.age;
 
-      if ("avatar" in fields) {
-        const parsed = avatarSchema.safeParse(fields.avatar);
+          if ("nickname" in fields) {
+            const valid = validateNickname(fields.nickname);
 
-        if (!parsed.success) {
-          return reply({ ok: false, error: "invalid_profile" });
-        }
+            if (!valid) return reply({ ok: false, error: "invalid_nickname" });
 
-        avatar = parsed.data;
-      }
+            if (valid !== nickname) {
+              try {
+                if (
+                  isReservedNickname(valid, await getModeratorNames()) ||
+                  (await isMemberName(valid, data.memberId))
+                ) {
+                  return reply({ ok: false, error: "reserved_nickname" });
+                }
+              } catch (error) {
+                log.error("Reserved names unavailable", error);
+                return reply({ ok: false, error: "unavailable" });
+              }
+            }
 
-      // Anybody may choose a picture; one that is not one is refused, as an avatar is.
-      if ("picture" in fields) {
-        const parsed = parsePicture(fields.picture);
+            nickname = valid;
+          }
 
-        if (!parsed) return reply({ ok: false, error: "invalid_profile" });
+          if ("avatar" in fields) {
+            const parsed = avatarSchema.safeParse(fields.avatar);
 
-        picture = parsed;
-      }
+            if (!parsed.success) {
+              return reply({ ok: false, error: "invalid_profile" });
+            }
 
-      if ("age" in fields) {
-        age = fields.age === null ? undefined : parseAge(fields.age);
+            avatar = parsed.data;
+          }
 
-        if (fields.age !== null && age === undefined) {
-          return reply({ ok: false, error: "invalid_profile" });
-        }
-      }
+          // Anybody may choose a picture; one that is not one is refused, as an avatar is.
+          if ("picture" in fields) {
+            const parsed = parsePicture(fields.picture);
 
-      const slug = data.roomSlug;
-      const apply = () => {
-        data.nickname = nickname;
-        data.avatar = avatar;
-        data.picture = picture;
-        data.age = age;
-        data.profileChangeTimes.push(now);
-      };
-      // The change for good: a member's is kept in their account first, so what the others see is never ahead of it.
-      const commit = async (): Promise<string | undefined> => {
-        if (data.memberId !== undefined) {
-          const failure = await saveMemberProfile(
-            data.memberId,
-            data.username ?? "",
-            data.nickname,
-            {
+            if (!parsed) return reply({ ok: false, error: "invalid_profile" });
+
+            picture = parsed;
+          }
+
+          if ("age" in fields) {
+            age = fields.age === null ? undefined : parseAge(fields.age);
+
+            if (fields.age !== null && age === undefined) {
+              return reply({ ok: false, error: "invalid_profile" });
+            }
+          }
+
+          const slug = data.roomSlug;
+          const apply = () => {
+            data.nickname = nickname;
+            data.avatar = avatar;
+            data.picture = picture;
+            data.age = age;
+          };
+          // The change for good: a member's is kept in their account first, so what the others see is never ahead of it.
+          const commit = async (): Promise<string | undefined> => {
+            if (data.memberId !== undefined) {
+              const failure = await saveMemberProfile(
+                data.memberId,
+                account?.nickname ?? data.username ?? "",
+                account?.displayName ?? data.nickname,
+                {
+                  nickname,
+                  avatar,
+                  picture,
+                  age,
+                },
+              );
+
+              if (failure) return failure;
+            }
+
+            apply();
+            committed = true;
+            return undefined;
+          };
+
+          // A new name must not be one somebody else in the room has; checked and taken under the room's lock, so two
+          // people choosing the same name at once cannot both get it.
+          if (
+            slug &&
+            normalizeName(nickname) !== normalizeName(data.nickname)
+          ) {
+            const failure = await withRoomLock(slug, async () =>
+              (await nameInUse(slug, data, nickname))
+                ? "nickname_taken"
+                : commit(),
+            );
+
+            if (failure) return reply({ ok: false, error: failure });
+          } else {
+            const failure = await commit();
+
+            if (failure) return reply({ ok: false, error: failure });
+          }
+
+          reply({
+            ok: true,
+            profile: {
               nickname,
               avatar,
-              picture,
-              age,
+              ...(picture === undefined ? {} : { picture }),
+              ...(age === undefined ? {} : { age }),
             },
-          );
+          });
 
-          if (failure) return failure;
+          if (data.roomSlug) await emitPresence(data.roomSlug);
+        });
+      } catch (error) {
+        log.error("Failed to change the profile", error);
+        if (!committed) reply({ ok: false, error: "unavailable" });
+      } finally {
+        if (!committed) {
+          const reservation = data.profileChangeTimes.indexOf(now);
+          if (reservation !== -1)
+            data.profileChangeTimes.splice(reservation, 1);
         }
-
-        apply();
-        return undefined;
-      };
-
-      // A new name must not be one somebody else in the room has; checked and taken under the room's lock, so two
-      // people choosing the same name at once cannot both get it.
-      if (slug && normalizeName(nickname) !== normalizeName(data.nickname)) {
-        const failure = await withRoomLock(slug, async () =>
-          (await nameInUse(slug, data, nickname)) ? "nickname_taken" : commit(),
-        );
-
-        if (failure) return reply({ ok: false, error: failure });
-      } else {
-        const failure = await commit();
-
-        if (failure) return reply({ ok: false, error: failure });
       }
-
-      reply({
-        ok: true,
-        profile: {
-          nickname,
-          avatar,
-          ...(picture === undefined ? {} : { picture }),
-          ...(age === undefined ? {} : { age }),
-        },
-      });
-
-      if (data.roomSlug) await emitPresence(data.roomSlug);
     });
 
     socket.on("room:join", async (payload: unknown, ack?: Ack) => {
