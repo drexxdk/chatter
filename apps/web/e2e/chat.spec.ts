@@ -1527,6 +1527,15 @@ test("a moderator whose account is removed is signed out", async ({
 
   try {
     const moderator = await newGuest(browser);
+    const guest = await newGuest(browser);
+    const browserErrors: string[] = [];
+    for (const page of [moderator, guest]) {
+      page.on("pageerror", (error) => browserErrors.push(error.message));
+      page.on("console", (message) => {
+        if (message.type() === "error") browserErrors.push(message.text());
+      });
+    }
+    await enterRoom(guest, LOUNGE.name, `Guest ${unique}`);
     await moderator.goto("/");
     await moderator
       .getByRole("button", { name: "Sign in as moderator" })
@@ -1552,6 +1561,10 @@ test("a moderator whose account is removed is signed out", async ({
     await expect(
       moderator.getByRole("heading", { name: "Public rooms" }),
     ).toBeVisible();
+    await expect(
+      guest.getByRole("heading", { name: LOUNGE.name, level: 2 }),
+    ).toBeVisible();
+    expect(browserErrors).toEqual([]);
   } finally {
     if (!removed) await payload.remove("admins", accountId);
   }
