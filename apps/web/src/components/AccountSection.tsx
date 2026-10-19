@@ -142,7 +142,7 @@ function ClaimForm({
         autoComplete="username"
         required
         maxLength={24}
-        value={username}
+        placeholder={username}
         onChange={(event) => setUsername(event.target.value)}
         disabled={saving}
       />

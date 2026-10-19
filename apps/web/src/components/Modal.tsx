@@ -72,7 +72,11 @@ export function Modal({
   useEffect(() => setEntered(true), []);
 
   return (
-    <Dialog open={open && entered} onClose={onClose} className="relative z-40">
+    <Dialog
+      open={open && entered}
+      onClose={onClose}
+      className="fixed inset-0 z-40"
+    >
       <Backdrop />
       {/* Scrolls on its own when the content is taller than the screen, while the page behind stays put. */}
       <div className="fixed inset-0 overflow-y-auto p-4">

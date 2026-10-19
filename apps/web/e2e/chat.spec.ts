@@ -219,6 +219,59 @@ test("the people dropdown focuses search and stays scrollable when resized", asy
   await expect(root).toHaveCSS("padding-right", "0px");
 });
 
+for (const viewport of [
+  { width: 1280, height: 900 },
+  { width: 390, height: 320 },
+]) {
+  test(`nickname entry keeps dialog focus in the viewport at ${viewport.width}x${viewport.height}`, async ({
+    browser,
+  }) => {
+    const guest = await newGuest(browser);
+    await guest.setViewportSize(viewport);
+    await guest.goto("/");
+    await guest.getByRole("button", { name: `Join ${LOUNGE.name}` }).click();
+    const dialog = guest.getByRole("dialog", { name: "Join the chat" });
+    await expect(dialog).toHaveCSS("position", "fixed");
+    await expect.poll(async () => (await dialog.boundingBox())?.y).toBe(0);
+    await expect
+      .poll(async () => (await dialog.boundingBox())?.height)
+      .toBe(viewport.height);
+    const backgroundY = await guest.evaluate(() => window.scrollY);
+    const nickname = dialog.getByRole("textbox", { name: "Nickname" });
+    await nickname.click();
+    await nickname.pressSequentially("Scroll Guest");
+    await expect(nickname).toHaveValue("Scroll Guest");
+    await nickname.press("Tab");
+    await nickname.press("Shift+Tab");
+    await dialog.focus();
+    await dialog.evaluate((element) =>
+      element.scrollIntoView({ block: "start" }),
+    );
+    await expect
+      .poll(() => guest.evaluate(() => window.scrollY))
+      .toBe(backgroundY);
+    if (viewport.height === 320) {
+      const scroller = dialog.locator(".overflow-y-auto");
+      await scroller.evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+      });
+      await expect
+        .poll(() => scroller.evaluate((element) => element.scrollTop))
+        .toBeGreaterThan(0);
+      await expect(
+        dialog.getByRole("button", { name: "Continue", exact: true }),
+      ).toBeInViewport();
+      await nickname.focus();
+      await expect(nickname).toBeInViewport();
+      await expect
+        .poll(() => guest.evaluate(() => window.scrollY))
+        .toBe(backgroundY);
+    }
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+  });
+}
+
 test("only modal dialogs lock page scrolling, not composer pickers", async ({
   browser,
 }) => {
