@@ -39,7 +39,7 @@ from changes that need database migrations or broader integration work.
 
 ## 4. Message Presentation
 
-- [ ] Share canonical private-message participant metadata between chat and
+- [x] Share canonical private-message participant metadata between chat and
       search, including renamed participants.
 - [ ] Share bubble variants and presentation selectors without coupling search
       controls to timeline interaction state.
@@ -152,4 +152,17 @@ from changes that need database migrations or broader integration work.
 - Verification: all 37 chat browser tests passed, including search/layout at
   mobile and desktop sizes, private messaging, reloads, GIF/emoji pickers, and
   announcements. Web typechecking, lint, and scoped formatting passed.
-- The E2E input follow-up is not yet committed or deployed.
+- 2026-10-19: Committed E2E input fixes as `d940d5a` (not pushed).
+- Private-message presentation: the room timeline and search now use one shared
+  projection of private messages and their current conversation partner. Search
+  no longer displays stale incoming names, avatars, or pictures, and outgoing
+  recipient labels follow the same current partner as the timeline. Private
+  messages are searchable by sender or recipient name. Stored message snapshots
+  and public-message metadata remain unchanged.
+- Added a regression for renamed participants, avatar changes, removed pictures,
+  and name searches in both directions. Shared-projection tests cover block
+  notices, ban placeholders, historical snapshots, and chronological insertion.
+  All 147 room/direct-message tests and the mobile/desktop search browser
+  regression passed. Web typechecking, lint, and scoped formatting passed.
+- The private-participant metadata follow-up is not yet committed or deployed.
+  Shared bubble variants and presentation selectors remain the next item.

@@ -153,30 +153,32 @@ const timeOf = (item: TimelineItem) =>
           : item.message.sentAt,
   );
 
+export function directItems(threads: DirectThread[]): TimelineItem[] {
+  return threads.flatMap((thread) => {
+    const partner = {
+      guestId: thread.guestId,
+      nickname: thread.nickname,
+      role: thread.role,
+      avatar: thread.avatar,
+      ...(thread.picture ? { picture: thread.picture } : {}),
+    };
+
+    return thread.entries.flatMap((entry): TimelineItem[] =>
+      !isStatus(entry)
+        ? [{ kind: "direct", message: entry, partner }]
+        : entry.event === "blockedYou" || entry.event === "unblockedYou"
+          ? [{ kind: "notice", status: entry, partner }]
+          : [],
+    );
+  });
+}
+
 // The guest's private messages, sent and received, set into the room's timeline by the time they were sent.
 export function withDirect(
   items: TimelineItem[],
   threads: DirectThread[],
 ): TimelineItem[] {
-  const direct: TimelineItem[] = threads
-    .flatMap((thread) => {
-      const partner = {
-        guestId: thread.guestId,
-        nickname: thread.nickname,
-        role: thread.role,
-        avatar: thread.avatar,
-        ...(thread.picture ? { picture: thread.picture } : {}),
-      };
-
-      return thread.entries.flatMap((entry): TimelineItem[] =>
-        !isStatus(entry)
-          ? [{ kind: "direct", message: entry, partner }]
-          : entry.event === "blockedYou" || entry.event === "unblockedYou"
-            ? [{ kind: "notice", status: entry, partner }]
-            : [],
-      );
-    })
-    .sort((a, b) => timeOf(a) - timeOf(b));
+  const direct = directItems(threads).sort((a, b) => timeOf(a) - timeOf(b));
 
   if (direct.length === 0) return items;
 

@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  directItems,
   eventsFromHistory,
   mergeEvents,
   parseRoomEvent,
   timeline,
+  withDirect,
   type RoomEvent,
 } from "./roomEvents";
 import type { ChatMessage } from "./types";
+import type { DirectMessage, DirectThread } from "./direct";
 
 const told = (extra: Record<string, unknown> = {}) => ({
   id: "event-1",
@@ -138,6 +141,98 @@ const names = (items: ReturnType<typeof timeline>) =>
           ? item.status.id
           : item.message.id,
   );
+
+describe("shared private timeline items", () => {
+  const message: DirectMessage = {
+    id: "private",
+    fromGuestId: "bob",
+    fromNickname: "Bob",
+    fromRole: "guest",
+    fromAvatar: "male",
+    fromPicture: "lorelei:abc12345",
+    toGuestId: "alice",
+    toNickname: "Alice",
+    toAvatar: "other",
+    text: "Hello",
+    sentAt: "2026-10-04T12:00:02.000Z",
+  };
+  const thread: DirectThread = {
+    guestId: "bob",
+    nickname: "Robert",
+    role: "moderator",
+    avatar: "female",
+    entries: [message],
+    present: true,
+    unread: 0,
+  };
+
+  it("uses current partner metadata without changing historical message snapshots", () => {
+    expect(directItems([thread])).toEqual([
+      {
+        kind: "direct",
+        message,
+        partner: {
+          guestId: "bob",
+          nickname: "Robert",
+          role: "moderator",
+          avatar: "female",
+        },
+      },
+    ]);
+    expect(message.fromNickname).toBe("Bob");
+    expect(message.fromPicture).toBe("lorelei:abc12345");
+    expect(
+      directItems([{ ...thread, picture: "thumbs:zzzz9999" }])[0],
+    ).toMatchObject({ partner: { picture: "thumbs:zzzz9999" } });
+  });
+
+  it("retains ban placeholders and block notices but not conversation-only movements", () => {
+    const entries: DirectThread["entries"] = [
+      { ...message, banned: true },
+      ...(["left", "rejoined", "blockedYou", "unblockedYou"] as const).map(
+        (event) => ({
+          kind: "status" as const,
+          id: event,
+          event,
+          sentAt: message.sentAt,
+        }),
+      ),
+    ];
+    const items = directItems([{ ...thread, entries }]);
+    expect(names(items)).toEqual(["private", "blockedYou", "unblockedYou"]);
+    expect(items[0]).toMatchObject({
+      kind: "direct",
+      message: { banned: true },
+    });
+    expect(items[1]).toMatchObject({
+      kind: "notice",
+      partner: { nickname: "Robert" },
+    });
+  });
+
+  it("inserts shared private items chronologically without reordering the stored entries", () => {
+    const entries = [
+      { ...message, id: "later", sentAt: "2026-10-04T12:00:04.000Z" },
+      message,
+    ];
+    const publicItems = timeline(
+      [
+        { ...said("before"), sentAt: "2026-10-04T12:00:01.000Z" },
+        { ...said("after"), sentAt: "2026-10-04T12:00:03.000Z" },
+      ],
+      [],
+    );
+    expect(names(withDirect(publicItems, [{ ...thread, entries }]))).toEqual([
+      "before",
+      "private",
+      "after",
+      "later",
+    ]);
+    expect(entries.map((entry) => entry.id)).toEqual(["later", "private"]);
+    expect(names(publicItems)).toEqual(["before", "after"]);
+    expect(withDirect(publicItems, [])).toBe(publicItems);
+  });
+});
 
 describe("timeline", () => {
   const earlier = (id: string, second: number): RoomEvent => {

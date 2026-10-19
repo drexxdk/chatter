@@ -840,6 +840,58 @@ describe("room search", () => {
     expect(results).not.toHaveTextContent(/giphy|URL_ONLY_TOKEN|https:/);
   });
 
+  it("uses the timeline's current private participant metadata in search", async () => {
+    const { user, server } = await enter([]);
+    receive(
+      server,
+      dm({
+        text: "Coffee received earlier",
+        fromAvatar: "male",
+        fromPicture: "lorelei:abc12345",
+      }),
+    );
+    receive(server, fromMe(bob, "Coffee sent earlier"));
+    receive(
+      server,
+      dm({
+        id: "updated-partner",
+        fromNickname: "Robert",
+        fromAvatar: "female",
+        text: "Profile updated",
+      }),
+    );
+
+    const log = screen.getByRole("log");
+    expect(
+      within(log).getAllByText("Direct message from Robert"),
+    ).not.toHaveLength(0);
+    expect(
+      within(log).getByText("Direct message to Robert"),
+    ).toBeInTheDocument();
+
+    const field = screen.getByRole("combobox", { name: "Search messages" });
+    await user.type(field, "coffee");
+    const results = screen.getByRole("listbox", { name: "Message results" });
+    const incoming = within(results).getByRole("option", {
+      name: /Coffee received earlier/,
+    });
+    const outgoing = within(results).getByRole("option", {
+      name: /Coffee sent earlier/,
+    });
+    expect(incoming).toHaveTextContent("Direct message from Robert");
+    expect(outgoing).toHaveTextContent("Direct message to Robert");
+    expect(within(incoming).getByTitle("Female")).toBeInTheDocument();
+    expect(incoming.querySelector("[data-picture]")).toBeNull();
+
+    await user.clear(field);
+    await user.type(field, "Robert");
+    expect(
+      within(
+        screen.getByRole("listbox", { name: "Message results" }),
+      ).getAllByRole("option"),
+    ).toHaveLength(3);
+  });
+
   it("searches sent and received private messages and jumps to the selected message", async () => {
     const { user, server } = await enter([
       message({ text: "Coffee in the room" }),

@@ -17,7 +17,8 @@ import {
 import { useTranslation } from "react-i18next";
 
 import type { ChatMessage } from "../chat/types";
-import { isStatus, type DirectThread } from "../chat/direct";
+import type { DirectThread } from "../chat/direct";
+import { directItems } from "../chat/roomEvents";
 import { messageParts } from "../chat/gifs";
 import { useGridNavigation } from "../gridNavigation";
 import { AvatarIcon } from "./Avatar";
@@ -118,26 +119,25 @@ export function RoomSearch({
           message.roomSlug === roomSlug && !message.banned && !message.hidden,
       )
       .map((message) => ({ ...message, private: false })),
-    ...threads.flatMap((thread) =>
-      thread.entries.flatMap((entry): SearchMessage[] =>
-        isStatus(entry) || entry.banned
-          ? []
-          : [
-              {
-                id: entry.id,
-                guestId: entry.fromGuestId,
-                nickname: entry.fromNickname,
-                toNickname: entry.toNickname,
-                role: entry.fromRole,
-                avatar: entry.fromAvatar,
-                picture: entry.fromPicture,
-                sentAt: entry.sentAt,
-                text: entry.text,
-                private: true,
-              },
-            ],
-      ),
-    ),
+    ...directItems(threads).flatMap((item): SearchMessage[] => {
+      if (item.kind !== "direct" || item.message.banned) return [];
+      const { message: entry, partner } = item;
+      const mine = ownGuestIds.includes(entry.fromGuestId);
+      return [
+        {
+          id: entry.id,
+          guestId: entry.fromGuestId,
+          nickname: mine ? entry.fromNickname : partner.nickname,
+          toNickname: mine ? partner.nickname : entry.toNickname,
+          role: mine ? entry.fromRole : partner.role,
+          avatar: mine ? entry.fromAvatar : partner.avatar,
+          picture: mine ? entry.fromPicture : partner.picture,
+          sentAt: entry.sentAt,
+          text: entry.text,
+          private: true,
+        },
+      ];
+    }),
   ];
   const results = !needle
     ? []
@@ -146,7 +146,9 @@ export function RoomSearch({
         .filter(
           (message) =>
             message.text.toLocaleLowerCase().includes(needle) ||
-            message.nickname.toLocaleLowerCase().includes(needle),
+            message.nickname.toLocaleLowerCase().includes(needle) ||
+            (message.private &&
+              message.toNickname?.toLocaleLowerCase().includes(needle)),
         )
         .sort(
           (first, second) =>
