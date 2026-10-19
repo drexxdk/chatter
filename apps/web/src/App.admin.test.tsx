@@ -253,6 +253,58 @@ describe("the admin's tools", () => {
 });
 
 describe("the crowd", () => {
+  it("changes the room limit and updates crowd bounds and participant totals live", async () => {
+    stubLogin("admin-token", "Ada Admin");
+    const server = makeFakeServer();
+    const { user } = setup(server);
+    await enterTestLab(user);
+    act(() =>
+      server.latest.serverEmit("room:presence", {
+        roomSlug: "admin-lab",
+        members: [
+          { guestId: "mod-1", nickname: "Ada Admin", role: "moderator" },
+          { guestId: "mod-2", nickname: "Grace", role: "moderator" },
+          { guestId: "guest-bob", nickname: "Bob", role: "guest" },
+          { guestId: "member-carol", nickname: "Carol", role: "member" },
+        ],
+      }),
+    );
+    expect(
+      screen.getByRole("button", { name: "In this room (2 of 10)" }),
+    ).toBeVisible();
+    await openTools(user);
+    const limit = screen.getByRole("spinbutton", { name: "Room limit" });
+    expect(limit).toHaveValue(10);
+    for (const invalid of ["0", "1001", "1.5"]) {
+      await user.clear(limit);
+      await user.type(limit, invalid);
+      expect(
+        screen.getByRole("button", { name: "Save room limit" }),
+      ).toBeDisabled();
+    }
+    await user.clear(limit);
+    await user.type(limit, "100{Enter}");
+    expect(server.latest.emittedEvents("admin:room:limit")).toEqual([
+      { slug: "admin-lab", maxMembers: 100 },
+    ]);
+    act(() =>
+      server.latest.serverEmit("admin:rooms", {
+        rooms: [
+          { id: -1, name: "Test lab", slug: "admin-lab", maxMembers: 100 },
+        ],
+      }),
+    );
+    expect(
+      screen.getByRole("button", { name: "In this room (2 of 100)" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("textbox", { name: "Number of people (1–100)" }),
+    ).toBeVisible();
+    expect(screen.getByRole("spinbutton", { name: "Room limit" })).toHaveValue(
+      100,
+    );
+  });
+
   const told = (
     server: ReturnType<typeof makeFakeServer>,
     status: string,

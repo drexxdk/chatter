@@ -10,6 +10,7 @@ import {
   FlaskConical,
   Pause,
   Play,
+  Save,
   Square,
   UserMinus,
   UserPlus,
@@ -33,6 +34,64 @@ const KICK_REASONS = ["inactivity", "banned", "replaced", "invalid_token"];
 const DEFAULT_AMOUNT = 10;
 const MAX_AMOUNT = 200;
 
+function RoomLimitForm({
+  room,
+  onApply,
+}: {
+  room: Room | null;
+  onApply: (maxMembers: number) => void;
+}) {
+  const { t } = useTranslation();
+  const [value, setValue] = useState(
+    String(room?.maxMembers ?? DEFAULT_AMOUNT),
+  );
+  const maxMembers = /^\d+$/.test(value) ? Number(value) : 0;
+  const minimum = Math.max(1, room?.memberCount ?? 0);
+  const valid =
+    Number.isSafeInteger(maxMembers) &&
+    maxMembers >= minimum &&
+    maxMembers <= 1000;
+  return (
+    <form
+      noValidate
+      className="flex gap-1 pb-1"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (room && valid && maxMembers !== room.maxMembers)
+          onApply(maxMembers);
+      }}
+    >
+      <input
+        type="number"
+        role="spinbutton"
+        min={minimum}
+        max={1000}
+        step={1}
+        aria-label={t("admin.roomLimit")}
+        aria-invalid={!valid}
+        value={value}
+        disabled={!room}
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== "Escape" && event.key !== "Tab")
+            event.stopPropagation();
+        }}
+        className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm outline-none focus:border-indigo-400 aria-invalid:border-red-500"
+      />
+      <button
+        type="submit"
+        role="button"
+        aria-label={t("admin.applyRoomLimit")}
+        title={t("admin.applyRoomLimit")}
+        disabled={!room || !valid || maxMembers === room.maxMembers}
+        className="flex size-9 shrink-0 items-center justify-center rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 disabled:hover:bg-neutral-800"
+      >
+        <Save aria-hidden="true" className="size-4" />
+      </button>
+    </form>
+  );
+}
+
 // The admin's tools for trying the chat out in the rooms only they can enter: people who are not there, a crowd of them that
 // writes by itself, and being removed.
 export function AdminMenu({
@@ -50,7 +109,7 @@ export function AdminMenu({
   const inTestRoom = room !== null;
   const status = crowd?.status ?? "stopped";
   // The crowd can be no more than the room holds.
-  const limit = room?.maxMembers ?? MAX_AMOUNT;
+  const limit = Math.min(room?.maxMembers ?? MAX_AMOUNT, MAX_AMOUNT);
   const people = /^\d+$/.test(amount) ? Number(amount) : 0;
   const valid = people >= 1 && people <= limit;
   // The room is named, so that the tools work from outside it too.
@@ -69,6 +128,18 @@ export function AdminMenu({
         <div className="absolute right-0 w-0">
           <MenuItems modal={false} className={HEADER_MENU}>
             <MenuSection>
+              <MenuHeading className={heading}>
+                {t("admin.roomLimit")}
+              </MenuHeading>
+              <RoomLimitForm
+                key={`${room?.slug}-${room?.maxMembers}`}
+                room={room}
+                onApply={(maxMembers) =>
+                  use("admin:room:limit", { maxMembers })
+                }
+              />
+            </MenuSection>
+            <MenuSection className="border-t border-neutral-800 pt-1">
               <MenuHeading className={`${heading} flex justify-between`}>
                 <span>{t("admin.crowd.title")}</span>
                 <span className="normal-case">

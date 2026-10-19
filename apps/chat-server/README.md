@@ -72,6 +72,7 @@ Good to know:
 - Guests may not use a moderator's name (compared ignoring case, spaces and punctuation) or a name that starts or ends with `moderator`, `administrator`, `admin`, `staff`, `support` or `system`, or is exactly `mod`. Moderator names are synced into Redis every `SYNC_INTERVAL_MS`.
 - A moderator's stored history copy carries no IP hash, so a ban can never redact their messages, and `enforceBans` never kicks them. Slow mode and the flood limit apply to moderators as to everyone.
 - Moderators do not count toward `MAX_CONNECTIONS_PER_IP` and are not refused when it is full, so somebody can always moderate while guests fill the limit.
+- A moderator or admin account has a stable, salted guest identity (`mod-` and 32 hex digits), separate from member identities. Signing in again, including from another browser, replaces the older connection with `kicked { reason: "replaced" }`; the older client does not reconnect automatically.
 
 ## Accounts
 
@@ -118,6 +119,9 @@ A moderator can tell everyone who is connected something, whether or not they ar
 
 A super-admin signs in as a moderator (same powers) and is also an admin: the cached moderator list (`chatter:moderators`) carries `admin: true` for them, so a demoted account loses it at its next connection. `session` then has `admin: true` and `adminRooms`, the rooms of `src/adminRooms.ts`, which are not in Payload or the lobby and which only an admin can `room:join` (anybody else gets `room_not_found`).
 
+Room limits and occupancy totals count guests and members, not moderators or admins. Staff remain in the presence list and can join full rooms.
+
+- `admin:room:limit` `{ slug?, maxMembers }` changes a test room's participant limit to an integer from 1 to 1000. Only admins may use it. Limits below the current participant count are refused with `room_limit_below_occupancy`; other invalid values return `invalid_room_limit`. Connected admins receive `admin:rooms` `{ rooms }` with the updated settings, also included in subsequent sessions. Settings are local to the chat-server process and reset to the defaults when it restarts.
 - `admin:fake:add`, `admin:fake:fill` (up to the room's limit; a room without one takes five), `admin:fake:remove`, `admin:fake:clear` (client to server, in a test room only): people who are not there are added to, or taken from, the room's presence, with a `room:event` for each. They count toward the room's limit and go when the last real person leaves. Ack: `{ ok: true }`, or `{ ok: false, error }` with `forbidden` (not an admin), `not_in_test_room`, `room_full` or `nobody`.
 - `admin:crowd:start` `{ people }`, `admin:crowd:people` `{ people }`, `admin:crowd:pause`, `admin:crowd:resume`, `admin:crowd:stop` (client to server, in a test room only): a crowd of up to 200 made-up people (`src/crowd.ts`, the names and sayings in `src/crowdContent.json`, which `npm run crowd` shares) who come in over ten seconds, write now and then, answer anybody who names them, and react, through the same paths as real people. `start` and `people` take a whole number from 1 to 200 (`invalid_people`); they come in as far as the room has seats. `pause` keeps them in the room but silent; `stop` sends them away. `not_running` for `pause`, `resume` and `people` when there is no crowd. The state goes to the room as `crowd:state` `{ roomSlug, status: "stopped" | "running" | "paused", people, target }`, and to an admin who joins a test room.
 - `admin:kick` `{ reason }` (any room): sends the admin themselves `kicked` with that reason (`inactivity`, `banned`, `replaced` or `invalid_token`) to see what each looks like, and does not disconnect them. `invalid_reason` for any other.
@@ -154,6 +158,7 @@ A reload is a new connection, which would normally be a new guest (new `guestId`
 - Only a hash (SHA-256) of the secret is stored, in Redis under `chatter:resume:<guestId>` for one hour (`RESUME_TTL_SECONDS`), and it is compared in constant time.
 - A new secret is issued on every connection, so one that was seen or copied stops working as soon as the guest connects again. It is never sent to other clients (not in presence or messages).
 - The secret only proves it is the same guest; bans, nickname rules and caps are checked as for any connection. If Redis cannot be reached the connection is refused with `unavailable`.
+- Only one connection may use an account or proven guest identity on a server, including concurrent handshakes. Members and moderators use their authenticated account identity regardless of client-supplied resume fields. Anonymous guests without valid resume proof are separate identities; a shared nickname or network address is not proof that they are the same person.
 
 ## Where state lives
 

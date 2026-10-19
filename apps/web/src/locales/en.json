@@ -22,6 +22,8 @@
   },
   "admin": {
     "open": "Admin tools",
+    "roomLimit": "Room limit",
+    "applyRoomLimit": "Save room limit",
     "crowd": {
       "title": "Crowd",
       "count": "{people} of {target}",
@@ -473,6 +475,8 @@
     "connection": "Could not reach the chat server.",
     "connection_lost": "The connection was lost and could not be restored.",
     "room_full": "This room is full.",
+    "invalid_room_limit": "Choose a room limit from 1 to 1000.",
+    "room_limit_below_occupancy": "Remove some participants before lowering the room limit.",
     "room_not_found": "That room no longer exists.",
     "rate_limited": "You're sending messages too fast. Slow down a little.",
     "rate_limited_wait": "You're sending messages too fast. You can send again in {seconds} s.",

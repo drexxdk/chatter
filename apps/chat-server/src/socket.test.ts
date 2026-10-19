@@ -153,7 +153,7 @@ const {
   roomOccupancy,
 } = await import("./socket.js");
 const { signToken } = await import("./tokens.js");
-const { hashIdentifier } = await import("./identity.js");
+const { hashIdentifier, moderatorGuestId } = await import("./identity.js");
 
 type Ack = { ok: boolean; error?: string; [key: string]: unknown };
 type Presence = {
@@ -161,6 +161,7 @@ type Presence = {
   members: {
     guestId: string;
     nickname: string;
+    role?: string;
     avatar?: string;
     age?: number;
   }[];
@@ -1672,6 +1673,25 @@ describe("roles", () => {
     return { socket, session: await session };
   }
 
+  it("lets a moderator join a full room without using a participant seat", async () => {
+    const { port, io } = await startServer({ authTokenSecret: SECRET });
+    const alice = await connectGuest("Alice", port);
+    const bob = await connectGuest("Bob", port);
+    const mod = await moderator(port);
+    await emit(alice, "room:join", { slug: "tiny" });
+
+    expect((await emit(mod.socket, "room:join", { slug: "tiny" })).ok).toBe(
+      true,
+    );
+    expect((await roomOccupancy(io)).get("tiny")).toBe(1);
+    expect(await emit(bob, "room:join", { slug: "tiny" })).toMatchObject({
+      error: "room_full",
+    });
+    await emit(alice, "room:leave");
+    expect((await roomOccupancy(io)).get("tiny")).toBeUndefined();
+    expect((await emit(bob, "room:join", { slug: "tiny" })).ok).toBe(true);
+  });
+
   it("gives an ordinary guest the guest role", async () => {
     const { session } = await connect({ nickname: "Alice" });
 
@@ -1895,9 +1915,9 @@ describe("roles", () => {
 
 describe("connections per IP", () => {
   const SECRET = "a-secret-that-is-long-enough-for-tests";
-  const moderatorAuth = () => ({
+  const moderatorAuth = (sub = 7, name = "Ada Mod") => ({
     token: signToken(
-      { sub: 7, name: "Ada Mod", role: "moderator" },
+      { sub, name, role: "moderator" },
       { secret: SECRET, ttlMs: 3_600_000 },
     ),
   });
@@ -1911,7 +1931,7 @@ describe("connections per IP", () => {
     await connectGuest("One", port);
 
     const first = await connect(moderatorAuth(), port);
-    const second = await connect(moderatorAuth(), port);
+    const second = await connect(moderatorAuth(8, "Grace"), port);
 
     expect(first.socket).toBeDefined();
     expect(second.socket).toBeDefined();
@@ -3770,15 +3790,20 @@ describe("nicknames in a room", () => {
     ).toHaveLength(1);
   });
 
-  it("does not count the same moderator account on two connections as two people", async () => {
+  it("replaces the older connection when the same moderator signs in again", async () => {
     const { port } = await startServer({ authTokenSecret: SECRET });
     const token = signToken(
       { sub: 7, name: "Ada Mod", role: "moderator" },
       { secret: SECRET, ttlMs: 3_600_000 },
     );
     const first = await connect({ token }, port);
-    const second = await connect({ token }, port);
     await emit(first.socket!, "room:join", { slug: "general" });
+    const kicked = waitFor<{ reason: string }>(first.socket!, "kicked");
+    const second = await connect({ token }, port);
+    expect(await kicked).toEqual({ reason: "replaced" });
+    expect((await first.session)?.guestId).toBe(
+      (await second.session)?.guestId,
+    );
 
     expect(
       (await emit(second.socket!, "room:join", { slug: "general" })).ok,
@@ -3788,6 +3813,71 @@ describe("nicknames in a room", () => {
 
 describe("resuming an identity", () => {
   const SECRET = "a-secret-that-is-long-enough-for-tests";
+
+  it.each(["guest", "member", "moderator", "admin"])(
+    "keeps only one %s connection after concurrent sign-ins",
+    async (kind) => {
+      const { io, port } = await startServer({ authTokenSecret: SECRET });
+      getModerators.mockResolvedValue([
+        { id: 7, name: "Ada Mod", admin: kind === "admin" },
+      ]);
+      fetchUser.mockResolvedValue({
+        id: 7,
+        nickname: "alice",
+        displayName: "Alice",
+        avatar: "other",
+      });
+      verifyResume.mockResolvedValue(true);
+      const auth =
+        kind === "guest"
+          ? { nickname: "Alice", guestId: "guest-before", resumeSecret: "s" }
+          : {
+              token: signToken(
+                {
+                  sub: 7,
+                  name: "Ada Mod",
+                  role: kind === "member" ? "member" : "moderator",
+                },
+                { secret: SECRET, ttlMs: 3_600_000 },
+              ),
+            };
+      const results = await Promise.all([
+        connect(auth, port),
+        connect(auth, port),
+        connect(auth, port),
+      ]);
+      expect(results.every((result) => result.socket)).toBe(true);
+      const sessions = await Promise.all(
+        results.map((result) => result.session),
+      );
+      expect(new Set(sessions.map((session) => session?.guestId)).size).toBe(1);
+      await vi.waitFor(async () =>
+        expect(await io.fetchSockets()).toHaveLength(1),
+      );
+    },
+  );
+
+  it("keeps member and moderator accounts with the same numeric ID separate", async () => {
+    const { io, port } = await startServer({ authTokenSecret: SECRET });
+    fetchUser.mockResolvedValue({
+      id: 7,
+      nickname: "alice",
+      displayName: "Alice",
+      avatar: "other",
+    });
+    const auth = (role: "member" | "moderator") => ({
+      token: signToken(
+        { sub: 7, name: "Ada Mod", role },
+        { secret: SECRET, ttlMs: 3_600_000 },
+      ),
+    });
+    const member = await connect(auth("member"), port);
+    const moderator = await connect(auth("moderator"), port);
+    expect((await member.session)?.guestId).not.toBe(
+      (await moderator.session)?.guestId,
+    );
+    expect(await io.fetchSockets()).toHaveLength(2);
+  });
 
   it("gives each connection a secret for resuming, remembered by the server", async () => {
     const { session } = await connect({ nickname: "Alice" });
@@ -3971,7 +4061,7 @@ describe("resuming an identity", () => {
     });
   });
 
-  it("lets a moderator resume too, with the name from their account", async () => {
+  it("resumes a moderator with their account identity rather than a claimed guest identity", async () => {
     verifyResume.mockResolvedValue(true);
     const { port } = await startServer({ authTokenSecret: SECRET });
     const token = signToken(
@@ -3985,10 +4075,11 @@ describe("resuming an identity", () => {
     );
 
     expect(await session).toMatchObject({
-      guestId: "guest-before",
+      guestId: moderatorGuestId(7),
       nickname: "Ada Mod",
       role: "moderator",
     });
+    expect(verifyResume).not.toHaveBeenCalled();
   });
 });
 
@@ -4685,13 +4776,13 @@ describe("admin tools", () => {
     const full = waitFor<Presence>(
       socket,
       "room:presence",
-      (presence) => presence.members.length === 10,
+      (presence) => presence.members.length === 11,
     );
 
     expect(await emit(socket, "admin:fake:fill")).toEqual({ ok: true });
     expect(
       (await full).members.filter((m) => m.guestId.startsWith("fake-")),
-    ).toHaveLength(9);
+    ).toHaveLength(10);
     expect(await emit(socket, "admin:fake:fill")).toEqual({
       ok: false,
       error: "room_full",
@@ -4700,6 +4791,52 @@ describe("admin tools", () => {
       ok: false,
       error: "room_full",
     });
+  });
+
+  it("changes the Test lab limit and broadcasts it without counting admins", async () => {
+    const { socket, port } = await signIn(7, "Ada Admin");
+    const moderator = await signIn(8, "Grace", port);
+    expect(
+      await emit(moderator.socket, "admin:room:limit", {
+        slug: "admin-lab",
+        maxMembers: 20,
+      }),
+    ).toMatchObject({ error: "forbidden" });
+    await emit(socket, "room:join", { slug: "admin-lab" });
+    for (const maxMembers of [0, -1, 1.5, 1001, "20", null]) {
+      expect(
+        await emit(socket, "admin:room:limit", { maxMembers }),
+      ).toMatchObject({ error: "invalid_room_limit" });
+    }
+    const changed = waitFor<{ rooms: { slug: string; maxMembers: number }[] }>(
+      socket,
+      "admin:rooms",
+    );
+    expect(await emit(socket, "admin:room:limit", { maxMembers: 20 })).toEqual({
+      ok: true,
+    });
+    expect((await changed).rooms).toContainEqual(
+      expect.objectContaining({ slug: "admin-lab", maxMembers: 20 }),
+    );
+    const full = waitFor<Presence>(
+      socket,
+      "room:presence",
+      (presence) => presence.members.length === 21,
+    );
+    await emit(socket, "admin:fake:fill");
+    expect(
+      (await full).members.filter((member) => member.role !== "moderator"),
+    ).toHaveLength(20);
+    expect(
+      await emit(socket, "admin:room:limit", { maxMembers: 19 }),
+    ).toMatchObject({ error: "room_limit_below_occupancy" });
+    const reconnected = await signIn(7, "Ada Admin", port);
+    expect(reconnected.session).toMatchObject({
+      adminRooms: [expect.objectContaining({ maxMembers: 20 })],
+    });
+    expect(
+      (await emit(reconnected.socket, "room:join", { slug: "admin-lab" })).ok,
+    ).toBe(true);
   });
 
   it("takes one of them away, and then all of them", async () => {
@@ -4883,7 +5020,7 @@ describe("admin tools", () => {
       const full = waitFor<Presence>(
         socket,
         "room:presence",
-        (presence) => presence.members.length === 10,
+        (presence) => presence.members.length === 11,
       );
 
       expect(await emit(socket, "admin:crowd:start", { people: 11 })).toEqual({
@@ -4892,7 +5029,7 @@ describe("admin tools", () => {
       });
       await emit(socket, "admin:crowd:start", { people: 10 });
 
-      expect((await full).members).toHaveLength(10);
+      expect((await full).members).toHaveLength(11);
       expect(await emit(socket, "admin:fake:add")).toEqual({
         ok: false,
         error: "room_full",

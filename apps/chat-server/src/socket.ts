@@ -7,7 +7,6 @@ import { PROFILE_UPDATE_EVENT } from "../../../shared/chatProtocol.mjs";
 import { parseAge } from "./age.js";
 import {
   ADMIN_ROOMS,
-  adminRoomOf,
   fakeMember,
   isAdminRoom,
   type FakeMember,
@@ -37,6 +36,7 @@ import {
   getClientIp,
   hashMember,
   memberGuestId,
+  moderatorGuestId,
   validateNickname,
 } from "./identity.js";
 import { MAX_MESSAGE_LENGTH, slidingWindow } from "./limits.js";
@@ -273,6 +273,12 @@ export function createSocketServer(
   const resumeSecrets = new WeakMap<object, string>();
   // The people made up in the test rooms, by room. Only on this node: the test rooms are for one admin at a time.
   const fakeMembers = new Map<string, FakeMember[]>();
+  const adminRooms = ADMIN_ROOMS.map((room) => ({
+    ...room,
+    maxMembers: Number(room.maxMembers),
+  }));
+  const adminRoomOf = (slug: string) =>
+    adminRooms.find((room) => room.slug === slug);
   const io = new Server(httpServer, {
     cors: { origin: env.WEB_ORIGIN, credentials: true },
     maxHttpBufferSize: MAX_PACKET_BYTES,
@@ -299,7 +305,9 @@ export function createSocketServer(
 
   // Who is in a test room, the people who are not there too: what its card in the list says.
   async function peopleIn(slug: string): Promise<number> {
-    const here = (await io.in(roomKey(slug)).fetchSockets()).length;
+    const here = (await io.in(roomKey(slug)).fetchSockets()).filter(
+      (member) => (member.data as SocketData).role !== "moderator",
+    ).length;
 
     return here + (fakeMembers.get(slug)?.length ?? 0);
   }
@@ -354,9 +362,7 @@ export function createSocketServer(
 
     if (typeof limit !== "number") return Infinity;
 
-    const here = (await io.in(roomKey(slug)).fetchSockets()).length;
-
-    return Math.max(0, limit - here - (fakeMembers.get(slug)?.length ?? 0));
+    return Math.max(0, limit - (await peopleIn(slug)));
   }
 
   // The crowd of a test room: made-up people who write and react as real ones would, through the same paths.
@@ -628,13 +634,15 @@ export function createSocketServer(
       // An account always has the same guest id and its token proves it, so no secret is needed to take over; a guest
       // needs the one the old connection was given.
       const takenOver =
-        memberId !== undefined
-          ? memberGuestId(memberId)
-          : claimedId &&
-              claimedSecret &&
-              (await verifyResume(claimedId, claimedSecret))
-            ? claimedId
-            : undefined;
+        accountId !== undefined
+          ? moderatorGuestId(accountId)
+          : memberId !== undefined
+            ? memberGuestId(memberId)
+            : claimedId &&
+                claimedSecret &&
+                (await verifyResume(claimedId, claimedSecret))
+              ? claimedId
+              : undefined;
 
       if (takenOver) {
         // The old connection may not have been noticed gone yet; the guest is only in the room once.
@@ -719,6 +727,16 @@ export function createSocketServer(
       else connectionsPerIp.delete(data.ipHash);
     });
 
+    for (const previous of io.of("/").sockets.values()) {
+      if (
+        previous.id !== socket.id &&
+        (previous.data as SocketData).guestId === data.guestId
+      ) {
+        previous.emit("kicked", { reason: "replaced" });
+        previous.disconnect(true);
+      }
+    }
+
     async function leaveRoom(): Promise<void> {
       const slug = data.roomSlug;
       if (!slug) return;
@@ -748,7 +766,7 @@ export function createSocketServer(
       avatar: data.avatar,
       ...pictureOf(data),
       ...(data.age === undefined ? {} : { age: data.age }),
-      ...(data.admin ? { admin: true, adminRooms: ADMIN_ROOMS } : {}),
+      ...(data.admin ? { admin: true, adminRooms } : {}),
       resumeSecret: resumeSecrets.get(socket),
     });
 
@@ -1205,10 +1223,13 @@ export function createSocketServer(
         const limit = room.maxMembers;
 
         // Rooms without a limit skip the cluster-wide member lookup entirely.
-        if (typeof limit === "number") {
+        if (typeof limit === "number" && data.role !== "moderator") {
           const members = await io.in(roomKey(slug)).fetchSockets();
           const made = fakeMembers.get(slug)?.length ?? 0;
-          if (members.length + made >= limit) return "room_full" as const;
+          const participants = members.filter(
+            (member) => (member.data as SocketData).role !== "moderator",
+          ).length;
+          if (participants + made >= limit) return "room_full" as const;
         }
 
         if (await nameInUse(slug, data, data.nickname)) {
@@ -1281,6 +1302,26 @@ export function createSocketServer(
       });
     }
 
+    adminTool("admin:room:limit", (slug, payload) =>
+      withRoomLock(slug, async () => {
+        const maxMembers = (payload as { maxMembers?: unknown } | null)
+          ?.maxMembers;
+        const room = adminRoomOf(slug);
+        if (
+          !room ||
+          typeof maxMembers !== "number" ||
+          !Number.isSafeInteger(maxMembers) ||
+          maxMembers < 1 ||
+          maxMembers > 1000
+        )
+          return "invalid_room_limit";
+        if (maxMembers < (await peopleIn(slug)))
+          return "room_limit_below_occupancy";
+        room.maxMembers = maxMembers;
+        io.to(ADMIN_KEY).emit("admin:rooms", { rooms: adminRooms });
+      }),
+    );
+
     // How many more people the room has room for; a room with no limit takes five at a time.
     async function freeSeats(slug: string): Promise<number> {
       const seats = await seatsLeft(slug);
@@ -1345,7 +1386,7 @@ export function createSocketServer(
 
       return Number.isInteger(people) &&
         people >= 1 &&
-        people <= (typeof limit === "number" ? limit : MAX_CROWD)
+        people <= Math.min(limit ?? MAX_CROWD, MAX_CROWD)
         ? people
         : undefined;
     };
@@ -1658,6 +1699,7 @@ export async function roomOccupancy(io: Server): Promise<Map<string, number>> {
   const prefix = roomKey("");
 
   for (const socket of await io.fetchSockets()) {
+    if ((socket.data as SocketData).role === "moderator") continue;
     for (const key of socket.rooms) {
       if (!key.startsWith(prefix)) continue;
 

@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useDirectChat } from "./useDirectChat";
 import { useChatProfile } from "./useChatProfile";
-import { AccountError, parseAccountSession, type PasswordClaim } from "../api";
+import {
+  AccountError,
+  parseAccountSession,
+  type PasswordClaim,
+  type Room,
+} from "../api";
 import {
   eventsFromHistory,
   mergeEvents,
@@ -333,6 +338,14 @@ export function useChat(
 
         socket.on("crowd:state", (next: CrowdState) => {
           if (isCurrent()) setCrowd(next);
+        });
+
+        socket.on("admin:rooms", (next: { rooms: Room[] }) => {
+          if (!isCurrent()) return;
+          setSession((previous) => {
+            if (!previous?.admin) return previous;
+            return { ...previous, adminRooms: next.rooms };
+          });
         });
 
         socket.on(
@@ -729,9 +742,12 @@ export function useChat(
 
   // One of the admin's testing tools (see the chat-server's adminRooms.ts).
   const adminTool = useCallback(
-    async (event: string, payload?: unknown): Promise<ActionResult> =>
-      toResult(await emitWithAck(event, payload)),
-    [emitWithAck],
+    async (event: string, payload?: unknown): Promise<ActionResult> => {
+      const ack = await emitWithAck(event, payload);
+      settle(ack);
+      return toResult(ack);
+    },
+    [emitWithAck, settle],
   );
 
   useEffect(

@@ -242,6 +242,25 @@ describe("moderators", () => {
   });
 
   describe("staying signed in", () => {
+    it("stops reconnecting when another browser replaces the moderator session", async () => {
+      stubBackend(accepted);
+      const server = makeFakeServer();
+      const { user } = setup(server, [0]);
+      await signInAndJoin(user);
+      await screen.findByRole("button", { name: "Account menu: Ada Mod" });
+      act(() => {
+        server.latest.serverEmit("kicked", { reason: "replaced" });
+        server.latest.serverEmit("disconnect", "io server disconnect");
+      });
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "You opened the chat in another window",
+      );
+      expect(
+        screen.getByRole("heading", { name: "Public rooms" }),
+      ).toBeInTheDocument();
+      expect(server.createSocket).toHaveBeenCalledTimes(1);
+    });
+
     it("reconnects with the same token after the connection drops", async () => {
       stubBackend(accepted);
       const { user, server } = setup(makeFakeServer(), [0]);

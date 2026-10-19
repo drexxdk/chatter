@@ -800,7 +800,12 @@ export function App({
                   // The room you are in is counted from who is in it now, which is newer than the list.
                   rooms={knownRooms.map((room) =>
                     room.slug === chat.roomSlug
-                      ? { ...room, memberCount: chat.members.length }
+                      ? {
+                          ...room,
+                          memberCount: chat.members.filter(
+                            (member) => member.role !== "moderator",
+                          ).length,
+                        }
                       : room,
                   )}
                   slug={chat.roomSlug}

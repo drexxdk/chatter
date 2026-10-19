@@ -145,6 +145,9 @@ export function RoomPanel({
 }) {
   const { t } = useTranslation();
   const filter = usePeopleFilter(members);
+  const participantCount = members.filter(
+    (member) => member.role !== "moderator",
+  ).length;
   // The search is for the conversations too: by who they are with.
   const needle = filter.query.trim().toLowerCase();
   const shownThreads = threads.filter((thread) =>
@@ -162,8 +165,11 @@ export function RoomPanel({
       <PanelSection
         title={
           typeof maxMembers === "number"
-            ? t("room.membersOfMax", { count: members.length, max: maxMembers })
-            : t("room.members", { count: members.length })
+            ? t("room.membersOfMax", {
+                count: participantCount,
+                max: maxMembers,
+              })
+            : t("room.members", { count: participantCount })
         }
       >
         <PeopleFilterChips filter={filter} label={t("dm.filter")} compact />

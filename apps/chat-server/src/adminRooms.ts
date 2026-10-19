@@ -11,7 +11,7 @@ export const ADMIN_ROOMS = [
     slug: "admin-lab",
     maxMembers: 10,
     slowModeSeconds: null,
-    description: "A room for ten, for trying things out.",
+    description: "A private room for testing the chat.",
   },
 ] as const;
 

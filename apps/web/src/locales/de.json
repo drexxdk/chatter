@@ -22,6 +22,8 @@
   },
   "admin": {
     "open": "Admin-Werkzeuge",
+    "roomLimit": "Raumlimit",
+    "applyRoomLimit": "Raumlimit speichern",
     "crowd": {
       "title": "Menschenmenge",
       "count": "{people} von {target}",
@@ -473,6 +475,8 @@
     "connection": "Der Chat-Server ist nicht erreichbar.",
     "connection_lost": "Die Verbindung wurde unterbrochen und konnte nicht wiederhergestellt werden.",
     "room_full": "Dieser Raum ist voll.",
+    "invalid_room_limit": "Wähle ein Raumlimit zwischen 1 und 1000.",
+    "room_limit_below_occupancy": "Entferne einige Teilnehmer, bevor du das Raumlimit senkst.",
     "room_not_found": "Dieser Raum existiert nicht mehr.",
     "rate_limited": "Du sendest Nachrichten zu schnell. Bitte etwas langsamer.",
     "rate_limited_wait": "Du sendest Nachrichten zu schnell. Du kannst in {seconds} s wieder senden.",

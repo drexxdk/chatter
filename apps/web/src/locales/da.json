@@ -22,6 +22,8 @@
   },
   "admin": {
     "open": "Admin-værktøjer",
+    "roomLimit": "Rumgrænse",
+    "applyRoomLimit": "Gem rumgrænse",
     "crowd": {
       "title": "Menneskemængde",
       "count": "{people} af {target}",
@@ -473,6 +475,8 @@
     "connection": "Kunne ikke få forbindelse til chatserveren.",
     "connection_lost": "Forbindelsen blev afbrudt og kunne ikke genoprettes.",
     "room_full": "Dette rum er fuldt.",
+    "invalid_room_limit": "Vælg en rumgrænse fra 1 til 1000.",
+    "room_limit_below_occupancy": "Fjern nogle deltagere, før du sænker rumgrænsen.",
     "room_not_found": "Det rum findes ikke længere.",
     "rate_limited": "Du sender beskeder for hurtigt. Tag det lidt roligere.",
     "rate_limited_wait": "Du sender beskeder for hurtigt. Du kan sende igen om {seconds} s.",

@@ -48,6 +48,10 @@ export function memberGuestId(userId: number): string {
     .slice(0, 32)}`;
 }
 
+export function moderatorGuestId(accountId: number): string {
+  return `mod-${hashIdentifier(`moderator:${accountId}`).slice(0, 32)}`;
+}
+
 interface HandshakeLike {
   address: string;
   headers: Record<string, string | string[] | undefined>;
