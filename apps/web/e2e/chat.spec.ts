@@ -1288,7 +1288,7 @@ test("a moderator signs in, and guests see their messages stand out", async ({
     await moderator.getByLabel("Password").fill("not the password");
     await moderator.getByRole("button", { name: "Sign in" }).click();
     await expect(moderator.getByRole("dialog").getByRole("alert")).toHaveText(
-      "Wrong email or password.",
+      "Wrong username, email or password.",
     );
 
     await moderator.getByLabel("Password").fill(password);

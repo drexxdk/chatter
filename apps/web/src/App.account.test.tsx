@@ -132,7 +132,11 @@ describe("signing in from the lobby", () => {
     ).toBeTruthy();
     expect(dialog.queryByText(/continue with an account/i)).toBeNull();
     expect(dialog.getByLabelText("Password")).toBeVisible();
-    expect(dialog.getByLabelText("Username")).toHaveValue("Alice");
+    expect(dialog.getByLabelText("Username")).toHaveValue("");
+    expect(dialog.getByLabelText("Username")).toHaveAttribute(
+      "placeholder",
+      "Alice",
+    );
     expect(dialog.getByLabelText("Confirm password")).toBeVisible();
     expect(dialog.queryByRole("button", { name: "Use a password" })).toBeNull();
     expect(dialog.queryByRole("button", { name: "Back" })).toBeNull();
