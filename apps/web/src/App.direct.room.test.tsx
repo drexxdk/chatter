@@ -4,11 +4,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { stubRooms, setup, at, message } from "./test/app";
 import {
   ME,
+  bob,
   carol,
   ada,
   dm,
   fromMe,
   enter,
+  present,
   receive,
   pane,
 } from "./test/direct";
@@ -191,8 +193,40 @@ describe("direct messages", () => {
 
       expect(names()).toEqual(["Bob", "Carol", "Ada Mod"]);
 
+      expect(panel.getByRole("button", { name: "Male" })).toHaveTextContent(
+        "1",
+      );
+      expect(panel.getByRole("button", { name: "Female" })).toHaveTextContent(
+        "1",
+      );
+      expect(
+        panel.getByRole("button", { name: "Not specified" }),
+      ).toHaveTextContent("1");
+      expect(
+        panel.getByRole("button", { name: "Moderator" }),
+      ).toHaveAccessibleDescription("1");
+      const transgender = panel.getByRole("button", { name: "Transgender" });
+      expect(transgender).toBeDisabled();
+      expect(transgender).toHaveTextContent("");
+      await user.click(transgender);
+      expect(transgender).toHaveAttribute("aria-pressed", "false");
+      expect(names()).toEqual(["Bob", "Carol", "Ada Mod"]);
+
+      await user.click(panel.getByRole("button", { name: "Not specified" }));
+      expect(names()).toEqual([]);
+      await user.click(panel.getByRole("button", { name: "Moderator" }));
+      expect(names()).toEqual(["Ada Mod"]);
+      await user.click(panel.getByRole("button", { name: "Not specified" }));
+      await user.click(panel.getByRole("button", { name: "Moderator" }));
+
       await user.click(panel.getByRole("button", { name: "Female" }));
       expect(names()).toEqual(["Carol"]);
+      await user.click(panel.getByRole("button", { name: "Moderator" }));
+      expect(names()).toEqual(["Carol", "Ada Mod"]);
+      await user.click(panel.getByRole("button", { name: "Moderator" }));
+      expect(panel.getByRole("button", { name: "Male" })).toHaveTextContent(
+        "1",
+      );
 
       await user.click(panel.getByRole("button", { name: "Female" }));
       await user.click(panel.getByRole("button", { name: "Moderator" }));
@@ -201,10 +235,59 @@ describe("direct messages", () => {
       await user.click(panel.getByRole("button", { name: "Moderator" }));
       await user.type(panel.getByRole("searchbox"), "bo");
       expect(names()).toEqual(["Bob"]);
+      expect(panel.getByRole("button", { name: "Female" })).toHaveTextContent(
+        "1",
+      );
 
       await user.clear(panel.getByRole("searchbox"));
       await user.type(panel.getByRole("searchbox"), "zzz");
       expect(panel.getAllByText("Nobody matches.")).not.toHaveLength(0);
+    });
+
+    it("updates counts and clears unavailable gender and moderator filters as people leave", async () => {
+      const { user, server } = await enter([carol]);
+      const panel = within(
+        screen.getByRole("complementary", {
+          name: "People and direct messages",
+        }),
+      );
+      const male = panel.getByRole("button", { name: "Male" });
+      const female = panel.getByRole("button", { name: "Female" });
+      expect(panel.queryByRole("button", { name: "Moderator" })).toBeNull();
+      expect(male).toBeDisabled();
+      expect(male).toHaveTextContent("");
+      expect(female).toBeEnabled();
+      expect(female).toHaveAccessibleDescription("1");
+
+      present(server, [
+        bob,
+        carol,
+        { ...carol, guestId: "guest-carol-2", nickname: "Carol 2" },
+      ]);
+      expect(male).toBeEnabled();
+      expect(male).toHaveTextContent("1");
+      expect(female).toHaveTextContent("2");
+      await user.click(female);
+      expect(female).toHaveAttribute("aria-pressed", "true");
+
+      present(server, [ada]);
+      expect(female).toBeDisabled();
+      expect(female).toHaveTextContent("");
+      expect(female).not.toHaveAttribute("aria-describedby");
+      expect(female).toHaveAttribute("aria-pressed", "false");
+      expect(
+        panel.getByRole("button", { name: /^Ada Mod/ }),
+      ).toBeInTheDocument();
+      await user.click(panel.getByRole("button", { name: "Moderator" }));
+
+      present(server, [bob]);
+      expect(panel.queryByRole("button", { name: "Moderator" })).toBeNull();
+      expect(panel.getByRole("button", { name: /^Bob/ })).toBeInTheDocument();
+      present(server, [ada]);
+      expect(panel.getByRole("button", { name: "Moderator" })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
     });
 
     it("changes who the guest writes to from the menu on another person's message", async () => {
