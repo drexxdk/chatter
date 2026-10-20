@@ -26,7 +26,7 @@ export function MentionList({
       id={id}
       role="listbox"
       aria-label={t("mentions.label")}
-      className={`absolute bottom-full left-0 z-30 mb-2 max-h-64 w-72 max-w-full ${MENU_SURFACE}`}
+      className={`absolute bottom-full left-0 z-30 mb-2 max-h-[max(0px,min(16rem,calc(var(--composer-top,100dvh)-var(--header-height,0px)-1rem)))] w-72 max-w-full ${MENU_SURFACE}`}
     >
       {people.map((person, index) => (
         <li

@@ -31,6 +31,10 @@ export function SendModeMenu({
       <MenuItems
         modal={false}
         anchor={{ to: "top end", gap: 8, padding: 16 }}
+        style={{
+          maxHeight:
+            "max(0px, min(var(--anchor-max-height, 100dvh), calc(var(--composer-top, 100dvh) - var(--header-height, 0px) - 1rem)))",
+        }}
         className={`z-50 min-w-56 ${MENU_SURFACE}`}
       >
         <MenuItem>

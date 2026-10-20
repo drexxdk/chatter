@@ -10,7 +10,6 @@ import {
 } from "@headlessui/react";
 import {
   autoUpdate,
-  flip,
   offset,
   shift,
   size,
@@ -60,12 +59,12 @@ export function ComposerPicker({
     whileElementsMounted: autoUpdate,
     middleware: [
       offset(8),
-      flip(),
       shift({ padding: 0 }),
       size({
         padding: 16,
         apply({ availableHeight, elements }) {
-          elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`;
+          const referenceTop = elements.reference.getBoundingClientRect().top;
+          elements.floating.style.maxHeight = `max(0px, min(${availableHeight}px, calc(${referenceTop}px - var(--header-height, 0px) - 1rem)))`;
         },
       }),
     ],

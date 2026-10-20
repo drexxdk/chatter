@@ -47,7 +47,7 @@ export function RoomPanelDropdown({
             role="region"
             aria-label={t("room.panel")}
             focus
-            className="sheet absolute inset-x-0 bottom-full z-10 mb-0 h-[calc(100dvh-var(--header-height)-100%-0.5rem)] overflow-y-auto rounded-md border border-neutral-700 bg-neutral-900 p-3 shadow-lg md:hidden"
+            className="sheet absolute left-0 bottom-full z-10 mb-0 h-[calc(100dvh-var(--header-height)-100%-0.5rem)] w-56 max-w-full overflow-y-auto rounded-md border border-neutral-700 bg-neutral-900 p-3 shadow-lg md:hidden"
           >
             <CloseOnWideScreen />
             <FocusSearch />

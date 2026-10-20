@@ -148,7 +148,7 @@ async function expectPickerAligned(page: Page) {
     exact: true,
   });
   await expect(picker).toBeVisible();
-  const composer = toggle.locator("xpath=ancestor::form");
+  const composer = page.locator("form[data-composer]:visible");
   await expect
     .poll(async () => {
       const panel = await picker.boundingBox();
@@ -160,8 +160,9 @@ async function expectPickerAligned(page: Page) {
     .toBeLessThan(1);
   const bounds = await picker.boundingBox();
   const box = await composer.boundingBox();
+  const header = await page.locator("header").boundingBox();
   expect(bounds!.x).toBeGreaterThanOrEqual(0);
-  expect(bounds!.y).toBeGreaterThanOrEqual(0);
+  expect(bounds!.y).toBeGreaterThanOrEqual(header!.y + header!.height + 8 - 1);
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(box!.y);
   await picker.press("Escape");
   await expect(picker).toHaveCount(0);
@@ -186,23 +187,42 @@ test("the people dropdown focuses search and stays scrollable when resized", asy
   const panel = guest.locator("#room-panel-sheet");
   const search = panel.getByRole("searchbox", { name: "Search people" });
   await expect(panel).toBeVisible();
+  await expect(panel).toHaveCSS("width", "224px");
   await expect(search).toBeFocused();
   await expect(root).toHaveCSS("padding-right", "0px");
   await expect(root).toHaveCSS("scrollbar-gutter", "stable");
   await expect(root).not.toHaveCSS("overflow", "hidden");
 
-  for (const width of [400, 410, 390]) {
+  for (const width of [400, 410, 240, 390]) {
     await guest.setViewportSize({ width, height: 800 });
     await guest.evaluate(() => window.dispatchEvent(new Event("resize")));
     await expect(root).toHaveCSS("--scrollbar-width", "12px");
     await expect(root).toHaveCSS("padding-right", "0px");
     await expect(root).toHaveCSS("scrollbar-gutter", "stable");
     await expect(panel).toBeVisible();
+    const bounds = await panel.boundingBox();
+    const composer = await guest.locator(".composer-focus").boundingBox();
+    expect(Math.abs(bounds!.x - composer!.x)).toBeLessThan(2);
+    expect(bounds!.width).toBeLessThanOrEqual(224);
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    if (width === 240) expect(bounds!.width).toBeLessThan(224);
   }
 
   await search.press("Escape");
   await expect(panel).toHaveCount(0);
   await expect(toggle).toBeFocused();
+  await expectPickerAligned(guest);
+  const roomToggle = guest.locator("#room-heading").getByRole("button");
+  await roomToggle.click();
+  const roomMenu = guest.getByRole("menu");
+  await expect(roomMenu).toBeVisible();
+  const menuBounds = await roomMenu.boundingBox();
+  const composerBounds = await guest.locator(".composer-focus").boundingBox();
+  expect(menuBounds!.y + menuBounds!.height).toBeLessThanOrEqual(
+    composerBounds!.y - 8 + 1,
+  );
+  await roomMenu.press("Escape");
   await toggle.press("Enter");
   await expect(search).toBeFocused();
   const message = guest.getByRole("textbox", { name: "Message", exact: true });
@@ -378,7 +398,7 @@ test("room search finds public and private text without image URLs on mobile and
   ).toContainText("No messages found.");
 
   for (const width of [273, 390, 1280]) {
-    await alice.setViewportSize({ width, height: 844 });
+    await alice.setViewportSize({ width, height: width === 390 ? 480 : 844 });
     const field = alice.getByRole("combobox", { name: "Search messages" });
     await field.clear();
     await field.click();
@@ -396,6 +416,13 @@ test("room search finds public and private text without image URLs on mobile and
     });
     const results = dropdown.getByRole("listbox", { name: "Message results" });
     await expect(results.getByRole("option")).toHaveCount(3);
+    const searchBounds = await dropdown.boundingBox();
+    const composerBounds = await alice
+      .locator("form[data-composer]:visible")
+      .boundingBox();
+    expect(searchBounds!.y + searchBounds!.height).toBeLessThanOrEqual(
+      composerBounds!.y - 8 + 1,
+    );
     await expect(results).toContainText(publicText);
     await expect(results).toContainText(privateText);
     await expect(results).not.toContainText(/URL_ONLY_TOKEN|giphy/);
@@ -629,9 +656,14 @@ test("header dropdowns stay within the composer and viewport bounds", async ({
 }) => {
   const guest = await newGuest(browser);
   await enterRoom(guest, LOUNGE.name, "Menu Guest");
+  await fillMessage(
+    guest.getByRole("textbox", { name: "Message", exact: true }),
+    "Draft line one\nDraft line two\nDraft line three",
+  );
 
   for (const viewport of [
     { width: 273, height: 360 },
+    { width: 390, height: 480 },
     { width: 390, height: 844 },
     { width: 1280, height: 720 },
   ]) {
@@ -657,7 +689,7 @@ test("header dropdowns stay within the composer and viewport bounds", async ({
         expect(bounds!.x).toBeGreaterThanOrEqual(0);
         expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
         expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(
-          composer!.y + composer!.height + 1,
+          composer!.y - 8 + 1,
         );
         if (viewport.width < 768) {
           expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(
@@ -1720,6 +1752,17 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
     for (const width of [390, 1280]) {
       await moderator.setViewportSize({ width, height: 844 });
       await expectPickerAligned(moderator);
+      await moderator
+        .getByRole("button", { name: "Choose how to send" })
+        .click();
+      const sendMenu = moderator.getByRole("menu");
+      await expect(sendMenu).toBeVisible();
+      const sendBounds = await sendMenu.boundingBox();
+      const headerBounds = await moderator.locator("header").boundingBox();
+      expect(sendBounds!.y).toBeGreaterThanOrEqual(
+        headerBounds!.y + headerBounds!.height + 8 - 1,
+      );
+      await sendMenu.press("Escape");
     }
     const startAnnouncing = async () => {
       await moderator

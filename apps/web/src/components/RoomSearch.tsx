@@ -108,7 +108,9 @@ export function RoomSearch({
       size({
         padding: 16,
         apply({ availableHeight, elements }) {
-          elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`;
+          const referenceBottom =
+            elements.reference.getBoundingClientRect().bottom;
+          elements.floating.style.maxHeight = `max(0px, min(${availableHeight}px, calc(var(--composer-top, 100dvh) - ${referenceBottom}px - 0.875rem)))`;
         },
       }),
     ],

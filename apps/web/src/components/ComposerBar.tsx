@@ -1,5 +1,10 @@
 import { Megaphone, SendHorizontal } from "lucide-react";
-import { useState, type SubmitEvent, type ReactNode } from "react";
+import {
+  useLayoutEffect,
+  useState,
+  type SubmitEvent,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Partner } from "../chat/direct";
@@ -53,6 +58,35 @@ export function ComposerBar({
 }: ComposerBarProps) {
   const { t } = useTranslation();
   const [anchor, setAnchor] = useState<HTMLFormElement | null>(null);
+  useLayoutEffect(() => {
+    if (!anchor) return;
+    const measure = () => {
+      const bounds = Array.from(
+        document.querySelectorAll<HTMLFormElement>("form[data-composer]"),
+        (form) => form.getBoundingClientRect(),
+      ).find((rect) => rect.height > 0);
+      if (bounds) {
+        document.documentElement.style.setProperty(
+          "--composer-top",
+          `${bounds.top}px`,
+        );
+      } else {
+        document.documentElement.style.removeProperty("--composer-top");
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(anchor);
+    if (anchor.parentElement) observer.observe(anchor.parentElement);
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+      queueMicrotask(measure);
+    };
+  }, [anchor]);
 
   return (
     <div className="sticky bottom-0 z-20 space-y-2 bg-neutral-950 pb-3 pt-2">
@@ -62,7 +96,12 @@ export function ComposerBar({
 
       {idleDeadline != null && <IdleWarning deadline={idleDeadline} />}
 
-      <form ref={setAnchor} onSubmit={onSubmit} className="relative">
+      <form
+        ref={setAnchor}
+        data-composer
+        onSubmit={onSubmit}
+        className="relative"
+      >
         {/* One box that looks like the text box and holds the controls, as in Teams; a click anywhere in it types. */}
         <div
           onClick={(event) => {
