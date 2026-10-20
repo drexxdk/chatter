@@ -97,7 +97,7 @@ function PanelSection({
   return (
     <Disclosure as="section" defaultOpen className="panel-section">
       <h3>
-        <DisclosureButton className="group flex h-7 w-full items-center justify-between gap-2 rounded text-left text-sm font-semibold text-neutral-300 outline-none hover:text-neutral-100 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400">
+        <DisclosureButton className="group flex h-8 w-full items-center justify-between gap-2 rounded px-2 text-left text-sm font-semibold text-neutral-300 outline-none -outline-offset-2 hover:bg-neutral-800 hover:text-neutral-100 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400">
           {title}
           <ChevronDown
             aria-hidden="true"
