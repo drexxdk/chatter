@@ -39,7 +39,6 @@ import { AnnouncementBanner } from "./components/AnnouncementBanner";
 import { ChatRoom } from "./components/ChatRoom";
 import { Button } from "./components/Button";
 import { ErrorAlert } from "./components/ErrorAlert";
-import { InfoPanel } from "./components/InfoPanel";
 import { LegalLinks } from "./components/LegalLinks";
 import { legalDocOf, LegalPage } from "./components/LegalPage";
 import { Lobby, useRooms } from "./components/Lobby";
@@ -51,7 +50,6 @@ import { ProfileDialog, type ProfileSubject } from "./components/ProfileDialog";
 import { RoomSwitcher } from "./components/RoomSwitcher";
 import { QueueDialog } from "./components/QueueDialog";
 import { RoomSearch } from "./components/RoomSearch";
-import { SideDrawer } from "./components/SideDrawer";
 import { TabNotice } from "./components/TabNotice";
 import { ViewTransition } from "./components/ViewTransition";
 import { LOBBY_PATH, pageFromPath, roomPath, slugFromPath } from "./place";
@@ -120,7 +118,6 @@ export function App({
   const [signInError, setSignInError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
   const [moderatorOpen, setModeratorOpen] = useState(false);
-  const [infoOpen, setInfoOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [createAccountOpen, setCreateAccountOpen] = useState(false);
@@ -912,7 +909,6 @@ export function App({
                           }
                         : undefined
                 }
-                onInfo={() => setInfoOpen(true)}
                 movements={
                   chat.roomSlug && chat.session && !chat.direct.active
                     ? { checked: showMovements, onChange: changeShowMovements }
@@ -980,14 +976,6 @@ export function App({
           )}
         </ViewTransition>
       </PageFrame>
-
-      <SideDrawer
-        open={infoOpen}
-        title={t("info.title")}
-        onClose={() => setInfoOpen(false)}
-      >
-        <InfoPanel slowModeSeconds={currentRoom?.slowModeSeconds} />
-      </SideDrawer>
 
       {profile && (
         <ProfileDialog

@@ -19,7 +19,6 @@ export function ScrollToEnd() {
       setAway(
         page.scrollHeight - page.scrollTop - page.clientHeight >= AT_END_PX,
       );
-
     update();
     window.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);

@@ -716,39 +716,24 @@ describe("inside a room", () => {
       return result;
     }
 
-    it("tells the guest how often they may write, in the info panel", async () => {
-      const { user } = await enterSlowRoom(10);
-
-      await user.click(
-        screen.getByRole("button", { name: /^(Menu|Account menu:)/ }),
-      );
-      await user.click(
-        await screen.findByRole("menuitem", { name: "How the chat works" }),
-      );
-
-      expect(
-        within(await screen.findByRole("dialog")).getByText(
-          "Slow mode: one message every 10 s.",
-        ),
-      ).toBeInTheDocument();
-    });
-
     it.each([
+      ["with a configured delay", 10],
       ["without the setting", undefined],
       ["with it empty", null],
-    ])("says nothing about it in a room %s", async (_label, value) => {
-      const { user } = await enterSlowRoom(value);
+    ])(
+      "does not offer the removed help panel in a room %s",
+      async (_label, value) => {
+        const { user } = await enterSlowRoom(value);
 
-      await user.click(
-        screen.getByRole("button", { name: /^(Menu|Account menu:)/ }),
-      );
-      await user.click(
-        await screen.findByRole("menuitem", { name: "How the chat works" }),
-      );
-      await screen.findByRole("dialog");
-
-      expect(screen.queryByText(/Slow mode/)).not.toBeInTheDocument();
-    });
+        await user.click(
+          screen.getByRole("button", { name: /^(Menu|Account menu:)/ }),
+        );
+        await screen.findByRole("menuitem", { name: /Dansk/ });
+        expect(
+          screen.queryByRole("menuitem", { name: "How the chat works" }),
+        ).toBeNull();
+      },
+    );
   });
 
   it("leaves the room and reuses the connection for the next room", async () => {

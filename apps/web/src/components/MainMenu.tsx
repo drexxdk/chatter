@@ -9,7 +9,6 @@ import {
 import {
   DoorClosed,
   DoorOpen,
-  Info,
   LogIn,
   Menu as MenuIcon,
   User,
@@ -56,15 +55,12 @@ export interface MenuProfile {
 }
 
 // The header's one menu: with somebody signed in it opens from their avatar and starts with who they are; otherwise it is
-// the burger. Then how the chat works, what the room's log shows, and the language.
+// the burger. Then what the room's log shows and the language.
 export function MainMenu({
   profile,
-  onInfo,
   movements,
 }: {
   profile?: MenuProfile;
-  // Absent where there is no chat to explain, as on the pages of the terms.
-  onInfo?: () => void;
   // Only in a room's own chat, where there is a log that can show who came and went.
   movements?: { checked: boolean; onChange: (checked: boolean) => void };
 }) {
@@ -162,15 +158,6 @@ export function MainMenu({
                   )}
                 </MenuSection>
               </>
-            )}
-
-            {onInfo && (
-              <MenuItem>
-                <button type="button" onClick={onInfo} className={item}>
-                  <Info aria-hidden="true" className="h-5 w-5 shrink-0" />
-                  {t("info.button")}
-                </button>
-              </MenuItem>
             )}
 
             {movements && (

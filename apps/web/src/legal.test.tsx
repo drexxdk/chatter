@@ -236,8 +236,8 @@ describe("a page of the documents", () => {
       await screen.findByRole("menuitem", { name: /Dansk/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("menuitem", { name: "How the chat works" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("menuitem", { name: "How the chat works" }),
+    ).toBeNull();
   });
 
   it("shows a trail from the lobby to the document", async () => {

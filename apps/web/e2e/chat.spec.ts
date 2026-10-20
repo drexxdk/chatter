@@ -352,6 +352,86 @@ test("private chat back returns to the room and leaving is an action in the room
   await leaveRoom(alice);
 });
 
+test("typing in header search keeps the page scroll position", async ({
+  browser,
+}) => {
+  const guest = await newGuest(browser);
+  await enterRoom(guest, LOUNGE.name, "Search Scroll Guest");
+  await send(guest, "Stable search target");
+  await guest.addStyleTag({ content: '[role="log"] { min-height: 2000px; }' });
+
+  for (const width of [390, 1280]) {
+    await guest.setViewportSize({ width, height: 720 });
+    const field = guest.getByRole("combobox", { name: "Search messages" });
+    await field.click();
+    await guest.evaluate(() => window.scrollTo(0, 400));
+    await expect.poll(() => guest.evaluate(() => window.scrollY)).toBe(400);
+    await field.pressSequentially(" ");
+    await expect.poll(() => guest.evaluate(() => window.scrollY)).toBe(400);
+    for (const query of ["Stable search target", "No matching message"]) {
+      await field.press("ControlOrMeta+A");
+      await field.press("Backspace");
+      await field.pressSequentially(query, { delay: 30 });
+      await expect(
+        guest.getByRole("region", { name: `Search in ${LOUNGE.name}` }),
+      ).toBeVisible();
+      await expect.poll(() => guest.evaluate(() => window.scrollY)).toBe(400);
+    }
+    await field.press("ControlOrMeta+A");
+    await field.press("Backspace");
+    await expect.poll(() => guest.evaluate(() => window.scrollY)).toBe(400);
+    await expect(
+      guest.getByRole("button", { name: "Scroll to the latest messages" }),
+    ).toBeVisible();
+    await guest.evaluate(() =>
+      window.scrollTo(0, document.documentElement.scrollHeight),
+    );
+    await expect(
+      guest.getByRole("button", { name: "Scroll to the latest messages" }),
+    ).toHaveCount(0);
+    const tracker = await guest.evaluateHandle(() => {
+      const top = window.scrollY;
+      const problems: string[] = [];
+      const onScroll = () => {
+        if (window.scrollY !== top) problems.push("page moved");
+      };
+      const observer = new MutationObserver(() => {
+        if (
+          document.querySelector(
+            'button[aria-label="Scroll to the latest messages"]',
+          )
+        ) {
+          problems.push("scroll button appeared");
+        }
+      });
+      window.addEventListener("scroll", onScroll);
+      observer.observe(document.body, { childList: true, subtree: true });
+      return {
+        problems,
+        dispose() {
+          window.removeEventListener("scroll", onScroll);
+          observer.disconnect();
+        },
+      };
+    });
+    try {
+      await field.pressSequentially(" Stable search target", { delay: 30 });
+      await field.press("ControlOrMeta+A");
+      await field.press("Backspace");
+      await guest.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => resolve()),
+          ),
+      );
+      expect(await tracker.evaluate((state) => state.problems)).toEqual([]);
+    } finally {
+      await tracker.evaluate((state) => state.dispose());
+      await tracker.dispose();
+    }
+  }
+});
+
 test("room search finds public and private text without image URLs on mobile and desktop", async ({
   browser,
 }, testInfo) => {
@@ -524,7 +604,7 @@ test("room search finds public and private text without image URLs on mobile and
   }
 });
 
-test("messages align with the composer and its divider spans the scrolling edge", async ({
+test("messages align with the composer without a divider", async ({
   browser,
 }, testInfo) => {
   const alice = await newGuest(browser);
@@ -564,30 +644,13 @@ test("messages align with the composer and its divider spans the scrolling edge"
         ownBounds!.x + ownBounds!.width - formBounds!.x - formBounds!.width,
       ),
     ).toBeLessThan(1);
-    const divider = await bar.evaluate((element) => {
-      const style = getComputedStyle(element, "::before");
-      const bounds = element.getBoundingClientRect();
-      return {
-        border: style.borderTopWidth,
-        left:
-          bounds.left +
-          Number.parseFloat(style.left) +
-          Number.parseFloat(style.marginLeft),
-        width: Number.parseFloat(style.width),
-        bottom: bounds.bottom,
-      };
-    });
-    expect(divider.border).toBe("1px");
-    expect(divider.bottom).toBeLessThanOrEqual(844);
-    const left = width < 768 ? 0 : formBounds!.x;
-    const right =
-      width < 768
-        ? await alice
-            .locator("body")
-            .evaluate((element) => element.getBoundingClientRect().right)
-        : formBounds!.x + formBounds!.width;
-    expect(Math.abs(divider.left - left)).toBeLessThan(1);
-    expect(Math.abs(divider.left + divider.width - right)).toBeLessThan(1);
+    expect(
+      await bar.evaluate(
+        (element) => getComputedStyle(element, "::before").content,
+      ),
+    ).toBe("none");
+    const barBounds = (await bar.boundingBox())!;
+    expect(barBounds.y + barBounds.height).toBeLessThanOrEqual(844);
     await alice.mouse.wheel(0, -300);
     await alice.screenshot({
       path: testInfo.outputPath(`message-layout-${width}.png`),
@@ -755,6 +818,12 @@ for (const width of [390, 1280]) {
     const above = `Video above ${width} ${Date.now()}`;
     const below = `Video below ${width}`;
     const embed = "https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ";
+    await reader.route(`${embed}?**`, (route) =>
+      route.fulfill({
+        contentType: "text/html",
+        body: "<!doctype html><html><body><main>YouTube embed fixture</main></body></html>",
+      }),
+    );
     await fillMessage(box, above);
     await guest.getByRole("button", { name: "Emoji and GIFs" }).click();
     await guest.getByRole("tab", { name: "YouTube", exact: true }).click();
@@ -879,22 +948,16 @@ for (const width of [390, 1280]) {
       `${embed}?autoplay=1&playsinline=1`,
     );
     await expect(
-      player.contentFrame().locator(".html5-video-player"),
-    ).toBeVisible({ timeout: 15000 });
-    await expect
-      .poll(
-        async () =>
-          player
-            .contentFrame()
-            .locator("video")
-            .evaluate(
-              (video: HTMLVideoElement) =>
-                video.readyState >= 2 && !video.paused,
-            )
-            .catch(() => false),
-        { timeout: 15000 },
-      )
-      .toBeTruthy();
+      player.contentFrame().getByText("YouTube embed fixture", { exact: true }),
+    ).toBeVisible();
+    await expect(player).toHaveAttribute("allow", /autoplay/);
+    await expect(player).toHaveAttribute(
+      "sandbox",
+      "allow-scripts allow-same-origin allow-presentation",
+    );
+    await expect(
+      received.getByRole("link", { name: "Open on YouTube" }),
+    ).toHaveAttribute("href", "https://www.youtube.com/watch?v=aqz-KE-bpKQ");
     await expect(player).toBeVisible();
     const playerBounds = await player.boundingBox();
     expect(playerBounds!.x).toBeGreaterThanOrEqual(0);
@@ -1396,33 +1459,11 @@ test("a guest who is banned while chatting is removed and their messages are rep
   }
 });
 
-test("a room whose slow mode is left empty still has the server's default", async ({
-  browser,
-}) => {
-  const alice = await newGuest(browser);
-  await enterRoom(alice, LOUNGE.name, "Alice");
-  await alice.getByRole("button", { name: /^(Menu|Account menu:)/ }).click();
-  await alice.getByRole("menuitem", { name: "How the chat works" }).click();
-
-  await expect(
-    alice.getByText(
-      `Slow mode: one message every ${E2E.defaultSlowModeSeconds} s.`,
-    ),
-  ).toBeVisible();
-});
-
 test("a room with slow mode makes a guest wait between messages", async ({
   browser,
 }) => {
   const alice = await newGuest(browser);
   await enterRoom(alice, SLOW.name, "Alice");
-  await alice.getByRole("button", { name: /^(Menu|Account menu:)/ }).click();
-  await alice.getByRole("menuitem", { name: "How the chat works" }).click();
-  await expect(
-    alice.getByText("Slow mode: one message every 3 s."),
-  ).toBeVisible();
-  await alice.keyboard.press("Escape");
-  await expect(alice.getByRole("dialog")).toHaveCount(0);
 
   await send(alice, "first");
   await expect(alice.getByRole("log")).toContainText("first");
