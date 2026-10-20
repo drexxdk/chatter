@@ -1,26 +1,29 @@
-import { Hourglass, SkipForward } from "lucide-react";
-import { useState } from "react";
+import { Hourglass } from "lucide-react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Button } from "./Button";
 import { Modal } from "./Modal";
 
 export function QueueDialog({
   room,
   position,
   onClose,
-  onAdvance,
+  tools,
 }: {
   room: string;
   position: number;
   onClose: () => void;
-  onAdvance?: () => Promise<unknown>;
+  tools?: ReactNode;
 }) {
   const { t } = useTranslation();
-  const [advancing, setAdvancing] = useState(false);
 
   return (
-    <Modal title={t("queue.title", { room })} onClose={onClose} closable>
+    <Modal
+      title={t("queue.title", { room })}
+      onClose={onClose}
+      closable
+      actions={tools}
+    >
       <div
         role="status"
         aria-live="polite"
@@ -38,26 +41,6 @@ export function QueueDialog({
           </p>
         </div>
       </div>
-      {onAdvance && (
-        <Button
-          className="w-full"
-          icon={SkipForward}
-          disabled={advancing}
-          onClick={async () => {
-            setAdvancing(true);
-            try {
-              await onAdvance();
-            } finally {
-              setAdvancing(false);
-            }
-          }}
-        >
-          {t("admin.queue.advance")}
-        </Button>
-      )}
-      <Button className="w-full" onClick={onClose}>
-        {t("queue.leave")}
-      </Button>
     </Modal>
   );
 }

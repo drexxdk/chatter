@@ -355,45 +355,59 @@ describe("joining a room", () => {
 });
 
 describe("room queues", () => {
-  it("shows a live queue position from the lobby and cancels with the close button", async () => {
-    const server = makeFakeServer();
-    server.acks["room:join"] = () => ({ ok: false, error: "room_full" });
-    server.acks["room:queue:join"] = () => ({
-      ok: true,
-      queued: true,
-      position: 3,
-    });
-    const { user } = setup(server);
-    await joinRoom(user);
+  it.each(["close button", "outside click"])(
+    "shows a live queue position from the lobby and cancels with the %s",
+    async (dismissal) => {
+      const server = makeFakeServer();
+      server.acks["room:join"] = () => ({ ok: false, error: "room_full" });
+      server.acks["room:queue:join"] = () => ({
+        ok: true,
+        queued: true,
+        position: 3,
+      });
+      const { user } = setup(server);
+      await joinRoom(user);
 
-    const dialog = await screen.findByRole("dialog", {
-      name: "Queue for General",
-    });
-    expect(within(dialog).getByRole("status")).toHaveTextContent("Position 3");
-    expect(screen.queryByRole("log")).not.toBeInTheDocument();
-    act(() =>
-      server.latest.serverEmit("room:queue", {
-        roomSlug: "general",
-        position: 2,
-      }),
-    );
-    expect(within(dialog).getByRole("status")).toHaveTextContent("Position 2");
-    await user.click(within(dialog).getByRole("button", { name: "Close" }));
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
-    );
-    expect(server.latest.emittedEvents("room:queue:leave")).toHaveLength(1);
-    expect(
-      screen.getByRole("heading", { name: "Public rooms" }),
-    ).toBeInTheDocument();
-    act(() =>
-      server.latest.serverEmit("room:queue", {
-        roomSlug: "general",
-        position: 1,
-      }),
-    );
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
+      const dialog = await screen.findByRole("dialog", {
+        name: "Queue for General",
+      });
+      expect(within(dialog).getByRole("status")).toHaveTextContent(
+        "Position 3",
+      );
+      expect(screen.queryByRole("log")).not.toBeInTheDocument();
+      act(() =>
+        server.latest.serverEmit("room:queue", {
+          roomSlug: "general",
+          position: 2,
+        }),
+      );
+      expect(within(dialog).getByRole("status")).toHaveTextContent(
+        "Position 2",
+      );
+      expect(
+        within(dialog).queryByRole("button", { name: "Leave queue" }),
+      ).not.toBeInTheDocument();
+      if (dismissal === "outside click") {
+        await user.click(dialog);
+      } else {
+        await user.click(within(dialog).getByRole("button", { name: "Close" }));
+      }
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+      );
+      expect(server.latest.emittedEvents("room:queue:leave")).toHaveLength(1);
+      expect(
+        screen.getByRole("heading", { name: "Public rooms" }),
+      ).toBeInTheDocument();
+      act(() =>
+        server.latest.serverEmit("room:queue", {
+          roomSlug: "general",
+          position: 1,
+        }),
+      );
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    },
+  );
 
   async function queueSwitch() {
     const result = setup();

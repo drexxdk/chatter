@@ -24,10 +24,12 @@ export function PanelHeader({
   title,
   onClose,
   compact = false,
+  actions,
 }: {
   title: string;
   onClose: () => void;
   compact?: boolean;
+  actions?: ReactNode;
 }) {
   const { t } = useTranslation();
 
@@ -40,13 +42,16 @@ export function PanelHeader({
       >
         {title}
       </DialogTitle>
-      <Button
-        variant="icon"
-        onClick={onClose}
-        aria-label={t("room.closePanel")}
-      >
-        <X aria-hidden="true" className="h-5 w-5" />
-      </Button>
+      <div className="flex shrink-0 items-center gap-1">
+        {actions}
+        <Button
+          variant="icon"
+          onClick={onClose}
+          aria-label={t("room.closePanel")}
+        >
+          <X aria-hidden="true" className="h-5 w-5" />
+        </Button>
+      </div>
     </div>
   );
 }
@@ -58,12 +63,14 @@ export function Modal({
   onClose,
   title,
   closable = false,
+  actions,
   children,
 }: {
   open?: boolean;
   onClose: () => void;
   title: string;
   closable?: boolean;
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   // Headless UI only fades in what goes from closed to open, so one that is mounted open is opened a moment later.
@@ -86,7 +93,7 @@ export function Modal({
             className="w-full max-w-sm space-y-4 rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-xl transition duration-200 data-closed:scale-95 data-closed:opacity-0"
           >
             {closable ? (
-              <PanelHeader title={title} onClose={onClose} />
+              <PanelHeader title={title} onClose={onClose} actions={actions} />
             ) : (
               <DialogTitle as="h2" className="text-lg font-semibold">
                 {title}

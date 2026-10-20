@@ -786,6 +786,27 @@ export function App({
     if (room && slug !== chat.roomSlug) void handleSelect(room);
   }, [location.key, navigationType]);
 
+  const adminTools = chat.session?.admin ? (
+    <AdminMenu
+      room={testRoom}
+      queueTest={chat.session.queueTest ?? { enabled: false, ahead: 0 }}
+      crowd={chat.crowd?.roomSlug === testRoom?.slug ? chat.crowd : null}
+      onTool={(event, payload) => void chat.adminTool(event, payload)}
+      onAdvance={
+        chat.queue &&
+        chat.session.queueTest?.enabled &&
+        chat.session.adminRooms?.some(
+          (room) => room.slug === chat.queue?.roomSlug,
+        )
+          ? () =>
+              chat.adminTool("admin:queue:advance", {
+                slug: chat.queue?.roomSlug,
+              })
+          : undefined
+      }
+    />
+  ) : undefined;
+
   return (
     <>
       <PageFrame
@@ -854,20 +875,7 @@ export function App({
                   {t("nickname.signIn")}
                 </Button>
               )}
-              {chat.session?.admin && (
-                <AdminMenu
-                  room={testRoom}
-                  queueTest={
-                    chat.session.queueTest ?? { enabled: false, ahead: 0 }
-                  }
-                  crowd={
-                    chat.crowd?.roomSlug === testRoom?.slug ? chat.crowd : null
-                  }
-                  onTool={(event, payload) =>
-                    void chat.adminTool(event, payload)
-                  }
-                />
-              )}
+              {!chat.queue && adminTools}
               <MainMenu
                 profile={
                   !settled
@@ -1023,18 +1031,7 @@ export function App({
               ?.name ?? chat.queue.roomSlug
           }
           position={chat.queue.position}
-          onAdvance={
-            chat.session?.admin &&
-            chat.session.queueTest?.enabled &&
-            chat.session.adminRooms?.some(
-              (room) => room.slug === chat.queue?.roomSlug,
-            )
-              ? () =>
-                  chat.adminTool("admin:queue:advance", {
-                    slug: chat.queue?.roomSlug,
-                  })
-              : undefined
-          }
+          tools={adminTools}
           onClose={() => {
             void chat.cancelQueue();
             if (!chat.roomSlug && slugFromPath(location.pathname))

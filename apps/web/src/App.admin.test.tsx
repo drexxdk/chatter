@@ -182,6 +182,47 @@ describe("reloading in a room", () => {
 });
 
 describe("the admin's tools", () => {
+  it("keeps the dropdown open for repeated actions until clicking outside", async () => {
+    stubLogin("admin-token", "Ada Admin");
+    const { user, server } = setup();
+    await signIn(user);
+    await openTools(user);
+
+    for (const name of [
+      "Add a person",
+      "Add a person",
+      "Fill the room",
+      "Remove a person",
+      "Remove everybody",
+    ]) {
+      await user.click(screen.getByRole("menuitem", { name }));
+      expect(screen.getByRole("menu")).toBeVisible();
+    }
+    expect(server.latest.emittedEvents("admin:fake:add")).toHaveLength(2);
+    expect(server.latest.emittedEvents("admin:fake:fill")).toHaveLength(1);
+    expect(server.latest.emittedEvents("admin:fake:remove")).toHaveLength(1);
+    expect(server.latest.emittedEvents("admin:fake:clear")).toHaveLength(1);
+
+    await user.click(screen.getByRole("heading", { name: "Public rooms" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("keeps keyboard actions open and still allows Escape dismissal", async () => {
+    stubLogin("admin-token", "Ada Admin");
+    const { user, server } = setup();
+    await signIn(user);
+    await openTools(user);
+    await user.keyboard("{Home}{Enter} ");
+    expect(server.latest.emittedEvents("admin:fake:add")).toHaveLength(2);
+    expect(screen.getByRole("menu")).toBeVisible();
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument(),
+    );
+  });
+
   it("configures admin queue mode and validates simulated people ahead", async () => {
     stubLogin("admin-token", "Ada Admin");
     const { user, server } = setup();
@@ -232,8 +273,17 @@ describe("the admin's tools", () => {
       name: "Queue for Test lab",
     });
     expect(within(dialog).getByRole("status")).toHaveTextContent("Position 21");
+    expect(
+      within(dialog).queryByRole("button", { name: "Leave queue" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: "Advance queue" }),
+    ).not.toBeInTheDocument();
     await user.click(
-      within(dialog).getByRole("button", { name: "Advance queue" }),
+      within(dialog).getByRole("button", { name: "Admin tools" }),
+    );
+    await user.click(
+      within(dialog).getByRole("menuitem", { name: "Advance queue" }),
     );
     expect(server.latest.emittedEvents("admin:queue:advance")).toEqual([
       { slug: "admin-lab" },
@@ -245,6 +295,7 @@ describe("the admin's tools", () => {
       }),
     );
     expect(within(dialog).getByRole("status")).toHaveTextContent("Position 20");
+    expect(within(dialog).getByRole("menu")).toBeVisible();
   });
 
   it("are not there for a moderator", async () => {
@@ -517,18 +568,20 @@ describe("the crowd", () => {
     expect(server.latest.emittedEvents("admin:crowd:pause")).toHaveLength(1);
 
     await told(server, "paused", 7, 25);
-    await openTools(user);
+    expect(screen.getByRole("menu")).toBeVisible();
     await user.click(await screen.findByRole("menuitem", { name: "Carry on" }));
 
     expect(server.latest.emittedEvents("admin:crowd:resume")).toHaveLength(1);
 
     await told(server, "running", 7, 25);
-    await openTools(user);
+    expect(screen.getByRole("menu")).toBeVisible();
     await user.click(
       await screen.findByRole("menuitem", { name: "Stop and send them away" }),
     );
 
     expect(server.latest.emittedEvents("admin:crowd:stop")).toHaveLength(1);
+    await told(server, "stopped", 0, 0);
+    expect(screen.getByRole("menu")).toBeVisible();
   });
 
   it("changes how many there are while it runs, and keeps the menu open for it", async () => {

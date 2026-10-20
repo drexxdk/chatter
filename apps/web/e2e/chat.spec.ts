@@ -1079,7 +1079,10 @@ test("a full room queues guests in order and admits them automatically", async (
   });
   await expect(carolQueue.getByRole("status")).toContainText("Position 2");
 
-  await bobQueue.getByRole("button", { name: "Leave queue" }).click();
+  await expect(
+    bobQueue.getByRole("button", { name: "Leave queue" }),
+  ).toHaveCount(0);
+  await bob.mouse.click(8, 8);
   await expect(bobQueue).toHaveCount(0);
   await expect(carolQueue.getByRole("status")).toContainText("Position 1");
   await bob.getByRole("button", { name: `Join ${TINY.name}` }).click();
@@ -1118,12 +1121,13 @@ for (const viewport of [
       await expect(dialog.getByRole("status")).toContainText("Position 1");
       await expect(bob).toHaveURL(new RegExp(`/rooms/${LOUNGE.slug}$`));
       const panel = await dialog
-        .getByRole("button", { name: "Leave queue" })
+        .getByRole("status")
         .locator("..")
         .boundingBox();
-      await expect(
-        dialog.getByRole("button", { name: "Leave queue" }).locator(".."),
-      ).toHaveCSS("opacity", "1");
+      await expect(dialog.getByRole("status").locator("..")).toHaveCSS(
+        "opacity",
+        "1",
+      );
       expect(panel).not.toBeNull();
       expect(panel!.x).toBeGreaterThanOrEqual(0);
       expect(panel!.x + panel!.width).toBeLessThanOrEqual(viewport.width);
@@ -1359,7 +1363,14 @@ for (const viewport of [
       await page.getByRole("button", { name: "Sign in", exact: true }).click();
       const tools = page.getByRole("button", { name: "Admin tools" });
       await tools.click();
-      await page.getByRole("menuitem", { name: "Fill the room" }).click();
+      for (const name of ["Add a person", "Add a person", "Fill the room"]) {
+        await page.getByRole("menuitem", { name }).click();
+        await expect(page.getByRole("menu")).toBeVisible();
+      }
+      await page
+        .getByRole("heading", { name: "Public rooms" })
+        .click({ position: { x: 1, y: 1 } });
+      await expect(page.getByRole("menu")).toHaveCount(0);
       await tools.click();
       await page
         .getByRole("checkbox", { name: "Queue when rooms are full" })
@@ -1378,18 +1389,33 @@ for (const viewport of [
       await page.getByRole("button", { name: "Join Test lab" }).click();
       const dialog = page.getByRole("dialog", { name: "Queue for Test lab" });
       await expect(dialog.getByRole("status")).toContainText("Position 4");
-      const advance = dialog.getByRole("button", { name: "Advance queue" });
-      await expect(advance.locator("..")).toHaveCSS("opacity", "1");
+      await expect(
+        dialog.getByRole("button", { name: "Advance queue" }),
+      ).toHaveCount(0);
+      await expect(
+        dialog.getByRole("button", { name: "Leave queue" }),
+      ).toHaveCount(0);
+      await expect(dialog.getByRole("status").locator("..")).toHaveCSS(
+        "opacity",
+        "1",
+      );
       await page.screenshot({
         path: test.info().outputPath(`admin-queue-modal-${viewport.width}.png`),
         animations: "disabled",
       });
+      const queueTools = dialog.getByRole("button", { name: "Admin tools" });
+      await queueTools.click();
+      const advance = dialog.getByRole("menuitem", { name: "Advance queue" });
       await advance.click();
       await expect(dialog.getByRole("status")).toContainText("Position 3");
+      await expect(dialog.getByRole("menu")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(dialog.getByRole("menu")).toHaveCount(0);
       await dialog.getByRole("button", { name: "Close", exact: true }).click();
       await expect(dialog).toHaveCount(0);
       await page.getByRole("button", { name: "Join Test lab" }).click();
       await expect(dialog.getByRole("status")).toContainText("Position 4");
+      await queueTools.click();
       for (const position of [3, 2, 1]) {
         await advance.click();
         await expect(dialog.getByRole("status")).toContainText(

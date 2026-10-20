@@ -11,6 +11,7 @@ import {
   Pause,
   Play,
   Save,
+  SkipForward,
   Square,
   UserMinus,
   UserPlus,
@@ -185,15 +186,18 @@ export function AdminMenu({
   crowd,
   queueTest,
   onTool,
+  onAdvance,
 }: {
   // The test room the tools are for; none, and they cannot be used.
   room: Room | null;
   crowd: CrowdState | null;
   queueTest: QueueTestSettings;
   onTool: (event: string, payload?: unknown) => void;
+  onAdvance?: () => Promise<unknown>;
 }) {
   const { t } = useTranslation();
   const [amount, setAmount] = useState(String(DEFAULT_AMOUNT));
+  const [advancing, setAdvancing] = useState(false);
   const inTestRoom = room !== null;
   const status = crowd?.status ?? "stopped";
   // The crowd can be no more than the room holds.
@@ -214,7 +218,22 @@ export function AdminMenu({
           <FlaskConical aria-hidden="true" className="h-5 w-5" />
         </MenuButton>
         <div className="absolute right-0 w-0">
-          <MenuItems modal={false} className={HEADER_MENU}>
+          <MenuItems
+            modal={false}
+            className={HEADER_MENU}
+            onKeyDown={(event) => {
+              if (
+                event.target !== event.currentTarget ||
+                (event.key !== "Enter" && event.key !== " ")
+              )
+                return;
+              event.preventDefault();
+              const active = event.currentTarget.getAttribute(
+                "aria-activedescendant",
+              );
+              if (active) document.getElementById(active)?.click();
+            }}
+          >
             <MenuSection>
               <MenuHeading className={heading}>
                 {t("admin.queue.title")}
@@ -223,6 +242,28 @@ export function AdminMenu({
                 settings={queueTest}
                 onApply={(settings) => use("admin:queue:settings", settings)}
               />
+              <MenuItem disabled={!onAdvance || advancing}>
+                <button
+                  type="button"
+                  className={item}
+                  onClick={async (event) => {
+                    event.preventDefault();
+                    if (!onAdvance || advancing) return;
+                    setAdvancing(true);
+                    try {
+                      await onAdvance();
+                    } finally {
+                      setAdvancing(false);
+                    }
+                  }}
+                >
+                  <SkipForward
+                    aria-hidden="true"
+                    className="h-5 w-5 shrink-0"
+                  />
+                  {t("admin.queue.advance")}
+                </button>
+              </MenuItem>
             </MenuSection>
             <MenuSection className="border-t border-neutral-800 pt-1">
               <MenuHeading className={heading}>
@@ -303,13 +344,14 @@ export function AdminMenu({
                   <MenuItem disabled={!inTestRoom}>
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={(event) => {
+                        event.preventDefault();
                         use(
                           status === "paused"
                             ? "admin:crowd:resume"
                             : "admin:crowd:pause",
-                        )
-                      }
+                        );
+                      }}
                       className={item}
                     >
                       {status === "paused" ? (
@@ -330,7 +372,10 @@ export function AdminMenu({
                   <MenuItem disabled={!inTestRoom}>
                     <button
                       type="button"
-                      onClick={() => use("admin:crowd:stop")}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        use("admin:crowd:stop");
+                      }}
                       className={item}
                     >
                       <Square aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -346,7 +391,10 @@ export function AdminMenu({
               <MenuItem disabled={!inTestRoom}>
                 <button
                   type="button"
-                  onClick={() => use("admin:fake:add")}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    use("admin:fake:add");
+                  }}
                   className={item}
                 >
                   <UserPlus aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -356,7 +404,10 @@ export function AdminMenu({
               <MenuItem disabled={!inTestRoom}>
                 <button
                   type="button"
-                  onClick={() => use("admin:fake:fill")}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    use("admin:fake:fill");
+                  }}
                   className={item}
                 >
                   <UsersRound aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -366,7 +417,10 @@ export function AdminMenu({
               <MenuItem disabled={!inTestRoom}>
                 <button
                   type="button"
-                  onClick={() => use("admin:fake:remove")}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    use("admin:fake:remove");
+                  }}
                   className={item}
                 >
                   <UserMinus aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -376,7 +430,10 @@ export function AdminMenu({
               <MenuItem disabled={!inTestRoom}>
                 <button
                   type="button"
-                  onClick={() => use("admin:fake:clear")}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    use("admin:fake:clear");
+                  }}
                   className={item}
                 >
                   <UserX aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -391,7 +448,10 @@ export function AdminMenu({
                 <MenuItem key={reason}>
                   <button
                     type="button"
-                    onClick={() => onTool("admin:kick", { reason })}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      onTool("admin:kick", { reason });
+                    }}
                     className={`${item} text-neutral-300`}
                   >
                     <span className="ml-8">{t(`admin.kicks.${reason}`)}</span>

@@ -12,31 +12,18 @@ configure({ asyncUtilTimeout: 10_000 });
 // A test is one tab; the tests of the tabs agreeing give the app a channel of their own.
 Reflect.deleteProperty(globalThis, "BroadcastChannel");
 
-// Newer Node versions define their own experimental `localStorage` and `sessionStorage` globals, which hide jsdom's
-// and are undefined without --localstorage-file. Browsers are unaffected, so only the tests need this.
+// Use jsdom's browser storage without invoking Node's experimental storage getters.
+const { jsdom } = globalThis as unknown as { jsdom: { window: Window } };
 for (const name of ["localStorage", "sessionStorage"] as const) {
-  const existing = (
-    globalThis as unknown as Record<string, Storage | undefined>
-  )[name];
-
-  if (
-    typeof existing === "undefined" ||
-    typeof existing.getItem !== "function"
-  ) {
-    const store = new Map<string, string>();
-
-    Object.defineProperty(globalThis, name, {
-      configurable: true,
-      value: {
-        getItem: (key: string) => store.get(key) ?? null,
-        setItem: (key: string, value: string) =>
-          void store.set(key, String(value)),
-        removeItem: (key: string) => void store.delete(key),
-        clear: () => store.clear(),
-      },
-    });
-  }
+  Object.defineProperty(globalThis, name, {
+    configurable: true,
+    value: jsdom.window[name],
+  });
 }
+
+window.scrollTo = vi.fn();
+HTMLMediaElement.prototype.play = vi.fn(async () => {});
+HTMLMediaElement.prototype.pause = vi.fn();
 
 // jsdom has no layout; Headless UI positions its popovers with this.
 globalThis.ResizeObserver ??= class {
