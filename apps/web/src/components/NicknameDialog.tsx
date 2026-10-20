@@ -74,6 +74,7 @@ export function NicknameDialog({
             label={t("nickname.label")}
             hint={t("nickname.hint")}
             autoFocus
+            data-autofocus
             autoComplete="nickname"
             maxLength={24}
             value={value}

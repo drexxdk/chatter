@@ -73,7 +73,10 @@ describe("one room for the whole browser", () => {
     );
 
     expect(coordinator.claim).toHaveBeenCalledTimes(1);
-    await user.type(await screen.findByLabelText("Nickname"), "Alice");
+    const nickname = await screen.findByLabelText("Nickname");
+    await waitFor(() => expect(nickname).toHaveFocus());
+    await user.type(nickname, "Alice");
+    expect(nickname).toHaveValue("Alice");
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(
