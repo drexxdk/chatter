@@ -354,6 +354,132 @@ describe("joining a room", () => {
   });
 });
 
+describe("room queues", () => {
+  it("shows a live queue position from the lobby and cancels with the close button", async () => {
+    const server = makeFakeServer();
+    server.acks["room:join"] = () => ({ ok: false, error: "room_full" });
+    server.acks["room:queue:join"] = () => ({
+      ok: true,
+      queued: true,
+      position: 3,
+    });
+    const { user } = setup(server);
+    await joinRoom(user);
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Queue for General",
+    });
+    expect(within(dialog).getByRole("status")).toHaveTextContent("Position 3");
+    expect(screen.queryByRole("log")).not.toBeInTheDocument();
+    act(() =>
+      server.latest.serverEmit("room:queue", {
+        roomSlug: "general",
+        position: 2,
+      }),
+    );
+    expect(within(dialog).getByRole("status")).toHaveTextContent("Position 2");
+    await user.click(within(dialog).getByRole("button", { name: "Close" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(server.latest.emittedEvents("room:queue:leave")).toHaveLength(1);
+    expect(
+      screen.getByRole("heading", { name: "Public rooms" }),
+    ).toBeInTheDocument();
+    act(() =>
+      server.latest.serverEmit("room:queue", {
+        roomSlug: "general",
+        position: 1,
+      }),
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  async function queueSwitch() {
+    const result = setup();
+    await joinRoom(result.user);
+    await screen.findByRole("log", { name: "General" });
+    result.server.latest.acks["room:join"] = () => ({
+      ok: false,
+      error: "room_full",
+    });
+    result.server.latest.acks["room:queue:join"] = () => ({
+      ok: true,
+      queued: true,
+      position: 2,
+    });
+    await result.user.click(screen.getByRole("button", { name: "General" }));
+    await result.user.click(
+      await screen.findByRole("menuitem", { name: /Music/ }),
+    );
+    await screen.findByRole("dialog", { name: "Queue for Music" });
+    return result;
+  }
+
+  it("keeps the current room and incoming messages while waiting, and Escape cancels", async () => {
+    const { user, server } = await queueSwitch();
+    expect(window.location.pathname).toBe("/rooms/general");
+    act(() =>
+      server.latest.serverEmit(
+        "message:new",
+        message({ text: "Still in General" }),
+      ),
+    );
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole("log", { name: "General" })).toHaveTextContent(
+      "Still in General",
+    );
+    expect(window.location.pathname).toBe("/rooms/general");
+    expect(server.latest.emittedEvents("room:leave")).toEqual([]);
+    expect(server.latest.emittedEvents("room:queue:leave")).toHaveLength(1);
+  });
+
+  it("automatically enters the queued room with its history, presence, and live messages", async () => {
+    const { server } = await queueSwitch();
+    act(() => {
+      server.latest.serverEmit("room:joining", { roomSlug: "music" });
+      server.latest.serverEmit("room:presence", {
+        roomSlug: "music",
+        members: [{ guestId: "guest-me", nickname: "Alice" }],
+      });
+      server.latest.serverEmit(
+        "message:new",
+        message({ roomSlug: "music", text: "Live in Music" }),
+      );
+      server.latest.serverEmit("room:joined", {
+        roomSlug: "music",
+        history: [message({ roomSlug: "music", text: "Earlier in Music" })],
+      });
+    });
+    const log = await screen.findByRole("log", { name: "Music" });
+    expect(log).toHaveTextContent("Earlier in Music");
+    expect(log).toHaveTextContent("Live in Music");
+    expect(window.location.pathname).toBe("/rooms/music");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "In this room (1 of 30)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("closes the queue and preserves the current room if admission fails", async () => {
+    const { server } = await queueSwitch();
+    act(() =>
+      server.latest.serverEmit("room:queue:error", {
+        roomSlug: "music",
+        error: "nickname_taken",
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole("log", { name: "General" })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("nickname");
+  });
+});
+
 describe("inside a room", () => {
   async function enterRoom() {
     const result = setup();

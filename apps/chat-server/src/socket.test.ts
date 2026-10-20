@@ -524,6 +524,222 @@ describe("rooms", () => {
     });
   });
 
+  it("queues a full-room switch without leaving the current room", async () => {
+    const alice = await connectGuest("Alice");
+    const bob = await connectGuest("Bob");
+    await emit(alice, "room:join", { slug: "tiny" });
+    await emit(bob, "room:join", { slug: "general" });
+
+    expect(await emit(bob, "room:queue:join", { slug: "tiny" })).toEqual({
+      ok: true,
+      queued: true,
+      roomSlug: "tiny",
+      position: 1,
+    });
+    expect(await ioServer.in("room:general").fetchSockets()).toHaveLength(1);
+    expect(await ioServer.in("room:tiny").fetchSockets()).toHaveLength(1);
+
+    const joined = waitFor<Ack>(bob, "room:joined");
+    await emit(alice, "room:leave");
+    expect(await joined).toMatchObject({ roomSlug: "tiny", history: [] });
+    expect(await ioServer.in("room:general").fetchSockets()).toHaveLength(0);
+    expect(await ioServer.in("room:tiny").fetchSockets()).toHaveLength(1);
+  });
+
+  it("admits queued guests in FIFO order without letting newcomers skip them", async () => {
+    const alice = await connectGuest("Alice");
+    const bob = await connectGuest("Bob");
+    const carol = await connectGuest("Carol");
+    const dave = await connectGuest("Dave");
+    await emit(alice, "room:join", { slug: "tiny" });
+    expect(await emit(bob, "room:queue:join", { slug: "tiny" })).toMatchObject({
+      position: 1,
+    });
+    expect(
+      await emit(carol, "room:queue:join", { slug: "tiny" }),
+    ).toMatchObject({ position: 2 });
+    expect(await emit(bob, "room:queue:join", { slug: "tiny" })).toMatchObject({
+      position: 1,
+    });
+
+    const bobJoined = waitFor<Ack>(bob, "room:joined");
+    const carolFirst = waitFor<{ position: number }>(
+      carol,
+      "room:queue",
+      (value) => value.position === 1,
+    );
+    await Promise.all([
+      emit(alice, "room:leave"),
+      emit(dave, "room:queue:join", { slug: "tiny" }),
+    ]);
+    await bobJoined;
+    await carolFirst;
+    expect(
+      (await ioServer.in("room:tiny").fetchSockets()).map(
+        (socket) => socket.data.nickname,
+      ),
+    ).toEqual(["Bob"]);
+
+    const carolJoined = waitFor<Ack>(carol, "room:joined");
+    await emit(bob, "room:leave");
+    await carolJoined;
+    expect(
+      (await ioServer.in("room:tiny").fetchSockets()).map(
+        (socket) => socket.data.nickname,
+      ),
+    ).toEqual(["Carol"]);
+  });
+
+  it("removes a cancelled queue place without leaving the current room", async () => {
+    const alice = await connectGuest("Alice");
+    const bob = await connectGuest("Bob");
+    const carol = await connectGuest("Carol");
+    await emit(alice, "room:join", { slug: "tiny" });
+    await emit(bob, "room:join", { slug: "general" });
+    await emit(bob, "room:queue:join", { slug: "tiny" });
+    await emit(carol, "room:queue:join", { slug: "tiny" });
+
+    const first = waitFor<{ position: number }>(
+      carol,
+      "room:queue",
+      (value) => value.position === 1,
+    );
+    expect(await emit(bob, "room:queue:leave")).toEqual({ ok: true });
+    await first;
+    expect(await emit(bob, "room:queue:leave")).toEqual({ ok: true });
+    const joined = waitFor<Ack>(carol, "room:joined");
+    await emit(alice, "room:leave");
+    await joined;
+    expect(
+      (await ioServer.in("room:general").fetchSockets()).map(
+        (socket) => socket.data.nickname,
+      ),
+    ).toEqual(["Bob"]);
+    expect(
+      (await ioServer.in("room:tiny").fetchSockets()).map(
+        (socket) => socket.data.nickname,
+      ),
+    ).toEqual(["Carol"]);
+  });
+
+  it("removes disconnected guests from the queue and advances positions", async () => {
+    const alice = await connectGuest("Alice");
+    const bob = await connectGuest("Bob");
+    const carol = await connectGuest("Carol");
+    await emit(alice, "room:join", { slug: "tiny" });
+    await emit(bob, "room:queue:join", { slug: "tiny" });
+    await emit(carol, "room:queue:join", { slug: "tiny" });
+    const first = waitFor<{ position: number }>(
+      carol,
+      "room:queue",
+      (value) => value.position === 1,
+    );
+    bob.disconnect();
+    await first;
+    const joined = waitFor<Ack>(carol, "room:joined");
+    alice.disconnect();
+    await joined;
+    expect(
+      (await ioServer.in("room:tiny").fetchSockets()).map(
+        (socket) => socket.data.nickname,
+      ),
+    ).toEqual(["Carol"]);
+  });
+
+  it("cancels a queued admission while its capacity check is in flight", async () => {
+    const alice = await connectGuest("Alice");
+    const bob = await connectGuest("Bob");
+    await emit(alice, "room:join", { slug: "tiny" });
+    await emit(bob, "room:join", { slug: "general" });
+    await emit(bob, "room:queue:join", { slug: "tiny" });
+    await Promise.all([
+      emit(alice, "room:leave"),
+      emit(bob, "room:queue:leave"),
+    ]);
+    await vi.waitFor(async () =>
+      expect(await ioServer.in("room:tiny").fetchSockets()).toHaveLength(0),
+    );
+    expect(
+      (await ioServer.in("room:general").fetchSockets()).map(
+        (socket) => socket.data.nickname,
+      ),
+    ).toEqual(["Bob"]);
+  });
+
+  it("skips a queued guest whose nickname is already in the destination", async () => {
+    getCachedPublicRooms.mockResolvedValue(
+      ROOMS.map((room) =>
+        room.slug === "tiny" ? { ...room, maxMembers: 2 } : room,
+      ),
+    );
+    const alice = await connectGuest("Alice");
+    const otherBob = await connectGuest("Bob");
+    const bob = await connectGuest("Bob");
+    const carol = await connectGuest("Carol");
+    await emit(alice, "room:join", { slug: "tiny" });
+    await emit(otherBob, "room:join", { slug: "tiny" });
+    await emit(bob, "room:join", { slug: "general" });
+    await emit(bob, "room:queue:join", { slug: "tiny" });
+    await emit(carol, "room:queue:join", { slug: "tiny" });
+    const failure = waitFor<Ack>(bob, "room:queue:error");
+    const joined = waitFor<Ack>(carol, "room:joined");
+    await emit(alice, "room:leave");
+    expect(await failure).toMatchObject({ error: "nickname_taken" });
+    await joined;
+    expect(
+      (await ioServer.in("room:general").fetchSockets()).map(
+        (socket) => socket.data.nickname,
+      ),
+    ).toEqual(["Bob"]);
+  });
+
+  it("replaces an old queue place when another full room is requested", async () => {
+    getCachedPublicRooms.mockResolvedValue(
+      ROOMS.map((room) =>
+        room.slug === "random" ? { ...room, maxMembers: 1 } : room,
+      ),
+    );
+    const alice = await connectGuest("Alice");
+    const bob = await connectGuest("Bob");
+    const carol = await connectGuest("Carol");
+    await emit(alice, "room:join", { slug: "tiny" });
+    await emit(carol, "room:join", { slug: "random" });
+    await emit(bob, "room:queue:join", { slug: "tiny" });
+    await emit(bob, "room:queue:join", { slug: "random" });
+    const joined = waitFor<Ack>(bob, "room:joined");
+    await emit(alice, "room:leave");
+    await emit(carol, "room:leave");
+    expect(await joined).toMatchObject({ roomSlug: "random" });
+    expect(await ioServer.in("room:tiny").fetchSockets()).toHaveLength(0);
+  });
+
+  it("keeps queued guests connected while they wait past the inactivity timeout", async () => {
+    const { port: queuePort } = await startServer({
+      inactivityTimeoutMs: 200,
+      idleWarningBeforeMs: 80,
+    });
+    const alice = await connectGuest("Alice", queuePort);
+    const bob = await connectGuest("Bob", queuePort);
+    await emit(alice, "room:join", { slug: "tiny" });
+    await emit(bob, "room:queue:join", { slug: "tiny" });
+    const warning = vi.fn();
+    bob.on("idle:warning", warning);
+    const active = setInterval(
+      () => alice.emit("room:join", { slug: "tiny" }),
+      40,
+    );
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 450));
+      expect(bob.connected).toBe(true);
+      expect(warning).not.toHaveBeenCalled();
+      const joined = waitFor<Ack>(bob, "room:joined");
+      await emit(alice, "room:leave");
+      expect(await joined).toMatchObject({ roomSlug: "tiny" });
+    } finally {
+      clearInterval(active);
+    }
+  });
+
   it("lets any number of guests in when the room has no limit", async () => {
     // More guests than the limited rooms above would allow.
     const guests = await Promise.all(
@@ -4791,6 +5007,96 @@ describe("admin tools", () => {
       ok: false,
       error: "room_full",
     });
+  });
+
+  it("lets an admin test a full Test lab queue with simulated people ahead", async () => {
+    const { socket } = await signIn(7, "Ada Admin");
+    await emit(socket, "admin:fake:fill", { slug: "admin-lab" });
+    expect(
+      await emit(socket, "admin:queue:settings", { enabled: true, ahead: 3 }),
+    ).toEqual({ ok: true });
+    expect(
+      await emit(socket, "room:join", { slug: "admin-lab" }),
+    ).toMatchObject({ error: "room_full" });
+    expect(
+      await emit(socket, "room:queue:join", { slug: "admin-lab" }),
+    ).toMatchObject({ queued: true, position: 4 });
+    for (const position of [3, 2, 1]) {
+      const moved = waitFor<{ position: number }>(
+        socket,
+        "room:queue",
+        (value) => value.position === position,
+      );
+      expect(
+        await emit(socket, "admin:queue:advance", { slug: "admin-lab" }),
+      ).toEqual({ ok: true });
+      await moved;
+    }
+    const joined = waitFor<Ack>(socket, "room:joined");
+    await emit(socket, "admin:queue:advance", { slug: "admin-lab" });
+    expect(await joined).toMatchObject({ roomSlug: "admin-lab" });
+  });
+
+  it("restricts queue simulation settings and advancement to admins", async () => {
+    const moderator = await signIn(8, "Grace");
+    const guest = await connectGuest("Alice", moderator.port);
+    for (const socket of [moderator.socket, guest]) {
+      expect(
+        await emit(socket, "admin:queue:settings", {
+          enabled: true,
+          ahead: 10,
+        }),
+      ).toMatchObject({ error: "forbidden" });
+      expect(
+        await emit(socket, "admin:queue:advance", { slug: "admin-lab" }),
+      ).toMatchObject({ error: "forbidden" });
+    }
+  });
+
+  it("validates admin queue settings and keeps normal admin bypass when disabled", async () => {
+    const { socket } = await signIn(7, "Ada Admin");
+    for (const payload of [
+      { enabled: "true", ahead: 0 },
+      ...[-1, 1.5, 1001, "3", null].map((ahead) => ({ enabled: true, ahead })),
+    ]) {
+      expect(await emit(socket, "admin:queue:settings", payload)).toMatchObject(
+        { error: "invalid_request" },
+      );
+    }
+    await emit(socket, "admin:fake:fill", { slug: "admin-lab" });
+    expect((await emit(socket, "room:join", { slug: "admin-lab" })).ok).toBe(
+      true,
+    );
+    await emit(socket, "room:leave");
+    await emit(socket, "admin:queue:settings", { enabled: true, ahead: 1000 });
+    expect(
+      await emit(socket, "room:queue:join", { slug: "admin-lab" }),
+    ).toMatchObject({ queued: true, position: 1001 });
+    await emit(socket, "room:queue:leave");
+    expect(
+      await emit(socket, "admin:queue:advance", { slug: "admin-lab" }),
+    ).toMatchObject({ error: "invalid_request" });
+    await emit(socket, "admin:queue:settings", { enabled: false, ahead: 1000 });
+    expect((await emit(socket, "room:join", { slug: "admin-lab" })).ok).toBe(
+      true,
+    );
+  });
+
+  it("does not apply simulated people ahead outside the Test lab", async () => {
+    const { socket, port } = await signIn(7, "Ada Admin");
+    const alice = await connectGuest("Alice", port);
+    await emit(alice, "room:join", { slug: "tiny" });
+    await emit(socket, "room:join", { slug: "general" });
+    await emit(socket, "admin:queue:settings", { enabled: true, ahead: 100 });
+    expect(
+      await emit(socket, "room:queue:join", { slug: "tiny" }),
+    ).toMatchObject({ queued: true, position: 1 });
+    expect(
+      await emit(socket, "admin:queue:advance", { slug: "tiny" }),
+    ).toMatchObject({ error: "not_in_test_room" });
+    const joined = waitFor<Ack>(socket, "room:joined");
+    await emit(alice, "room:leave");
+    expect(await joined).toMatchObject({ roomSlug: "tiny" });
   });
 
   it("changes the Test lab limit and broadcasts it without counting admins", async () => {

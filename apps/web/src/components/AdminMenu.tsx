@@ -17,11 +17,11 @@ import {
   UserX,
   UsersRound,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Room } from "../api";
-import type { CrowdState } from "../chat/types";
+import type { CrowdState, QueueTestSettings } from "../chat/types";
 import { HEADER_MENU, MENU_ITEM } from "./dropdown";
 
 const item = `${MENU_ITEM} gap-3 px-2 py-2`;
@@ -33,6 +33,92 @@ const KICK_REASONS = ["inactivity", "banned", "replaced", "invalid_token"];
 // What the crowd is when nothing else is chosen, and the most it can be in a room with no limit.
 const DEFAULT_AMOUNT = 10;
 const MAX_AMOUNT = 200;
+
+function QueueSettingsForm({
+  settings,
+  onApply,
+}: {
+  settings: QueueTestSettings;
+  onApply: (settings: QueueTestSettings) => void;
+}) {
+  const { t } = useTranslation();
+  const [value, setValue] = useState(String(settings.ahead));
+  const [enabled, setEnabled] = useState(settings.enabled);
+  useEffect(() => setEnabled(settings.enabled), [settings.enabled]);
+  const pending = enabled !== settings.enabled;
+  const ahead = /^\d+$/.test(value) ? Number(value) : NaN;
+  const valid = Number.isSafeInteger(ahead) && ahead >= 0 && ahead <= 1000;
+
+  return (
+    <div className="space-y-2 pb-1">
+      <label className="flex items-center gap-2 px-2 py-1 text-sm">
+        <input
+          type="checkbox"
+          role="checkbox"
+          checked={enabled}
+          aria-disabled={pending}
+          aria-busy={pending}
+          onChange={(event) => {
+            if (pending) return;
+            setEnabled(event.target.checked);
+            onApply({ ...settings, enabled: event.target.checked });
+          }}
+          onKeyDown={(event) => {
+            if (event.key === " ") event.stopPropagation();
+          }}
+          className="size-4 accent-indigo-500"
+        />
+        {t("admin.queue.enabled")}
+      </label>
+      <label
+        htmlFor="queue-simulated-ahead"
+        className="block px-2 text-xs text-neutral-400"
+      >
+        {t("admin.queue.ahead")}
+      </label>
+      <form
+        noValidate
+        className="flex gap-1"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (valid && ahead !== settings.ahead) {
+            event.currentTarget.querySelector("input")?.focus();
+            onApply({ ...settings, ahead });
+          }
+        }}
+      >
+        <input
+          id="queue-simulated-ahead"
+          type="number"
+          role="spinbutton"
+          min={0}
+          max={1000}
+          step={1}
+          disabled={pending}
+          aria-label={t("admin.queue.ahead")}
+          aria-invalid={!valid}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Escape" && event.key !== "Tab")
+              event.stopPropagation();
+          }}
+          className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm outline-none focus:border-indigo-400 aria-invalid:border-red-500"
+        />
+        <button
+          type="submit"
+          role="button"
+          aria-label={t("admin.queue.save")}
+          title={t("admin.queue.save")}
+          disabled={pending || !valid || ahead === settings.ahead}
+          className="flex size-9 shrink-0 items-center justify-center rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 disabled:hover:bg-neutral-800"
+        >
+          <Save aria-hidden="true" className="size-4" />
+        </button>
+      </form>
+    </div>
+  );
+}
 
 function RoomLimitForm({
   room,
@@ -97,11 +183,13 @@ function RoomLimitForm({
 export function AdminMenu({
   room,
   crowd,
+  queueTest,
   onTool,
 }: {
   // The test room the tools are for; none, and they cannot be used.
   room: Room | null;
   crowd: CrowdState | null;
+  queueTest: QueueTestSettings;
   onTool: (event: string, payload?: unknown) => void;
 }) {
   const { t } = useTranslation();
@@ -128,6 +216,15 @@ export function AdminMenu({
         <div className="absolute right-0 w-0">
           <MenuItems modal={false} className={HEADER_MENU}>
             <MenuSection>
+              <MenuHeading className={heading}>
+                {t("admin.queue.title")}
+              </MenuHeading>
+              <QueueSettingsForm
+                settings={queueTest}
+                onApply={(settings) => use("admin:queue:settings", settings)}
+              />
+            </MenuSection>
+            <MenuSection className="border-t border-neutral-800 pt-1">
               <MenuHeading className={heading}>
                 {t("admin.roomLimit")}
               </MenuHeading>

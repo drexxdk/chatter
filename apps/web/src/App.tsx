@@ -49,6 +49,7 @@ import { ModeratorDialog } from "./components/ModeratorDialog";
 import { PageFrame } from "./components/PageFrame";
 import { ProfileDialog, type ProfileSubject } from "./components/ProfileDialog";
 import { RoomSwitcher } from "./components/RoomSwitcher";
+import { QueueDialog } from "./components/QueueDialog";
 import { RoomSearch } from "./components/RoomSearch";
 import { SideDrawer } from "./components/SideDrawer";
 import { TabNotice } from "./components/TabNotice";
@@ -856,6 +857,9 @@ export function App({
               {chat.session?.admin && (
                 <AdminMenu
                   room={testRoom}
+                  queueTest={
+                    chat.session.queueTest ?? { enabled: false, ahead: 0 }
+                  }
                   crowd={
                     chat.crowd?.roomSlug === testRoom?.slug ? chat.crowd : null
                   }
@@ -1009,6 +1013,33 @@ export function App({
           onCancel={handleCancel}
           termsVersion={termsVersion}
           returnPath={roomPath(shownRoom.slug)}
+        />
+      )}
+
+      {chat.queue && !pendingRoom && (
+        <QueueDialog
+          room={
+            knownRooms.find((room) => room.slug === chat.queue?.roomSlug)
+              ?.name ?? chat.queue.roomSlug
+          }
+          position={chat.queue.position}
+          onAdvance={
+            chat.session?.admin &&
+            chat.session.queueTest?.enabled &&
+            chat.session.adminRooms?.some(
+              (room) => room.slug === chat.queue?.roomSlug,
+            )
+              ? () =>
+                  chat.adminTool("admin:queue:advance", {
+                    slug: chat.queue?.roomSlug,
+                  })
+              : undefined
+          }
+          onClose={() => {
+            void chat.cancelQueue();
+            if (!chat.roomSlug && slugFromPath(location.pathname))
+              navigate(LOBBY_PATH, { replace: true });
+          }}
         />
       )}
 

@@ -9,6 +9,7 @@ type AckResponder = (payload: any) => unknown;
 export class FakeSocket implements ChatSocket {
   private static events = 0;
   private handlers = new Map<string, Handler[]>();
+  private pendingJoinEvents: { event: string; args: unknown[] }[] | null = null;
   emitted: { event: string; payload: unknown }[] = [];
   disconnected = false;
   // Who else is in the room when this connection joins it.
@@ -17,7 +18,12 @@ export class FakeSocket implements ChatSocket {
   // Override per test to simulate server-side rejections.
   acks: Record<string, AckResponder> = {
     "room:join": () => ({ ok: true }),
+    "room:queue:join": (payload) => this.acks["room:join"](payload),
     "room:leave": () => ({ ok: true }),
+    "admin:queue:settings": (payload) => {
+      this.serverEmit("admin:queue:state", payload);
+      return { ok: true };
+    },
     "message:send": () => ({ ok: true }),
     "reaction:toggle": () => ({ ok: true }),
     "announce:send": () => ({ ok: true }),
@@ -115,12 +121,23 @@ export class FakeSocket implements ChatSocket {
     if (typeof ack !== "function") return;
 
     queueMicrotask(() => {
-      const response: { ok?: boolean } = this.acks[event]?.(payload) ?? {
+      const joining = event === "room:join" || event === "room:queue:join";
+      if (joining) this.pendingJoinEvents = [];
+      const response: { ok?: boolean; queued?: boolean } = this.acks[event]?.(
+        payload,
+      ) ?? {
         ok: true,
       };
+      const pending = this.pendingJoinEvents ?? [];
+      this.pendingJoinEvents = null;
+      if (joining && response.ok && !response.queued)
+        this.serverEmit("room:joining", {
+          roomSlug: (payload as { slug: string }).slug,
+        });
+      for (const { event, args } of pending) this.serverEmit(event, ...args);
 
       // The real server broadcasts presence before it acknowledges a successful join.
-      if (event === "room:join" && response.ok) {
+      if (joining && response.ok && !response.queued) {
         this.serverEmit("room:presence", {
           roomSlug: (payload as { slug: string }).slug,
           members: [
@@ -161,6 +178,10 @@ export class FakeSocket implements ChatSocket {
   }
 
   serverEmit(event: string, ...args: unknown[]) {
+    if (this.pendingJoinEvents) {
+      this.pendingJoinEvents.push({ event, args });
+      return;
+    }
     this.handlers.get(event)?.forEach((handler) => handler(...args));
   }
 

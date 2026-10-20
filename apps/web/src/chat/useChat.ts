@@ -89,6 +89,13 @@ export function useChat(
 ) {
   const socketRef = useRef<ChatSocket | null>(null);
   const roomRef = useRef<string | null>(null);
+  const queueTargetRef = useRef<string | null>(null);
+  const queueCancelledRef = useRef(false);
+  const joiningRoomRef = useRef<string | null>(null);
+  const [queue, setQueue] = useState<{
+    roomSlug: string;
+    position: number;
+  } | null>(null);
   // Proof that a moderator signed in, kept so a dropped connection can be restored without asking again.
   const tokenRef = useRef<string | null>(null);
   // Lets a new connection (a dropped one restored, or a reloaded page) be the same guest as the one before it.
@@ -235,6 +242,35 @@ export function useChat(
     setRoomEvents([]);
   }, [resetDirectRoom]);
 
+  const resetQueue = useCallback(() => {
+    queueTargetRef.current = null;
+    joiningRoomRef.current = null;
+    setQueue(null);
+  }, []);
+
+  const finishJoin = useCallback(
+    (slug: string, history: unknown) => {
+      roomRef.current = slug;
+      resetQueue();
+      setRoomEvents((existing) =>
+        existing.filter((event) => event.roomSlug === slug),
+      );
+      setAnnouncements((existing) =>
+        existing.filter((item) => item.roomSlug === slug),
+      );
+      addRoomEvents(eventsFromHistory(history, slug));
+      setMessages((existing) =>
+        mergeHistory(
+          existing.filter((message) => message.roomSlug === slug),
+          history,
+          slug,
+        ),
+      );
+      setRoomSlug(slug);
+    },
+    [addRoomEvents, resetQueue],
+  );
+
   const cancelReconnect = useCallback(() => {
     reconnectRunRef.current += 1;
     reconnectingRef.current = false;
@@ -245,7 +281,8 @@ export function useChat(
     const socket = socketRef.current;
     socketRef.current = null;
     socket?.disconnect();
-  }, []);
+    resetQueue();
+  }, [resetQueue]);
 
   const resetConnection = useCallback(() => {
     setStatus("idle");
@@ -310,6 +347,59 @@ export function useChat(
           );
         });
 
+        socket.on("room:queue", (value: unknown) => {
+          if (
+            !isCurrent() ||
+            !isRecord(value) ||
+            queueCancelledRef.current ||
+            value.roomSlug !== queueTargetRef.current ||
+            typeof value.position !== "number" ||
+            !Number.isSafeInteger(value.position) ||
+            value.position < 1
+          )
+            return;
+          setQueue({
+            roomSlug: value.roomSlug as string,
+            position: value.position,
+          });
+        });
+
+        socket.on("room:joining", (value: unknown) => {
+          if (
+            !isCurrent() ||
+            !isRecord(value) ||
+            typeof value.roomSlug !== "string" ||
+            value.roomSlug !== queueTargetRef.current
+          )
+            return;
+          joiningRoomRef.current = value.roomSlug;
+          roomRef.current = value.roomSlug;
+          setQueue(null);
+        });
+
+        socket.on("room:joined", (value: unknown) => {
+          if (
+            !isCurrent() ||
+            !isRecord(value) ||
+            typeof value.roomSlug !== "string" ||
+            value.roomSlug !== joiningRoomRef.current
+          )
+            return;
+          finishJoin(value.roomSlug, value.history);
+        });
+
+        socket.on("room:queue:error", (value: unknown) => {
+          if (
+            !isCurrent() ||
+            !isRecord(value) ||
+            value.roomSlug !== queueTargetRef.current ||
+            typeof value.error !== "string"
+          )
+            return;
+          resetQueue();
+          setError(value.error);
+        });
+
         socket.on(
           "room:presence",
           (presence: { roomSlug: string; members: Member[] }) => {
@@ -346,6 +436,23 @@ export function useChat(
             if (!previous?.admin) return previous;
             return { ...previous, adminRooms: next.rooms };
           });
+        });
+
+        socket.on("admin:queue:state", (next: unknown) => {
+          if (
+            !isCurrent() ||
+            !isRecord(next) ||
+            typeof next.enabled !== "boolean" ||
+            typeof next.ahead !== "number" ||
+            !Number.isSafeInteger(next.ahead) ||
+            next.ahead < 0 ||
+            next.ahead > 1000
+          )
+            return;
+          const queueTest = { enabled: next.enabled, ahead: next.ahead };
+          setSession((previous) =>
+            previous?.admin ? { ...previous, queueTest } : previous,
+          );
         });
 
         socket.on(
@@ -498,6 +605,7 @@ export function useChat(
           if (!isCurrent()) return;
           setIdleDeadline(null);
           socketRef.current = null;
+          resetQueue();
           onDrop(reason);
         });
       });
@@ -507,6 +615,7 @@ export function useChat(
       applyDirectPresence,
       closeSocket,
       createSocket,
+      finishJoin,
       getBlockedGuestIds,
       getConnectionProfile,
       receiveDirect,
@@ -514,6 +623,7 @@ export function useChat(
       receiveDirectReaction,
       redactDirectMessages,
       restoreDirectSession,
+      resetQueue,
     ],
   );
 
@@ -634,41 +744,45 @@ export function useChat(
   const joinRoom = useCallback(
     async (slug: string): Promise<ActionResult> => {
       setError(null);
-
-      // The server sends presence (and possibly messages) before it acknowledges the join, so the room must be
-      // current by the time they arrive. It is restored below if the join is refused.
-      const previous = roomRef.current;
-      roomRef.current = slug;
-
-      const ack = await emitWithAck("room:join", { slug });
+      queueTargetRef.current = slug;
+      queueCancelledRef.current = false;
+      const socket = socketRef.current;
+      let ack = await emitWithAck("room:join", { slug });
+      if (!ack.ok && ack.error === "room_full" && socketRef.current === socket)
+        ack = await emitWithAck("room:queue:join", { slug });
+      if (socketRef.current !== socket)
+        return { ok: false, error: "connection_lost" };
 
       if (!ack.ok) {
-        roomRef.current = previous;
+        resetQueue();
         setError(ack.error);
         // Whatever was restored for that room has nowhere to go.
         rejectDirectRestore();
         return { ok: false, error: ack.error };
       }
 
-      setRoomEvents((existing) =>
-        existing.filter((event) => event.roomSlug === slug),
-      );
-      setAnnouncements((existing) =>
-        existing.filter((announcement) => announcement.roomSlug === slug),
-      );
-      addRoomEvents(eventsFromHistory(ack.history, slug));
-      setMessages((existing) =>
-        mergeHistory(
-          existing.filter((message) => message.roomSlug === slug),
-          ack.history,
-          slug,
-        ),
-      );
-      setRoomSlug(slug);
+      if (ack.queued) {
+        if (queueTargetRef.current === slug && !queueCancelledRef.current)
+          setQueue(
+            (previous) =>
+              previous ?? { roomSlug: slug, position: ack.position ?? 1 },
+          );
+        return { ok: true };
+      }
+
+      finishJoin(slug, ack.history);
       return { ok: true };
     },
-    [addRoomEvents, emitWithAck, rejectDirectRestore],
+    [emitWithAck, finishJoin, rejectDirectRestore, resetQueue],
   );
+
+  const cancelQueue = useCallback(async () => {
+    const target = queueTargetRef.current;
+    queueCancelledRef.current = true;
+    setQueue(null);
+    await emitWithAck("room:queue:leave");
+    if (queueTargetRef.current === target) queueTargetRef.current = null;
+  }, [emitWithAck]);
 
   const disconnect = useCallback(() => {
     cancelReconnect();
@@ -771,6 +885,7 @@ export function useChat(
     guestIds: () => ownGuestIdsRef.current,
     resume: () => resumeRef.current,
     roomSlug,
+    queue,
     members,
     messages,
     roomEvents: roomEventsHere,
@@ -782,6 +897,7 @@ export function useChat(
     direct,
     connect,
     joinRoom,
+    cancelQueue,
     leaveRoom,
     sendMessage,
     react,

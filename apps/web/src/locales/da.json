@@ -24,6 +24,13 @@
     "open": "Admin-værktøjer",
     "roomLimit": "Rumgrænse",
     "applyRoomLimit": "Gem rumgrænse",
+    "queue": {
+      "title": "Test af kø",
+      "enabled": "Stil mig i kø til fulde rum",
+      "ahead": "Simulerede personer foran (0–1000)",
+      "save": "Gem simuleret kø",
+      "advance": "Ryk køen frem"
+    },
     "crowd": {
       "title": "Menneskemængde",
       "count": "{people} af {target}",
@@ -310,6 +317,12 @@
     "password": "Adgangskode",
     "signIn": "Log ind",
     "signingIn": "Logger ind…"
+  },
+  "queue": {
+    "title": "Kø til {room}",
+    "waiting": "Venter på en plads",
+    "position": "Plads {position}",
+    "leave": "Forlad køen"
   },
   "room": {
     "leave": "Forlad rum",

@@ -6,6 +6,11 @@ import type { Resume } from "./socket";
 
 export type Role = "guest" | "member" | "moderator";
 
+export interface QueueTestSettings {
+  enabled: boolean;
+  ahead: number;
+}
+
 export interface Session {
   guestId: string;
   nickname: string;
@@ -19,6 +24,7 @@ export interface Session {
   // Only for an admin: they have the testing tools, and these rooms that nobody else can enter.
   admin?: boolean;
   adminRooms?: Room[];
+  queueTest?: QueueTestSettings;
 }
 
 export interface Member {
@@ -103,7 +109,14 @@ export const REPORT_REASONS = [
 export type ReportReason = (typeof REPORT_REASONS)[number];
 
 export type Ack =
-  | { ok: true; history?: unknown; profile?: unknown; account?: unknown }
+  | {
+      ok: true;
+      history?: unknown;
+      profile?: unknown;
+      account?: unknown;
+      queued?: boolean;
+      position?: number;
+    }
   | { ok: false; error: string; retryAfterMs?: number };
 
 export function toResult(ack: Ack): ActionResult {

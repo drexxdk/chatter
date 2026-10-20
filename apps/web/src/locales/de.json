@@ -24,6 +24,13 @@
     "open": "Admin-Werkzeuge",
     "roomLimit": "Raumlimit",
     "applyRoomLimit": "Raumlimit speichern",
+    "queue": {
+      "title": "Warteschlange testen",
+      "enabled": "Bei vollen Räumen anstellen",
+      "ahead": "Simulierte Personen vor mir (0–1000)",
+      "save": "Simulierte Warteschlange speichern",
+      "advance": "Warteschlange vorrücken"
+    },
     "crowd": {
       "title": "Menschenmenge",
       "count": "{people} von {target}",
@@ -310,6 +317,12 @@
     "password": "Passwort",
     "signIn": "Anmelden",
     "signingIn": "Melde an…"
+  },
+  "queue": {
+    "title": "Warteschlange für {room}",
+    "waiting": "Warten auf einen Platz",
+    "position": "Position {position}",
+    "leave": "Warteschlange verlassen"
   },
   "room": {
     "leave": "Raum verlassen",

@@ -182,6 +182,71 @@ describe("reloading in a room", () => {
 });
 
 describe("the admin's tools", () => {
+  it("configures admin queue mode and validates simulated people ahead", async () => {
+    stubLogin("admin-token", "Ada Admin");
+    const { user, server } = setup();
+    await signIn(user);
+    await openTools(user);
+    const toggle = screen.getByRole("checkbox", {
+      name: "Queue when rooms are full",
+    });
+    expect(toggle).not.toBeChecked();
+    await user.click(toggle);
+    await waitFor(() => expect(toggle).toBeChecked());
+    const input = screen.getByRole("spinbutton", {
+      name: "Simulated people ahead (0–1000)",
+    });
+    const save = screen.getByRole("button", { name: "Save simulated queue" });
+    await user.clear(input);
+    await user.type(input, "1001");
+    expect(save).toBeDisabled();
+    await user.clear(input);
+    await user.type(input, "20");
+    await user.click(save);
+    expect(input).toHaveFocus();
+    expect(server.latest.emittedEvents("admin:queue:settings")).toEqual([
+      { slug: "admin-lab", enabled: true, ahead: 0 },
+      { slug: "admin-lab", enabled: true, ahead: 20 },
+    ]);
+  });
+
+  it("offers queue advancement to an admin waiting for the Test lab", async () => {
+    stubLogin("admin-token", "Ada Admin");
+    const { user, server } = setup();
+    await signIn(user);
+    await openTools(user);
+    await user.click(
+      screen.getByRole("checkbox", { name: "Queue when rooms are full" }),
+    );
+    await user.keyboard("{Escape}");
+    server.latest.acks["room:join"] = () => ({ ok: false, error: "room_full" });
+    server.latest.acks["room:queue:join"] = () => ({
+      ok: true,
+      queued: true,
+      position: 21,
+    });
+    await user.click(
+      await screen.findByRole("button", { name: "Join Test lab" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Queue for Test lab",
+    });
+    expect(within(dialog).getByRole("status")).toHaveTextContent("Position 21");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Advance queue" }),
+    );
+    expect(server.latest.emittedEvents("admin:queue:advance")).toEqual([
+      { slug: "admin-lab" },
+    ]);
+    act(() =>
+      server.latest.serverEmit("room:queue", {
+        roomSlug: "admin-lab",
+        position: 20,
+      }),
+    );
+    expect(within(dialog).getByRole("status")).toHaveTextContent("Position 20");
+  });
+
   it("are not there for a moderator", async () => {
     stubLogin("signed-token", "Ada Mod");
     const { user } = setup();

@@ -1062,21 +1062,92 @@ test("messages sent while a guest was disconnected appear once they reconnect", 
   await expect(alice.getByRole("log").getByText(whileAway)).toHaveCount(1);
 });
 
-test("a full room turns the next guest away", async ({ browser }) => {
+test("a full room queues guests in order and admits them automatically", async ({
+  browser,
+}) => {
   const alice = await newGuest(browser);
   const bob = await newGuest(browser);
+  const carol = await newGuest(browser);
 
   await enterRoom(alice, TINY.name, "Alice");
-
   await startJoin(bob, TINY.name, "Bob");
-  // The dialog that was asking for a nickname is still fading out, with the same error in it.
-  await expect(bob.getByRole("main").getByRole("alert")).toHaveText(
-    "This room is full.",
-  );
-  await expect(
-    bob.getByRole("heading", { name: "Public rooms" }),
-  ).toBeVisible();
+  const bobQueue = bob.getByRole("dialog", { name: `Queue for ${TINY.name}` });
+  await expect(bobQueue.getByRole("status")).toContainText("Position 1");
+  await startJoin(carol, TINY.name, "Carol");
+  const carolQueue = carol.getByRole("dialog", {
+    name: `Queue for ${TINY.name}`,
+  });
+  await expect(carolQueue.getByRole("status")).toContainText("Position 2");
+
+  await bobQueue.getByRole("button", { name: "Leave queue" }).click();
+  await expect(bobQueue).toHaveCount(0);
+  await expect(carolQueue.getByRole("status")).toContainText("Position 1");
+  await bob.getByRole("button", { name: `Join ${TINY.name}` }).click();
+  await expect(bobQueue.getByRole("status")).toContainText("Position 2");
+
+  await leaveRoom(alice);
+  await expect(carol.getByRole("log", { name: TINY.name })).toBeVisible();
+  await expect(carolQueue).toHaveCount(0);
+  await expect(bobQueue.getByRole("status")).toContainText("Position 1");
+  await leaveRoom(carol);
+  await expect(bob.getByRole("log", { name: TINY.name })).toBeVisible();
+  await expect(bobQueue).toHaveCount(0);
 });
+
+for (const viewport of [
+  { width: 1280, height: 900 },
+  { width: 390, height: 600 },
+]) {
+  test(`a queued room switch preserves the current room at ${viewport.width}px`, async ({
+    browser,
+  }) => {
+    const alice = await newGuest(browser);
+    const bob = await newGuest(browser);
+    await bob.setViewportSize(viewport);
+    await enterRoom(alice, TINY.name, "Alice");
+    await enterRoom(bob, LOUNGE.name, "Bob");
+    const words = `Before queuing ${Date.now()}`;
+    await send(bob, words);
+
+    async function queueSwitch() {
+      await bob.locator("#room-heading").getByRole("button").click();
+      await bob.getByRole("menuitem", { name: TINY.name }).click();
+      const dialog = bob.getByRole("dialog", {
+        name: `Queue for ${TINY.name}`,
+      });
+      await expect(dialog.getByRole("status")).toContainText("Position 1");
+      await expect(bob).toHaveURL(new RegExp(`/rooms/${LOUNGE.slug}$`));
+      const panel = await dialog
+        .getByRole("button", { name: "Leave queue" })
+        .locator("..")
+        .boundingBox();
+      await expect(
+        dialog.getByRole("button", { name: "Leave queue" }).locator(".."),
+      ).toHaveCSS("opacity", "1");
+      expect(panel).not.toBeNull();
+      expect(panel!.x).toBeGreaterThanOrEqual(0);
+      expect(panel!.x + panel!.width).toBeLessThanOrEqual(viewport.width);
+      expect(panel!.y).toBeGreaterThanOrEqual(0);
+      expect(panel!.y + panel!.height).toBeLessThanOrEqual(viewport.height);
+      await bob.screenshot({
+        path: test.info().outputPath(`queue-${viewport.width}.png`),
+        animations: "disabled",
+      });
+      await expect(bob.locator('[role="log"]')).toContainText(words);
+      return dialog;
+    }
+
+    const dialog = await queueSwitch();
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(bob.getByRole("log", { name: LOUNGE.name })).toBeVisible();
+    await queueSwitch();
+    await leaveRoom(alice);
+    await expect(bob.getByRole("log", { name: TINY.name })).toBeVisible();
+    await expect(dialog).toHaveCount(0);
+    await expect(bob).toHaveURL(new RegExp(`/rooms/${TINY.slug}$`));
+  });
+}
 
 test("a guest who is banned while chatting is removed and their messages are replaced for everyone", async ({
   browser,
@@ -1257,6 +1328,93 @@ test("a guest has to say they are 18 or older and accept the terms, which can be
     page.getByRole("heading", { name: LOUNGE.name, level: 2 }),
   ).toBeVisible();
 });
+
+for (const viewport of [
+  { width: 1280, height: 900 },
+  { width: 390, height: 700 },
+]) {
+  test(`an admin simulates the Test lab queue at ${viewport.width}px`, async ({
+    browser,
+  }) => {
+    const unique = String(Date.now());
+    const name = `Queue Tester ${unique.slice(-6)}`;
+    const email = `${E2E.moderatorEmailPrefix}queue-${unique}@chatter.test`;
+    const password = crypto.randomUUID();
+    const accountId = await payload.createModerator(
+      email,
+      password,
+      name,
+      "super-admin",
+    );
+    try {
+      await waitForReservedNickname(name);
+      const page = await newGuest(browser);
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      await page
+        .getByRole("textbox", { name: "Username or email" })
+        .fill(email);
+      await page.getByLabel("Password").fill(password);
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      const tools = page.getByRole("button", { name: "Admin tools" });
+      await tools.click();
+      await page.getByRole("menuitem", { name: "Fill the room" }).click();
+      await tools.click();
+      await page
+        .getByRole("checkbox", { name: "Queue when rooms are full" })
+        .check();
+      await page
+        .getByRole("spinbutton", { name: "Simulated people ahead (0–1000)" })
+        .fill("3");
+      const save = page.getByRole("button", { name: "Save simulated queue" });
+      await save.click();
+      await expect(save).toBeDisabled();
+      await page.screenshot({
+        path: test.info().outputPath(`admin-queue-tools-${viewport.width}.png`),
+        animations: "disabled",
+      });
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "Join Test lab" }).click();
+      const dialog = page.getByRole("dialog", { name: "Queue for Test lab" });
+      await expect(dialog.getByRole("status")).toContainText("Position 4");
+      const advance = dialog.getByRole("button", { name: "Advance queue" });
+      await expect(advance.locator("..")).toHaveCSS("opacity", "1");
+      await page.screenshot({
+        path: test.info().outputPath(`admin-queue-modal-${viewport.width}.png`),
+        animations: "disabled",
+      });
+      await advance.click();
+      await expect(dialog.getByRole("status")).toContainText("Position 3");
+      await dialog.getByRole("button", { name: "Close", exact: true }).click();
+      await expect(dialog).toHaveCount(0);
+      await page.getByRole("button", { name: "Join Test lab" }).click();
+      await expect(dialog.getByRole("status")).toContainText("Position 4");
+      for (const position of [3, 2, 1]) {
+        await advance.click();
+        await expect(dialog.getByRole("status")).toContainText(
+          `Position ${position}`,
+        );
+      }
+      await advance.click();
+      await expect(page.getByRole("log", { name: "Test lab" })).toBeVisible();
+      await expect(dialog).toHaveCount(0);
+      await tools.click();
+      await page
+        .getByRole("checkbox", { name: "Queue when rooms are full" })
+        .uncheck();
+      await page.keyboard.press("Escape");
+      await tools.click();
+      await page.getByRole("menuitem", { name: "Fill the room" }).click();
+      await leaveRoom(page);
+      await page.getByRole("button", { name: "Join Test lab" }).click();
+      await expect(page.getByRole("log", { name: "Test lab" })).toBeVisible();
+      await expect(dialog).toHaveCount(0);
+    } finally {
+      await payload.remove("admins", accountId);
+    }
+  });
+}
 
 test("a moderator signs in, and guests see their messages stand out", async ({
   browser,

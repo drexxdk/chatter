@@ -145,13 +145,18 @@ export class PayloadApi {
     }[];
   }
 
-  async createModerator(email: string, password: string, displayName: string) {
+  async createModerator(
+    email: string,
+    password: string,
+    displayName: string,
+    role: "moderator" | "super-admin" = "moderator",
+  ) {
     const { doc } = await this.request("admins", {
       method: "POST",
       body: JSON.stringify({
         email,
         password,
-        role: "moderator",
+        role,
         displayName,
       }),
     });

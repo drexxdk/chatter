@@ -279,6 +279,39 @@ export function createSocketServer(
   }));
   const adminRoomOf = (slug: string) =>
     adminRooms.find((room) => room.slug === slug);
+  type QueueEntry = { ahead: number; admit: () => Promise<boolean> };
+  const roomQueues = new Map<string, Map<string, QueueEntry>>();
+
+  function notifyQueue(slug: string): void {
+    let position = 0;
+    for (const [socketId, entry] of roomQueues.get(slug) ?? []) {
+      io.to(socketId).emit("room:queue", {
+        roomSlug: slug,
+        position: ++position + entry.ahead,
+      });
+    }
+  }
+
+  function removeFromQueue(socketId: string): void {
+    for (const [slug, queue] of roomQueues) {
+      if (!queue.delete(socketId)) continue;
+      if (queue.size === 0) roomQueues.delete(slug);
+      notifyQueue(slug);
+      drainQueue(slug);
+    }
+  }
+
+  function drainQueue(slug: string): void {
+    if (!roomQueues.has(slug)) return;
+    void withRoomLock(slug, async () => {
+      const queue = roomQueues.get(slug);
+      while (queue?.size) {
+        const entry = queue.values().next().value;
+        if (!entry || !(await entry.admit())) break;
+      }
+    }).catch((error) => log.error("Failed to admit a queued guest", error));
+  }
+
   const io = new Server(httpServer, {
     cors: { origin: env.WEB_ORIGIN, credentials: true },
     maxHttpBufferSize: MAX_PACKET_BYTES,
@@ -340,6 +373,7 @@ export function createSocketServer(
         count: await peopleIn(slug),
       });
     }
+    drainQueue(slug);
   }
 
   const announceFake = (
@@ -712,6 +746,7 @@ export function createSocketServer(
     const data = socket.data as SocketData;
     let claiming = false;
     let claimed = false;
+    let queueTest = { enabled: false, ahead: 0 };
 
     // First, so the slot reserved in the middleware is always given back.
     socket.on("disconnect", () => {
@@ -766,7 +801,7 @@ export function createSocketServer(
       avatar: data.avatar,
       ...pictureOf(data),
       ...(data.age === undefined ? {} : { age: data.age }),
-      ...(data.admin ? { admin: true, adminRooms } : {}),
+      ...(data.admin ? { admin: true, adminRooms, queueTest } : {}),
       resumeSecret: resumeSecrets.get(socket),
     });
 
@@ -782,7 +817,9 @@ export function createSocketServer(
     // go, and told when the warning no longer holds because they did something. A moderator is never sent away.
     let idleTimers: NodeJS.Timeout[] = [];
     let warned = false;
-    const resetIdleTimer = () => {
+    const isQueued = () =>
+      [...roomQueues.values()].some((queue) => queue.has(socket.id));
+    const resetIdleTimer = (): void => {
       if (ROLE_RULES[data.role].ignoresInactivity) return;
 
       idleTimers.forEach(clearTimeout);
@@ -796,6 +833,7 @@ export function createSocketServer(
         ...(idleWarningBeforeMs < inactivityTimeoutMs
           ? [
               setTimeout(() => {
+                if (isQueued()) return;
                 warned = true;
                 socket.emit("idle:warning", {
                   remainingMs: idleWarningBeforeMs,
@@ -804,6 +842,7 @@ export function createSocketServer(
             ]
           : []),
         setTimeout(() => {
+          if (isQueued()) return resetIdleTimer();
           socket.emit("kicked", { reason: "inactivity" });
           socket.disconnect(true);
         }, inactivityTimeoutMs),
@@ -1203,44 +1242,120 @@ export function createSocketServer(
       }),
     );
 
-    socket.on("room:join", async (payload: unknown, ack?: Ack) => {
+    async function tryJoinRoom(
+      room: { slug: string; maxMembers?: number | null },
+      waiting?: QueueEntry,
+    ) {
+      const { slug } = room;
+      if (socket.disconnected) return "disconnected" as const;
+      if (data.roomSlug === slug) return "already_joined" as const;
+
+      const limit = room.maxMembers;
+      const respectsCapacity =
+        data.role !== "moderator" || (data.admin && queueTest.enabled);
+
+      const first = roomQueues.get(slug)?.keys().next().value;
+      if (respectsCapacity && first && first !== socket.id)
+        return "room_full" as const;
+
+      if (waiting && waiting.ahead > 0) return "room_full" as const;
+
+      if (typeof limit === "number" && respectsCapacity) {
+        const members = await io.in(roomKey(slug)).fetchSockets();
+        const made = fakeMembers.get(slug)?.length ?? 0;
+        const participants = members.filter(
+          (member) => (member.data as SocketData).role !== "moderator",
+        ).length;
+        if (participants + made >= limit) return "room_full" as const;
+      }
+
+      if (await nameInUse(slug, data, data.nickname)) {
+        return "nickname_taken" as const;
+      }
+
+      if (socket.disconnected) return "disconnected" as const;
+      if (waiting && roomQueues.get(slug)?.get(socket.id) !== waiting)
+        return "cancelled" as const;
+
+      removeFromQueue(socket.id);
+      if (waiting) resetIdleTimer();
+      socket.emit("room:joining", { roomSlug: slug });
+      await leaveRoom();
+      data.roomSlug = slug;
+      await socket.join(roomKey(slug));
+      return "joined" as const;
+    }
+
+    async function joinedRoom(slug: string, announce: boolean) {
+      if (announce) {
+        await emitPresence(slug);
+        await announceJoin(slug, data);
+      }
+
+      if (data.admin && isAdminRoom(slug)) {
+        socket.emit("crowd:state", { roomSlug: slug, ...crowd.state(slug) });
+      }
+
+      const history = await getHistory(slug).catch((error) => {
+        log.error("Failed to read room history", error);
+        return [];
+      });
+      return { ok: true as const, roomSlug: slug, history };
+    }
+
+    async function joinRoom(payload: unknown, ack?: Ack, queueIfFull = false) {
       const reply = ackOf(ack);
       const slug = stringField(payload, "slug");
-
       const room =
         (await getCachedPublicRooms()).find(
           (candidate) => candidate.slug === slug,
         ) ?? (data.admin ? adminRoomOf(slug) : undefined);
 
-      if (!room) {
-        return reply({ ok: false, error: "room_not_found" });
-      }
+      if (!room) return reply({ ok: false, error: "room_not_found" });
 
       const outcome = await withRoomLock(slug, async () => {
-        if (socket.disconnected) return "disconnected" as const;
-        if (data.roomSlug === slug) return "already_joined" as const;
+        const outcome = await tryJoinRoom(room);
+        if (outcome !== "room_full" || !queueIfFull) return outcome;
 
-        const limit = room.maxMembers;
-
-        // Rooms without a limit skip the cluster-wide member lookup entirely.
-        if (typeof limit === "number" && data.role !== "moderator") {
-          const members = await io.in(roomKey(slug)).fetchSockets();
-          const made = fakeMembers.get(slug)?.length ?? 0;
-          const participants = members.filter(
-            (member) => (member.data as SocketData).role !== "moderator",
-          ).length;
-          if (participants + made >= limit) return "room_full" as const;
+        let queue = roomQueues.get(slug);
+        if (!queue?.has(socket.id)) {
+          removeFromQueue(socket.id);
+          queue = roomQueues.get(slug) ?? new Map<string, QueueEntry>();
+          const entry: QueueEntry = {
+            ahead:
+              data.admin && queueTest.enabled && isAdminRoom(slug)
+                ? queueTest.ahead
+                : 0,
+            admit: async () => {
+              const result = await tryJoinRoom(room, entry);
+              if (result === "room_full") return false;
+              if (result === "joined") {
+                socket.emit("room:joined", await joinedRoom(slug, true));
+              } else {
+                removeFromQueue(socket.id);
+                if (result === "nickname_taken")
+                  socket.emit("room:queue:error", {
+                    roomSlug: slug,
+                    error: result,
+                  });
+              }
+              return true;
+            },
+          };
+          queue.set(socket.id, entry);
+          roomQueues.set(slug, queue);
         }
-
-        if (await nameInUse(slug, data, data.nickname)) {
-          return "nickname_taken" as const;
-        }
-
-        await leaveRoom();
-        data.roomSlug = slug;
-        await socket.join(roomKey(slug));
-        return "joined" as const;
+        notifyQueue(slug);
+        return "queued" as const;
       });
+
+      if (outcome === "queued") {
+        const position =
+          [...(roomQueues.get(slug)?.keys() ?? [])].indexOf(socket.id) +
+          1 +
+          (roomQueues.get(slug)?.get(socket.id)?.ahead ?? 0);
+        return reply({ ok: true, queued: true, roomSlug: slug, position });
+      }
 
       if (outcome === "room_full") {
         return reply({ ok: false, error: "room_full" });
@@ -1250,26 +1365,26 @@ export function createSocketServer(
         return reply({ ok: false, error: "nickname_taken" });
       }
 
-      if (outcome === "joined") {
-        await emitPresence(slug);
-        await announceJoin(slug, data);
-      }
+      if (outcome === "disconnected" || outcome === "cancelled")
+        return reply({ ok: false, error: "connection_lost" });
 
-      if (data.admin && isAdminRoom(slug)) {
-        socket.emit("crowd:state", { roomSlug: slug, ...crowd.state(slug) });
-      }
+      reply(await joinedRoom(slug, outcome === "joined"));
+    }
 
-      // Read after joining, so a message sent in between is in the history, delivered live, or both (the client
-      // removes the duplicate by id), but never neither.
-      const history = await getHistory(slug).catch((error) => {
-        log.error("Failed to read room history", error);
-        return [];
-      });
+    socket.on("room:join", (payload: unknown, ack?: Ack) =>
+      joinRoom(payload, ack),
+    );
+    socket.on("room:queue:join", (payload: unknown, ack?: Ack) =>
+      joinRoom(payload, ack, true),
+    );
 
-      reply({ ok: true, roomSlug: slug, history });
+    socket.on("room:queue:leave", (_payload: unknown, ack?: Ack) => {
+      removeFromQueue(socket.id);
+      ackOf(ack)({ ok: true });
     });
 
     socket.on("room:leave", async (_payload: unknown, ack?: Ack) => {
+      removeFromQueue(socket.id);
       await leaveRoom();
       if (typeof ack === "function") ack({ ok: true });
     });
@@ -1302,6 +1417,55 @@ export function createSocketServer(
       });
     }
 
+    adminTool(
+      "admin:queue:settings",
+      (_slug, payload) => {
+        const { enabled, ahead } = (payload ?? {}) as {
+          enabled?: unknown;
+          ahead?: unknown;
+        };
+        if (
+          typeof enabled !== "boolean" ||
+          typeof ahead !== "number" ||
+          !Number.isSafeInteger(ahead) ||
+          ahead < 0 ||
+          ahead > 1000
+        )
+          return "invalid_request";
+        queueTest = { enabled, ahead };
+        socket.emit("admin:queue:state", queueTest);
+        for (const [slug, queue] of roomQueues) {
+          const entry = queue.get(socket.id);
+          if (!entry) continue;
+          entry.ahead = enabled && isAdminRoom(slug) ? ahead : 0;
+          notifyQueue(slug);
+          drainQueue(slug);
+        }
+      },
+      { inTestRoom: false },
+    );
+
+    adminTool("admin:queue:advance", (slug) =>
+      withRoomLock(slug, async () => {
+        const entry = roomQueues.get(slug)?.get(socket.id);
+        if (!queueTest.enabled || !entry) return "invalid_request";
+        if (entry.ahead > 0) {
+          entry.ahead -= 1;
+          notifyQueue(slug);
+        } else {
+          const made = fakeMembers.get(slug) ?? [];
+          const who = made.at(-1);
+          if (who) {
+            fakeMembers.set(slug, made.slice(0, -1));
+            crowd.release(slug, who.guestId);
+            announceFake(slug, "left", who);
+            await emitPresence(slug);
+          }
+        }
+        drainQueue(slug);
+      }),
+    );
+
     adminTool("admin:room:limit", (slug, payload) =>
       withRoomLock(slug, async () => {
         const maxMembers = (payload as { maxMembers?: unknown } | null)
@@ -1319,6 +1483,7 @@ export function createSocketServer(
           return "room_limit_below_occupancy";
         room.maxMembers = maxMembers;
         io.to(ADMIN_KEY).emit("admin:rooms", { rooms: adminRooms });
+        drainQueue(slug);
       }),
     );
 
@@ -1664,6 +1829,7 @@ export function createSocketServer(
 
     socket.on("disconnect", () => {
       idleTimers.forEach(clearTimeout);
+      removeFromQueue(socket.id);
 
       // Socket.IO has already removed the socket from its rooms; just refresh presence for the others.
       if (data.roomSlug) {

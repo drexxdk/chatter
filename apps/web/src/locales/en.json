@@ -24,6 +24,13 @@
     "open": "Admin tools",
     "roomLimit": "Room limit",
     "applyRoomLimit": "Save room limit",
+    "queue": {
+      "title": "Queue testing",
+      "enabled": "Queue when rooms are full",
+      "ahead": "Simulated people ahead (0–1000)",
+      "save": "Save simulated queue",
+      "advance": "Advance queue"
+    },
     "crowd": {
       "title": "Crowd",
       "count": "{people} of {target}",
@@ -310,6 +317,12 @@
     "password": "Password",
     "signIn": "Sign in",
     "signingIn": "Signing in…"
+  },
+  "queue": {
+    "title": "Queue for {room}",
+    "waiting": "Waiting for a place",
+    "position": "Position {position}",
+    "leave": "Leave queue"
   },
   "room": {
     "leave": "Leave room",
