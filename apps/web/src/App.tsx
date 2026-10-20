@@ -1028,7 +1028,7 @@ export function App({
         />
       )}
 
-      {shownElsewhere && (
+      {shownElsewhere && !pendingRoom && (
         <TabNotice
           open={elsewhere !== null}
           onUseHere={() => void takeOverRoom()}

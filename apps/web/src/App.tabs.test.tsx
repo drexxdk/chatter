@@ -74,9 +74,13 @@ describe("one room for the whole browser", () => {
 
     expect(coordinator.claim).toHaveBeenCalledTimes(1);
     const nickname = await screen.findByLabelText("Nickname");
+    expect(
+      screen.queryByText("You are already in a chat room"),
+    ).not.toBeInTheDocument();
     await waitFor(() => expect(nickname).toHaveFocus());
     await user.type(nickname, "Alice");
     expect(nickname).toHaveValue("Alice");
+    expect(nickname).toHaveFocus();
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(
