@@ -710,6 +710,169 @@ test("header dropdowns stay within the composer and viewport bounds", async ({
 });
 
 for (const width of [390, 1280]) {
+  test(`YouTube videos preview, insert and reach another guest at ${width}px`, async ({
+    browser,
+  }, testInfo) => {
+    const guest = await newGuest(browser);
+    const reader = await newGuest(browser);
+    await guest.setViewportSize({ width, height: 844 });
+    await reader.setViewportSize({ width, height: 844 });
+    await enterRoom(guest, LOUNGE.name, "YouTube Guest");
+    await enterRoom(reader, LOUNGE.name, "YouTube Reader");
+    const box = guest.getByRole("textbox", { name: "Message", exact: true });
+    const above = `Video above ${width} ${Date.now()}`;
+    const below = `Video below ${width}`;
+    const embed = "https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ";
+    await fillMessage(box, above);
+    await guest.getByRole("button", { name: "Emoji and GIFs" }).click();
+    await guest.getByRole("tab", { name: "YouTube", exact: true }).click();
+    const picker = guest.getByRole("dialog", { name: "Emoji and GIFs" });
+    const link = guest.getByLabel("YouTube link", { exact: true });
+    const insert = guest.getByRole("button", {
+      name: "Insert video",
+      exact: true,
+    });
+    await expect(insert).toHaveCount(0);
+    await link.fill("https://example.com/watch?v=aqz-KE-bpKQ");
+    await expect(guest.getByRole("alert")).toContainText(
+      "Enter a valid YouTube video link.",
+    );
+    await expect(picker.getByTitle("YouTube video")).toHaveCount(0);
+    await expect(insert).toHaveCount(0);
+    await link.fill("https://youtu.be/aqz-KE-bpKQ?si=ignored");
+    const preview = picker.getByRole("img", { name: "YouTube video" });
+    await expect(preview).toHaveAttribute(
+      "src",
+      "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg",
+    );
+    await expect(preview).toHaveJSProperty("naturalWidth", 480);
+    await expect(preview).toBeInViewport();
+    await expect(picker.locator("iframe")).toHaveCount(0);
+    await expect(
+      insert.getByRole("img", { name: "YouTube video" }),
+    ).toHaveCount(1);
+    await expect(picker.getByText("Insert video", { exact: true })).toHaveCount(
+      0,
+    );
+    await guest.screenshot({
+      path: testInfo.outputPath(`youtube-picker-${width}.png`),
+      animations: "disabled",
+    });
+    await insert.click();
+    await expect(box).toBeFocused();
+    await guest.keyboard.type(below);
+    const video = box.getByTitle("YouTube video");
+    await expect(video).toHaveAttribute(
+      "src",
+      "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg",
+    );
+    await expect(video).toHaveJSProperty("naturalWidth", 480);
+    const bounds = await video.boundingBox();
+    const editorBounds = await box.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.width).toBeGreaterThan(100);
+    expect(bounds!.height).toBeGreaterThan(60);
+    expect(bounds!.x).toBeGreaterThanOrEqual(editorBounds!.x);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(
+      editorBounds!.x + editorBounds!.width + 1,
+    );
+    await guest.screenshot({
+      path: testInfo.outputPath(`youtube-draft-${width}.png`),
+      animations: "disabled",
+    });
+    for (let index = 0; index < 12; index += 1) {
+      await guest.keyboard.press("Shift+Enter");
+      await guest.keyboard.insertText(`Scroll line ${index}`);
+    }
+    const shell = guest.locator(".composer-focus").filter({ has: box });
+    await expect
+      .poll(() =>
+        shell.evaluate(
+          (element) => element.scrollHeight > element.clientHeight,
+        ),
+      )
+      .toBeTruthy();
+    expect(
+      await box.evaluate((element) => getComputedStyle(element).overflowY),
+    ).not.toBe("auto");
+    const controls = shell.locator("[data-controls]");
+    for (const scrollTop of [0, 100000]) {
+      await shell.evaluate((element, value) => {
+        element.scrollTop = value;
+      }, scrollTop);
+      const shellBounds = (await shell.boundingBox())!;
+      const controlsBounds = (await controls.boundingBox())!;
+      const scrollbar = await shell.evaluate(
+        (element) =>
+          element.getBoundingClientRect().width - element.clientWidth,
+      );
+      expect(
+        Math.abs(
+          shellBounds.y +
+            shellBounds.height -
+            controlsBounds.y -
+            controlsBounds.height,
+        ),
+      ).toBeLessThan(2);
+      expect(
+        shellBounds.x +
+          shellBounds.width -
+          controlsBounds.x -
+          controlsBounds.width,
+      ).toBeLessThanOrEqual(scrollbar + 2);
+      await expect(
+        controls.getByRole("button", { name: "Send", exact: true }),
+      ).toBeInViewport({ ratio: 1 });
+    }
+    await guest.screenshot({
+      path: testInfo.outputPath(`youtube-scroll-${width}.png`),
+      animations: "disabled",
+    });
+    await guest.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(box.getByTitle("YouTube video")).toHaveCount(0);
+    const received = reader
+      .getByRole("log")
+      .locator("[data-nav-id]")
+      .filter({ hasText: above });
+    await expect(received).toContainText(below);
+    await expect(
+      received.getByRole("img", { name: "YouTube video" }),
+    ).toHaveJSProperty("naturalWidth", 480);
+    await received
+      .getByRole("button", { name: "Play video", exact: true })
+      .click();
+    const player = received.getByTitle("YouTube video");
+    await expect(player).toHaveAttribute(
+      "src",
+      `${embed}?autoplay=1&playsinline=1`,
+    );
+    await expect(
+      player.contentFrame().locator(".html5-video-player"),
+    ).toBeVisible({ timeout: 15000 });
+    await expect
+      .poll(
+        async () =>
+          player
+            .contentFrame()
+            .locator("video")
+            .evaluate(
+              (video: HTMLVideoElement) =>
+                video.readyState >= 2 && !video.paused,
+            )
+            .catch(() => false),
+        { timeout: 15000 },
+      )
+      .toBeTruthy();
+    await expect(player).toBeVisible();
+    const playerBounds = await player.boundingBox();
+    expect(playerBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(playerBounds!.x + playerBounds!.width).toBeLessThanOrEqual(width);
+    await reader.screenshot({
+      path: testInfo.outputPath(`youtube-message-${width}.png`),
+      animations: "disabled",
+    });
+  });
+
   test(`GIFs stay inside the editor with editable text above and below at ${width}px`, async ({
     browser,
   }, testInfo) => {

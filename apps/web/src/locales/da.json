@@ -88,6 +88,17 @@
     "more": "Vis flere",
     "powered": "Powered by GIPHY"
   },
+  "youtube": {
+    "link": "YouTube-link",
+    "video": "YouTube-video",
+    "invalid": "Indtast et gyldigt link til en YouTube-video.",
+    "insert": "Indsæt video",
+    "remove": "Fjern video",
+    "play": "Afspil video",
+    "loading": "Indlæser video",
+    "open": "Åbn på YouTube",
+    "unavailable": "Afspilleren kunne ikke indlæses."
+  },
   "mentions": {
     "label": "Personer du kan nævne"
   },
@@ -241,8 +252,8 @@
       "bans": "Udelukkelser bruger en saltet hash af adressen, så selve adressen ikke gemmes. Moderatorer er personer med en konto i administrationen.",
       "age": "Du skal være 18 år eller derover. Der er ingen måde at kontrollere en alder på, så det hviler på vilkårene og på moderering.",
       "passwords": "Konti har ingen adgangskode: du logger ind med Google, Facebook eller Discord, og Chatter modtager dit navn og din e-mail, aldrig din adgangskode. Moderatorers adgangskoder gemmes som hash.",
-      "thirdParties": "Siden har hverken reklamer eller sporingsscripts. Din browser taler med siden, med chatserveren og, når du søger efter GIF-billeder, med GIPHY. Avatarer tegnes i din browser.",
-      "headers": "Siden sender strenge sikkerhedshoveder: dens Content-Security-Policy tillader kun egne scripts og GIF-billeder fra GIPHY."
+      "thirdParties": "Chatter kører ingen reklame- eller sporingsscripts. Din browser taler med siden, chatserveren, GIPHY ved GIF-søgninger og YouTube, når videoforhåndsvisninger eller indlejrede videoer indlæses. YouTube-afspillere følger YouTubes privatlivspolitik. Avatarer tegnes i din browser.",
+      "headers": "Siden sender strenge sikkerhedshoveder: dens Content-Security-Policy tillader kun egne scripts, GIF-billeder fra GIPHY, forhåndsvisninger fra YouTubes billedvært og videoer fra YouTubes privatlivsforbedrede vært."
     },
     "buildTitle": "Bygning og udrulning",
     "build": "Koden er åben: alle kan læse den. Hver ændring tjekkes automatisk, før den går i luften: formatering, typer, hundredvis af enhedstests og browsertests, der kører den rigtige chatserver. Kun en ændring, der består, bygges til billeder og lægges på serveren af GitHub Actions.",

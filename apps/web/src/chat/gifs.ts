@@ -1,6 +1,8 @@
 // A GIF is sent as an ordinary message whose whole text is the address of the picture, so the server, the history, slow
 // mode, bans and private conversations all treat it like any other message. Only pictures from GIPHY's own hosts, in
 // this exact shape, are drawn as pictures; anything else stays text.
+import { youtubeUrl } from "./youtube";
+
 const GIF_URL =
   /^https:\/\/(?:media\d*|i)\.giphy\.com\/media\/[\w.=~-]+(?:\/[\w.=~-]+)*\.gif$/;
 
@@ -20,15 +22,20 @@ export function sendableGifUrl(address: string): string | null {
 
 export function messageParts(
   text: string,
-): { text: string; gif: string | null }[] {
-  const parts: { text: string; gif: string | null }[] = [];
+): { text: string; gif: string | null; youtube?: string }[] {
+  const parts: { text: string; gif: string | null; youtube?: string }[] = [];
   for (const line of text.trim().split("\n")) {
     const gif = gifOf(line);
+    const youtube = gif ? null : youtubeUrl(line);
     const previous = parts.at(-1);
-    if (!gif && previous && !previous.gif) {
+    if (!gif && !youtube && previous && !previous.gif && !previous.youtube) {
       previous.text += `\n${line}`;
     } else {
-      parts.push({ text: gif ? "" : line, gif });
+      parts.push(
+        youtube
+          ? { text: "", gif: null, youtube }
+          : { text: gif ? "" : line, gif },
+      );
     }
   }
   return parts;

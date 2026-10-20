@@ -7,7 +7,7 @@ export function plainText(doc: Node, includeGifUrls = true): string {
       ? "\n"
       : leaf.type.name === "mention"
         ? `@${leaf.attrs.label}`
-        : leaf.type.name === "gif"
+        : leaf.type.name === "gif" || leaf.type.name === "youtube"
           ? includeGifUrls
             ? `\n${leaf.attrs.src}\n`
             : "\n"

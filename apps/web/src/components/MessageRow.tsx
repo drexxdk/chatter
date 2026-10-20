@@ -11,6 +11,7 @@ import { NAV_STOP_CLASS, navStop } from "../rowNavigation";
 import { AvatarIcon, GenderMark } from "./Avatar";
 import { BlockedTag } from "./DirectLists";
 import { GifImage } from "./GifImage";
+import { YouTubeEmbed } from "./YouTubeEmbed";
 import { MessageEntry, type ReactionOptions } from "./MessageEntry";
 import { MentionedText } from "./Mentions";
 import type { PersonMenuOptions } from "./PersonMenu";
@@ -129,9 +130,21 @@ function MessageGroupView({
 
     const parts = messageParts(message.text);
 
-    if (!parts.some((part) => part.gif)) return words(message.text);
+    if (!parts.some((part) => part.gif || part.youtube))
+      return words(message.text);
     const single = parts.length === 1 ? parts[0] : undefined;
     if (single?.gif) return gifBubble(single.gif);
+    if (single?.youtube)
+      return (
+        <div
+          className={clsx(
+            "w-80 max-w-full rounded-md",
+            direct && `p-1 ${appearance.bubble}`,
+          )}
+        >
+          <YouTubeEmbed url={single.youtube} />
+        </div>
+      );
 
     return (
       <div
@@ -143,6 +156,10 @@ function MessageGroupView({
         {parts.map((part, index) =>
           part.gif ? (
             <GifImage key={index} url={part.gif} />
+          ) : part.youtube ? (
+            <div key={index} className="w-80 max-w-full">
+              <YouTubeEmbed url={part.youtube} />
+            </div>
           ) : part.text.trim() ? (
             <p
               key={index}

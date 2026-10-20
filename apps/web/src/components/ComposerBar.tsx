@@ -55,7 +55,7 @@ export function ComposerBar({
   const [anchor, setAnchor] = useState<HTMLFormElement | null>(null);
 
   return (
-    <div className="sticky bottom-0 z-20 space-y-2 bg-neutral-950 pb-3 pt-2 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:-mx-(--page-gutter) before:border-t before:border-neutral-700 before:content-[''] md:before:mx-0">
+    <div className="sticky bottom-0 z-20 space-y-2 bg-neutral-950 pb-3 pt-2">
       <ScrollToEnd />
       {alert}
       {above}
@@ -71,7 +71,7 @@ export function ComposerBar({
               (event.target instanceof HTMLElement &&
                 event.target.dataset.controls)
             ) {
-              document.getElementById(id)?.focus();
+              document.getElementById(id)?.focus({ preventScroll: true });
             }
           }}
           onKeyDown={(event) => {
@@ -89,73 +89,76 @@ export function ComposerBar({
                 ?.focus();
             }
           }}
-          className="composer-focus flex cursor-text items-end rounded-md border border-neutral-700 bg-neutral-900"
+          className="composer-focus max-h-[calc(5*1.5rem+1rem+2px)] cursor-text overflow-y-auto rounded-md border border-neutral-700 bg-neutral-900 has-[[data-type=gif]]:max-h-[min(20rem,50dvh)] has-[[data-type=youtube]]:max-h-[min(20rem,50dvh)]"
         >
-          <label id={"${id}-label"} className="sr-only">
-            {label}
-          </label>
-          <div className="min-w-0 flex-1">
-            <MessageInput
-              id={id}
-              labelledBy={"${id}-label"}
-              composer={composer}
-              placeholder={placeholder}
-              disabled={disabled}
-              people={mentionable}
-            />
-          </div>
-          {/* On the box's last line, whatever its height; clipped to the box's corners (its own radius less its border). */}
-          <div
-            data-controls
-            className="flex shrink-0 cursor-default items-center self-end overflow-hidden rounded-r-[5px]"
-          >
-            <ComposerSeparator />
-            {actions ?? (
-              <>
-                <ComposerPicker
-                  anchor={anchor}
-                  disabled={disabled}
-                  onEmoji={composer.addEmoji}
-                  onGif={composer.addGif}
-                  onClosed={composer.focusBox}
-                />
-                <ComposerSeparator />
-                <button
-                  key="send"
-                  type="submit"
-                  disabled={
-                    disabled ||
-                    !(announce?.active
-                      ? composer.text.trim()
-                      : composer.message)
-                  }
-                  aria-label={t(
-                    announce?.active ? "announcement.send" : "room.send",
+          <div className="flex min-w-0 items-end">
+            <label id={"${id}-label"} className="sr-only">
+              {label}
+            </label>
+            <div className="min-w-0 flex-1">
+              <MessageInput
+                id={id}
+                labelledBy={"${id}-label"}
+                composer={composer}
+                placeholder={placeholder}
+                disabled={disabled}
+                people={mentionable}
+              />
+            </div>
+            {/* On the box's last line, whatever its height; clipped to the box's corners (its own radius less its border). */}
+            <div
+              data-controls
+              className="sticky bottom-0 flex shrink-0 cursor-default items-center self-end overflow-hidden rounded-r-[5px] bg-neutral-900"
+            >
+              <ComposerSeparator />
+              {actions ?? (
+                <>
+                  <ComposerPicker
+                    anchor={anchor}
+                    disabled={disabled}
+                    onEmoji={composer.addEmoji}
+                    onGif={composer.addGif}
+                    onYouTube={composer.addYouTube}
+                    onClosed={composer.focusBox}
+                  />
+                  <ComposerSeparator />
+                  <button
+                    key="send"
+                    type="submit"
+                    disabled={
+                      disabled ||
+                      !(announce?.active
+                        ? composer.text.trim()
+                        : composer.message)
+                    }
+                    aria-label={t(
+                      announce?.active ? "announcement.send" : "room.send",
+                    )}
+                    className={`${composerIconButton} ${
+                      announce?.active
+                        ? "enabled:text-green-400 enabled:hover:text-green-300"
+                        : "enabled:text-indigo-400 enabled:hover:text-indigo-300"
+                    }`}
+                  >
+                    {announce?.active ? (
+                      <Megaphone aria-hidden="true" className="h-5 w-5" />
+                    ) : (
+                      <SendHorizontal aria-hidden="true" className="h-5 w-5" />
+                    )}
+                  </button>
+                  {announce && (
+                    <>
+                      <ComposerSeparator />
+                      <SendModeMenu
+                        announce={announce.active}
+                        disabled={disabled}
+                        onChange={announce.onChange}
+                      />
+                    </>
                   )}
-                  className={`${composerIconButton} ${
-                    announce?.active
-                      ? "enabled:text-green-400 enabled:hover:text-green-300"
-                      : "enabled:text-indigo-400 enabled:hover:text-indigo-300"
-                  }`}
-                >
-                  {announce?.active ? (
-                    <Megaphone aria-hidden="true" className="h-5 w-5" />
-                  ) : (
-                    <SendHorizontal aria-hidden="true" className="h-5 w-5" />
-                  )}
-                </button>
-                {announce && (
-                  <>
-                    <ComposerSeparator />
-                    <SendModeMenu
-                      announce={announce.active}
-                      disabled={disabled}
-                      onChange={announce.onChange}
-                    />
-                  </>
-                )}
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </form>

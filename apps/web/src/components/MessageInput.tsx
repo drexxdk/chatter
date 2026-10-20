@@ -19,6 +19,7 @@ import type { useComposer } from "../chat/useComposer";
 import { isTouchScreen } from "../touch";
 import { MentionList } from "./MentionList";
 import { GifAttachment } from "./AttachedGif";
+import { YouTubeAttachment } from "./AttachedYouTube";
 
 type Composer = ReturnType<typeof useComposer>;
 type Chosen = { id: string; label: string };
@@ -112,6 +113,7 @@ export function MessageInput({
       Text,
       HardBreak,
       GifAttachment,
+      YouTubeAttachment,
       UndoRedo,
       SendOnEnter,
       Mention.configure({
@@ -206,7 +208,7 @@ export function MessageInput({
         role: "textbox",
         "aria-multiline": "true",
         class:
-          "block w-full min-w-0 max-h-[calc(5*1.5rem+1rem+2px)] has-[[data-type=gif]]:max-h-[min(20rem,50dvh)] overflow-y-auto whitespace-pre-wrap wrap-anywhere px-3 pb-1 pt-2 outline-none",
+          "block w-full min-w-0 whitespace-pre-wrap wrap-anywhere px-3 pb-1 pt-2 outline-none",
       },
       handlePaste: (view, event) => {
         const { doc, selection } = view.state;

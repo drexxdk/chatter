@@ -88,6 +88,17 @@
     "more": "Mehr laden",
     "powered": "Powered by GIPHY"
   },
+  "youtube": {
+    "link": "YouTube-Link",
+    "video": "YouTube-Video",
+    "invalid": "Gib einen gültigen Link zu einem YouTube-Video ein.",
+    "insert": "Video einfügen",
+    "remove": "Video entfernen",
+    "play": "Video abspielen",
+    "loading": "Video wird geladen",
+    "open": "Auf YouTube öffnen",
+    "unavailable": "Der Player konnte nicht geladen werden."
+  },
   "mentions": {
     "label": "Personen zum Erwähnen"
   },
@@ -241,8 +252,8 @@
       "bans": "Sperren arbeiten mit einem gesalzenen Hash der Adresse, die Adresse selbst wird nicht gespeichert. Moderatoren sind Personen mit einem Konto in der Verwaltung.",
       "age": "Du musst mindestens 18 Jahre alt sein. Ein Alter lässt sich nicht prüfen, das beruht also auf den Bedingungen und auf Moderation.",
       "passwords": "Konten haben kein Passwort: Du meldest dich mit Google, Facebook oder Discord an, und Chatter erhält deinen Namen und deine E-Mail, nie dein Passwort. Die Passwörter von Moderatoren werden als Hash gespeichert.",
-      "thirdParties": "Die Seite hat weder Werbung noch Tracking-Skripte. Dein Browser spricht mit der Seite, mit dem Chat-Server und, wenn du nach GIFs suchst, mit GIPHY. Avatare werden in deinem Browser gezeichnet.",
-      "headers": "Die Seite sendet strenge Sicherheits-Header: ihre Content-Security-Policy erlaubt nur eigene Skripte und GIFs von GIPHY."
+      "thirdParties": "Chatter führt keine Werbe- oder Tracking-Skripte aus. Dein Browser spricht mit der Seite, dem Chat-Server, GIPHY bei GIF-Suchen und YouTube beim Laden von Videovorschauen oder eingebetteten Videos. Für YouTube-Player gilt die Datenschutzerklärung von YouTube. Avatare werden in deinem Browser gezeichnet.",
+      "headers": "Die Seite sendet strenge Sicherheits-Header: ihre Content-Security-Policy erlaubt nur eigene Skripte, GIFs von GIPHY, Vorschauen von YouTubes Bild-Domain und Videos von YouTubes datenschutzfreundlicher Domain."
     },
     "buildTitle": "Bauen und Ausliefern",
     "build": "Der Code ist offen: Jeder kann ihn lesen. Jede Änderung wird automatisch geprüft, bevor sie live geht: Formatierung, Typen, Hunderte Unit-Tests und Browser-Tests, die den echten Chat-Server laufen lassen. Nur eine Änderung, die besteht, wird von GitHub Actions zu Images gebaut und auf den Server gebracht.",

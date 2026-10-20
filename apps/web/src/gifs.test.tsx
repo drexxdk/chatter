@@ -97,7 +97,7 @@ const send = (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole("button", { name: "Send" }));
 
 describe("without a GIPHY key", () => {
-  it("offers emoji only", async () => {
+  it("offers emoji and YouTube without GIFs", async () => {
     vi.stubEnv("VITE_GIPHY_API_KEY", "");
     stubFetch();
     const { user } = await enter();
@@ -106,6 +106,7 @@ describe("without a GIPHY key", () => {
     await user.click(screen.getByRole("button", { name: "Emoji" }));
 
     expect(await screen.findByRole("tab", { name: "Emoji" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "YouTube" })).toBeVisible();
     expect(screen.queryByRole("tab", { name: "GIFs" })).toBeNull();
   });
 });
@@ -248,6 +249,219 @@ describe("emoji", () => {
     await user.click(await screen.findByRole("button", { name: "😀" }));
 
     expect(box).toHaveDraft("x".repeat(499));
+  });
+});
+
+describe("YouTube attachments", () => {
+  const url = "https://www.youtube.com/watch?v=aqz-KE-bpKQ";
+  const embed = "https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ";
+  const thumbnail = "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg";
+
+  beforeEach(() => {
+    vi.stubEnv("VITE_GIPHY_API_KEY", "test-key");
+    stubFetch();
+  });
+
+  async function insert(user: ReturnType<typeof userEvent.setup>) {
+    await openPicker(user);
+    await user.click(screen.getByRole("tab", { name: "YouTube" }));
+    await user.type(
+      screen.getByLabelText("YouTube link"),
+      "https://youtu.be/aqz-KE-bpKQ?si=ignored",
+    );
+    await user.click(screen.getByRole("button", { name: "Insert video" }));
+  }
+
+  it("offers a clickable preview only for valid links without a separate insert button", async () => {
+    const { user } = await enter();
+    await openPicker(user);
+    await user.click(screen.getByRole("tab", { name: "YouTube" }));
+    const input = screen.getByLabelText("YouTube link");
+    expect(
+      screen.queryByRole("button", { name: "Insert video" }),
+    ).not.toBeInTheDocument();
+    await user.type(input, "https://youtube.com.evil.test/watch?v=aqz-KE-bpKQ");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Enter a valid YouTube video link.",
+    );
+    expect(screen.queryByTitle("YouTube video")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Insert video" }),
+    ).not.toBeInTheDocument();
+    await user.clear(input);
+    await user.type(input, url);
+    const preview = screen.getByRole("img", { name: "YouTube video" });
+    expect(preview).toHaveAttribute(
+      "src",
+      "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg",
+    );
+    expect(preview).toHaveAttribute("referrerpolicy", "no-referrer");
+    expect(screen.getByRole("dialog").querySelector("iframe")).toBeNull();
+    const add = screen.getByRole("button", { name: "Insert video" });
+    expect(add).toBeEnabled();
+    expect(add).toContainElement(preview);
+    expect(
+      screen.queryByText("Insert video", { exact: true }),
+    ).not.toBeInTheDocument();
+    await user.clear(input);
+    expect(
+      screen.queryByRole("button", { name: "Insert video" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("inserts at the cursor without sending and preserves surrounding text when sent", async () => {
+    const { user, server } = await enter();
+    const box = screen.getByRole("textbox", { name: "Message" });
+    fillBox(box, "abovebelow");
+    selectText(box, 5);
+    await insert(user);
+    await waitFor(() =>
+      expect(within(box).getByTitle("YouTube video")).toHaveAttribute(
+        "src",
+        thumbnail,
+      ),
+    );
+    expect(plainText(editorOf(box).state.doc)).toBe(`above\n${url}\nbelow`);
+    expect(server.latest.emittedEvents("message:send")).toEqual([]);
+    await send(user);
+    await waitFor(() =>
+      expect(server.latest.emittedEvents("message:send")).toEqual([
+        { text: `above\n${url}\nbelow` },
+      ]),
+    );
+    expect(within(box).queryByTitle("YouTube video")).not.toBeInTheDocument();
+  });
+
+  it("removes the draft video and supports undo and redo", async () => {
+    const { user } = await enter();
+    const box = screen.getByRole("textbox", { name: "Message" });
+    await insert(user);
+    await user.click(
+      await screen.findByRole("button", { name: "Remove video" }),
+    );
+    expect(within(box).queryByTitle("YouTube video")).not.toBeInTheDocument();
+    act(() => {
+      editorOf(box).commands.undo();
+    });
+    expect(await within(box).findByTitle("YouTube video")).toHaveAttribute(
+      "src",
+      thumbnail,
+    );
+    act(() => {
+      editorOf(box).commands.redo();
+    });
+    await waitFor(() =>
+      expect(within(box).queryByTitle("YouTube video")).not.toBeInTheDocument(),
+    );
+  });
+
+  it.each(["Backspace", "Delete"])(
+    "removes a draft video as a whole with %s",
+    async (key) => {
+      const { user } = await enter();
+      const box = screen.getByRole("textbox", { name: "Message" });
+      await insert(user);
+      await screen.findByRole("button", { name: "Remove video" });
+      await waitFor(() => expect(box).toHaveFocus());
+      act(() => {
+        editorOf(box).commands.setTextSelection(key === "Delete" ? 1 : 2);
+      });
+      await user.keyboard(`{${key}}`);
+      await waitFor(() =>
+        expect(
+          within(box).queryByTitle("YouTube video"),
+        ).not.toBeInTheDocument(),
+      );
+      expect(plainText(editorOf(box).state.doc)).toBe("");
+    },
+  );
+
+  it("keeps the attachment within the message length limit", async () => {
+    const { user } = await enter();
+    const box = screen.getByRole("textbox", { name: "Message" });
+    fillBox(box, "x".repeat(499));
+    await insert(user);
+    const text = plainText(editorOf(box).state.doc);
+    expect(text).toContain(url);
+    expect(text.length).toBeLessThanOrEqual(500);
+  });
+
+  it.each([false, true])(
+    "renders videos in a message (private: %s)",
+    (direct) => {
+      render(
+        <ul>
+          <MessageGroup
+            mine={false}
+            nickname="Bob"
+            avatar="other"
+            role="guest"
+            direct={direct ? { label: "Direct message from Bob" } : undefined}
+            messages={[
+              {
+                id: "youtube",
+                text: `above\n${url}\nbelow`,
+                sentAt: new Date().toISOString(),
+              },
+            ]}
+          />
+        </ul>,
+      );
+      expect(
+        screen.getByRole("img", { name: "YouTube video" }),
+      ).toHaveAttribute("src", thumbnail);
+      expect(screen.queryByTitle("YouTube video")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Play video" }));
+      const video = screen.getByTitle("YouTube video");
+      expect(video).toHaveAttribute("src", `${embed}?autoplay=1&playsinline=1`);
+      expect(video).toHaveAttribute(
+        "allow",
+        expect.stringContaining("autoplay"),
+      );
+      fireEvent.load(video);
+      expect(
+        screen.getByRole("link", { name: "Open on YouTube" }),
+      ).toHaveAttribute("href", url);
+      expect(video).toHaveAttribute(
+        "referrerpolicy",
+        "strict-origin-when-cross-origin",
+      );
+      expect(
+        screen.getByText("above").compareDocumentPosition(video) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(
+        video.compareDocumentPosition(screen.getByText("below")) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    },
+  );
+
+  it("does not embed banned messages or non-YouTube links", () => {
+    render(
+      <ul>
+        <MessageGroup
+          mine={false}
+          nickname="Bob"
+          avatar="other"
+          role="guest"
+          messages={[
+            {
+              id: "banned",
+              text: url,
+              banned: true,
+              sentAt: new Date().toISOString(),
+            },
+            {
+              id: "invalid",
+              text: "https://youtube.com.evil.test/watch?v=aqz-KE-bpKQ",
+              sentAt: new Date().toISOString(),
+            },
+          ]}
+        />
+      </ul>,
+    );
+    expect(screen.queryByTitle("YouTube video")).not.toBeInTheDocument();
   });
 });
 

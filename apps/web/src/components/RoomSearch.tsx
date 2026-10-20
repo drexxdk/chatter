@@ -39,7 +39,7 @@ type SearchMessage = Pick<
 
 function searchableText(text: string) {
   return messageParts(text)
-    .filter((part) => !part.gif)
+    .filter((part) => !part.gif && !part.youtube)
     .map((part) => part.text)
     .join("\n")
     .trim();

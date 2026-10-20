@@ -27,6 +27,7 @@ import { PANEL_HEIGHT, PANEL_SURFACE } from "./dropdown";
 import { EmojiPane } from "./EmojiPane";
 import { FocusSearch } from "./FocusSearch";
 import { GifPane } from "./GifPane";
+import { YouTubePane } from "./YouTubePane";
 
 const TAB_CLASS =
   "relative px-3 py-2 text-sm font-medium text-neutral-400 outline-none hover:text-neutral-100 data-selected:text-neutral-100 data-selected:after:absolute data-selected:after:inset-x-3 data-selected:after:bottom-0 data-selected:after:h-0.5 data-selected:after:rounded data-selected:after:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-indigo-400";
@@ -38,12 +39,14 @@ export function ComposerPicker({
   disabled,
   onEmoji,
   onGif,
+  onYouTube,
   onClosed,
 }: {
   anchor: HTMLFormElement | null;
   disabled: boolean;
   onEmoji: (emoji: string) => void;
   onGif: (url: string) => void;
+  onYouTube: (url: string) => void;
   // After a choice: puts the cursor back in the message box. Not called on a phone, where that opens the keyboard.
   onClosed: () => void;
 }) {
@@ -115,6 +118,7 @@ export function ComposerPicker({
                 {withGifs && (
                   <Tab className={TAB_CLASS}>{t("picker.tabGifs")}</Tab>
                 )}
+                <Tab className={TAB_CLASS}>YouTube</Tab>
               </TabList>
               <TabPanels className={clsx(pickerPane, "p-3")}>
                 <TabPanel tabIndex={-1} className={pickerPane}>
@@ -135,6 +139,14 @@ export function ComposerPicker({
                     />
                   </TabPanel>
                 )}
+                <TabPanel tabIndex={-1} className={pickerPane}>
+                  <YouTubePane
+                    onPick={(url) => {
+                      onYouTube(url);
+                      done();
+                    }}
+                  />
+                </TabPanel>
               </TabPanels>
             </TabGroup>
           );

@@ -88,6 +88,17 @@
     "more": "Load more",
     "powered": "Powered by GIPHY"
   },
+  "youtube": {
+    "link": "YouTube link",
+    "video": "YouTube video",
+    "invalid": "Enter a valid YouTube video link.",
+    "insert": "Insert video",
+    "remove": "Remove video",
+    "play": "Play video",
+    "loading": "Loading video",
+    "open": "Open on YouTube",
+    "unavailable": "The player could not load."
+  },
   "mentions": {
     "label": "People to mention"
   },
@@ -241,8 +252,8 @@
       "bans": "Bans work on a salted hash of the address, so the address itself is not kept. Moderators are people with an account in the admin.",
       "age": "You must be 18 or older. There is no way to check an age, so this rests on the terms and on moderation.",
       "passwords": "Accounts have no password: you sign in with Google, Facebook or Discord, and Chatter receives your name and email, never your password. Moderators' passwords are stored hashed.",
-      "thirdParties": "The site has no advertising and no tracking scripts. Your browser talks to the site, to the chat server and, when you search for GIFs, to GIPHY. Avatars are drawn in your browser.",
-      "headers": "The site sends strict security headers: its Content-Security-Policy only lets it run its own scripts and load GIFs from GIPHY."
+      "thirdParties": "Chatter runs no advertising or tracking scripts. Your browser talks to the site, the chat server, GIPHY when searching for GIFs, and YouTube when loading video previews or embedded videos. YouTube players follow YouTube's privacy policy. Avatars are drawn in your browser.",
+      "headers": "The site sends strict security headers: its Content-Security-Policy only lets it run its own scripts, load GIFs from GIPHY and previews from YouTube's thumbnail host, and embed videos from YouTube's privacy-enhanced host."
     },
     "buildTitle": "Building and deploying",
     "build": "The code is open: anybody can read it. Every change is checked automatically before it goes live: formatting, types, hundreds of unit tests and browser tests that run the real chat server. Only a change that passes is built into images and put on the server by GitHub Actions.",

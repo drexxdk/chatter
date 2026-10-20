@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 
 import { MAX_MESSAGE_LENGTH } from "./limits";
 import { sendableGifUrl } from "./gifs";
+import { youtubeUrl } from "./youtube";
 import { plainText } from "./plainText";
 
 export function useComposer() {
@@ -21,13 +22,20 @@ export function useComposer() {
   }
 
   function addGif(address: string) {
-    const url = sendableGifUrl(address);
+    addAttachment("gif", sendableGifUrl(address));
+  }
+
+  function addYouTube(address: string) {
+    addAttachment("youtube", youtubeUrl(address));
+  }
+
+  function addAttachment(type: "gif" | "youtube", url: string | null) {
     const box = editor.current;
-    const gifNode = box?.schema.nodes.gif;
-    if (!url || !box || !gifNode) return;
+    const attachment = box?.schema.nodes[type];
+    if (!url || !box || !attachment) return;
 
     const transaction = box.state.tr.replaceSelectionWith(
-      gifNode.create({ src: url }),
+      attachment.create({ src: url }),
     );
     while (plainText(transaction.doc).length > max) {
       let lastText: { from: number; to: number } | undefined;
@@ -55,6 +63,7 @@ export function useComposer() {
     text: draft.text,
     setText: (text: string, message = text) => setDraft({ text, message }),
     addGif,
+    addYouTube,
     max,
     attach,
     addEmoji,
