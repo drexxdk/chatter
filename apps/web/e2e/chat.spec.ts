@@ -569,6 +569,62 @@ test("touch composers offer GIFs and YouTube from a left-hand plus button", asyn
   await expect(box).not.toBeFocused();
 });
 
+test("viewport resizing keeps a pinned chat at the bottom without moving a reader", async ({
+  browser,
+}) => {
+  const seeder = await connectRawGuest("Keyboard Seeder", "198.51.100.43");
+  try {
+    expect((await seeder.join(LOUNGE.slug)).ok).toBe(true);
+    expect(
+      (
+        await seeder.send(
+          Array.from(
+            { length: 35 },
+            (_, index) => `Key line ${index + 1}`,
+          ).join("\n"),
+        )
+      ).ok,
+    ).toBe(true);
+    const context = await browser.newContext({
+      locale: "en-US",
+      viewport: { width: 390, height: 844 },
+      hasTouch: true,
+      isMobile: true,
+    });
+    guestContexts.push(context);
+    const guest = await context.newPage();
+    await enterRoom(guest, LOUNGE.name, "Keyboard Guest");
+    await expect(
+      guest.getByRole("log").getByText("Key line 35", { exact: false }),
+    ).toBeVisible();
+    await guest.evaluate(() =>
+      Promise.all(
+        document.getAnimations().map((animation) => animation.finished),
+      ),
+    );
+    const distanceFromBottom = () =>
+      guest.evaluate(() => {
+        const page = document.documentElement;
+        return page.scrollHeight - page.scrollTop - page.clientHeight;
+      });
+    await expect.poll(distanceFromBottom).toBeLessThan(2);
+    await guest.getByRole("textbox", { name: "Message", exact: true }).focus();
+    for (const height of [480, 844, 480, 844]) {
+      await guest.setViewportSize({ width: 390, height });
+      await expect.poll(distanceFromBottom).toBeLessThan(2);
+    }
+    await guest.evaluate(() => window.scrollTo(0, 100));
+    await expect.poll(() => guest.evaluate(() => window.scrollY)).toBe(100);
+    expect(await distanceFromBottom()).toBeGreaterThan(120);
+    for (const height of [480, 844]) {
+      await guest.setViewportSize({ width: 390, height });
+      await expect.poll(() => guest.evaluate(() => window.scrollY)).toBe(100);
+    }
+  } finally {
+    seeder.close();
+  }
+});
+
 test("only modal dialogs lock page scrolling, not composer pickers", async ({
   browser,
 }) => {
@@ -636,6 +692,10 @@ test("typing in header search keeps the page scroll position", async ({
   await enterRoom(guest, LOUNGE.name, "Search Scroll Guest");
   await send(guest, "Stable search target");
   await guest.addStyleTag({ content: '[role="log"] { min-height: 2000px; }' });
+  await expect(guest.locator("[data-room-search]")).toHaveCSS(
+    "overflow-anchor",
+    "none",
+  );
 
   for (const width of [390, 1280]) {
     await guest.setViewportSize({ width, height: 720 });

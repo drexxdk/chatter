@@ -43,6 +43,10 @@ html:has([data-room-search] input:focus) {
   scroll-padding-top: 0;
 }
 
+[data-room-search] {
+  overflow-anchor: none;
+}
+
 /* The page's side margin, which the messages have (px-4, and sm:px-6 from 40rem), how much the sticky header takes (its
    3.5rem and its 1px border), and how far the dropdowns keep from the screen's edge: the 0.75rem that the header's
    dropdowns (HEADER_DROPDOWN in dropdown.ts) leave at the bottom. */

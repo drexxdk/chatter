@@ -178,7 +178,12 @@ export function ChatRoom({
   const pinned = useRef(true);
   useEffect(() => {
     const page = document.documentElement;
+    let viewportHeight = page.clientHeight;
     const update = () => {
+      if (page.clientHeight !== viewportHeight) {
+        viewportHeight = page.clientHeight;
+        if (pinned.current) scrollToEnd();
+      }
       const distance = page.scrollHeight - page.scrollTop - page.clientHeight;
 
       atBottom.current = distance < 120;
@@ -186,7 +191,11 @@ export function ChatRoom({
     };
 
     window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
   }, []);
 
   const scrollToEnd = () => {
