@@ -134,6 +134,21 @@ export function ComposerBar({
             <label id={"${id}-label"} className="sr-only">
               {label}
             </label>
+            {!actions && (
+              <div
+                data-controls
+                className="sticky bottom-0 flex shrink-0 cursor-default items-center self-end overflow-hidden rounded-l-[5px] bg-neutral-900"
+              >
+                <ComposerPicker
+                  anchor={anchor}
+                  disabled={disabled}
+                  onEmoji={composer.addEmoji}
+                  onGif={composer.addGif}
+                  onYouTube={composer.addYouTube}
+                  onClosed={composer.focusBox}
+                />
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <MessageInput
                 id={id}
@@ -149,18 +164,8 @@ export function ComposerBar({
               data-controls
               className="sticky bottom-0 flex shrink-0 cursor-default items-center self-end overflow-hidden rounded-r-[5px] bg-neutral-900"
             >
-              <ComposerSeparator />
               {actions ?? (
                 <>
-                  <ComposerPicker
-                    anchor={anchor}
-                    disabled={disabled}
-                    onEmoji={composer.addEmoji}
-                    onGif={composer.addGif}
-                    onYouTube={composer.addYouTube}
-                    onClosed={composer.focusBox}
-                  />
-                  <ComposerSeparator />
                   <button
                     key="send"
                     type="submit"

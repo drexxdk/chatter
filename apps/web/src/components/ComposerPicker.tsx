@@ -16,7 +16,7 @@ import {
   useFloating,
 } from "@floating-ui/react";
 import clsx from "clsx";
-import { Smile } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { gifApiKey } from "../gifApi";
@@ -31,8 +31,6 @@ import { YouTubePane } from "./YouTubePane";
 const TAB_CLASS =
   "relative px-3 py-2 text-sm font-medium text-neutral-400 outline-none hover:text-neutral-100 data-selected:text-neutral-100 data-selected:after:absolute data-selected:after:inset-x-3 data-selected:after:bottom-0 data-selected:after:h-0.5 data-selected:after:rounded data-selected:after:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-indigo-400";
 
-// The message box's emoji button and what it opens, as in Teams: a panel above it with the emoji and, when GIPHY is
-// set up, a tab of GIFs. Both are added to the message being written rather than sent.
 export function ComposerPicker({
   anchor,
   disabled,
@@ -52,10 +50,10 @@ export function ComposerPicker({
   const { t } = useTranslation();
   const withGifs = gifApiKey() !== undefined;
   const touch = isTouchScreen();
-  const label = t(withGifs ? "picker.open" : "picker.openEmoji");
+  const label = t("picker.open");
   const { refs, floatingStyles } = useFloating({
     elements: { reference: anchor },
-    placement: "top-end",
+    placement: "top-start",
     whileElementsMounted: autoUpdate,
     middleware: [
       offset(8),
@@ -78,7 +76,7 @@ export function ComposerPicker({
         title={label}
         className={composerIconButton}
       >
-        <Smile aria-hidden="true" className="h-5 w-5" />
+        <Plus aria-hidden="true" className="h-5 w-5" />
       </PopoverButton>
       <PopoverPanel
         ref={refs.setFloating}
@@ -113,21 +111,25 @@ export function ComposerPicker({
                     ?.focus();
                 }}
               >
-                <Tab className={TAB_CLASS}>{t("picker.tabEmoji")}</Tab>
+                {!touch && (
+                  <Tab className={TAB_CLASS}>{t("picker.tabEmoji")}</Tab>
+                )}
                 {withGifs && (
                   <Tab className={TAB_CLASS}>{t("picker.tabGifs")}</Tab>
                 )}
                 <Tab className={TAB_CLASS}>YouTube</Tab>
               </TabList>
               <TabPanels className={clsx(pickerPane, "p-3")}>
-                <TabPanel tabIndex={-1} className={pickerPane}>
-                  <EmojiPane
-                    onPick={(emoji) => {
-                      onEmoji(emoji);
-                      done();
-                    }}
-                  />
-                </TabPanel>
+                {!touch && (
+                  <TabPanel tabIndex={-1} className={pickerPane}>
+                    <EmojiPane
+                      onPick={(emoji) => {
+                        onEmoji(emoji);
+                        done();
+                      }}
+                    />
+                  </TabPanel>
+                )}
                 {withGifs && (
                   <TabPanel tabIndex={-1} className={pickerPane}>
                     <GifPane

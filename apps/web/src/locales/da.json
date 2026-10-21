@@ -111,8 +111,7 @@
     "label": "Personer du kan nævne"
   },
   "picker": {
-    "open": "Emoji og GIF'er",
-    "openEmoji": "Emoji",
+    "open": "Tilføj vedhæftninger",
     "tabEmoji": "Emoji",
     "tabGifs": "GIF'er",
     "labels": {

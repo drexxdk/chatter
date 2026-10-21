@@ -111,8 +111,7 @@
     "label": "People to mention"
   },
   "picker": {
-    "open": "Emoji and GIFs",
-    "openEmoji": "Emoji",
+    "open": "Add attachments",
     "tabEmoji": "Emoji",
     "tabGifs": "GIFs",
     "labels": {

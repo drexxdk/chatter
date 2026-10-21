@@ -138,25 +138,33 @@ async function leaveRoom(page: Page) {
 }
 
 async function expectPickerAligned(page: Page) {
+  await page.evaluate(() =>
+    Promise.all(
+      document.getAnimations().map((animation) => animation.finished),
+    ),
+  );
   const toggle = page.getByRole("button", {
-    name: "Emoji and GIFs",
+    name: "Add attachments",
     exact: true,
   });
   await toggle.click();
   const picker = page.getByRole("dialog", {
-    name: "Emoji and GIFs",
+    name: "Add attachments",
     exact: true,
   });
   await expect(picker).toBeVisible();
   const composer = page.locator("form[data-composer]:visible");
+  await expect(composer).toHaveCount(1);
   await expect
-    .poll(async () => {
-      const panel = await picker.boundingBox();
-      const box = await composer.boundingBox();
-      return panel && box
-        ? Math.abs(panel.x + panel.width - box.x - box.width)
-        : Infinity;
-    })
+    .poll(() =>
+      picker.evaluate((element) => {
+        const panel = element.getBoundingClientRect();
+        const box = document
+          .querySelector("form[data-composer]")!
+          .getBoundingClientRect();
+        return Math.abs(panel.x - box.x);
+      }),
+    )
     .toBeLessThan(1);
   const bounds = await picker.boundingBox();
   const box = await composer.boundingBox();
@@ -475,6 +483,64 @@ for (const viewport of [
   });
 }
 
+test("touch composers offer GIFs and YouTube from a left-hand plus button", async ({
+  browser,
+}, testInfo) => {
+  const context = await browser.newContext({
+    locale: "en-US",
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  guestContexts.push(context);
+  const guest = await context.newPage();
+  await enterRoom(guest, LOUNGE.name, "Touch Guest");
+  await guest.evaluate(() =>
+    Promise.all(
+      document.getAnimations().map((animation) => animation.finished),
+    ),
+  );
+  const pickerButton = guest.getByRole("button", { name: "Add attachments" });
+  const box = guest.getByRole("textbox", { name: "Message", exact: true });
+  const sendButton = guest.getByRole("button", { name: "Send", exact: true });
+  const plusBounds = (await pickerButton.boundingBox())!;
+  const editorBounds = (await box.boundingBox())!;
+  const sendBounds = (await sendButton.boundingBox())!;
+  expect(plusBounds.x + plusBounds.width).toBeLessThanOrEqual(
+    editorBounds.x + 1,
+  );
+  expect(editorBounds.x + editorBounds.width).toBeLessThanOrEqual(
+    sendBounds.x + 1,
+  );
+  await expectPickerAligned(guest);
+  await pickerButton.click();
+  const picker = guest.getByRole("dialog", { name: "Add attachments" });
+  await expect(picker.getByRole("tab")).toHaveCount(2);
+  await expect(
+    picker.getByRole("tab", { name: "Emoji", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    picker.getByRole("tab", { name: "GIFs", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await picker.getByRole("tab", { name: "YouTube", exact: true }).click();
+  await picker
+    .getByLabel("YouTube link", { exact: true })
+    .fill("https://youtu.be/aqz-KE-bpKQ");
+  await expect(
+    picker.getByRole("img", { name: "YouTube video", exact: true }),
+  ).toHaveJSProperty("naturalWidth", 480);
+  await guest.screenshot({
+    path: testInfo.outputPath("touch-attachment-picker.png"),
+    animations: "disabled",
+  });
+  await picker
+    .getByRole("button", { name: "Insert video", exact: true })
+    .click();
+  await expect(picker).toHaveCount(0);
+  await expect(box.getByTitle("YouTube video")).toBeVisible();
+  await expect(box).not.toBeFocused();
+});
+
 test("only modal dialogs lock page scrolling, not composer pickers", async ({
   browser,
 }) => {
@@ -494,10 +560,10 @@ test("only modal dialogs lock page scrolling, not composer pickers", async ({
     await guest.setViewportSize({ width, height: 800 });
     await expect(root).toHaveCSS("scrollbar-gutter", "stable");
     await guest
-      .getByRole("button", { name: "Emoji and GIFs", exact: true })
+      .getByRole("button", { name: "Add attachments", exact: true })
       .click();
     const picker = guest.getByRole("dialog", {
-      name: "Emoji and GIFs",
+      name: "Add attachments",
       exact: true,
     });
     await expect(picker).toBeVisible();
@@ -862,7 +928,7 @@ test("the composer highlights keyboard focus but not pointer focus", async ({
   const neutral = "rgb(66, 66, 66)";
   const focus = "rgb(173, 173, 173)";
   const picker = guest.getByRole("button", {
-    name: "Emoji and GIFs",
+    name: "Add attachments",
     exact: true,
   });
 
@@ -871,18 +937,18 @@ test("the composer highlights keyboard focus but not pointer focus", async ({
   await expect(box).toHaveCSS("border-top-color", neutral);
   await expect(box).toHaveCSS("outline-style", "none");
   const bounds = await box.boundingBox();
-  await input.press("Tab");
+  await input.press("Shift+Tab");
   await expect(picker).toBeFocused();
   await expect(picker).toHaveCSS("outline-width", "2px");
   await expect(picker).toHaveCSS("outline-color", focus);
-  await guest.keyboard.press("Shift+Tab");
+  await guest.keyboard.press("Tab");
   await expect(input).toBeFocused();
   await expect(box).toHaveCSS("border-top-color", neutral);
   await expect(box).toHaveCSS("outline-style", "solid");
   await expect(box).toHaveCSS("outline-width", "2px");
   await expect(box).toHaveCSS("outline-color", focus);
   expect(await box.boundingBox()).toEqual(bounds);
-  await input.press("Tab");
+  await input.press("Shift+Tab");
   await picker.press("Enter");
   const search = guest.getByRole("dialog").getByRole("searchbox");
   await expect(search).toBeFocused();
@@ -1008,9 +1074,9 @@ for (const width of [390, 1280]) {
       }),
     );
     await fillMessage(box, above);
-    await guest.getByRole("button", { name: "Emoji and GIFs" }).click();
+    await guest.getByRole("button", { name: "Add attachments" }).click();
     await guest.getByRole("tab", { name: "YouTube", exact: true }).click();
-    const picker = guest.getByRole("dialog", { name: "Emoji and GIFs" });
+    const picker = guest.getByRole("dialog", { name: "Add attachments" });
     const link = guest.getByLabel("YouTube link", { exact: true });
     const insert = guest.getByRole("button", {
       name: "Insert video",
@@ -1079,13 +1145,22 @@ for (const width of [390, 1280]) {
     expect(
       await box.evaluate((element) => getComputedStyle(element).overflowY),
     ).not.toBe("auto");
-    const controls = shell.locator("[data-controls]");
+    const controls = shell.locator("[data-controls]").filter({
+      has: guest.getByRole("button", { name: "Send", exact: true }),
+    });
+    const attachments = shell.locator("[data-controls]").filter({
+      has: guest.getByRole("button", {
+        name: "Add attachments",
+        exact: true,
+      }),
+    });
     for (const scrollTop of [0, 100000]) {
       await shell.evaluate((element, value) => {
         element.scrollTop = value;
       }, scrollTop);
       const shellBounds = (await shell.boundingBox())!;
       const controlsBounds = (await controls.boundingBox())!;
+      const attachmentBounds = (await attachments.boundingBox())!;
       const scrollbar = await shell.evaluate(
         (element) =>
           element.getBoundingClientRect().width - element.clientWidth,
@@ -1104,6 +1179,21 @@ for (const width of [390, 1280]) {
           controlsBounds.x -
           controlsBounds.width,
       ).toBeLessThanOrEqual(scrollbar + 2);
+      expect(Math.abs(attachmentBounds.x - shellBounds.x)).toBeLessThan(2);
+      expect(
+        Math.abs(
+          attachmentBounds.y +
+            attachmentBounds.height -
+            shellBounds.y -
+            shellBounds.height,
+        ),
+      ).toBeLessThan(2);
+      await expect(
+        attachments.getByRole("button", {
+          name: "Add attachments",
+          exact: true,
+        }),
+      ).toBeInViewport({ ratio: 1 });
       await expect(
         controls.getByRole("button", { name: "Send", exact: true }),
       ).toBeInViewport({ ratio: 1 });
@@ -1191,7 +1281,7 @@ for (const width of [390, 1280]) {
     const above = `Above ${width} ${Date.now()}`;
     const below = `Below ${width}`;
     await fillMessage(box, above);
-    await guest.getByRole("button", { name: "Emoji and GIFs" }).click();
+    await guest.getByRole("button", { name: "Add attachments" }).click();
     await guest.getByRole("tab", { name: "GIFs", exact: true }).click();
     await guest.getByRole("button", { name: "Add GIF: Inline test" }).click();
     await expect(box).toBeFocused();
@@ -1448,7 +1538,9 @@ for (const activation of ["click", "Enter", "Space"] as const) {
 
     const box = alice.getByRole("textbox", { name: "Message" });
     await fillMessage(box, text);
-    await alice.getByRole("button", { name: /^Emoji/ }).click();
+    await alice
+      .getByRole("button", { name: "Add attachments", exact: true })
+      .click();
     await alice.getByRole("searchbox", { name: "Search emoji" }).fill("pizza");
     const emoji = alice.getByRole("gridcell").filter({ hasText: "🍕" });
     if (activation === "click") {

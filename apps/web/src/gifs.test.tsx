@@ -91,7 +91,7 @@ const message = (text: string) => ({
 afterEach(() => vi.unstubAllEnvs());
 
 const openPicker = (user: ReturnType<typeof userEvent.setup>) =>
-  user.click(screen.getByRole("button", { name: "Emoji and GIFs" }));
+  user.click(screen.getByRole("button", { name: "Add attachments" }));
 
 const send = (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole("button", { name: "Send" }));
@@ -102,13 +102,62 @@ describe("without a GIPHY key", () => {
     stubFetch();
     const { user } = await enter();
 
-    expect(screen.queryByRole("button", { name: "Emoji and GIFs" })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Emoji" }));
+    await openPicker(user);
 
     expect(await screen.findByRole("tab", { name: "Emoji" })).toBeVisible();
     expect(screen.getByRole("tab", { name: "YouTube" })).toBeVisible();
     expect(screen.queryByRole("tab", { name: "GIFs" })).toBeNull();
   });
+});
+
+describe("attachment controls", () => {
+  it("places the plus button before the editor and Send after it", async () => {
+    vi.stubEnv("VITE_GIPHY_API_KEY", "test-key");
+    stubFetch();
+    await enter();
+    const picker = screen.getByRole("button", { name: "Add attachments" });
+    const editor = screen.getByRole("textbox", { name: "Message" });
+    const sendButton = screen.getByRole("button", { name: "Send" });
+    expect(
+      picker.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      editor.compareDocumentPosition(sendButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(picker.querySelector(".lucide-plus")).not.toBeNull();
+  });
+
+  it.each([true, false])(
+    "omits the emoji tab on touch devices (GIFs configured: %s)",
+    async (withGifs) => {
+      vi.stubEnv("VITE_GIPHY_API_KEY", withGifs ? "test-key" : "");
+      vi.stubGlobal("matchMedia", (query: string) => ({
+        matches: query === "(hover: none)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+      }));
+      stubFetch();
+      const { user } = await enter();
+      await openPicker(user);
+      expect(
+        screen.queryByRole("tab", { name: "Emoji" }),
+      ).not.toBeInTheDocument();
+      expect(screen.getAllByRole("tab")).toHaveLength(withGifs ? 2 : 1);
+      if (withGifs)
+        expect(screen.getByRole("tab", { name: "GIFs" })).toHaveAttribute(
+          "aria-selected",
+          "true",
+        );
+      await user.click(screen.getByRole("tab", { name: "YouTube" }));
+      expect(
+        screen.getByRole("textbox", { name: "YouTube link" }),
+      ).toBeVisible();
+    },
+  );
 });
 
 describe("emoji", () => {
