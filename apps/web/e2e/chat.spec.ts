@@ -621,6 +621,11 @@ test("viewport resizing keeps a pinned chat at the bottom without moving a reade
       });
     await expect.poll(distanceFromBottom).toBeLessThan(2);
     await guest.getByRole("textbox", { name: "Message", exact: true }).focus();
+    await guest.getByRole("log").evaluate((log) => {
+      log.style.paddingBottom = "128px";
+      window.dispatchEvent(new Event("scroll"));
+    });
+    await expect.poll(distanceFromBottom).toBeLessThan(2);
     for (const height of [480, 844, 480, 844]) {
       await guest.setViewportSize({ width: 390, height });
       await expect.poll(distanceFromBottom).toBeLessThan(2);

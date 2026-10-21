@@ -179,9 +179,14 @@ export function ChatRoom({
   useEffect(() => {
     const page = document.documentElement;
     let viewportHeight = page.clientHeight;
+    let contentHeight = page.scrollHeight;
     const update = () => {
-      if (page.clientHeight !== viewportHeight) {
+      if (
+        page.clientHeight !== viewportHeight ||
+        page.scrollHeight !== contentHeight
+      ) {
         viewportHeight = page.clientHeight;
+        contentHeight = page.scrollHeight;
         if (pinned.current) scrollToEnd();
       }
       const distance = page.scrollHeight - page.scrollTop - page.clientHeight;
