@@ -1,5 +1,8 @@
-import { act, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import * as notificationSound from "./notificationSound";
+import { loadNotificationSound } from "./preferences";
 
 import { stubRooms } from "./test/app";
 import {
@@ -19,6 +22,107 @@ import {
 
 beforeEach(() => {
   stubRooms();
+});
+
+describe("private-message notification sounds", () => {
+  beforeEach(() => {
+    vi.spyOn(notificationSound, "playNotificationSound").mockResolvedValue();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  async function openSettings(user: Awaited<ReturnType<typeof enter>>["user"]) {
+    await user.click(
+      screen.getByRole("button", { name: "Account menu: Alice" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: /Notification sounds/ }),
+    );
+    return screen.findByRole("checkbox", { name: "Private message sounds" });
+  }
+
+  it("offers sound settings that start disabled", async () => {
+    const { user } = await enter();
+    expect(await openSettings(user)).not.toBeChecked();
+    expect(screen.getByRole("slider", { name: "Volume" })).toBeDisabled();
+    expect(screen.getByRole("slider", { name: "Volume" })).toHaveValue("50");
+    expect(
+      screen.getByRole("button", { name: "Preview sound" }),
+    ).toBeDisabled();
+  });
+
+  it("enables sound, remembers volume and offers a preview", async () => {
+    const { user } = await enter();
+    await user.click(await openSettings(user));
+    const volume = screen.getByRole("slider", { name: "Volume" });
+    expect(volume).toBeEnabled();
+    fireEvent.change(volume, { target: { value: "25" } });
+    expect(loadNotificationSound()).toEqual({ enabled: true, volume: 0.25 });
+    expect(volume).toHaveAttribute("aria-valuetext", "25%");
+    await user.click(screen.getByRole("button", { name: "Preview sound" }));
+    expect(notificationSound.playNotificationSound).toHaveBeenCalledTimes(1);
+    await user.keyboard("{Escape}");
+    expect(await openSettings(user)).toBeChecked();
+    expect(screen.getByRole("slider", { name: "Volume" })).toHaveValue("25");
+    fireEvent.change(screen.getByRole("slider", { name: "Volume" }), {
+      target: { value: "0" },
+    });
+    expect(
+      screen.getByRole("button", { name: "Preview sound" }),
+    ).toBeDisabled();
+    await user.click(
+      screen.getByRole("checkbox", { name: "Private message sounds" }),
+    );
+    expect(loadNotificationSound()).toEqual({ enabled: false, volume: 0 });
+  });
+
+  it("notifies once for new incoming messages, not duplicates, own messages or malformed events", async () => {
+    const { server } = await enter();
+    const incoming = dm();
+    receive(server, incoming);
+    receive(server, incoming);
+    receive(server, fromMe(bob, "my reply"));
+    act(() => server.latest.serverEmit("dm:new", { text: "invalid" }));
+    expect(notificationSound.playNotificationSound).toHaveBeenCalledTimes(1);
+  });
+
+  it("notifies for a new message even when its conversation is open", async () => {
+    const { user, server } = await enter();
+    await user.click(
+      people().getByRole("button", { name: "Open private chat with Bob" }),
+    );
+    receive(server, dm());
+    expect(notificationSound.playNotificationSound).toHaveBeenCalledTimes(1);
+  });
+
+  it("respects muting and unmuting a conversation", async () => {
+    const { user, server } = await enter();
+    receive(server, dm());
+    vi.mocked(notificationSound.playNotificationSound).mockClear();
+    await user.click(
+      screen.getByRole("button", { name: "Stop notifications from Bob" }),
+    );
+    await screen.findByRole("button", {
+      name: "Turn on notifications from Bob",
+    });
+    receive(server, dm({ text: "muted arrival" }));
+    expect(notificationSound.playNotificationSound).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "Turn on notifications from Bob" }),
+    );
+    receive(server, dm({ text: "unmuted arrival" }));
+    expect(notificationSound.playNotificationSound).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not notify for a blocked sender", async () => {
+    const { user, server } = await enter();
+    await user.click(
+      people().getByRole("button", { name: "Open private chat with Bob" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Block Bob" }));
+    await screen.findAllByRole("button", { name: "Unblock Bob" });
+    receive(server, dm());
+    expect(notificationSound.playNotificationSound).not.toHaveBeenCalled();
+  });
 });
 
 describe("direct messages", () => {

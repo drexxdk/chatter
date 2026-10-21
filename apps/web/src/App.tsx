@@ -44,6 +44,7 @@ import { legalDocOf, LegalPage } from "./components/LegalPage";
 import { Lobby, useRooms } from "./components/Lobby";
 import { MainMenu } from "./components/MainMenu";
 import { NicknameDialog } from "./components/NicknameDialog";
+import { NotificationSoundDialog } from "./components/NotificationSoundDialog";
 import { ModeratorDialog } from "./components/ModeratorDialog";
 import { PageFrame } from "./components/PageFrame";
 import { ProfileDialog, type ProfileSubject } from "./components/ProfileDialog";
@@ -54,7 +55,14 @@ import { TabNotice } from "./components/TabNotice";
 import { ViewTransition } from "./components/ViewTransition";
 import { LOBBY_PATH, pageFromPath, roomPath, slugFromPath } from "./place";
 import { useLegal } from "./legal/useLegal";
-import { loadShowMovements, saveShowMovements } from "./preferences";
+import {
+  loadNotificationSound,
+  loadShowMovements,
+  saveNotificationSound,
+  saveShowMovements,
+  type NotificationSoundPreferences,
+} from "./preferences";
+import { prepareNotificationSound } from "./notificationSound";
 import type { ProfileChanges } from "./profile";
 import {
   clearSession,
@@ -124,6 +132,29 @@ export function App({
   // Who is signed in with a provider, kept in this browser; null for a guest.
   const [account, setAccount] = useState<Account | null>(loadAccount);
   const [showMovements, setShowMovements] = useState(loadShowMovements);
+  const [notificationSound, setNotificationSound] = useState(
+    loadNotificationSound,
+  );
+  const [notificationSoundOpen, setNotificationSoundOpen] = useState(false);
+
+  function changeNotificationSound(value: NotificationSoundPreferences) {
+    setNotificationSound(value);
+    saveNotificationSound(value);
+    if (value.enabled) void prepareNotificationSound();
+  }
+
+  useEffect(() => {
+    if (!notificationSound.enabled) return;
+    const unlock = () => {
+      void prepareNotificationSound();
+    };
+    window.addEventListener("pointerdown", unlock, true);
+    window.addEventListener("keydown", unlock, true);
+    return () => {
+      window.removeEventListener("pointerdown", unlock, true);
+      window.removeEventListener("keydown", unlock, true);
+    };
+  }, [notificationSound.enabled]);
 
   function changeShowMovements(show: boolean) {
     setShowMovements(show);
@@ -372,6 +403,7 @@ export function App({
     const room = pendingRoom;
 
     // The name may be somebody else's in that room: then the dialog stays, with the reason, for another one.
+    dropHeldScroll();
     const joined = await chat.joinRoom(room.slug);
     if (joined.ok || joined.error !== NAME_TAKEN) setPendingRoom(null);
   }
@@ -874,6 +906,10 @@ export function App({
               )}
               {!chat.queue && adminTools}
               <MainMenu
+                notifications={{
+                  enabled: notificationSound.enabled,
+                  onOpen: () => setNotificationSoundOpen(true),
+                }}
                 profile={
                   !settled
                     ? undefined
@@ -976,6 +1012,14 @@ export function App({
           )}
         </ViewTransition>
       </PageFrame>
+
+      {notificationSoundOpen && (
+        <NotificationSoundDialog
+          value={notificationSound}
+          onChange={changeNotificationSound}
+          onClose={() => setNotificationSoundOpen(false)}
+        />
+      )}
 
       {profile && (
         <ProfileDialog

@@ -13,6 +13,8 @@ import {
   Menu as MenuIcon,
   User,
   UserPlus,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { Check } from "lucide-react";
 import { DE, DK, GB } from "country-flag-icons/react/3x2";
@@ -59,14 +61,17 @@ export interface MenuProfile {
 export function MainMenu({
   profile,
   movements,
+  notifications,
 }: {
   profile?: MenuProfile;
   // Only in a room's own chat, where there is a log that can show who came and went.
   movements?: { checked: boolean; onChange: (checked: boolean) => void };
+  notifications?: { enabled: boolean; onOpen: () => void };
 }) {
   const { t, i18n } = useTranslation();
   const current = i18n.resolvedLanguage;
   const Door = movements?.checked ? DoorOpen : DoorClosed;
+  const Sound = notifications?.enabled ? Volume2 : VolumeX;
 
   return (
     <div className="relative">
@@ -176,6 +181,26 @@ export function MainMenu({
                       className="h-4 w-4 text-indigo-300"
                     />
                   )}
+                </button>
+              </MenuItem>
+            )}
+
+            {notifications && (
+              <MenuItem>
+                <button
+                  type="button"
+                  onClick={notifications.onOpen}
+                  className={item}
+                >
+                  <Sound aria-hidden="true" className="h-5 w-5 shrink-0" />
+                  <span className="flex-1">{t("notifications.title")}</span>
+                  <span className="text-xs text-neutral-400">
+                    {t(
+                      notifications.enabled
+                        ? "notifications.on"
+                        : "notifications.off",
+                    )}
+                  </span>
                 </button>
               </MenuItem>
             )}

@@ -2,6 +2,14 @@
   "app": { "title": "Chatter" },
   "language": { "label": "Language" },
   "menu": { "open": "Menu" },
+  "notifications": {
+    "title": "Notification sounds",
+    "enabled": "Private message sounds",
+    "volume": "Volume",
+    "preview": "Preview sound",
+    "on": "On",
+    "off": "Off"
+  },
   "roomSearch": {
     "open": "Search this room",
     "title": "Search in {room}",

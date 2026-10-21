@@ -168,6 +168,189 @@ async function expectPickerAligned(page: Page) {
   await expect(picker).toHaveCount(0);
 }
 
+test("joining as a guest opens long room history at the bottom", async ({
+  browser,
+}) => {
+  const seeder = await connectRawGuest("History Seeder", "198.51.100.42");
+  try {
+    expect((await seeder.join(LOUNGE.slug)).ok).toBe(true);
+    const history = [
+      "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+      ...Array.from({ length: 28 }, (_, index) => `History line ${index + 1}`),
+    ].join("\n");
+    expect((await seeder.send(history)).ok).toBe(true);
+
+    for (const viewport of [
+      { width: 1280, height: 720 },
+      { width: 390, height: 700 },
+    ]) {
+      const guest = await newGuest(browser);
+      await guest.setViewportSize(viewport);
+      await guest.goto("/");
+      await guest.addStyleTag({
+        content: "main:has(#lobby-heading) { min-height: 1800px; }",
+      });
+      await guest.getByRole("button", { name: `Join ${LOUNGE.name}` }).click();
+      await guest
+        .getByRole("textbox", { name: "Nickname" })
+        .fill(`Bottom Guest ${viewport.width}`);
+      await acceptTerms(guest);
+      await guest.getByRole("button", { name: "Continue" }).click();
+      await expect(
+        guest.getByRole("heading", { name: LOUNGE.name, level: 2 }),
+      ).toBeVisible();
+      await expect(guest.getByRole("dialog")).toHaveCount(0);
+      await expect(
+        guest.getByRole("log").getByText("History line 28", { exact: false }),
+      ).toBeVisible();
+      await guest.evaluate(async () => {
+        await Promise.all(
+          document
+            .getAnimations()
+            .map((animation) => animation.finished.catch(() => undefined)),
+        );
+      });
+      expect(
+        await guest.evaluate(
+          () =>
+            document.documentElement.scrollHeight -
+            document.documentElement.clientHeight,
+        ),
+      ).toBeGreaterThan(100);
+      await expect
+        .poll(() =>
+          guest.evaluate(() => {
+            const page = document.documentElement;
+            return page.scrollHeight - page.scrollTop - page.clientHeight;
+          }),
+        )
+        .toBeLessThan(2);
+      await guest.context().close();
+    }
+  } finally {
+    seeder.close();
+  }
+});
+
+test("private-message sounds are opt-in with adjustable volume", async ({
+  browser,
+}, testInfo) => {
+  const sender = await newGuest(browser);
+  const recipient = await newGuest(browser);
+  await recipient.addInitScript(() => {
+    const NativeAudioContext = window.AudioContext;
+    const probe = { notes: 0, levels: [] as number[] };
+    Object.assign(window, { notificationAudio: probe });
+    window.AudioContext = class extends NativeAudioContext {
+      createOscillator() {
+        probe.notes += 1;
+        return super.createOscillator();
+      }
+      createGain() {
+        const gain = super.createGain();
+        const ramp = gain.gain.linearRampToValueAtTime.bind(gain.gain);
+        gain.gain.linearRampToValueAtTime = (value, time) => {
+          if (value > 0) probe.levels.push(value);
+          return ramp(value, time);
+        };
+        return gain;
+      }
+    };
+  });
+  const audio = () =>
+    recipient.evaluate(
+      () =>
+        (
+          window as unknown as {
+            notificationAudio: { notes: number; levels: number[] };
+          }
+        ).notificationAudio,
+    );
+  await enterRoom(sender, LOUNGE.name, "Sound Sender");
+  await enterRoom(recipient, LOUNGE.name, "Sound Recipient");
+  await sender
+    .getByRole("button", { name: "Open private chat with Sound Recipient" })
+    .click();
+  await recipient
+    .getByRole("button", { name: "Open private chat with Sound Sender" })
+    .click();
+  await send(sender, "Silent by default", "Sound Recipient");
+  await expect(
+    recipient.getByRole("log").getByText("Silent by default", { exact: true }),
+  ).toBeVisible();
+  expect((await audio()).notes).toBe(0);
+
+  const openSettings = async () => {
+    await recipient
+      .getByRole("button", { name: "Account menu: Sound Recipient" })
+      .click();
+    await recipient
+      .getByRole("menuitem", { name: /Notification sounds/ })
+      .click();
+    return recipient.getByRole("dialog", {
+      name: "Notification sounds",
+      exact: true,
+    });
+  };
+  const dialog = await openSettings();
+  const enabled = dialog.getByRole("checkbox", {
+    name: "Private message sounds",
+  });
+  const volume = dialog.getByRole("slider", { name: "Volume" });
+  await expect(enabled).not.toBeChecked();
+  await expect(volume).toBeDisabled();
+  await enabled.check();
+  await volume.focus();
+  await volume.press("Home");
+  for (let step = 0; step < 25; step += 1) await volume.press("ArrowRight");
+  await expect(volume).toHaveValue("25");
+  await dialog.getByRole("button", { name: "Preview sound" }).click();
+  await expect.poll(async () => (await audio()).notes).toBe(2);
+  expect((await audio()).levels).toEqual([0.04, 0.04]);
+
+  for (const viewport of [
+    { width: 1280, height: 800 },
+    { width: 390, height: 844 },
+  ]) {
+    await recipient.setViewportSize(viewport);
+    const bounds = (await dialog.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
+    await recipient.screenshot({
+      path: testInfo.outputPath(`notification-sound-${viewport.width}.png`),
+      animations: "disabled",
+    });
+  }
+  await dialog.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await send(sender, "A new private message", "Sound Recipient");
+  await expect(
+    recipient
+      .getByRole("log")
+      .getByText("A new private message", { exact: true }),
+  ).toBeVisible();
+  await expect.poll(async () => (await audio()).notes).toBe(4);
+
+  await openSettings();
+  await expect(enabled).toBeChecked();
+  await expect(volume).toHaveValue("25");
+  await volume.focus();
+  await volume.press("Home");
+  await expect(volume).toHaveValue("0");
+  await expect(
+    dialog.getByRole("button", { name: "Preview sound" }),
+  ).toBeDisabled();
+  await dialog.press("Escape");
+  await send(sender, "Muted private message", "Sound Recipient");
+  await expect(
+    recipient
+      .getByRole("log")
+      .getByText("Muted private message", { exact: true }),
+  ).toBeVisible();
+  expect((await audio()).notes).toBe(4);
+});
+
 test("the people dropdown focuses search and stays scrollable when resized", async ({
   browser,
 }) => {

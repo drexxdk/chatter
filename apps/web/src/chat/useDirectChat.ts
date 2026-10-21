@@ -6,6 +6,7 @@ import {
   type RefObject,
 } from "react";
 import { PLAIN_AVATAR } from "./avatar";
+import { playNotificationSound } from "../notificationSound";
 import {
   addDirectMessage,
   applyDirectReaction,
@@ -52,6 +53,7 @@ export function useDirectChat({
   const blockedRef = useRef<string[]>([]);
   const restoredPartnerRef = useRef<string | null>(null);
   const selfGuestIdRef = useRef<string | null>(null);
+  const receivedIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     threadsRef.current = threads;
@@ -88,6 +90,7 @@ export function useDirectChat({
   );
 
   const resetDirect = useCallback(() => {
+    receivedIdsRef.current.clear();
     setThreads([]);
     blockedRef.current = [];
     setBlockedIds([]);
@@ -174,6 +177,29 @@ export function useDirectChat({
       const message = parseDirectMessage(value);
       if (!message) return;
       const mine = message.fromGuestId === selfGuestIdRef.current;
+      const received = receivedIdsRef.current;
+      const duplicate =
+        received.has(message.id) ||
+        threadsRef.current.some((thread) =>
+          thread.entries.some(
+            (entry) => !isStatus(entry) && entry.id === message.id,
+          ),
+        );
+      received.add(message.id);
+      if (received.size > 200) {
+        const oldest = received.values().next().value;
+        if (oldest !== undefined) received.delete(oldest);
+      }
+      if (
+        !mine &&
+        !duplicate &&
+        !threadsRef.current.some(
+          (thread) => thread.guestId === message.fromGuestId && thread.muted,
+        ) &&
+        !blockedRef.current.includes(message.fromGuestId)
+      ) {
+        void playNotificationSound();
+      }
       const known = membersRef.current.find(
         (member) => member.guestId === message.toGuestId,
       );

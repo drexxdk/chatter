@@ -1,5 +1,6 @@
 // Choices the guest made about how the chat looks. Unlike the session they belong to the browser, not the tab.
 const SHOW_MOVEMENTS_KEY = "chatter.showMovements";
+const NOTIFICATION_SOUND_KEY = "chatter.notificationSound";
 const TERMS_KEY = "chatter.terms";
 // What is kept when the terms could not be loaded at the moment of accepting them.
 const TERMS_UNKNOWN = "unknown";
@@ -38,5 +39,45 @@ export function saveShowMovements(show: boolean): void {
     localStorage.setItem(SHOW_MOVEMENTS_KEY, String(show));
   } catch {
     // Storage can be full or switched off; the choice then lasts until the page is closed.
+  }
+}
+
+export interface NotificationSoundPreferences {
+  enabled: boolean;
+  volume: number;
+}
+
+export function loadNotificationSound(): NotificationSoundPreferences {
+  try {
+    const value: unknown = JSON.parse(
+      localStorage.getItem(NOTIFICATION_SOUND_KEY) ?? "null",
+    );
+    if (
+      value &&
+      typeof value === "object" &&
+      "enabled" in value &&
+      typeof value.enabled === "boolean" &&
+      "volume" in value &&
+      typeof value.volume === "number" &&
+      Number.isFinite(value.volume)
+    ) {
+      return {
+        enabled: value.enabled,
+        volume: Math.max(0, Math.min(1, value.volume)),
+      };
+    }
+  } catch {
+    return { enabled: false, volume: 0.5 };
+  }
+  return { enabled: false, volume: 0.5 };
+}
+
+export function saveNotificationSound(
+  value: NotificationSoundPreferences,
+): void {
+  try {
+    localStorage.setItem(NOTIFICATION_SOUND_KEY, JSON.stringify(value));
+  } catch {
+    return;
   }
 }

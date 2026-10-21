@@ -2,6 +2,14 @@
   "app": { "title": "Chatter" },
   "language": { "label": "Sprog" },
   "menu": { "open": "Menu" },
+  "notifications": {
+    "title": "Notifikationslyde",
+    "enabled": "Lyd ved private beskeder",
+    "volume": "Lydstyrke",
+    "preview": "Afspil lyd",
+    "on": "Til",
+    "off": "Fra"
+  },
   "roomSearch": {
     "open": "Søg i dette rum",
     "title": "Søg i {room}",
