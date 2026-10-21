@@ -321,12 +321,12 @@ describe("YouTube attachments", () => {
         thumbnail,
       ),
     );
-    expect(plainText(editorOf(box).state.doc)).toBe(`above\n${url}\nbelow`);
+    expect(plainText(editorOf(box).state.doc)).toBe(`above\n${embed}\nbelow`);
     expect(server.latest.emittedEvents("message:send")).toEqual([]);
     await send(user);
     await waitFor(() =>
       expect(server.latest.emittedEvents("message:send")).toEqual([
-        { text: `above\n${url}\nbelow` },
+        { text: `above\n${embed}\nbelow` },
       ]),
     );
     expect(within(box).queryByTitle("YouTube video")).not.toBeInTheDocument();
@@ -382,8 +382,20 @@ describe("YouTube attachments", () => {
     fillBox(box, "x".repeat(499));
     await insert(user);
     const text = plainText(editorOf(box).state.doc);
-    expect(text).toContain(url);
+    expect(text).toContain(embed);
     expect(text.length).toBeLessThanOrEqual(500);
+  });
+
+  it("normalizes imported YouTube iframe URLs to the no-cookie host", async () => {
+    await enter();
+    const box = screen.getByRole("textbox", { name: "Message" });
+    act(() => {
+      editorOf(box).commands.setContent(
+        '<p><iframe data-type="youtube" src="https://www.youtube.com/embed/aqz-KE-bpKQ"></iframe></p>',
+      );
+    });
+    expect(plainText(editorOf(box).state.doc).trim()).toBe(embed);
+    expect(editorOf(box).getHTML()).toContain(`src="${embed}"`);
   });
 
   it.each([false, true])(

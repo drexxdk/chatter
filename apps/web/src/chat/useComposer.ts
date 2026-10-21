@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 
 import { MAX_MESSAGE_LENGTH } from "./limits";
 import { sendableGifUrl } from "./gifs";
-import { youtubeUrl } from "./youtube";
+import { youtubeEmbedUrl } from "./youtube";
 import { plainText } from "./plainText";
 
 export function useComposer() {
@@ -26,7 +26,7 @@ export function useComposer() {
   }
 
   function addYouTube(address: string) {
-    addAttachment("youtube", youtubeUrl(address));
+    addAttachment("youtube", youtubeEmbedUrl(address));
   }
 
   function addAttachment(type: "gif" | "youtube", url: string | null) {

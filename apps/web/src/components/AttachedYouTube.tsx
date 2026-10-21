@@ -7,18 +7,27 @@ import { closeHistory } from "@tiptap/pm/history";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { youtubeEmbedUrl, youtubeUrl } from "../chat/youtube";
+import { youtubeEmbedUrl } from "../chat/youtube";
 import { GifAttachment } from "./AttachedGif";
 import { YouTubeEmbed } from "./YouTubeEmbed";
 
 export const YouTubeAttachment = GifAttachment.extend({
   name: "youtube",
+  addAttributes() {
+    return {
+      src: {
+        default: null,
+        parseHTML: (element) =>
+          youtubeEmbedUrl(element.getAttribute("src") ?? ""),
+      },
+    };
+  },
   parseHTML() {
     return [
       {
         tag: 'iframe[data-type="youtube"]',
         getAttrs: (element) => {
-          const src = youtubeUrl(element.getAttribute("src") ?? "");
+          const src = youtubeEmbedUrl(element.getAttribute("src") ?? "");
           return src ? { src } : false;
         },
       },
