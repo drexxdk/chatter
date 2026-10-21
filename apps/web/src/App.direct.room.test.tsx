@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { focusMessageBox } from "./focusMessageBox";
 import { stubRooms, setup, at, message } from "./test/app";
 import {
   ME,
@@ -312,6 +313,37 @@ describe("direct messages", () => {
       expect(screen.queryByRole("menu")).toBeNull();
       expect(writingTo("Bob")).toBeInTheDocument();
     });
+    it("does not carry pending editor focus into a new page", async () => {
+      const previous = await enter();
+      let pendingFocus: FrameRequestCallback | undefined;
+      const frame = vi
+        .spyOn(globalThis, "requestAnimationFrame")
+        .mockImplementationOnce((callback) => {
+          pendingFocus = callback;
+          return 0;
+        });
+      try {
+        focusMessageBox();
+      } finally {
+        frame.mockRestore();
+      }
+      expect(pendingFocus).toBeDefined();
+      previous.unmount();
+
+      const { server } = setup();
+      await screen.findByRole("log", { name: "General" });
+      await screen.findByRole("textbox", { name: "Message" });
+      act(() =>
+        server.latest.serverEmit("message:new", message({ text: "new page" })),
+      );
+      const row = screen
+        .getByText("new page")
+        .closest<HTMLElement>("[data-nav-id]")!;
+      act(() => row.focus());
+      act(() => pendingFocus?.(performance.now()));
+      expect(row).toHaveFocus();
+    });
+
     it("makes the chat one tab stop, with the arrow keys moving between every message", async () => {
       const { user, server } = await enter();
       act(() => {

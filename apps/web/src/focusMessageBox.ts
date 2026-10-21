@@ -16,12 +16,13 @@ export function focusMessageBox() {
   const mine = ++latest;
   if (document.documentElement.getAttribute("data-pointer") === "touch") return;
 
+  const page = document.querySelector("main");
   const started = performance.now();
   let focused: HTMLElement | null = null;
   let focusedAt = 0;
 
   const attempt = () => {
-    if (mine !== latest) return;
+    if (mine !== latest || (page && !page.isConnected)) return;
 
     const now = performance.now();
     const overlay = document.querySelector('[role="dialog"], [role="menu"]');
