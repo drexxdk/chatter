@@ -495,6 +495,10 @@ test("touch composers offer GIFs and YouTube from a left-hand plus button", asyn
   guestContexts.push(context);
   const guest = await context.newPage();
   await enterRoom(guest, LOUNGE.name, "Touch Guest");
+  await expect(guest.locator('meta[name="viewport"]')).toHaveAttribute(
+    "content",
+    /interactive-widget=resizes-content/,
+  );
   await guest.evaluate(() =>
     Promise.all(
       document.getAnimations().map((animation) => animation.finished),
@@ -529,10 +533,34 @@ test("touch composers offer GIFs and YouTube from a left-hand plus button", asyn
   await expect(
     picker.getByRole("img", { name: "YouTube video", exact: true }),
   ).toHaveJSProperty("naturalWidth", 480);
-  await guest.screenshot({
-    path: testInfo.outputPath("touch-attachment-picker.png"),
-    animations: "disabled",
-  });
+  for (const height of [480, 844]) {
+    await guest.setViewportSize({ width: 390, height });
+    await expect
+      .poll(() =>
+        picker.evaluate((element) => {
+          const panel = element.getBoundingClientRect();
+          const composer = document
+            .querySelector("form[data-composer]")!
+            .getBoundingClientRect();
+          const header = document
+            .querySelector("header")!
+            .getBoundingClientRect();
+          return (
+            panel.top >= header.bottom + 7 &&
+            panel.bottom <= composer.top &&
+            composer.bottom <= window.innerHeight
+          );
+        }),
+      )
+      .toBe(true);
+    await expect(
+      picker.getByLabel("YouTube link", { exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+    await guest.screenshot({
+      path: testInfo.outputPath(`touch-attachment-picker-${height}.png`),
+      animations: "disabled",
+    });
+  }
   await picker
     .getByRole("button", { name: "Insert video", exact: true })
     .click();
