@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as notificationSound from "./notificationSound";
 import { loadNotificationSound } from "./preferences";
 
-import { stubRooms } from "./test/app";
+import { setup, stubRooms } from "./test/app";
 import {
   bob,
   carol,
@@ -39,6 +39,15 @@ describe("private-message notification sounds", () => {
     );
     return screen.findByRole("checkbox", { name: "Private message sounds" });
   }
+
+  it("does not offer sound settings before joining or signing in", async () => {
+    const { user } = setup();
+    await user.click(await screen.findByRole("button", { name: "Menu" }));
+    expect(screen.getByRole("menu")).toBeVisible();
+    expect(
+      screen.queryByRole("menuitem", { name: /Notification sounds/ }),
+    ).not.toBeInTheDocument();
+  });
 
   it("offers sound settings that start disabled", async () => {
     const { user } = await enter();

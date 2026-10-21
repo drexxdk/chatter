@@ -185,7 +185,7 @@ export function MainMenu({
               </MenuItem>
             )}
 
-            {notifications && (
+            {profile && notifications && (
               <MenuItem>
                 <button
                   type="button"

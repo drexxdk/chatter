@@ -100,7 +100,7 @@ export function RoomSearch({
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const frame = useRef<number | null>(null);
   const { refs, floatingStyles } = useFloating({
-    placement: "bottom-start",
+    placement: "bottom",
     whileElementsMounted: autoUpdate,
     middleware: [
       offset(({ elements }) => {
@@ -277,7 +277,7 @@ export function RoomSearch({
             if (open) keys.focus();
             else setOpen(true);
           }}
-          className="h-9 w-full rounded-md border border-neutral-700 bg-neutral-900 pr-9 pl-9 text-sm outline-offset-2 [&::-webkit-search-cancel-button]:hidden"
+          className="h-9 w-full rounded-md border border-[var(--room-border,var(--color-neutral-700))] bg-[var(--room-card,var(--color-neutral-900))] pr-9 pl-9 text-sm outline-offset-2 max-sm:placeholder:text-transparent [&::-webkit-search-cancel-button]:hidden"
         />
         {query && (
           <button

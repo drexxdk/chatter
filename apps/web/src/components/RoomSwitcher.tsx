@@ -53,12 +53,12 @@ export function RoomSwitcher({
         {({ open }) => (
           <>
             <WhenOpened open={open} onOpen={onOpen} />
-            <MenuButton className="flex max-w-full items-center gap-1.5 rounded-md px-2 py-1 hover:bg-neutral-800 outline-none data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400">
+            <MenuButton className="flex max-w-full items-center gap-1.5 rounded-md px-2 py-1 hover:bg-(--room-accent)/10 outline-none data-focus:outline-2 data-focus:outline-solid data-focus:outline-(--room-accent)">
               <RoomIcon slug={slug} />
               <span className="truncate">{name}</span>
               <ChevronDown
                 aria-hidden="true"
-                className="h-5 w-5 shrink-0 text-neutral-400"
+                className="h-5 w-5 shrink-0 text-(--room-accent)"
               />
             </MenuButton>
             {/* At the page's left edge. The header is what the box is placed against, so the heading must not be positioned

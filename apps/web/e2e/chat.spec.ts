@@ -911,6 +911,20 @@ test("room search finds public and private text without image URLs on mobile and
     const inputBounds = await field.boundingBox();
     const header = alice.locator("header");
     await expect(header).toHaveCSS("height", "56px");
+    await expect(field).toHaveCSS(
+      "border-top-color",
+      await header
+        .locator("..")
+        .evaluate((element) => getComputedStyle(element).borderBottomColor),
+    );
+    const placeholderColor = await field.evaluate(
+      (element) => getComputedStyle(element, "::placeholder").color,
+    );
+    if (width < 640) {
+      expect(placeholderColor).toBe("rgba(0, 0, 0, 0)");
+    } else {
+      expect(placeholderColor).not.toBe("rgba(0, 0, 0, 0)");
+    }
     const headerBounds = (await header.boundingBox())!;
     expect(inputBounds!.width).toBeGreaterThanOrEqual(72);
     expect(inputBounds!.y).toBeGreaterThanOrEqual(headerBounds.y);
@@ -919,6 +933,15 @@ test("room search finds public and private text without image URLs on mobile and
     );
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    if (width >= 640) {
+      expect(
+        Math.abs(
+          bounds!.x +
+            bounds!.width / 2 -
+            (inputBounds!.x + inputBounds!.width / 2),
+        ),
+      ).toBeLessThanOrEqual(1);
+    }
     expect(bounds!.y).toBeGreaterThanOrEqual(
       headerBounds.y + headerBounds.height + 5,
     );
