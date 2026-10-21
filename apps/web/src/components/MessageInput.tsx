@@ -107,6 +107,7 @@ export function MessageInput({
   });
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       OneParagraph,
       Paragraph,

@@ -20,7 +20,7 @@ describe("names mentioned in messages", () => {
   async function enter() {
     const result = setup(makeFakeServer({ others: [BOB, CAROL] }));
     await joinRoom(result.user);
-    await screen.findByRole("button", { name: "Account menu: Alice" });
+    await screen.findByRole("log", { name: "General" });
 
     return result;
   }

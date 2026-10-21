@@ -17,9 +17,11 @@ describe("mentioning somebody with @", () => {
   async function enter(others = [BOB, BOBBY, ANNE, CAROL]) {
     const result = setup(makeFakeServer({ others }));
     await joinRoom(result.user);
-    await screen.findByRole("button", { name: "Account menu: Alice" });
+    await screen.findByRole("log", { name: "General" });
 
-    return { ...result, box: screen.getByRole("textbox", { name: "Message" }) };
+    const box = await screen.findByRole("textbox", { name: "Message" });
+    await waitFor(() => expect(editorOf(box).isInitialized).toBe(true));
+    return { ...result, box };
   }
 
   const list = () =>
@@ -47,7 +49,7 @@ describe("mentioning somebody with @", () => {
 
     await user.type(box, "@");
 
-    expect(names()).not.toContain("Alice");
+    await waitFor(() => expect(names()).not.toContain("Alice"));
   });
 
   it("narrows the list as the name is written, and goes away when nobody matches", async () => {

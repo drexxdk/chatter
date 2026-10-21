@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { LogIn } from "lucide-react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { LoaderCircle, LogIn } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   Link,
@@ -36,7 +36,6 @@ import { createTabCoordinator, type TabCoordinator } from "./activeTab";
 import { AdminMenu } from "./components/AdminMenu";
 import { CreateAccountDialog } from "./components/AccountSection";
 import { AnnouncementBanner } from "./components/AnnouncementBanner";
-import { ChatRoom } from "./components/ChatRoom";
 import { Button } from "./components/Button";
 import { ErrorAlert } from "./components/ErrorAlert";
 import { LegalLinks } from "./components/LegalLinks";
@@ -79,6 +78,12 @@ import {
 import { useKept } from "./useKept";
 import { dropHeldScroll } from "./scrollHold";
 import { usePageTitle } from "./usePageTitle";
+
+const ChatRoom = lazy(() =>
+  import("./components/ChatRoom").then((module) => ({
+    default: module.ChatRoom,
+  })),
+);
 
 // The server's answer when somebody else in the room already has the guest's nickname.
 const NAME_TAKEN = "nickname_taken";
@@ -967,28 +972,42 @@ export function App({
           hold={!settled && startedInRoom.current}
         >
           {chat.roomSlug && chat.session ? (
-            <ChatRoom
-              key={chat.roomSlug}
-              roomName={currentRoom?.name ?? chat.roomSlug}
-              maxMembers={currentRoom?.maxMembers}
-              session={chat.session}
-              ownGuestIds={chat.ownGuestIds}
-              connected={chat.status === "connected"}
-              members={chat.members}
-              messages={chat.messages}
-              events={chat.roomEvents}
-              showMovements={showMovements}
-              error={chat.error}
-              retryAfterSeconds={chat.retryAfterSeconds}
-              onClearError={chat.clearError}
-              onSend={chat.sendMessage}
-              onReact={chat.react}
-              onReport={chat.reportMessage}
-              onAnnounce={chat.sendAnnouncement}
-              announcements={chat.announcements}
-              direct={chat.direct}
-              idleDeadline={chat.idleDeadline}
-            />
+            <Suspense
+              fallback={
+                <div
+                  aria-busy="true"
+                  className="grid flex-1 place-items-center py-8"
+                >
+                  <LoaderCircle
+                    aria-hidden="true"
+                    className="size-6 animate-spin text-neutral-400"
+                  />
+                </div>
+              }
+            >
+              <ChatRoom
+                key={chat.roomSlug}
+                roomName={currentRoom?.name ?? chat.roomSlug}
+                maxMembers={currentRoom?.maxMembers}
+                session={chat.session}
+                ownGuestIds={chat.ownGuestIds}
+                connected={chat.status === "connected"}
+                members={chat.members}
+                messages={chat.messages}
+                events={chat.roomEvents}
+                showMovements={showMovements}
+                error={chat.error}
+                retryAfterSeconds={chat.retryAfterSeconds}
+                onClearError={chat.clearError}
+                onSend={chat.sendMessage}
+                onReact={chat.react}
+                onReport={chat.reportMessage}
+                onAnnounce={chat.sendAnnouncement}
+                announcements={chat.announcements}
+                direct={chat.direct}
+                idleDeadline={chat.idleDeadline}
+              />
+            </Suspense>
           ) : page === "terms" || page === "privacy" ? (
             <LegalPage page={page} state={legalState} retry={retryLegal} />
           ) : page === "about" ? (

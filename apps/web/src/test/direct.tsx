@@ -63,7 +63,7 @@ export function present(server: Server, others: (typeof bob)[]) {
 export async function enter(others = [bob, carol, ada]) {
   const result = setup();
   await joinRoom(result.user);
-  await screen.findByRole("button", { name: "Account menu: Alice" });
+  await screen.findByRole("log", { name: "General" });
   present(result.server, others);
   return result;
 }

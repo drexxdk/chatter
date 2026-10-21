@@ -23,7 +23,7 @@ describe("losing the connection", () => {
   async function enterRoom(server = makeFakeServer(), delays = [5, 5, 5]) {
     const result = setup(server, delays);
     await joinRoom(result.user);
-    await screen.findByRole("button", { name: "Account menu: Alice" });
+    await screen.findByRole("log", { name: "General" });
     return result;
   }
 

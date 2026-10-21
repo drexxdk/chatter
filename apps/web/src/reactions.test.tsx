@@ -47,7 +47,7 @@ async function enter(history: unknown[] = []) {
   await user.click(await screen.findByRole("button", { name: "Join General" }));
   await user.type(await screen.findByLabelText("Nickname"), "Alice");
   await user.click(screen.getByRole("button", { name: "Continue" }));
-  await screen.findByRole("button", { name: "Account menu: Alice" });
+  await screen.findByRole("log", { name: "General" });
 
   return { user, server };
 }

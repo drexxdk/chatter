@@ -80,7 +80,7 @@ describe("who comes and goes", () => {
     // What the server hands over with the join.
     server.acks["room:join"] = () => ({ ok: true, history });
     await joinRoom(result.user);
-    await screen.findByRole("button", { name: "Account menu: Alice" });
+    await screen.findByRole("log", { name: "General" });
     return result;
   }
 
