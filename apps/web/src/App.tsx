@@ -33,7 +33,6 @@ import type { ActionResult } from "./chat/types";
 import { useChat } from "./chat/useChat";
 import { AboutPage } from "./components/AboutPage";
 import { createTabCoordinator, type TabCoordinator } from "./activeTab";
-import { AdminMenu } from "./components/AdminMenu";
 import { CreateAccountDialog } from "./components/AccountSection";
 import { AnnouncementBanner } from "./components/AnnouncementBanner";
 import { Button } from "./components/Button";
@@ -78,6 +77,12 @@ import {
 import { useKept } from "./useKept";
 import { dropHeldScroll } from "./scrollHold";
 import { usePageTitle } from "./usePageTitle";
+
+const AdminMenu = lazy(() =>
+  import("./components/AdminMenu").then((module) => ({
+    default: module.AdminMenu,
+  })),
+);
 
 const ChatRoom = lazy(() =>
   import("./components/ChatRoom").then((module) => ({
@@ -821,24 +826,26 @@ export function App({
   }, [location.key, navigationType]);
 
   const adminTools = chat.session?.admin ? (
-    <AdminMenu
-      room={testRoom}
-      queueTest={chat.session.queueTest ?? { enabled: false, ahead: 0 }}
-      crowd={chat.crowd?.roomSlug === testRoom?.slug ? chat.crowd : null}
-      onTool={(event, payload) => void chat.adminTool(event, payload)}
-      onAdvance={
-        chat.queue &&
-        chat.session.queueTest?.enabled &&
-        chat.session.adminRooms?.some(
-          (room) => room.slug === chat.queue?.roomSlug,
-        )
-          ? () =>
-              chat.adminTool("admin:queue:advance", {
-                slug: chat.queue?.roomSlug,
-              })
-          : undefined
-      }
-    />
+    <Suspense fallback={null}>
+      <AdminMenu
+        room={testRoom}
+        queueTest={chat.session.queueTest ?? { enabled: false, ahead: 0 }}
+        crowd={chat.crowd?.roomSlug === testRoom?.slug ? chat.crowd : null}
+        onTool={(event, payload) => void chat.adminTool(event, payload)}
+        onAdvance={
+          chat.queue &&
+          chat.session.queueTest?.enabled &&
+          chat.session.adminRooms?.some(
+            (room) => room.slug === chat.queue?.roomSlug,
+          )
+            ? () =>
+                chat.adminTool("admin:queue:advance", {
+                  slug: chat.queue?.roomSlug,
+                })
+            : undefined
+        }
+      />
+    </Suspense>
   ) : undefined;
 
   return (
