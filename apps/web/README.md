@@ -49,6 +49,8 @@ The Vite dev server sends no such policy; if you add a source the page loads fro
 
 `npm run test:web` (Vitest + Testing Library). The tests run the real components, hook and i18n against a fake Socket.IO server (`src/test/fakeSocket.ts`) that replays the real protocol, including the server's event ordering. No network or running backend is needed. If the chat-server protocol changes, update the fake to match.
 
+Vitest uses at most two workers and does not retry failed tests. Wait for the intended input to receive focus before typing in a newly opened dialog; a visible dialog alone does not mean its focus transition is complete.
+
 `npm run lint --workspace apps/web` runs ESLint (`eslint.config.mjs`): the recommended TypeScript rules plus `react-hooks/rules-of-hooks` and `exhaustive-deps`, both as errors, and `no-deprecated` (type-aware, so it also flags React and DOM APIs marked deprecated, such as `FormEvent`), and CI runs it. Where an effect deliberately leaves out a dependency (two places in `App.tsx`), the line above says why.
 
 ### End-to-end
@@ -59,3 +61,5 @@ The Vite dev server sends no such policy; if you add a source the page loads fro
 - It runs its own chat-server (port 4100) and web client (port 5174), so a dev session can stay open. The e2e chat-server uses Redis database 1, its own Socket.IO channel (`SOCKET_ADAPTER_KEY`), its own ban salt and a 500ms cache sync.
 - It creates rooms prefixed `e2e-` and bans through the admin API and removes them afterwards; leftovers from an interrupted run are swept at the start of the next one. It reads the admin credentials from `apps/admin/.env`.
 - The ban test blocks loopback addresses for the e2e chat-server, so tests run one at a time.
+- Scroll and layout regressions use fresh rooms per attempt so existing history, late-loading media and retries cannot alter their fixtures. Click visible controls instead of forcing clicks on hidden inputs.
+- Failure screenshots and traces are retained from the first attempt, including when a CI retry passes. To check stability without retries, use `npm run test:web:e2e -- --retries 0`; repeat a targeted test with `--repeat-each 3 -g "test name"`.

@@ -39,7 +39,7 @@ export function HeaderFrame({
     >
       <div className="border-b border-[var(--room-border,var(--color-neutral-800))]">
         <header
-          className={`relative mx-auto flex min-h-14 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-(--page-gutter) py-2 sm:flex-nowrap sm:py-0 ${wide ? "max-w-none" : "max-w-4xl"}`}
+          className={`relative mx-auto flex min-h-14 items-center justify-between gap-2 px-(--page-gutter) sm:gap-3 ${wide ? "max-w-none" : "max-w-4xl"}`}
         >
           {children}
         </header>

@@ -148,6 +148,7 @@ function ClaimForm({
       />
       <Field
         id="claim-password"
+        data-autofocus
         label={t("nickname.password")}
         hint={t("account.passwordHint")}
         type="password"

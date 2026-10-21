@@ -1021,7 +1021,7 @@ export function App({
         />
       )}
 
-      {profile && (
+      {profile && !createAccountOpen && (
         <ProfileDialog
           open={profileOpen || accountOpen}
           onClose={closeProfile}

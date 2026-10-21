@@ -367,9 +367,7 @@ describe("password sign-in and claiming", () => {
       await screen.findByRole("dialog", { name: "Claim account" }),
     );
     await waitFor(() =>
-      expect(
-        screen.getByRole("dialog", { name: "Claim account" }),
-      ).toHaveFocus(),
+      expect(dialog.getByLabelText("Password")).toHaveFocus(),
     );
     await user.type(
       dialog.getByLabelText("Password"),

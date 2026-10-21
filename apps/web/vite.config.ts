@@ -13,10 +13,7 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.ts"],
-    // Every file runs in its own worker at once, so a test can be slow on a busy machine without being wrong.
+    maxWorkers: 2,
     testTimeout: 15_000,
-    // A shared CI runner is several times slower than a development machine, and the few tests that are sensitive to it
-    // (focus that settles late, a slow join) pass on a second try.
-    retry: process.env.CI ? 2 : 0,
   },
 });

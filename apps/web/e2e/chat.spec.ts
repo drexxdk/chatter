@@ -75,6 +75,17 @@ async function newGuest(browser: Browser): Promise<Page> {
   return context.newPage();
 }
 
+async function isolatedRoom(name: string) {
+  const suffix = crypto.randomUUID().slice(0, 8);
+  const room = {
+    name: `${name} ${suffix}`,
+    slug: `${E2E.slugPrefix}${suffix}`,
+  };
+  roomIds.push(await payload.createRoom(room.name, room.slug, 5));
+  await waitForRooms([room.slug]);
+  return room;
+}
+
 async function startJoin(page: Page, roomName: string, nickname: string) {
   await page.goto("/");
   await page.getByRole("button", { name: `Join ${roomName}` }).click();
@@ -139,7 +150,7 @@ async function leaveRoom(page: Page) {
 
 async function expectPickerAligned(page: Page) {
   await page.evaluate(() =>
-    Promise.all(
+    Promise.allSettled(
       document.getAnimations().map((animation) => animation.finished),
     ),
   );
@@ -500,7 +511,7 @@ test("touch composers offer GIFs and YouTube from a left-hand plus button", asyn
     /interactive-widget=resizes-content/,
   );
   await guest.evaluate(() =>
-    Promise.all(
+    Promise.allSettled(
       document.getAnimations().map((animation) => animation.finished),
     ),
   );
@@ -572,9 +583,10 @@ test("touch composers offer GIFs and YouTube from a left-hand plus button", asyn
 test("viewport resizing keeps a pinned chat at the bottom without moving a reader", async ({
   browser,
 }) => {
+  const room = await isolatedRoom("E2E Keyboard");
   const seeder = await connectRawGuest("Keyboard Seeder", "198.51.100.43");
   try {
-    expect((await seeder.join(LOUNGE.slug)).ok).toBe(true);
+    expect((await seeder.join(room.slug)).ok).toBe(true);
     expect(
       (
         await seeder.send(
@@ -593,12 +605,12 @@ test("viewport resizing keeps a pinned chat at the bottom without moving a reade
     });
     guestContexts.push(context);
     const guest = await context.newPage();
-    await enterRoom(guest, LOUNGE.name, "Keyboard Guest");
+    await enterRoom(guest, room.name, "Keyboard Guest");
     await expect(
       guest.getByRole("log").getByText("Key line 35", { exact: false }),
     ).toBeVisible();
     await guest.evaluate(() =>
-      Promise.all(
+      Promise.allSettled(
         document.getAnimations().map((animation) => animation.finished),
       ),
     );
@@ -688,8 +700,9 @@ test("private chat back returns to the room and leaving is an action in the room
 test("typing in header search keeps the page scroll position", async ({
   browser,
 }) => {
+  const room = await isolatedRoom("E2E Search Scroll");
   const guest = await newGuest(browser);
-  await enterRoom(guest, LOUNGE.name, "Search Scroll Guest");
+  await enterRoom(guest, room.name, "Search Scroll Guest");
   await send(guest, "Stable search target");
   await guest.addStyleTag({ content: '[role="log"] { min-height: 2000px; }' });
   await expect(guest.locator("[data-room-search]")).toHaveCSS(
@@ -710,7 +723,7 @@ test("typing in header search keeps the page scroll position", async ({
       await field.press("Backspace");
       await field.pressSequentially(query, { delay: 30 });
       await expect(
-        guest.getByRole("region", { name: `Search in ${LOUNGE.name}` }),
+        guest.getByRole("region", { name: `Search in ${room.name}` }),
       ).toBeVisible();
       await expect.poll(() => guest.evaluate(() => window.scrollY)).toBe(400);
     }
@@ -896,10 +909,18 @@ test("room search finds public and private text without image URLs on mobile and
     await expect(results.locator("mark")).toHaveText([query, query, query]);
     const bounds = await dropdown.boundingBox();
     const inputBounds = await field.boundingBox();
+    const header = alice.locator("header");
+    await expect(header).toHaveCSS("height", "56px");
+    const headerBounds = (await header.boundingBox())!;
+    expect(inputBounds!.width).toBeGreaterThanOrEqual(72);
+    expect(inputBounds!.y).toBeGreaterThanOrEqual(headerBounds.y);
+    expect(inputBounds!.y + inputBounds!.height).toBeLessThanOrEqual(
+      headerBounds.y + headerBounds.height,
+    );
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
     expect(bounds!.y).toBeGreaterThanOrEqual(
-      inputBounds!.y + inputBounds!.height,
+      headerBounds.y + headerBounds.height + 5,
     );
     expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
     expect(
@@ -2519,27 +2540,30 @@ test("reloading the page, or opening its address, brings a guest back to their r
 test("a guest's chosen avatar is shown to others, and a conversation says when the other person leaves and returns", async ({
   browser,
 }) => {
+  const room = await isolatedRoom("E2E Avatar");
   const alice = await newGuest(browser);
   const bob = await newGuest(browser);
-  await enterRoom(bob, LOUNGE.name, "Bea");
+  await enterRoom(bob, room.name, "Bea");
   // The avatar is chosen in the profile once in the room, not when joining.
   await bob.getByRole("button", { name: "Account menu: Bea" }).click();
   await bob.getByRole("menuitem", { name: "Your profile" }).click();
   const profile = bob.getByRole("dialog", { name: "Your profile" });
   await profile.getByRole("button", { name: "Edit profile" }).click();
-  await profile.getByRole("radio", { name: "Female" }).check({ force: true });
+  const female = profile.getByRole("radio", { name: "Female" });
+  await female.locator("..").click();
+  await expect(female).toBeChecked();
   await profile.getByRole("button", { name: "Save" }).click();
   await expect(
     profile.getByRole("button", { name: "Edit profile" }),
   ).toBeVisible();
   await bob.keyboard.press("Escape");
   await expect(profile).toHaveCount(0);
-  await enterRoom(alice, LOUNGE.name, "Alice");
+  await enterRoom(alice, room.name, "Alice");
 
   // Her avatar is next to what she says, and in the list of people.
   await send(bob, "hello from Bea");
   const line = alice
-    .getByRole("log", { name: LOUNGE.name })
+    .getByRole("log", { name: room.name })
     .getByRole("listitem");
   await expect(
     line.filter({ hasText: "hello from Bea" }).getByTitle("Female"),
@@ -2567,7 +2591,7 @@ test("a guest's chosen avatar is shown to others, and a conversation says when t
   // When Bea leaves the room, the conversation says so, with a time; when she returns, it says that too.
   await leaveRoom(bob);
   await expect(conversation.getByText("Bea left the room.")).toBeVisible();
-  await bob.getByRole("button", { name: `Join ${LOUNGE.name}` }).click();
+  await bob.getByRole("button", { name: `Join ${room.name}` }).click();
   await expect(conversation.getByText("Bea rejoined the room.")).toBeVisible();
 });
 

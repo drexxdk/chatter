@@ -103,14 +103,22 @@ export function RoomSearch({
     placement: "bottom-start",
     whileElementsMounted: autoUpdate,
     middleware: [
-      offset(6),
+      offset(({ elements }) => {
+        const referenceBottom =
+          elements.reference.getBoundingClientRect().bottom;
+        const headerBottom = field.current
+          ?.closest("header")
+          ?.getBoundingClientRect().bottom;
+        return (headerBottom ?? referenceBottom) - referenceBottom + 6;
+      }),
       shift({ padding: 16 }),
       size({
         padding: 16,
         apply({ availableHeight, elements }) {
-          const referenceBottom =
+          const headerBottom =
+            field.current?.closest("header")?.getBoundingClientRect().bottom ??
             elements.reference.getBoundingClientRect().bottom;
-          elements.floating.style.maxHeight = `max(0px, min(${availableHeight}px, calc(var(--composer-top, 100dvh) - ${referenceBottom}px - 0.875rem)))`;
+          elements.floating.style.maxHeight = `max(0px, min(${availableHeight}px, calc(var(--composer-top, 100dvh) - ${headerBottom}px - 0.875rem)))`;
         },
       }),
     ],
@@ -218,7 +226,7 @@ export function RoomSearch({
     <div
       ref={root}
       data-room-search
-      className="relative order-last w-full min-w-0 sm:order-none sm:max-w-xl sm:flex-1"
+      className="relative min-w-0 max-w-xl flex-1"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
       }}
