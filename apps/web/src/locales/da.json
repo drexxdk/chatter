@@ -394,8 +394,8 @@
     "shuffle": "Vis andre avatarer"
   },
   "dm": {
-    "left": "{name} forlod rummet.",
-    "rejoined": "{name} er kommet tilbage til rummet.",
+    "left": "{name} er offline.",
+    "rejoined": "{name} er online igen.",
     "heading": "Direkte beskeder",
     "list": "Direkte beskeder",
     "none": "Ingen direkte beskeder endnu.",
@@ -405,7 +405,7 @@
     "back": "Tilbage til rummet",
     "empty": "Ingen beskeder endnu. Sig hej!",
     "label": "Besked til {name}",
-    "away": "{name} er ikke i rummet lige nu.",
+    "away": "{name} er offline lige nu.",
     "block": "Bloker {name}",
     "unblock": "Fjern blokering af {name}",
     "blocked": "Du har blokeret {name}. Vedkommendes beskeder når ikke længere frem til dig, og du kan ikke skrive til vedkommende, før du fjerner blokeringen.",

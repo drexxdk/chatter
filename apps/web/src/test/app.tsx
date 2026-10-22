@@ -51,9 +51,11 @@ export function stubRooms(
   // The terms and the sign-in providers are not what these tests are about: they are not there, and the rooms' mock
   // counts the rooms' requests only.
   vi.stubGlobal("fetch", (url: string) =>
-    /\/(legal|auth\/providers)$/.test(String(url))
-      ? Promise.resolve({ ok: false, status: 404 })
-      : fetchMock(),
+    /\/auth\/providers$/.test(String(url))
+      ? Promise.resolve({ ok: true, json: async () => ({ providers: [] }) })
+      : /\/legal$/.test(String(url))
+        ? Promise.resolve({ ok: false, status: 404 })
+        : fetchMock(),
   );
   return fetchMock;
 }

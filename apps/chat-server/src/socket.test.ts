@@ -3086,6 +3086,159 @@ describe("direct messages", () => {
     text = "hello",
   ) => emit(from.socket, "dm:send", { toGuestId: to.guestId, text });
 
+  describe("partner presence", () => {
+    it("watches online partners across rooms without exposing their room or private profile", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" }, "random");
+      await inRoom({ nickname: "Carol" }, "random");
+      const updates: {
+        guestIds: string[];
+        members: Record<string, unknown>[];
+      }[] = [];
+      alice.socket.on("dm:presence", (update) => updates.push(update));
+
+      expect(
+        await emit(alice.socket, "dm:watch", { guestIds: [bob.guestId] }),
+      ).toEqual({ ok: true });
+      await vi.waitFor(() => expect(updates).toHaveLength(1));
+      expect(updates[0]).toEqual({
+        guestIds: [bob.guestId],
+        members: [
+          {
+            guestId: bob.guestId,
+            nickname: "Bob",
+            role: "guest",
+            avatar: "other",
+          },
+        ],
+      });
+
+      await emit(bob.socket, "room:join", { slug: "general" });
+      await settle();
+      expect(
+        updates.every((update) =>
+          update.members.some((member) => member.guestId === bob.guestId),
+        ),
+      ).toBe(true);
+
+      await emit(bob.socket, "profile:update", { nickname: "Bobby" });
+      await vi.waitFor(() =>
+        expect(updates.at(-1)?.members[0]?.nickname).toBe("Bobby"),
+      );
+      bob.socket.disconnect();
+      await vi.waitFor(() =>
+        expect(updates.at(-1)).toEqual({
+          guestIds: [bob.guestId],
+          members: [],
+        }),
+      );
+    });
+
+    it("stops notifying a client that no longer watches the partner", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" }, "random");
+      const updates: unknown[] = [];
+      alice.socket.on("dm:presence", (update) => updates.push(update));
+      await emit(alice.socket, "dm:watch", { guestIds: [bob.guestId] });
+      await emit(alice.socket, "dm:watch", { guestIds: [] });
+      updates.length = 0;
+      bob.socket.disconnect();
+      await settle();
+      expect(updates).toEqual([]);
+    });
+
+    it("bounds subscriptions and validates guest ids", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      for (const guestIds of [
+        Array.from({ length: 51 }, (_, index) => `guest-${index}`),
+        [123],
+        [""],
+        ["x".repeat(65)],
+      ]) {
+        expect(await emit(alice.socket, "dm:watch", { guestIds })).toEqual({
+          ok: false,
+          error: "invalid_recipient",
+        });
+      }
+    });
+
+    it("rate limits subscription changes and allows them after the wait", async () => {
+      const advance = clock();
+      const alice = await inRoom({ nickname: "Alice" });
+      for (let index = 0; index < 20; index += 1) {
+        expect(
+          await emit(alice.socket, "dm:watch", {
+            guestIds: [`guest-${index}`],
+          }),
+        ).toEqual({ ok: true });
+      }
+      expect(
+        await emit(alice.socket, "dm:watch", { guestIds: ["guest-next"] }),
+      ).toMatchObject({
+        ok: false,
+        error: "rate_limited",
+        retryAfterMs: 5_000,
+      });
+      advance(5_000);
+      expect(
+        await emit(alice.socket, "dm:watch", { guestIds: ["guest-next"] }),
+      ).toEqual({ ok: true });
+    });
+
+    it("retries an unchanged subscription when its snapshot lookup failed", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" }, "random");
+      const updates: unknown[] = [];
+      alice.socket.on("dm:presence", (update) => updates.push(update));
+      vi.spyOn(ioServer, "in").mockImplementationOnce(() => {
+        throw new Error("redis down");
+      });
+      expect(
+        await emit(alice.socket, "dm:watch", { guestIds: [bob.guestId] }),
+      ).toEqual({ ok: false, error: "unavailable" });
+      expect(
+        await emit(alice.socket, "dm:watch", { guestIds: [bob.guestId] }),
+      ).toEqual({ ok: true });
+      await vi.waitFor(() => expect(updates).toHaveLength(1));
+    });
+
+    it("notifies direct partners in other rooms when somebody is banned", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" }, "random");
+      const redactions: unknown[] = [];
+      alice.socket.on("dm:redacted", (notice) => redactions.push(notice));
+      await emit(alice.socket, "dm:watch", { guestIds: [bob.guestId] });
+      const bannedSocket = [...ioServer.sockets.sockets.values()].find(
+        (member) => member.data.guestId === bob.guestId,
+      )!;
+      bannedSocket.data.ipHash = "banned-direct-peer";
+      await enforceBans(ioServer, ["banned-direct-peer"]);
+      await vi.waitFor(() =>
+        expect(redactions).toEqual([{ guestIds: [bob.guestId] }]),
+      );
+    });
+
+    it("delivers block and unblock notices across rooms and still enforces blocks", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" }, "random");
+      const blocked: unknown[] = [];
+      const unblocked: unknown[] = [];
+      alice.socket.on("dm:blocked", (notice) => blocked.push(notice));
+      alice.socket.on("dm:unblocked", (notice) => unblocked.push(notice));
+      await emit(bob.socket, "dm:block", { guestId: alice.guestId });
+      await vi.waitFor(() => expect(blocked).toHaveLength(1));
+      expect(await send(alice, bob)).toEqual({
+        ok: false,
+        error: "blocked_by_recipient",
+      });
+      expect(bob.received).toEqual([]);
+      await emit(bob.socket, "dm:unblock", { guestId: alice.guestId });
+      await vi.waitFor(() => expect(unblocked).toHaveLength(1));
+      expect(await send(alice, bob)).toEqual({ ok: true });
+    });
+  });
+
   describe("reacting", () => {
     const react = (
       from: { socket: Socket },
@@ -3142,14 +3295,15 @@ describe("direct messages", () => {
       expect(await heard).toMatchObject({ on: false });
     });
 
-    it("needs the guest to be in a room", async () => {
+    it("delivers reactions from a guest who is not in a room", async () => {
       const bob = await inRoom({ nickname: "Bob" });
       const { socket } = await connect({ nickname: "Alice" });
+      const heard = heardReactions(bob);
 
       expect(await react({ socket: socket! }, bob)).toEqual({
-        ok: false,
-        error: "not_in_room",
+        ok: true,
       });
+      await vi.waitFor(() => expect(heard).toHaveLength(1));
     });
 
     it.each([
@@ -3195,14 +3349,13 @@ describe("direct messages", () => {
       });
     });
 
-    it("refuses somebody who is not in the room", async () => {
+    it("delivers reactions between different rooms", async () => {
       const alice = await inRoom({ nickname: "Alice" });
       const bob = await inRoom({ nickname: "Bob" }, "random");
+      const heard = heardReactions(bob);
 
-      expect(await react(alice, bob)).toEqual({
-        ok: false,
-        error: "user_not_found",
-      });
+      expect(await react(alice, bob)).toEqual({ ok: true });
+      await vi.waitFor(() => expect(heard).toHaveLength(1));
     });
 
     it("refuses somebody the guest has blocked", async () => {
@@ -3328,30 +3481,36 @@ describe("direct messages", () => {
       expect(recordMessage).not.toHaveBeenCalled();
     });
 
-    it("needs the sender to be in a room", async () => {
+    it("delivers from a connected sender who is not in a room", async () => {
       const bob = await inRoom({ nickname: "Bob" });
       const { socket } = await connect({ nickname: "Alice" });
 
       expect(await send({ socket: socket! }, bob)).toEqual({
-        ok: false,
-        error: "not_in_room",
+        ok: true,
       });
+      await vi.waitFor(() => expect(bob.received).toHaveLength(1));
     });
 
-    it.each([
-      ["in another room", "random"],
-      ["no longer connected", undefined],
-    ])("refuses somebody who is %s", async (_label, slug) => {
+    it("delivers direct messages between different rooms", async () => {
       const alice = await inRoom({ nickname: "Alice" });
-      const bob = await inRoom({ nickname: "Bob" }, slug ?? "general");
-      if (!slug) {
-        bob.socket.disconnect();
-        await vi.waitFor(async () =>
-          expect(
-            (await ioServer.fetchSockets()).map((s) => s.data.nickname),
-          ).toEqual(["Alice"]),
-        );
-      }
+      const bob = await inRoom({ nickname: "Bob" }, "random");
+
+      expect(await send(alice, bob)).toEqual({ ok: true });
+      await vi.waitFor(() => expect(bob.received).toHaveLength(1));
+      expect(await send(bob, alice)).toEqual({ ok: true });
+      await vi.waitFor(() => expect(alice.received).toHaveLength(2));
+      expect(recordMessage).not.toHaveBeenCalled();
+    });
+
+    it("refuses somebody who is no longer connected", async () => {
+      const alice = await inRoom({ nickname: "Alice" });
+      const bob = await inRoom({ nickname: "Bob" });
+      bob.socket.disconnect();
+      await vi.waitFor(async () =>
+        expect(
+          (await ioServer.fetchSockets()).map((s) => s.data.nickname),
+        ).toEqual(["Alice"]),
+      );
 
       expect(await send(alice, bob)).toEqual({
         ok: false,

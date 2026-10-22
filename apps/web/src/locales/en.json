@@ -394,8 +394,8 @@
     "shuffle": "Show other avatars"
   },
   "dm": {
-    "left": "{name} left the room.",
-    "rejoined": "{name} rejoined the room.",
+    "left": "{name} went offline.",
+    "rejoined": "{name} is back online.",
     "heading": "Direct messages",
     "list": "Direct messages",
     "none": "No direct messages yet.",
@@ -405,7 +405,7 @@
     "back": "Back to the room",
     "empty": "No messages yet. Say hello!",
     "label": "Message to {name}",
-    "away": "{name} is not in this room right now.",
+    "away": "{name} is offline right now.",
     "block": "Block {name}",
     "unblock": "Unblock {name}",
     "blocked": "You blocked {name}. Their messages no longer reach you, and you can't write to them until you unblock them.",

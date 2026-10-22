@@ -25,7 +25,7 @@ interface DirectChatProps {
   partner: Partner & { entries: DirectEntry[] };
   ownGuestIds: string[];
   ownNickname: string;
-  // Whether the other person is in the same room right now; messages only reach people who are.
+  // Whether the other person is connected; their current room does not matter.
   present: boolean;
   blocked: boolean;
   // They have blocked the guest: nothing written to them gets through.

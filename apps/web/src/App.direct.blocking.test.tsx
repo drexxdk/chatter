@@ -76,7 +76,7 @@ describe("direct messages", () => {
       expect(recipient).not.toBeDisabled();
     });
 
-    it("stops saying that a blocked person leaves or joins the room, and starts again once unblocked", async () => {
+    it("suppresses blocked-person online notices until unblocked", async () => {
       const { user, server } = await enter();
       receive(server, dm());
       await user.click(threads().getByRole("button", { name: /^Bob/ }));
@@ -88,7 +88,7 @@ describe("direct messages", () => {
       present(server, [carol, ada]);
 
       expect(
-        screen.queryByText(/Bob (left|rejoined|joined) the room/),
+        screen.queryByText(/Bob (went offline|is back online)/),
       ).toBeNull();
 
       await user.click(
@@ -97,9 +97,9 @@ describe("direct messages", () => {
       await screen.findByRole("button", { name: "Block Bob" });
       present(server, [bob, carol, ada]);
 
-      expect(
-        screen.getAllByText(/Bob (rejoined|joined) the room/).length,
-      ).toBeGreaterThan(0);
+      expect(screen.getAllByText("Bob is back online.").length).toBeGreaterThan(
+        0,
+      );
     });
 
     it("says nothing about somebody blocking the guest back, when the guest has blocked them", async () => {

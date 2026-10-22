@@ -54,8 +54,9 @@ describe("direct messages", () => {
       present(server, [carol, ada]);
 
       const [status] = statuses();
-      expect(within(status).getByText("Bob left the room.")).toHaveClass(
-        "text-sky-300",
+      expect(within(status).getByText("Bob went offline.")).toHaveClass(
+        "bg-neutral-500/15",
+        "text-neutral-300",
       );
       expect(status.querySelector("time")).toHaveAttribute("datetime");
     });
@@ -69,8 +70,8 @@ describe("direct messages", () => {
       present(server, [bob, carol, ada]);
 
       expect(statuses().map((item) => item.textContent)).toEqual([
-        expect.stringContaining("Bob left the room."),
-        expect.stringContaining("Bob rejoined the room."),
+        expect.stringContaining("Bob went offline."),
+        expect.stringContaining("Bob is back online."),
       ]);
     });
 
@@ -87,8 +88,8 @@ describe("direct messages", () => {
         .map((item) => item.textContent ?? "");
 
       expect(lines[0]).toContain("before");
-      expect(lines[1]).toContain("left the room");
-      expect(lines[2]).toContain("rejoined the room");
+      expect(lines[1]).toContain("went offline");
+      expect(lines[2]).toContain("is back online");
       expect(lines[3]).toContain("after");
     });
 
@@ -189,7 +190,7 @@ describe("direct messages", () => {
 
     async function reload(before: Entered) {
       before.unmount();
-      const result = setup();
+      const result = setup(makeFakeServer({ others: [bob, carol, ada] }));
       await screen.findByRole("button", { name: "Account menu: Alice" });
       present(result.server, [bob, carol, ada]);
       return result;
@@ -256,7 +257,7 @@ describe("direct messages", () => {
       await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(
-        log("Bob").queryByText("Bob left the room."),
+        log("Bob").queryByText("Bob went offline."),
       ).not.toBeInTheDocument();
     });
 
@@ -385,8 +386,8 @@ describe("direct messages", () => {
         .map((item) => item.textContent ?? "");
       expect(lines[0]).toContain("before");
       expect(lines.filter((line) => line.includes("Alice"))).toEqual([
-        expect.stringContaining("Alice left the room."),
-        expect.stringContaining("Alice rejoined the room."),
+        expect.stringContaining("Alice went offline."),
+        expect.stringContaining("Alice is back online."),
       ]);
     });
 
@@ -410,7 +411,7 @@ describe("direct messages", () => {
           threads().getByRole("button", { name: new RegExp(`^${name}`) }),
         );
         expect(
-          log(name).getByText("Alice rejoined the room."),
+          log(name).getByText("Alice is back online."),
         ).toBeInTheDocument();
         await user.click(
           screen.getByRole("button", { name: "Back to the room" }),
@@ -429,9 +430,7 @@ describe("direct messages", () => {
       const { user } = await reload(second);
       await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
-      expect(log("Bob").getAllByText("Alice rejoined the room.")).toHaveLength(
-        2,
-      );
+      expect(log("Bob").getAllByText("Alice is back online.")).toHaveLength(2);
     });
 
     it("says nothing when the server did not give the same guest back", async () => {
@@ -448,7 +447,7 @@ describe("direct messages", () => {
       await user.click(threads().getByRole("button", { name: /^Bob/ }));
 
       expect(
-        log("Bob").queryByText("Alice rejoined the room."),
+        log("Bob").queryByText("Alice is back online."),
       ).not.toBeInTheDocument();
     });
 
@@ -519,9 +518,17 @@ describe("direct messages", () => {
   });
 
   describe("moving around", () => {
-    it("keeps the conversations when the guest goes to another room", async () => {
+    it("keeps conversations usable when the guest goes to another room", async () => {
       const { user, server } = await enter();
       receive(server, dm());
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
+      await user.type(
+        screen.getByRole("textbox", { name: "Message to Bob" }),
+        "unfinished reply",
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Back to the room" }),
+      );
 
       await leaveRoom(user);
       await screen.findByRole("heading", { name: "Public rooms" });
@@ -531,6 +538,21 @@ describe("direct messages", () => {
       expect(
         threads().getByRole("button", { name: /^Bob/ }),
       ).toBeInTheDocument();
+      expect(
+        people().queryByRole("button", { name: "Bob" }),
+      ).not.toBeInTheDocument();
+      await user.click(threads().getByRole("button", { name: /^Bob/ }));
+      const box = screen.getByRole("textbox", { name: "Message to Bob" });
+      expect(box).toHaveAttribute("contenteditable", "true");
+      expect(box).toHaveDraft("unfinished reply");
+      await user.clear(box);
+      await user.click(box);
+      await user.type(box, "hello from Music");
+      await user.click(screen.getByRole("button", { name: "Send" }));
+      expect(server.latest.emittedEvents("dm:send")).toContainEqual({
+        toGuestId: bob.guestId,
+        text: "hello from Music",
+      });
     });
 
     it("closes an open conversation when the guest leaves the room", async () => {

@@ -102,7 +102,6 @@ export function useChat(
   // Lets a new connection (a dropped one restored, or a reloaded page) be the same guest as the one before it.
   const resumeRef = useRef<Resume | null>(null);
   // Which room the last list of people was for, so a different room's list is not mistaken for people leaving.
-  const presenceRoomRef = useRef<string | null>(null);
   // Bumped to cancel a reconnect loop in progress.
   const reconnectRunRef = useRef(0);
   const reconnectingRef = useRef(false);
@@ -181,6 +180,7 @@ export function useChat(
     restoreDirectSession,
     applyDirectPresence,
     receiveDirect,
+    receiveDirectPresence,
     receiveDirectReaction,
     receiveDirectBlock,
     redactDirectMessages,
@@ -234,7 +234,6 @@ export function useChat(
   const resetRoom = useCallback(() => {
     roomRef.current = null;
     resetDirectRoom();
-    presenceRoomRef.current = null;
     bannedGuestIdsRef.current = new Set();
     setRoomSlug(null);
     setMembers([]);
@@ -427,10 +426,7 @@ export function useChat(
             if (isCurrent() && presence.roomSlug === roomRef.current) {
               setMembers(presence.members);
 
-              const silent = presenceRoomRef.current !== presence.roomSlug;
-              presenceRoomRef.current = presence.roomSlug;
-
-              applyDirectPresence(presence.members, silent);
+              applyDirectPresence(presence.members);
             }
           },
         );
@@ -510,6 +506,14 @@ export function useChat(
 
         socket.on("dm:new", (value: unknown) => {
           if (isCurrent()) receiveDirect(value);
+        });
+
+        socket.on("dm:presence", (value: unknown) => {
+          if (isCurrent()) receiveDirectPresence(value);
+        });
+
+        socket.on("dm:redacted", (value: unknown) => {
+          if (isCurrent()) redactDirectMessages(value);
         });
 
         socket.on("room:event", (value: unknown) => {
@@ -640,6 +644,7 @@ export function useChat(
       getBlockedGuestIds,
       getConnectionProfile,
       receiveDirect,
+      receiveDirectPresence,
       receiveDirectBlock,
       receiveDirectReaction,
       redactDirectMessages,

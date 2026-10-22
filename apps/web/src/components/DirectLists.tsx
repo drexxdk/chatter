@@ -105,7 +105,7 @@ function PeopleListView({
               </span>
             ) : (
               <div
-                className={`flex items-center gap-1 rounded ${selected ? "bg-sky-500/15 ring-1 ring-sky-400/50" : ""}`}
+                className={`flex items-center gap-1 rounded ${selected ? "bg-neutral-700/50 ring-1 ring-neutral-500/50" : ""}`}
               >
                 <button
                   type="button"

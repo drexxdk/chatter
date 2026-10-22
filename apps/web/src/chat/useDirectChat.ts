@@ -7,6 +7,7 @@ import {
 } from "react";
 import { PLAIN_AVATAR } from "./avatar";
 import { playNotificationSound } from "../notificationSound";
+import { isRecord } from "../isRecord";
 import {
   addDirectMessage,
   applyDirectReaction,
@@ -54,6 +55,45 @@ export function useDirectChat({
   const restoredPartnerRef = useRef<string | null>(null);
   const selfGuestIdRef = useRef<string | null>(null);
   const receivedIdsRef = useRef(new Set<string>());
+  const [sessionVersion, setSessionVersion] = useState(0);
+  const [partnerPresence, setPartnerPresence] = useState<
+    Record<string, boolean>
+  >({});
+  const watchedIdsKey = JSON.stringify(
+    [
+      ...new Set([
+        ...(partner ? [partner.guestId] : []),
+        ...threads.map((thread) => thread.guestId),
+      ]),
+    ]
+      .slice(0, 50)
+      .sort(),
+  );
+
+  useEffect(() => {
+    if (sessionVersion === 0) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let retries = 0;
+    async function watch() {
+      const ack = await emitWithAck("dm:watch", {
+        guestIds: JSON.parse(watchedIdsKey),
+      });
+      if (cancelled || ack.ok || retries >= 3) return;
+      if (ack.error === "rate_limited" || ack.error === "unavailable") {
+        retries += 1;
+        timer = setTimeout(
+          () => void watch(),
+          ack.retryAfterMs ?? 1000 * retries,
+        );
+      }
+    }
+    void watch();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [emitWithAck, sessionVersion, watchedIdsKey]);
 
   useEffect(() => {
     threadsRef.current = threads;
@@ -91,6 +131,7 @@ export function useDirectChat({
 
   const resetDirect = useCallback(() => {
     receivedIdsRef.current.clear();
+    setPartnerPresence({});
     setThreads([]);
     blockedRef.current = [];
     setBlockedIds([]);
@@ -113,6 +154,7 @@ export function useDirectChat({
   const restoreDirectSession = useCallback(
     (guestId: string, resumed: boolean) => {
       selfGuestIdRef.current = guestId;
+      setSessionVersion((version) => version + 1);
       if (resumed) {
         setThreads((previous) =>
           markReturned(previous, new Date().toISOString(), () =>
@@ -124,53 +166,84 @@ export function useDirectChat({
     [],
   );
 
-  const applyDirectPresence = useCallback(
-    (members: Member[], silent: boolean) => {
-      const restored = restoredPartnerRef.current;
-      if (restored) {
-        restoredPartnerRef.current = null;
-        if (!members.some((member) => member.guestId === restored)) {
-          partnerRef.current = null;
-          setPartner(null);
-        }
-      }
+  const applyDirectPresence = useCallback((members: Member[]) => {
+    setThreads((previous) => refreshPartners(previous, members));
 
-      setThreads((previous) =>
-        refreshPartners(
-          applyPresence(
-            previous,
-            new Set(members.map((member) => member.guestId)),
-            new Date().toISOString(),
-            silent,
-            () => crypto.randomUUID(),
-            blockedRef.current,
-          ),
-          members,
-        ),
+    const open = partnerRef.current;
+    const now = open
+      ? members.find((member) => member.guestId === open.guestId)
+      : undefined;
+    if (
+      open &&
+      now &&
+      (now.nickname !== open.nickname ||
+        (now.avatar ?? PLAIN_AVATAR) !== open.avatar ||
+        parsePicture(now.picture) !== open.picture)
+    ) {
+      partnerRef.current = {
+        ...open,
+        nickname: now.nickname,
+        avatar: now.avatar ?? PLAIN_AVATAR,
+        picture: parsePicture(now.picture),
+      };
+      setPartner(partnerRef.current);
+    }
+  }, []);
+
+  const receiveDirectPresence = useCallback((value: unknown) => {
+    if (
+      !isRecord(value) ||
+      !Array.isArray(value.guestIds) ||
+      !Array.isArray(value.members)
+    )
+      return;
+    const guestIds = value.guestIds.filter(
+      (id): id is string => typeof id === "string",
+    );
+    const members = value.members
+      .map(parsePartner)
+      .filter((member): member is Partner => !!member);
+    const online = new Set(members.map((member) => member.guestId));
+    setPartnerPresence((previous) => ({
+      ...previous,
+      ...Object.fromEntries(guestIds.map((id) => [id, online.has(id)])),
+    }));
+    const restored = restoredPartnerRef.current;
+    if (restored && guestIds.includes(restored)) {
+      restoredPartnerRef.current = null;
+      if (!online.has(restored)) {
+        partnerRef.current = null;
+        setPartner(null);
+      }
+    }
+    setThreads((previous) => {
+      const presentIds = new Set(
+        previous
+          .filter(
+            (thread) => !guestIds.includes(thread.guestId) && thread.present,
+          )
+          .map((thread) => thread.guestId),
       );
-
-      const open = partnerRef.current;
-      const now = open
-        ? members.find((member) => member.guestId === open.guestId)
-        : undefined;
-      if (
-        open &&
-        now &&
-        (now.nickname !== open.nickname ||
-          (now.avatar ?? PLAIN_AVATAR) !== open.avatar ||
-          parsePicture(now.picture) !== open.picture)
-      ) {
-        partnerRef.current = {
-          ...open,
-          nickname: now.nickname,
-          avatar: now.avatar ?? PLAIN_AVATAR,
-          picture: parsePicture(now.picture),
-        };
-        setPartner(partnerRef.current);
-      }
-    },
-    [],
-  );
+      for (const id of online) presentIds.add(id);
+      return refreshPartners(
+        applyPresence(
+          previous,
+          presentIds,
+          new Date().toISOString(),
+          false,
+          () => crypto.randomUUID(),
+          blockedRef.current,
+        ),
+        members,
+      );
+    });
+    const open = partnerRef.current;
+    const current = members.find((member) => member.guestId === open?.guestId);
+    if (open && current) {
+      partnerRef.current = current;
+      setPartner(current);
+    }
+  }, []);
 
   const receiveDirect = useCallback(
     (value: unknown) => {
@@ -219,6 +292,10 @@ export function useDirectChat({
             ...(message.fromPicture ? { picture: message.fromPicture } : {}),
           };
       const viewing = partnerRef.current?.guestId === other.guestId;
+      setPartnerPresence((previous) => ({
+        ...previous,
+        [other.guestId]: true,
+      }));
       setThreads((previous) => {
         const next = addDirectMessage(
           previous,
@@ -402,6 +479,10 @@ export function useDirectChat({
       ? { ...partner, entries: activeThread?.entries ?? [] }
       : null,
     blockedIds,
+    isPresent: (guestId: string) =>
+      partnerPresence[guestId] ??
+      threads.find((thread) => thread.guestId === guestId)?.present ??
+      membersRef.current.some((member) => member.guestId === guestId),
     blockedByIds: threads
       .filter(
         (thread) => thread.blockedBy && !blockedIds.includes(thread.guestId),
@@ -426,6 +507,7 @@ export function useDirectChat({
     restoreDirectSession,
     applyDirectPresence,
     receiveDirect,
+    receiveDirectPresence,
     receiveDirectReaction,
     receiveDirectBlock,
     redactDirectMessages,

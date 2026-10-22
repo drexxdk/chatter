@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import { ageFromBirthDate } from "../profile";
+import { isRecord } from "../isRecord";
 
 import type { ChatSocket, CreateSocket } from "../chat/socket";
 
@@ -15,6 +16,7 @@ export class FakeSocket implements ChatSocket {
   disconnected = false;
   // Who else is in the room when this connection joins it.
   others: unknown[] = [];
+  onlineMembers = new Map<string, unknown>();
 
   // Override per test to simulate server-side rejections.
   acks: Record<string, AckResponder> = {
@@ -29,6 +31,16 @@ export class FakeSocket implements ChatSocket {
     "reaction:toggle": () => ({ ok: true }),
     "announce:send": () => ({ ok: true }),
     "dm:send": () => ({ ok: true }),
+    "dm:watch": ({ guestIds }: { guestIds: string[] }) => {
+      this.serverEmit("dm:presence", {
+        guestIds,
+        members: guestIds.flatMap((id) => {
+          const member = this.onlineMembers.get(id);
+          return member ? [member] : [];
+        }),
+      });
+      return { ok: true };
+    },
     "dm:react": () => ({ ok: true }),
     "dm:block": () => ({ ok: true }),
     "dm:unblock": () => ({ ok: true }),
@@ -195,6 +207,24 @@ export class FakeSocket implements ChatSocket {
     if (this.pendingJoinEvents) {
       this.pendingJoinEvents.push({ event, args });
       return;
+    }
+    const presence = args[0];
+    if (
+      (event === "room:presence" || event === "dm:presence") &&
+      isRecord(presence)
+    ) {
+      if (event === "dm:presence" && Array.isArray(presence.guestIds)) {
+        for (const id of presence.guestIds) {
+          if (typeof id === "string") this.onlineMembers.delete(id);
+        }
+      }
+      if (Array.isArray(presence.members)) {
+        for (const member of presence.members) {
+          if (isRecord(member) && typeof member.guestId === "string") {
+            this.onlineMembers.set(member.guestId, member);
+          }
+        }
+      }
     }
     this.handlers.get(event)?.forEach((handler) => handler(...args));
   }

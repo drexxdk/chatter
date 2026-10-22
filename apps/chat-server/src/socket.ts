@@ -144,6 +144,8 @@ type Ack = (
 ) => void;
 
 const roomKey = (slug: string) => `room:${slug}`;
+const guestKey = (guestId: string) => `guest:${guestId}`;
+const directWatchKey = (guestId: string) => `direct-watch:${guestId}`;
 
 // Every connected admin: the test rooms' people and crowd stay while one is, wherever they are, and each is told how the
 // crowd stands and how many are in the rooms.
@@ -383,6 +385,14 @@ export function createSocketServer(
     const members = await io.in(roomKey(slug)).fetchSockets();
     if (!isAdminRoom(slug)) notifyLobby();
 
+    for (const member of members) {
+      const data = member.data as SocketData;
+      io.to(directWatchKey(data.guestId)).emit("dm:presence", {
+        guestIds: [data.guestId],
+        members: [directPartner(data)],
+      });
+    }
+
     if (members.length === 0) await dropShow(slug);
 
     io.to(roomKey(slug)).emit("room:presence", {
@@ -556,12 +566,28 @@ export function createSocketServer(
       .catch(failed);
   }
 
-  // The connection of this guest, if they are in the room. Looking the room up can fail (Redis is down); that is left
-  // to the caller.
-  async function findInRoom(slug: string, guestId: string) {
-    return (await io.in(roomKey(slug)).fetchSockets()).find(
+  async function findGuest(guestId: string) {
+    return (await io.in(guestKey(guestId)).fetchSockets()).find(
       (member) => (member.data as SocketData).guestId === guestId,
     );
+  }
+
+  function directPartner(data: SocketData) {
+    return {
+      guestId: data.guestId,
+      nickname: data.nickname,
+      role: data.role,
+      avatar: data.avatar,
+      ...pictureOf(data),
+    };
+  }
+
+  async function emitDirectPresence(guestId: string) {
+    const member = await findGuest(guestId);
+    io.to(directWatchKey(guestId)).emit("dm:presence", {
+      guestIds: [guestId],
+      members: member ? [directPartner(member.data as SocketData)] : [],
+    });
   }
 
   // Whether somebody else in the room already has this name, so two people are never mistaken for each other. Case,
@@ -799,6 +825,16 @@ export function createSocketServer(
 
   io.on("connection", (socket) => {
     const data = socket.data as SocketData;
+    void Promise.resolve(socket.join(guestKey(data.guestId)))
+      .then(() => emitDirectPresence(data.guestId))
+      .catch((error) => {
+        log.error("Failed to register direct message delivery", error);
+        socket.disconnect(true);
+      });
+    let watchedDirectIds: string[] = [];
+    let directWatchVersion = 0;
+    let directWatchReady = false;
+    let directWatchTimes: number[] = [];
     let claiming = false;
     let claimed = false;
     let queueTest = { enabled: false, ahead: 0 };
@@ -953,13 +989,85 @@ export function createSocketServer(
       reply({ ok: true });
     });
 
-    // Direct messages go to one guest in the same room and are never stored. Whoever sent one is shown it too, so
+    socket.on("dm:watch", async (payload: unknown, ack?: Ack) => {
+      const reply = ackOf(ack);
+      const guestIds = (payload as { guestIds?: unknown } | null)?.guestIds;
+      if (
+        !Array.isArray(guestIds) ||
+        guestIds.length > 50 ||
+        guestIds.some(
+          (id) =>
+            typeof id !== "string" || !id || id.length > MAX_GUEST_ID_LENGTH,
+        )
+      )
+        return reply({ ok: false, error: "invalid_recipient" });
+
+      const next = [...new Set(guestIds as string[])].sort();
+      if (
+        directWatchReady &&
+        JSON.stringify(next) === JSON.stringify(watchedDirectIds)
+      ) {
+        return reply({ ok: true });
+      }
+      const now = Date.now();
+      const limit = slidingWindow(directWatchTimes, now, 5_000, 20);
+      directWatchTimes = limit.recent;
+      if (limit.waitMs > 0)
+        return reply({
+          ok: false,
+          error: "rate_limited",
+          retryAfterMs: limit.waitMs,
+        });
+      directWatchTimes.push(now);
+      const version = ++directWatchVersion;
+      directWatchReady = false;
+      const previous = watchedDirectIds;
+      watchedDirectIds = next;
+      try {
+        await Promise.all(
+          previous
+            .filter((id) => !next.includes(id))
+            .map((id) => socket.leave(directWatchKey(id))),
+        );
+        if (next.length) await socket.join(next.map(directWatchKey));
+        const members = next.length
+          ? await io.in(next.map(guestKey)).fetchSockets()
+          : [];
+        if (version !== directWatchVersion) return reply({ ok: true });
+        const fake = data.roomSlug
+          ? (fakeMembers.get(data.roomSlug) ?? [])
+          : [];
+        socket.emit("dm:presence", {
+          guestIds: next,
+          members: [
+            ...members.map((member) =>
+              directPartner(member.data as SocketData),
+            ),
+            ...fake.filter((member) => next.includes(member.guestId)),
+          ],
+        });
+        directWatchReady = true;
+        reply({ ok: true });
+      } catch (error) {
+        log.error("Failed to watch direct message partners", error);
+        reply({ ok: false, error: "unavailable" });
+      } finally {
+        for (const room of socket.rooms) {
+          if (
+            room.startsWith("direct-watch:") &&
+            !watchedDirectIds.some((id) => room === directWatchKey(id))
+          ) {
+            await socket.leave(room);
+          }
+        }
+      }
+    });
+
+    // Direct messages go to one connected guest and are never stored. Whoever sent one is shown it too, so
     // a client has one place to read them from.
     socket.on("dm:send", async (payload: unknown, ack?: Ack) => {
       const reply = ackOf(ack);
       const slug = data.roomSlug;
-
-      if (!slug) return reply({ ok: false, error: "not_in_room" });
 
       const toGuestId = stringField(payload, "toGuestId");
 
@@ -985,14 +1093,14 @@ export function createSocketServer(
       if (firstWait > 0) return refuse(firstWait);
 
       // Somebody who is not there (see adminRooms.ts) has no connection to look up or to send to.
-      const fake = (fakeMembers.get(slug) ?? []).find(
+      const fake = (slug ? (fakeMembers.get(slug) ?? []) : []).find(
         (who) => who.guestId === toGuestId,
       );
       let recipient;
 
       if (!fake) {
         try {
-          recipient = await findInRoom(slug, toGuestId);
+          recipient = await findGuest(toGuestId);
         } catch (error) {
           log.error("Failed to look up the recipient", error);
           return reply({ ok: false, error: "unavailable" });
@@ -1001,8 +1109,11 @@ export function createSocketServer(
         if (!recipient) return reply({ ok: false, error: "user_not_found" });
       }
 
-      if (data.roomSlug !== slug)
+      if (fake && data.roomSlug !== slug)
         return reply({ ok: false, error: "not_in_room" });
+
+      if (!socket.connected || data.banned)
+        return reply({ ok: false, error: "unavailable" });
 
       const recipientData = fake ?? (recipient?.data as SocketData);
 
@@ -1052,7 +1163,7 @@ export function createSocketServer(
       socket.emit("dm:new", message);
       reply({ ok: true });
 
-      if (fake) answerAsFake(slug, fake);
+      if (fake && slug) answerAsFake(slug, fake);
     });
 
     // Somebody who is not there answers a private message after a moment, if they and the guest are still in the room.
@@ -1089,8 +1200,6 @@ export function createSocketServer(
     socket.on("dm:react", async (payload: unknown, ack?: Ack) => {
       const reply = ackOf(ack);
       const slug = data.roomSlug;
-
-      if (!slug) return reply({ ok: false, error: "not_in_room" });
 
       const toGuestId = stringField(payload, "toGuestId");
 
@@ -1131,13 +1240,13 @@ export function createSocketServer(
       }
 
       let recipient;
-      const fake = (fakeMembers.get(slug) ?? []).some(
+      const fake = (slug ? (fakeMembers.get(slug) ?? []) : []).some(
         (who) => who.guestId === toGuestId,
       );
 
       if (!fake) {
         try {
-          recipient = await findInRoom(slug, toGuestId);
+          recipient = await findGuest(toGuestId);
         } catch (error) {
           log.error("Failed to look up the recipient", error);
           return reply({ ok: false, error: "unavailable" });
@@ -1146,8 +1255,11 @@ export function createSocketServer(
         if (!recipient) return reply({ ok: false, error: "user_not_found" });
       }
 
-      if (data.roomSlug !== slug)
+      if (fake && data.roomSlug !== slug)
         return reply({ ok: false, error: "not_in_room" });
+
+      if (!socket.connected || data.banned)
+        return reply({ ok: false, error: "unavailable" });
 
       if (
         recipient &&
@@ -1178,12 +1290,8 @@ export function createSocketServer(
       guestId: string,
       event: "dm:blocked" | "dm:unblocked",
     ) {
-      const slug = data.roomSlug;
-
-      if (!slug) return;
-
       try {
-        const target = await findInRoom(slug, guestId);
+        const target = await findGuest(guestId);
 
         if (target && ROLE_RULES[(target.data as SocketData).role].blockable) {
           target.emit(event, {
@@ -1886,6 +1994,9 @@ export function createSocketServer(
     socket.on("disconnect", () => {
       idleTimers.forEach(clearTimeout);
       removeFromQueue(socket.id);
+      void emitDirectPresence(data.guestId).catch((error) =>
+        log.error("Direct presence update failed", error),
+      );
 
       // Socket.IO has already removed the socket from its rooms; just refresh presence for the others.
       if (data.roomSlug) {
@@ -2028,6 +2139,9 @@ export async function enforceBans(
     }
 
     data.banned = true;
+    io.to(directWatchKey(data.guestId)).emit("dm:redacted", {
+      guestIds: [data.guestId],
+    });
     socket.emit("kicked", { reason: "banned" });
     socket.disconnect(true);
   }

@@ -394,8 +394,8 @@
     "shuffle": "Andere Avatare zeigen"
   },
   "dm": {
-    "left": "{name} hat den Raum verlassen.",
-    "rejoined": "{name} ist wieder im Raum.",
+    "left": "{name} ist offline gegangen.",
+    "rejoined": "{name} ist wieder online.",
     "heading": "Direktnachrichten",
     "list": "Direktnachrichten",
     "none": "Noch keine Direktnachrichten.",
@@ -405,7 +405,7 @@
     "back": "Zurück zum Raum",
     "empty": "Noch keine Nachrichten. Sag Hallo!",
     "label": "Nachricht an {name}",
-    "away": "{name} ist gerade nicht in diesem Raum.",
+    "away": "{name} ist gerade offline.",
     "block": "{name} blockieren",
     "unblock": "Blockierung von {name} aufheben",
     "blocked": "Du hast {name} blockiert. Deren Nachrichten erreichen dich nicht mehr, und du kannst ihnen nicht schreiben, bis du die Blockierung aufhebst.",

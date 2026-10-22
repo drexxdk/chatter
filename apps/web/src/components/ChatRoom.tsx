@@ -175,8 +175,7 @@ export function ChatRoom({
   const announceWaiting =
     announceFailure?.error === "rate_limited" &&
     announceFailure.retryAfterSeconds;
-  const replyPresent =
-    !replyTo || members.some((member) => member.guestId === replyTo.guestId);
+  const replyPresent = !replyTo || direct.isPresent(replyTo.guestId);
   // Somebody who has been blocked is not written to until they are unblocked.
   const replyBlocked = !!replyTo && direct.blockedIds.includes(replyTo.guestId);
   // Nothing gets through to somebody who has blocked the guest either.
@@ -357,7 +356,7 @@ export function ChatRoom({
 
   // A click on somebody's message chooses them to write to privately, if they can be written to now.
   const canWriteTo = (guestId: string) =>
-    members.some((member) => member.guestId === guestId) &&
+    direct.isPresent(guestId) &&
     !direct.blockedIds.includes(guestId) &&
     !direct.blockedByIds.includes(guestId);
 
@@ -376,8 +375,7 @@ export function ChatRoom({
   }
 
   // Whether somebody is in the room; while the connection is down nobody can be told to have left.
-  const hasLeft = (guestId: string) =>
-    connected && !members.some((member) => member.guestId === guestId);
+  const hasLeft = (guestId: string) => connected && !direct.isPresent(guestId);
 
   // The stop of the arrow keys, for the group it is in; the others are told there is none, so that they are not drawn
   // again each time it moves (it follows the newest message).
@@ -423,7 +421,7 @@ export function ChatRoom({
 
     return {
       partner,
-      present: members.some((member) => member.guestId === partner.guestId),
+      present: direct.isPresent(partner.guestId),
       hasConversation: direct.threads.some(
         (thread) =>
           thread.guestId === partner.guestId &&
@@ -523,13 +521,11 @@ export function ChatRoom({
           {direct.active && (
             <DirectChat
               key={direct.active.guestId}
-              draftKey={`composer:${roomSlug}:private:${direct.active.guestId}`}
+              draftKey={`composer:private:${direct.active.guestId}`}
               partner={direct.active}
               ownGuestIds={ownGuestIds}
               ownNickname={session.nickname}
-              present={members.some(
-                (member) => member.guestId === direct.active?.guestId,
-              )}
+              present={direct.isPresent(direct.active.guestId)}
               blocked={direct.blockedIds.includes(direct.active.guestId)}
               blockedBy={direct.blockedByIds.includes(direct.active.guestId)}
               onSend={(text) => direct.send(direct.active!.guestId, text)}
@@ -844,7 +840,7 @@ export function ChatRoom({
                     />
 
                     {replyTo ? (
-                      <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-sm text-sky-200">
+                      <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-sm text-neutral-300">
                         <MessageSquare
                           aria-hidden="true"
                           className="hidden h-4 w-4 shrink-0 md:block"
@@ -860,7 +856,7 @@ export function ChatRoom({
                           onClick={() => openConversation(replyTo)}
                           title={t("person.openChat")}
                           aria-label={t("person.openChat")}
-                          className="shrink-0 rounded p-1 hover:bg-sky-500/20"
+                          className="shrink-0 rounded p-1 hover:bg-neutral-700/50"
                         >
                           <ArrowRight aria-hidden="true" className="h-4 w-4" />
                         </button>
@@ -869,7 +865,7 @@ export function ChatRoom({
                           onClick={() => chooseRecipient(null)}
                           title={t("dm.closeBar")}
                           aria-label={t("dm.closeBar")}
-                          className="shrink-0 rounded p-1 hover:bg-sky-500/20"
+                          className="shrink-0 rounded p-1 hover:bg-neutral-700/50"
                         >
                           <X aria-hidden="true" className="h-4 w-4" />
                         </button>

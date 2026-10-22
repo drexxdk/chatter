@@ -52,12 +52,23 @@ export const fromMe = (to: typeof bob, text = "hi back") =>
 export type Server = ReturnType<typeof makeFakeServer>;
 
 export function present(server: Server, others: (typeof bob)[]) {
-  act(() =>
+  act(() => {
     server.latest.serverEmit("room:presence", {
       roomSlug: "general",
       members: [{ guestId: ME, nickname: "Alice", role: "guest" }, ...others],
-    }),
-  );
+    });
+    server.latest.serverEmit("dm:presence", {
+      guestIds: [
+        ...new Set([
+          bob.guestId,
+          carol.guestId,
+          ada.guestId,
+          ...others.map((member) => member.guestId),
+        ]),
+      ],
+      members: others,
+    });
+  });
 }
 
 export async function enter(others = [bob, carol, ada]) {

@@ -84,7 +84,7 @@ export interface ConnectOptions {
   // What the guest had open before a reload.
   threads?: DirectThread[];
   blockedIds?: string[];
-  // The conversation that was open, to be open again if that person is still in the room.
+  // The conversation that was open, to be open again if that person is still online.
   openGuestId?: string;
 }
 

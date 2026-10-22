@@ -462,7 +462,7 @@ describe("direct messages", () => {
       present(server, [carol, ada]);
 
       expect(screen.getByRole("status")).toHaveTextContent(
-        "Bob is not in this room right now.",
+        "Bob is offline right now.",
       );
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),

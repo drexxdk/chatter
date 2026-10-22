@@ -59,7 +59,7 @@ export interface Partner {
 export interface DirectThread extends Partner {
   entries: DirectEntry[];
   unread: number;
-  // Whether they are in the guest's room right now, to notice when that changes.
+  // Whether they are connected, independently of which room they are in.
   present: boolean;
   // The guest asked not to be told about what this person writes: it still arrives, but is not counted as new.
   muted?: boolean;

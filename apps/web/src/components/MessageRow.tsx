@@ -312,7 +312,7 @@ export function StatusRow({ text, sentAt }: { text: string; sentAt: string }) {
       data-kind="status"
       className="flex items-center justify-center gap-2 text-xs"
     >
-      <span className="rounded-full bg-sky-500/15 px-3 py-1 text-sky-300">
+      <span className="rounded-full bg-neutral-500/15 px-3 py-1 text-neutral-300">
         {text}
       </span>
       <Timestamp sentAt={sentAt} className="text-neutral-500" />
