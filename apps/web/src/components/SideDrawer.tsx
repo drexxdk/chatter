@@ -30,7 +30,7 @@ export function SideDrawer({
         <DialogPanel
           transition
           className={clsx(
-            "flex h-full w-72 max-w-[85vw] flex-col gap-4 overflow-y-auto border-neutral-800 bg-neutral-900 p-4 shadow-xl transition-transform duration-200",
+            "glass-surface flex h-full w-72 max-w-[85vw] flex-col gap-4 overflow-y-auto p-4 transition-transform duration-200",
             side === "left"
               ? "border-r data-closed:-translate-x-full"
               : "border-l data-closed:translate-x-full",

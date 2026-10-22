@@ -968,6 +968,11 @@ export function App({
     <ReloadUiContext value={{ ...reloadUi, ready: settled }}>
       <PageFrame
         roomSlug={chat.roomSlug && chat.session ? chat.roomSlug : undefined}
+        surfaceRoomSlug={
+          pendingRoom?.slug ??
+          signInRoom.current?.slug ??
+          (chat.session ? (chat.roomSlug ?? undefined) : undefined)
+        }
         flush={inRoom}
         wide={inRoom}
         header={

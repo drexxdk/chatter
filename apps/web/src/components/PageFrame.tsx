@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { LOBBY_PATH } from "../place";
+import { roomTheme } from "../roomThemes";
 import { HeaderFrame } from "./HeaderFrame";
 import { MainMenu } from "./MainMenu";
 
@@ -10,12 +11,14 @@ import { MainMenu } from "./MainMenu";
 export function PageFrame({
   header,
   roomSlug,
+  surfaceRoomSlug = roomSlug,
   flush = false,
   wide = false,
   children,
 }: {
   header?: ReactNode;
   roomSlug?: string;
+  surfaceRoomSlug?: string;
   // As wide as the window, for the room: its people and conversations on the left edge, and the chat (which keeps a width of its own) in what is left.
   wide?: boolean;
   // Without room under the content, for a page that fills the window to its bottom edge (the chat).
@@ -23,6 +26,18 @@ export function PageFrame({
   children: ReactNode;
 }) {
   const { t } = useTranslation();
+  const accent = surfaceRoomSlug ? roomTheme(surfaceRoomSlug).accent : "";
+
+  useEffect(() => {
+    const root = document.documentElement.style;
+    const previous = root.getPropertyValue("--glass-accent");
+    if (accent.startsWith("#")) root.setProperty("--glass-accent", accent);
+    else root.removeProperty("--glass-accent");
+    return () => {
+      if (previous) root.setProperty("--glass-accent", previous);
+      else root.removeProperty("--glass-accent");
+    };
+  }, [accent]);
 
   return (
     <div className="flex min-h-dvh flex-col">

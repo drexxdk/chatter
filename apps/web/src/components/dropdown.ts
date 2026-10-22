@@ -3,10 +3,10 @@
 const SCROLLS = "overflow-y-auto [color-scheme:dark]";
 
 // A list of things to choose (a menu or a list box).
-export const MENU_SURFACE = `rounded-md border border-neutral-700 bg-neutral-900 p-1 shadow-lg focus:outline-none ${SCROLLS}`;
+export const MENU_SURFACE = `glass-surface glass-menu rounded-md p-1 focus:outline-none ${SCROLLS}`;
 
 // A panel with more in it than a list (a search box, tabs, a grid).
-export const PANEL_SURFACE = `rounded-md border border-neutral-700 bg-neutral-900 shadow-lg ${SCROLLS}`;
+export const PANEL_SURFACE = `glass-surface rounded-md ${SCROLLS}`;
 
 // The tallest a panel gets, when there is room: fixed for a panel that always has that much in it, a cap for one that
 // has less when it has little to show. (Whole class names, for Tailwind to find.)

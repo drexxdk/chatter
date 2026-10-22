@@ -90,7 +90,7 @@ export function Modal({
         <div className="flex min-h-full items-center justify-center">
           <DialogPanel
             transition
-            className="w-full max-w-sm space-y-4 rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-xl transition duration-200 data-closed:scale-95 data-closed:opacity-0"
+            className="glass-surface w-full max-w-sm space-y-4 rounded-lg p-5 transition duration-200 data-closed:scale-95 data-closed:opacity-0"
           >
             {closable ? (
               <PanelHeader title={title} onClose={onClose} actions={actions} />
