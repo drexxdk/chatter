@@ -1,5 +1,4 @@
 import {
-  Popover,
   PopoverButton,
   PopoverPanel,
   Tab,
@@ -17,6 +16,7 @@ import {
 } from "@floating-ui/react";
 import clsx from "clsx";
 import { Plus } from "lucide-react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 import { gifApiKey } from "../gifApi";
@@ -27,6 +27,8 @@ import { EmojiPane } from "./EmojiPane";
 import { FocusSearch } from "./FocusSearch";
 import { GifPane } from "./GifPane";
 import { YouTubePane } from "./YouTubePane";
+import { ReloadPopover } from "./ReloadMenu";
+import { useReloadUiContext, type PickerTab } from "../reloadUi";
 
 const TAB_CLASS =
   "relative px-3 py-2 text-sm font-medium text-neutral-400 outline-none hover:text-neutral-100 data-selected:text-neutral-100 data-selected:after:absolute data-selected:after:inset-x-3 data-selected:after:bottom-0 data-selected:after:h-0.5 data-selected:after:rounded data-selected:after:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-indigo-400";
@@ -50,6 +52,21 @@ export function ComposerPicker({
   const { t } = useTranslation();
   const withGifs = gifApiKey() !== undefined;
   const touch = isTouchScreen();
+  const ui = useReloadUiContext();
+  const tabs: PickerTab[] = [
+    ...(!touch ? ["emoji" as const] : []),
+    ...(withGifs ? ["gifs" as const] : []),
+    "youtube",
+  ];
+  const selected = Math.max(
+    0,
+    tabs.indexOf(ui?.picker ?? tabs[0] ?? "youtube"),
+  );
+  useEffect(() => {
+    if (ui?.menu !== "attachments") return;
+    if ((ui.picker === "emoji" && touch) || (ui.picker === "gifs" && !withGifs))
+      ui.setPicker(touch ? (withGifs ? "gifs" : "youtube") : "emoji");
+  }, [ui, touch, withGifs]);
   const label = t("picker.open");
   const { refs, floatingStyles } = useFloating({
     elements: { reference: anchor },
@@ -69,7 +86,7 @@ export function ComposerPicker({
   });
 
   return (
-    <Popover className="shrink-0">
+    <ReloadPopover name="attachments" className="shrink-0">
       <PopoverButton
         disabled={disabled}
         aria-label={label}
@@ -84,7 +101,7 @@ export function ComposerPicker({
         portal
         role="dialog"
         aria-label={label}
-        focus={!touch}
+        focus={!touch && !ui?.picker}
         className={`picker z-40 flex ${PANEL_HEIGHT} w-[min(22rem,calc(100vw-2rem))] flex-col ${PANEL_SURFACE}`}
       >
         {({ close }) => {
@@ -97,7 +114,11 @@ export function ComposerPicker({
           };
 
           return (
-            <TabGroup className={pickerPane}>
+            <TabGroup
+              className={pickerPane}
+              selectedIndex={ui ? selected : undefined}
+              onChange={(index) => ui?.setPicker(tabs[index] ?? "youtube")}
+            >
               <FocusSearch />
               <TabList
                 className="flex shrink-0 border-b border-neutral-800 px-1"
@@ -153,6 +174,6 @@ export function ComposerPicker({
           );
         }}
       </PopoverPanel>
-    </Popover>
+    </ReloadPopover>
   );
 }

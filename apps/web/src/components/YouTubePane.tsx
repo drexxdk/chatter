@@ -1,13 +1,14 @@
-import { useId, useState } from "react";
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
 import { youtubeUrl } from "../chat/youtube";
 import { YouTubeEmbed } from "./YouTubeEmbed";
+import { useTabText } from "../tabDraft";
 
 export function YouTubePane({ onPick }: { onPick: (url: string) => void }) {
   const { t } = useTranslation();
   const id = useId();
-  const [value, setValue] = useState("");
+  const [value, setValue] = useTabText("picker:youtube");
   const url = youtubeUrl(value);
   const invalid = value.trim() !== "" && !url;
 

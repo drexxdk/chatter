@@ -1,4 +1,4 @@
-import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
+import { MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { ChevronDown, LogOut } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,6 +7,7 @@ import type { Room } from "../api";
 import { groupRooms, roomVars, type RoomGroup } from "../roomThemes";
 import { HEADER_DROPDOWN, MENU_SURFACE } from "./dropdown";
 import { RoomIcon } from "./RoomIcon";
+import { ReloadMenu } from "./ReloadMenu";
 
 const GROUP_LABELS = {
   admin: "room.groupAdmin",
@@ -49,7 +50,7 @@ export function RoomSwitcher({
 
   return (
     <h2 id="room-heading" className="min-w-0 text-xl font-semibold">
-      <Menu>
+      <ReloadMenu name="rooms">
         {({ open }) => (
           <>
             <WhenOpened open={open} onOpen={onOpen} />
@@ -130,7 +131,7 @@ export function RoomSwitcher({
             </div>
           </>
         )}
-      </Menu>
+      </ReloadMenu>
     </h2>
   );
 }

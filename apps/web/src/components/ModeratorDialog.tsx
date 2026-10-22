@@ -7,6 +7,7 @@ import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
 import { Modal } from "./Modal";
 import { AccountOptions } from "./AccountOptions";
+import { useTabText } from "../tabDraft";
 
 interface ModeratorDialogProps {
   returnPath: string;
@@ -24,7 +25,7 @@ export function ModeratorDialog({
   onCancel,
 }: ModeratorDialogProps) {
   const { t } = useTranslation();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useTabText("signin:identifier");
   const [password, setPassword] = useState("");
   const [touched, setTouched] = useState(false);
 

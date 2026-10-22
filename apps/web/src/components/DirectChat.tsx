@@ -21,6 +21,7 @@ const entryAuthor = (entry: DirectEntry) =>
   isStatus(entry) || entry.banned ? undefined : entry.fromGuestId;
 
 interface DirectChatProps {
+  draftKey?: string;
   partner: Partner & { entries: DirectEntry[] };
   ownGuestIds: string[];
   ownNickname: string;
@@ -36,6 +37,7 @@ interface DirectChatProps {
 }
 
 export function DirectChat({
+  draftKey,
   partner,
   ownGuestIds,
   ownNickname,
@@ -48,7 +50,7 @@ export function DirectChat({
   idleDeadline,
 }: DirectChatProps) {
   const { t } = useTranslation();
-  const composer = useComposer();
+  const composer = useComposer(draftKey);
   const [failure, setFailure] = useState<ActionResult & { ok: false }>();
   useRetryCountdown(failure, setFailure);
   const label = t("dm.title", { name: partner.nickname });

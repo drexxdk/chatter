@@ -1,5 +1,4 @@
 import {
-  Menu,
   MenuButton,
   MenuHeading,
   MenuItem,
@@ -24,6 +23,7 @@ import { useTranslation } from "react-i18next";
 import type { Room } from "../api";
 import type { CrowdState, QueueTestSettings } from "../chat/types";
 import { HEADER_MENU, MENU_ITEM } from "./dropdown";
+import { ReloadMenu } from "./ReloadMenu";
 
 const item = `${MENU_ITEM} gap-3 px-2 py-2`;
 const heading = "px-2 py-1 text-xs font-semibold uppercase text-neutral-500";
@@ -210,7 +210,7 @@ export function AdminMenu({
 
   return (
     <div className="relative">
-      <Menu>
+      <ReloadMenu name="admin">
         <MenuButton
           aria-label={t("admin.open")}
           className="rounded-md p-2 outline-none hover:bg-neutral-800 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
@@ -461,7 +461,7 @@ export function AdminMenu({
             </MenuSection>
           </MenuItems>
         </div>
-      </Menu>
+      </ReloadMenu>
     </div>
   );
 }

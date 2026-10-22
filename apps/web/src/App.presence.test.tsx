@@ -631,11 +631,19 @@ describe("avatars", () => {
           { avatar: "trans" },
         ]),
       );
+      await screen.findByRole("button", { name: "Edit profile" });
+      await waitFor(() =>
+        expect(window.location.search).toBe("?dialog=profile"),
+      );
       first.unmount();
 
       const { server } = setup();
 
-      await screen.findByRole("button", { name: "Account menu: Alice" });
+      const profile = await screen.findByRole("dialog", {
+        name: "Your profile",
+      });
+      expect(within(profile).getByText("Alice")).toBeInTheDocument();
+      expect(within(profile).getByText("Transgender")).toBeInTheDocument();
       expect(server.createSocket).toHaveBeenCalledWith(
         "Alice",
         undefined,

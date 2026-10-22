@@ -1,5 +1,4 @@
 import {
-  Menu,
   MenuButton,
   MenuHeading,
   MenuItem,
@@ -24,6 +23,7 @@ import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
 import { LANGUAGES, setLanguage } from "../i18n";
 import { AvatarIcon } from "./Avatar";
 import { HEADER_MENU, MENU_ITEM } from "./dropdown";
+import { ReloadMenu } from "./ReloadMenu";
 
 const FLAGS: Record<string, typeof GB> = {
   en: GB,
@@ -75,7 +75,7 @@ export function MainMenu({
 
   return (
     <div className="relative">
-      <Menu>
+      <ReloadMenu name="main">
         {profile ? (
           <MenuButton
             aria-label={t("profile.open", { name: profile.nickname })}
@@ -244,7 +244,7 @@ export function MainMenu({
             )}
           </MenuItems>
         </div>
-      </Menu>
+      </ReloadMenu>
     </div>
   );
 }

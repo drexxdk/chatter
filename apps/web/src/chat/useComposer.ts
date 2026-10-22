@@ -1,21 +1,61 @@
 import type { Editor } from "@tiptap/core";
 import { closeHistory } from "@tiptap/pm/history";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { MAX_MESSAGE_LENGTH } from "./limits";
 import { sendableGifUrl } from "./gifs";
 import { youtubeEmbedUrl } from "./youtube";
 import { plainText } from "./plainText";
+import { readTabDraft, writeTabDraft } from "../tabDraft";
 
-export function useComposer() {
+export function useComposer(draftKey?: string, draftRecipient?: string) {
   const [draft, setDraft] = useState({ text: "", message: "" });
   // The message box's editor, once it is there.
   const editor = useRef<Editor | null>(null);
+  const restored = useRef<Editor | null>(null);
   const max = MAX_MESSAGE_LENGTH;
 
-  const attach = useCallback((attached: Editor | null) => {
-    editor.current = attached;
-  }, []);
+  const attach = useCallback(
+    (attached: Editor | null) => {
+      editor.current = attached;
+      if (!attached || !draftKey || restored.current === attached) return;
+      restored.current = attached;
+      const saved = readTabDraft(draftKey);
+      if (!saved || typeof saved !== "object" || !("document" in saved)) return;
+      if (
+        ("recipient" in saved ? saved.recipient : undefined) !== draftRecipient
+      ) {
+        writeTabDraft(draftKey, undefined);
+        return;
+      }
+      try {
+        const document = attached.schema.nodeFromJSON(saved.document);
+        document.check();
+        if (plainText(document).length > MAX_MESSAGE_LENGTH)
+          throw new Error("Draft too long");
+        attached.commands.setContent(document.toJSON(), {
+          errorOnInvalidContent: true,
+        });
+      } catch {
+        writeTabDraft(draftKey, undefined);
+      }
+    },
+    [draftKey, draftRecipient],
+  );
+
+  useEffect(() => {
+    const box = editor.current;
+    if (!draftKey || !box) return;
+    writeTabDraft(
+      draftKey,
+      plainText(box.state.doc)
+        ? {
+            document: box.getJSON(),
+            recipient: draftRecipient,
+          }
+        : undefined,
+    );
+  }, [draftKey, draftRecipient]);
 
   function addEmoji(emoji: string) {
     editor.current?.chain().insertContent(emoji).run();
@@ -61,7 +101,19 @@ export function useComposer() {
 
   return {
     text: draft.text,
-    setText: (text: string, message = text) => setDraft({ text, message }),
+    setText: (text: string, message = text) => {
+      setDraft({ text, message });
+      if (draftKey)
+        writeTabDraft(
+          draftKey,
+          text || message
+            ? {
+                document: editor.current?.getJSON(),
+                recipient: draftRecipient,
+              }
+            : undefined,
+        );
+    },
     addGif,
     addYouTube,
     max,
@@ -73,6 +125,7 @@ export function useComposer() {
     clear: () => {
       editor.current?.commands.clearContent(true);
       setDraft({ text: "", message: "" });
+      if (draftKey) writeTabDraft(draftKey, undefined);
     },
   };
 }

@@ -2,7 +2,6 @@ import {
   Disclosure,
   DisclosureButton,
   DisclosurePanel,
-  Popover,
   PopoverButton,
   PopoverPanel,
   useClose,
@@ -17,6 +16,7 @@ import { PeopleList, ThreadSection } from "./DirectLists";
 import { PeopleFilterChips, usePeopleFilter } from "./PeopleFilter";
 import { SearchBox } from "./SearchBox";
 import { FocusSearch } from "./FocusSearch";
+import { ReloadPopover } from "./ReloadMenu";
 
 function CloseOnWideScreen() {
   const close = useClose();
@@ -39,7 +39,7 @@ export function RoomPanelDropdown({
 }: ComponentProps<typeof RoomPanel> & { unread: number }) {
   const { t } = useTranslation();
   return (
-    <Popover className="shrink-0 md:hidden">
+    <ReloadPopover name="people" className="shrink-0 md:hidden">
       {({ close }) => (
         <>
           <PopoverPanel
@@ -81,7 +81,7 @@ export function RoomPanelDropdown({
           </PopoverButton>
         </>
       )}
-    </Popover>
+    </ReloadPopover>
   );
 }
 
@@ -117,6 +117,7 @@ function PanelSection({
 
 // The people in the room and the private conversations: a sidebar on wide screens.
 export function RoomPanel({
+  roomSlug,
   members,
   maxMembers,
   selfGuestId,
@@ -129,6 +130,7 @@ export function RoomPanel({
   blockedByIds,
   onSetBlocked,
 }: {
+  roomSlug?: string;
   members: Member[];
   // Absent or null means the room has no limit.
   maxMembers?: number | null;
@@ -144,7 +146,10 @@ export function RoomPanel({
   onSetBlocked: (guestId: string, blocked: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const filter = usePeopleFilter(members);
+  const filter = usePeopleFilter(
+    members,
+    roomSlug ? `people:${roomSlug}` : undefined,
+  );
   const participantCount = members.filter(
     (member) => member.role !== "moderator",
   ).length;

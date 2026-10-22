@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -10,10 +16,14 @@ afterEach(() => vi.unstubAllGlobals());
 
 function Harness({
   onSubmit,
+  draftKey,
+  draftRecipient,
 }: {
   onSubmit: (event: React.SubmitEvent) => void;
+  draftKey?: string;
+  draftRecipient?: string;
 }) {
-  const composer = useComposer();
+  const composer = useComposer(draftKey, draftRecipient);
 
   return (
     <form onSubmit={onSubmit}>
@@ -79,6 +89,57 @@ describe("the Enter key in the message box", () => {
 });
 
 describe("what the box holds", () => {
+  it("never restores an inline private reply into a public composer", async () => {
+    const submitted = vi.fn();
+    const first = render(
+      <Harness
+        onSubmit={submitted}
+        draftKey="test:reply"
+        draftRecipient="bob"
+      />,
+    );
+    await userEvent
+      .setup()
+      .type(
+        await screen.findByRole("textbox", { name: "Message" }),
+        "only for Bob",
+      );
+    first.unmount();
+    render(<Harness onSubmit={submitted} draftKey="test:reply" />);
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: "Message" })).toHaveDraft(""),
+    );
+    expect(submitted).not.toHaveBeenCalled();
+  });
+
+  it("restores a private draft into the editor without submitting it", async () => {
+    const submitted = vi.fn((event: React.SubmitEvent) =>
+      event.preventDefault(),
+    );
+    const first = render(
+      <Harness onSubmit={submitted} draftKey="test:public" />,
+    );
+    const box = await screen.findByRole("textbox", { name: "Message" });
+    await userEvent
+      .setup()
+      .type(box, "private <words>{Shift>}{Enter}{/Shift}second line");
+    first.unmount();
+    const second = render(
+      <Harness onSubmit={submitted} draftKey="test:public" />,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: "Message" })).toHaveDraft(
+        "private <words>\nsecond line",
+      ),
+    );
+    expect(submitted).not.toHaveBeenCalled();
+    second.unmount();
+    render(<Harness onSubmit={submitted} draftKey="test:private:bob" />);
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: "Message" })).toHaveDraft(""),
+    );
+  });
+
   it("is reported as the words that are sent, line breaks included", async () => {
     const { user, box } = setup();
 

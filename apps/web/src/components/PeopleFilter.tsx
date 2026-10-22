@@ -1,5 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 import { useId, useState } from "react";
+import { useTabText } from "../tabDraft";
 import { useTranslation } from "react-i18next";
 
 import { AVATARS, PLAIN_AVATAR, type Avatar } from "../chat/avatar";
@@ -13,8 +14,11 @@ interface Person {
 
 // Narrowing a list of people by name, by the avatar they chose, or to moderators; the same in the dropdown of who the
 // message box writes to and in the list of people beside the chat.
-export function usePeopleFilter<T extends Person>(people: T[]) {
-  const [query, setQuery] = useState("");
+export function usePeopleFilter<T extends Person>(
+  people: T[],
+  draftKey?: string,
+) {
+  const [query, setQuery] = useTabText(draftKey ?? null);
   const [avatars, setAvatars] = useState<Avatar[]>([]);
   const [moderatorsOnly, setModeratorsOnly] = useState(false);
   const counts: Record<Avatar, number> = {

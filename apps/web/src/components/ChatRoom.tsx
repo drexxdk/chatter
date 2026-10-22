@@ -31,6 +31,7 @@ import { isStatus, type Partner } from "../chat/direct";
 import { runs } from "../chat/runs";
 import type { ReportReason } from "../chat/types";
 import { useComposer } from "../chat/useComposer";
+import { readTabDraft } from "../tabDraft";
 import { useRetryCountdown } from "../chat/useRetryCountdown";
 import {
   timeline,
@@ -71,6 +72,7 @@ function runAuthor(item: TimelineItem): string | undefined {
   return undefined;
 }
 interface ChatRoomProps {
+  roomSlug: string;
   roomName: string;
   // Absent or null means the room has no limit.
   maxMembers?: number | null;
@@ -97,6 +99,7 @@ interface ChatRoomProps {
 }
 
 export function ChatRoom({
+  roomSlug,
   roomName,
   maxMembers,
   session,
@@ -118,7 +121,33 @@ export function ChatRoom({
   idleDeadline,
 }: ChatRoomProps) {
   const { t } = useTranslation();
-  const composer = useComposer();
+  const draftKey = `composer:${roomSlug}:public`;
+  const [replyTo, setReplyTo] = useState<Partner | null>(() => {
+    const saved = readTabDraft(draftKey);
+    if (
+      !saved ||
+      typeof saved !== "object" ||
+      !("recipient" in saved) ||
+      typeof saved.recipient !== "string"
+    )
+      return null;
+    const member = members.find(
+      (person) =>
+        person.guestId === saved.recipient &&
+        person.guestId !== session.guestId,
+    );
+    if (member)
+      return {
+        ...member,
+        role: member.role ?? "guest",
+        avatar: member.avatar ?? PLAIN_AVATAR,
+      };
+    return (
+      direct.threads.find((person) => person.guestId === saved.recipient) ??
+      null
+    );
+  });
+  const composer = useComposer(draftKey, replyTo?.guestId);
   // The message the guest is reporting, and who wrote it, while the dialog asks why.
   const [reporting, setReporting] = useState<{
     id: string;
@@ -130,7 +159,6 @@ export function ChatRoom({
     direct.threads,
   );
   // Who the room's input writes to privately, when a private message was clicked.
-  const [replyTo, setReplyTo] = useState<Partner | null>(null);
   const unread = direct.threads.reduce((sum, thread) => sum + thread.unread, 0);
 
   const [replyFailure, setReplyFailure] = useState<
@@ -495,6 +523,7 @@ export function ChatRoom({
           {direct.active && (
             <DirectChat
               key={direct.active.guestId}
+              draftKey={`composer:${roomSlug}:private:${direct.active.guestId}`}
               partner={direct.active}
               ownGuestIds={ownGuestIds}
               ownNickname={session.nickname}
@@ -799,6 +828,7 @@ export function ChatRoom({
                   {/* Who is being written to, as on a wide screen, with the button that shows the panel beside it where there is no room for the panel to stay. */}
                   <div className="flex min-h-10 items-center gap-2">
                     <RoomPanelDropdown
+                      roomSlug={roomSlug}
                       unread={unread}
                       members={members}
                       maxMembers={maxMembers}
@@ -891,6 +921,7 @@ export function ChatRoom({
           className="panel hidden md:col-start-1 md:row-start-1 md:-mt-4 md:sticky md:top-(--header-height) md:block md:h-[calc(100dvh-var(--header-height))] md:self-start md:overflow-y-auto md:border-r md:border-neutral-800 md:py-4 md:pr-3"
         >
           <RoomPanel
+            roomSlug={roomSlug}
             members={members}
             maxMembers={maxMembers}
             selfGuestId={session.guestId}

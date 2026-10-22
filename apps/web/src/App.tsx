@@ -1,4 +1,12 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  startTransition,
+  Suspense,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
 import { LoaderCircle, LogIn } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -77,6 +85,7 @@ import {
 import { useKept } from "./useKept";
 import { dropHeldScroll } from "./scrollHold";
 import { usePageTitle } from "./usePageTitle";
+import { ReloadUiContext, useReloadUi, type ReloadDialog } from "./reloadUi";
 
 const AdminMenu = lazy(() =>
   import("./components/AdminMenu").then((module) => ({
@@ -117,12 +126,21 @@ export function App({
   // The version of the terms the guest has to have accepted; null while the chat-server has not said.
   const termsVersion =
     legalState.status === "ready" ? legalState.legal.version : null;
-  const [pendingRoom, setPendingRoom] = useState<Room | null>(null);
+  const [pendingRoom, setPendingRoomState] = useState<Room | null>(null);
+  function setPendingRoom(room: Room | null) {
+    setPendingRoomState(room);
+    if (room) reloadUi.setDialog("join", room.slug);
+    else if (reloadUi.dialog === "join") reloadUi.setDialog(null);
+  }
+  const clearPendingRoom = useEffectEvent(() => setPendingRoom(null));
   // Whether it is known who this tab is: not while the saved guest is being brought back, so that the header does not
   // show no profile for a moment to somebody who has one. A page that starts in a room shows nothing of the lobby until then.
-  const [settled, setSettled] = useState(
+  const [settled, setSettledState] = useState(
     () => slugFromPath(location.pathname) === null && !loadSession(),
   );
+  const setSettled = (value: boolean) =>
+    startTransition(() => setSettledState(value));
+  const reloadUi = useReloadUi(settled);
   const startedInRoom = useRef(slugFromPath(location.pathname) !== null);
   // The room last tried, and whether the numbers have shown it full since it turned out to be.
   const attemptedRoom = useRef<string | null>(null);
@@ -135,17 +153,66 @@ export function App({
   const shownElsewhere = useKept(elsewhere);
   const [signInError, setSignInError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
-  const [moderatorOpen, setModeratorOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
-  const [createAccountOpen, setCreateAccountOpen] = useState(false);
+  const moderatorOpen = reloadUi.dialog === "signin";
+  const profileOpen =
+    reloadUi.dialog === "profile" || reloadUi.dialog === "profile-edit";
+  const accountOpen = profileOpen;
+  const createAccountOpen = reloadUi.dialog === "create-account";
+  const dialogSetter = (dialog: ReloadDialog) => (open: boolean) => {
+    if (open) reloadUi.setDialog(dialog);
+    else if (
+      reloadUi.dialog === dialog ||
+      (dialog === "profile" && reloadUi.dialog === "profile-edit")
+    )
+      reloadUi.setDialog(null);
+  };
+  const setModeratorOpen = dialogSetter("signin");
+  const setProfileOpen = dialogSetter("profile");
+  const setAccountOpen = setProfileOpen;
+  const setCreateAccountOpen = dialogSetter("create-account");
   // Who is signed in with a provider, kept in this browser; null for a guest.
   const [account, setAccount] = useState<Account | null>(loadAccount);
   const [showMovements, setShowMovements] = useState(loadShowMovements);
   const [notificationSound, setNotificationSound] = useState(
     loadNotificationSound,
   );
-  const [notificationSoundOpen, setNotificationSoundOpen] = useState(false);
+  const notificationSoundOpen = reloadUi.dialog === "sound";
+  const setNotificationSoundOpen = dialogSetter("sound");
+
+  useEffect(() => {
+    if (!settled) return;
+    const hasProfile = Boolean(chat.session || account);
+    const unavailable =
+      ((reloadUi.dialog === "profile" ||
+        reloadUi.dialog === "profile-edit" ||
+        reloadUi.dialog === "sound") &&
+        !hasProfile) ||
+      (reloadUi.dialog === "create-account" && chat.session?.role !== "guest");
+    if (unavailable) reloadUi.setDialog(null);
+    if (
+      reloadUi.dialog === "profile-edit" &&
+      chat.session?.role === "moderator"
+    )
+      reloadUi.setDialog("profile");
+    if (
+      ((reloadUi.menu === "rooms" ||
+        reloadUi.menu === "search" ||
+        reloadUi.menu === "attachments" ||
+        reloadUi.menu === "people") &&
+        !chat.roomSlug) ||
+      (reloadUi.menu === "search" && chat.direct.active) ||
+      (reloadUi.menu === "people" && chat.direct.active) ||
+      (reloadUi.menu === "admin" && !chat.session?.admin)
+    )
+      reloadUi.setMenu(null);
+  }, [
+    settled,
+    chat.session,
+    chat.roomSlug,
+    chat.direct.active,
+    account,
+    reloadUi,
+  ]);
 
   function changeNotificationSound(value: NotificationSoundPreferences) {
     setNotificationSound(value);
@@ -185,6 +252,19 @@ export function App({
     null;
   const currentRoom = knownRooms.find((room) => room.slug === chat.roomSlug);
   const inRoom = Boolean(chat.roomSlug && chat.session);
+  const requestedRoom = knownRooms.find(
+    (candidate) => candidate.slug === reloadUi.room,
+  );
+  useEffect(() => {
+    if (reloadUi.dialog !== "join") {
+      if (pendingRoom) setPendingRoomState(null);
+      return;
+    }
+    if (!settled || roomsState.status !== "ready") return;
+    const room = requestedRoom;
+    if (!room) reloadUi.setDialog(null);
+    else if (pendingRoom?.slug !== room.slug) setPendingRoomState(room);
+  }, [reloadUi, settled, roomsState.status, requestedRoom, pendingRoom]);
   // What is shown when not in a room: one of the site's pages, or the lobby.
   const page = pageFromPath(location.pathname);
   // The tab says the room while in one, the page on one of those, and the site alone in the lobby; private messages
@@ -706,7 +786,6 @@ export function App({
   // they left a room, so that they are not somebody else for having reloaded there.
   const restored = useRef(false);
   // No dependency list on purpose: it runs after every render until the rooms have arrived, then once for good.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (restored.current) return;
 
@@ -816,7 +895,7 @@ export function App({
     const slug = slugFromPath(here.pathname);
 
     if (!slug) {
-      setPendingRoom(null);
+      clearPendingRoom();
       if (chat.roomSlug) void chat.leaveRoom();
       return;
     }
@@ -849,7 +928,7 @@ export function App({
   ) : undefined;
 
   return (
-    <>
+    <ReloadUiContext value={{ ...reloadUi, ready: settled }}>
       <PageFrame
         roomSlug={chat.roomSlug && chat.session ? chat.roomSlug : undefined}
         flush={inRoom}
@@ -994,6 +1073,7 @@ export function App({
             >
               <ChatRoom
                 key={chat.roomSlug}
+                roomSlug={chat.roomSlug}
                 roomName={currentRoom?.name ?? chat.roomSlug}
                 maxMembers={currentRoom?.maxMembers}
                 session={chat.session}
@@ -1039,7 +1119,7 @@ export function App({
         </ViewTransition>
       </PageFrame>
 
-      {notificationSoundOpen && (
+      {settled && notificationSoundOpen && (chat.session || account) && (
         <NotificationSoundDialog
           value={notificationSound}
           onChange={changeNotificationSound}
@@ -1047,7 +1127,7 @@ export function App({
         />
       )}
 
-      {profile && !createAccountOpen && (
+      {settled && profile && !createAccountOpen && (
         <ProfileDialog
           open={profileOpen || accountOpen}
           onClose={closeProfile}
@@ -1106,7 +1186,7 @@ export function App({
         />
       )}
 
-      {moderatorOpen && (
+      {settled && moderatorOpen && (
         <ModeratorDialog
           returnPath={location.pathname}
           signingIn={signingIn}
@@ -1118,6 +1198,6 @@ export function App({
           }}
         />
       )}
-    </>
+    </ReloadUiContext>
   );
 }

@@ -3,7 +3,7 @@ import { useState, type ReactNode, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Account } from "../account";
-import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
+import { AVATARS, PLAIN_AVATAR } from "../chat/avatar";
 import { randomPicture } from "../chat/picture";
 import type { ActionResult, Session } from "../chat/types";
 import { useRetryCountdown } from "../chat/useRetryCountdown";
@@ -16,6 +16,8 @@ import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Modal } from "./Modal";
 import { AvatarPicker, NameAndAge, PicturePicker } from "./ProfileFields";
+import { useReloadUiContext } from "../reloadUi";
+import { useTabText, writeTabDraft } from "../tabDraft";
 
 // Who somebody is shown as: a guest or an account in a room, or an account in the lobby.
 export type ProfileSubject = Pick<
@@ -73,7 +75,15 @@ function ProfileBody({
   onDelete: () => Promise<void>;
   onCreateAccount?: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  const ui = useReloadUiContext();
+  const [localEditing, setLocalEditing] = useState(false);
+  const editing =
+    profile.role !== "moderator" &&
+    (ui ? ui.dialog === "profile-edit" : localEditing);
+  const setEditing = (value: boolean) => {
+    if (ui) ui.setDialog(value ? "profile-edit" : "profile");
+    else setLocalEditing(value);
+  };
 
   if (editing) {
     return (
@@ -194,12 +204,20 @@ function ProfileForm({
   const { t } = useTranslation();
   // An account's name is a display name; a guest's is a nickname.
   const account = profile.role === "member";
-  const [name, setName] = useState(profile.nickname);
-  const [picture, setPicture] = useState(
-    () => profile.picture ?? randomPicture(),
+  const draftKey = `profile:${profile.role}:${profile.nickname}`;
+  const [name, setName] = useTabText(`${draftKey}:name`, profile.nickname);
+  const [initialPicture] = useState(() => profile.picture ?? randomPicture());
+  const [picture, setPicture] = useTabText(
+    `${draftKey}:picture`,
+    initialPicture,
   );
-  const [avatar, setAvatar] = useState<Avatar>(profile.avatar ?? PLAIN_AVATAR);
-  const [ageText, setAgeText] = useState(
+  const [avatarText, setAvatar] = useTabText(
+    `${draftKey}:avatar`,
+    profile.avatar ?? PLAIN_AVATAR,
+  );
+  const avatar = AVATARS.find((value) => value === avatarText) ?? PLAIN_AVATAR;
+  const [ageText, setAgeText] = useTabText(
+    `${draftKey}:age`,
     profile.age === undefined ? "" : String(profile.age),
   );
   const [touched, setTouched] = useState(false);
@@ -209,6 +227,12 @@ function ProfileForm({
 
   const nickname = normalizeNickname(name);
   const age = readAge(ageText);
+
+  function finish() {
+    for (const field of ["name", "picture", "avatar", "age"])
+      writeTabDraft(`${draftKey}:${field}`, undefined);
+    onDone();
+  }
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
@@ -223,13 +247,13 @@ function ProfileForm({
       ...(age.age === profile.age ? {} : { age: age.age ?? null }),
     };
 
-    if (Object.keys(changes).length === 0) return onDone();
+    if (Object.keys(changes).length === 0) return finish();
 
     setSaving(true);
     const result = await onSave(changes);
     setSaving(false);
 
-    if (result.ok) onDone();
+    if (result.ok) finish();
     else setFailure(result);
   }
 
@@ -274,7 +298,7 @@ function ProfileForm({
       />
 
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" icon={X} onClick={onDone}>
+        <Button variant="ghost" icon={X} onClick={finish}>
           {t("nickname.cancel")}
         </Button>
         <Button type="submit" variant="primary" icon={Save} disabled={saving}>

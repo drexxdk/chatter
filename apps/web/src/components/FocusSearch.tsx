@@ -14,7 +14,7 @@ export function FocusSearch() {
     const frame = requestAnimationFrame(() =>
       marker.current
         ?.closest('[role="dialog"], [role="region"]')
-        ?.querySelector<HTMLElement>('input[type="search"]')
+        ?.querySelector<HTMLElement>('input[type="search"], input[type="url"]')
         ?.focus(),
     );
 

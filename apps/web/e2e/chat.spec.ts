@@ -187,6 +187,163 @@ async function expectPickerAligned(page: Page) {
   await expect(picker).toHaveCount(0);
 }
 
+test("reload state keeps sign-in text private and never restores passwords", async ({
+  page,
+}) => {
+  await page.goto("/?dialog=signin");
+  const dialog = page.getByRole("dialog", { name: "Sign in", exact: true });
+  const identifier = dialog.locator('input[autocomplete="username"]');
+  const password = dialog.getByLabel("Password", { exact: true });
+  await identifier.fill("private-identifier@example.test");
+  await password.fill("never-store-this-password");
+  await expect(page).toHaveURL(/\?dialog=signin$/);
+  await page.reload();
+  await expect(dialog).toBeVisible();
+  await expect(identifier).toHaveValue("private-identifier@example.test");
+  await expect(password).toHaveValue("");
+  const saved = await page.evaluate(() =>
+    JSON.stringify(Object.entries(sessionStorage)),
+  );
+  expect(saved).not.toContain("never-store-this-password");
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto(
+    `/rooms/missing-${crypto.randomUUID()}?dialog=profile&menu=rooms`,
+  );
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("reload state restores menus and private drafts without history replay", async ({
+  browser,
+}) => {
+  const room = await isolatedRoom("Reload state");
+  const page = await newGuest(browser);
+  const nickname = `Url${crypto.randomUUID().slice(0, 6)}`;
+  await enterRoom(page, room.name, nickname);
+  const box = page.getByRole("textbox", { name: "Message", exact: true });
+  await fillMessage(box, "private draft\nsecond line");
+  await page.getByRole("button", { name: `Account menu: ${nickname}` }).click();
+  await expect(page).toHaveURL(/\?menu=main$/);
+  await page.reload();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await expect(page).toHaveURL(/\?menu=main$/);
+  await expect(box).toContainText("private draft");
+  expect(page.url()).not.toContain("private");
+  await page
+    .getByRole("menuitem", { name: "Your profile", exact: true })
+    .click();
+  const profile = page.getByRole("dialog", {
+    name: "Your profile",
+    exact: true,
+  });
+  await profile
+    .getByRole("button", { name: "Edit profile", exact: true })
+    .click();
+  await profile.locator("#profile-nickname").fill("Unsaved profile name");
+  await profile.locator("#profile-age").fill("30");
+  await expect(page).toHaveURL(/\?dialog=profile-edit$/);
+  await page.reload();
+  await expect(profile.locator("#profile-nickname")).toHaveValue(
+    "Unsaved profile name",
+  );
+  await expect(profile.locator("#profile-age")).toHaveValue("30");
+  await profile.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(profile.getByText(nickname, { exact: true })).toBeVisible();
+  await profile.getByRole("button", { name: "Close", exact: true }).click();
+  await page.locator("#room-heading").getByRole("button").click();
+  await expect(page).toHaveURL(/\?menu=rooms$/);
+  await page.reload();
+  await expect(
+    page.getByRole("menuitem", { name: "Leave room", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(new RegExp(`/rooms/${room.slug}$`));
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await page.goForward();
+  await expect(page).toHaveURL(new RegExp(`/rooms/${room.slug}$`));
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(box).toContainText("private draft");
+  await expect(box).toContainText("second line");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(box).toHaveText("");
+  await page.reload();
+  await expect(box).toHaveText("");
+});
+
+for (const width of [390, 1280]) {
+  test(`reload state restores the guest prompt and picker at ${width}px`, async ({
+    browser,
+  }) => {
+    const room = await isolatedRoom("Reload picker");
+    const page = await newGuest(browser);
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    await page.getByRole("button", { name: `Join ${room.name}` }).click();
+    const nickname = `Draft${crypto.randomUUID().slice(0, 6)}`;
+    await page
+      .getByRole("textbox", { name: "Nickname", exact: true })
+      .fill(nickname);
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("dialog"))
+      .toBe("join");
+    expect(page.url()).not.toContain(nickname);
+    await page.reload();
+    await expect(
+      page.getByRole("textbox", { name: "Nickname", exact: true }),
+    ).toHaveValue(nickname);
+    await expect(
+      page.getByRole("checkbox", { name: /18 or older/ }),
+    ).not.toBeChecked();
+    await acceptTerms(page);
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(page.getByRole("log", { name: room.name })).toBeVisible();
+    await page
+      .getByRole("button", { name: "Add attachments", exact: true })
+      .click();
+    const picker = page.getByRole("dialog", {
+      name: "Add attachments",
+      exact: true,
+    });
+    await picker.getByRole("tab", { name: "YouTube", exact: true }).click();
+    const link = "https://youtu.be/dQw4w9WgXcQ";
+    await picker.locator('input[type="url"]').fill(link);
+    await expect(page).toHaveURL(/\?menu=attachments&picker=youtube$/);
+    expect(page.url()).not.toContain("dQw4w9WgXcQ");
+    await page.reload();
+    await expect(picker).toBeVisible();
+    await expect(
+      picker.getByRole("tab", { name: "YouTube", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(picker.locator('input[type="url"]')).toHaveValue(link);
+    await page.keyboard.press("Escape");
+    await expect(page).toHaveURL(new RegExp(`/rooms/${room.slug}$`));
+    if (width < 768) {
+      await page
+        .getByRole("button", {
+          name: "People and direct messages",
+          exact: true,
+        })
+        .click();
+      const people = page.getByRole("region", {
+        name: "People and direct messages",
+        exact: true,
+      });
+      await people.locator("input").fill("private people search");
+      await expect(page).toHaveURL(/\?menu=people$/);
+      await page.reload();
+      await expect(people).toBeVisible();
+      await expect(people.locator("input")).toHaveValue(
+        "private people search",
+      );
+    }
+  });
+}
+
 test("joining as a guest opens long room history at the bottom", async ({
   browser,
 }) => {

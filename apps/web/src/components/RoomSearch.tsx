@@ -9,6 +9,7 @@ import {
 import {
   useDeferredValue,
   useEffect,
+  useEffectEvent,
   useId,
   useRef,
   useState,
@@ -24,6 +25,8 @@ import { useGridNavigation } from "../gridNavigation";
 import { AvatarIcon } from "./Avatar";
 import { Timestamp } from "./Timestamp";
 import { messagePresentation } from "./messagePresentation";
+import { useTabText } from "../tabDraft";
+import { useReloadUiContext } from "../reloadUi";
 
 type SearchMessage = Pick<
   ChatMessage,
@@ -86,8 +89,17 @@ export function RoomSearch({
   ownGuestIds: string[];
 }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const ui = useReloadUiContext();
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = ui ? ui.menu === "search" && !ui.dialog : localOpen;
+  const setOpen = (value: boolean) => {
+    if (ui) {
+      if (value) ui.setMenu("search");
+      else ui.closeMenu("search");
+    } else setLocalOpen(value);
+  };
+  const updateSearchFromEffect = useEffectEvent(setOpen);
+  const [query, setQuery] = useTabText(`search:${roomSlug}`);
   const [activeId, setActiveId] = useState<string | null>(null);
   const resultsId = useId();
   const root = useRef<HTMLDivElement>(null);
@@ -170,7 +182,7 @@ export function RoomSearch({
     if (!open) return;
     const dismiss = (event: PointerEvent) => {
       if (event.target instanceof Node && !root.current?.contains(event.target))
-        setOpen(false);
+        updateSearchFromEffect(false);
     };
     document.addEventListener("pointerdown", dismiss, true);
     return () => document.removeEventListener("pointerdown", dismiss, true);
@@ -184,7 +196,7 @@ export function RoomSearch({
         event.key.toLowerCase() === "f"
       ) {
         event.preventDefault();
-        setOpen(true);
+        updateSearchFromEffect(true);
         requestAnimationFrame(() => field.current?.focus());
       }
     };

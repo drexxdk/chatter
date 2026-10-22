@@ -12,6 +12,7 @@ import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
 import { Modal } from "./Modal";
 import { TermsCheckbox } from "./TermsCheckbox";
+import { useTabText } from "../tabDraft";
 
 interface NicknameDialogProps {
   // Whether it is shown; it is left in the page while it fades out.
@@ -38,7 +39,7 @@ export function NicknameDialog({
   returnPath,
 }: NicknameDialogProps) {
   const { t } = useTranslation();
-  const [value, setValue] = useState("");
+  const [value, setValue] = useTabText(`nickname:${returnPath}`);
   // A guest gets a picture at random, and the plain avatar; both can be changed in the profile once they are in.
   const [picture] = useState(() => randomPicture());
   const [touched, setTouched] = useState(false);

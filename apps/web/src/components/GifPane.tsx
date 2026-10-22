@@ -6,12 +6,13 @@ import { fetchGifs, type Gif } from "../gifApi";
 import { useGridNavigation } from "../gridNavigation";
 import { pickerPane } from "./composerControls";
 import { SearchBox } from "./SearchBox";
+import { useTabText } from "../tabDraft";
 
 // The GIFs tab: what is trending to begin with, search results once something is typed. Choosing a picture hands its
 // address to `onPick`. The arrow keys move between the pictures, and down from the search box goes to them.
 export function GifPane({ onPick }: { onPick: (url: string) => void }) {
   const { t, i18n } = useTranslation();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useTabText("picker:gifs");
   const searchBox = useRef<HTMLInputElement>(null);
   const gridKeys = useGridNavigation({
     onLeaveUp: () => searchBox.current?.focus(),

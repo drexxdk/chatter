@@ -6,6 +6,7 @@ import { parsePicture } from "./chat/picture";
 import type { Resume } from "./chat/socket";
 import { KEY as ACCOUNT_KEY } from "./account";
 import { parseAge } from "./profile";
+import { clearTabDrafts } from "./tabDraft";
 
 const KEY = "chatter.session";
 const MODERATOR_KEY = "chatter.moderator";
@@ -172,6 +173,7 @@ function loadTabSession(): SavedSession | null {
 }
 
 export function saveSession(session: SavedSession): void {
+  if (loadTabSession()?.token !== session.token) clearTabDrafts();
   try {
     sessionStorage.setItem(
       KEY,
@@ -230,6 +232,7 @@ export function rememberProfile(profile: {
 }
 
 export function clearSession(): void {
+  clearTabDrafts();
   try {
     sessionStorage.removeItem(KEY);
     sessionStorage.removeItem(DIRECT_KEY);

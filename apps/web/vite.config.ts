@@ -8,6 +8,9 @@ export default defineConfig({
     // chat-server only allows this origin through CORS.
     port: 5173,
     strictPort: true,
+    watch: {
+      ignored: ["**/playwright-report/**", "**/test-results/**"],
+    },
   },
   test: {
     environment: "jsdom",
