@@ -2,7 +2,7 @@ import express from "express";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 
-import { parseAge } from "./age.js";
+import { ageFromBirthDate, parseAge } from "./age.js";
 import { parseAvatar, parsePicture } from "./avatars.js";
 import { env } from "./env.js";
 import { validateNickname, validateUsername } from "./identity.js";
@@ -55,6 +55,7 @@ const registerBodySchema = z.object({
   picture: z.unknown().optional(),
   avatar: z.unknown().optional(),
   age: z.unknown().optional(),
+  birthDate: z.string().nullable().optional(),
 });
 
 // Where the browser is sent back to: a path of this site and nothing else, so a crafted link cannot send people to
@@ -351,14 +352,16 @@ export function createAccountsRouter(options: {
           return res.status(401).json({ error: "invalid_ticket" });
         }
 
-        const age =
-          body.data.age === undefined || body.data.age === null
+        const birthDate = body.data.birthDate ?? undefined;
+        const age = birthDate
+          ? ageFromBirthDate(birthDate)
+          : body.data.age === undefined || body.data.age === null
             ? undefined
             : parseAge(body.data.age);
 
         if (
-          body.data.age !== undefined &&
-          body.data.age !== null &&
+          (birthDate !== undefined ||
+            (body.data.age !== undefined && body.data.age !== null)) &&
           age === undefined
         ) {
           return res.status(400).json({ error: "invalid_profile" });
@@ -404,6 +407,7 @@ export function createAccountsRouter(options: {
               picture,
               avatar: parseAvatar(body.data.avatar),
               age,
+              birthDate,
             });
           } catch (error) {
             if (isTaken(error, "nicknameKey")) {
@@ -473,6 +477,7 @@ export function createAccountsRouter(options: {
               avatar: user.avatar,
               picture: user.picture,
               age: user.age,
+              birthDate: user.birthDate,
             },
             req.body,
             user.id,
@@ -486,7 +491,7 @@ export function createAccountsRouter(options: {
                   : 400;
             return res.status(status).json({ error: result.error });
           }
-          const { nickname, avatar, picture, age } = result.profile;
+          const { nickname, avatar, picture, age, birthDate } = result.profile;
 
           const failure = await saveMemberProfile(
             user.id,
@@ -508,6 +513,7 @@ export function createAccountsRouter(options: {
               avatar,
               picture,
               age,
+              birthDate,
             }),
           });
         } catch (error) {

@@ -10,6 +10,7 @@ export function profileOf(user: UserRecord) {
     ...(user.picture === undefined ? {} : { picture: user.picture }),
     avatar: user.avatar,
     ...(user.age === undefined ? {} : { age: user.age }),
+    ...(user.birthDate === undefined ? {} : { birthDate: user.birthDate }),
   };
 }
 

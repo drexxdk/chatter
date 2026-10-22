@@ -1,6 +1,46 @@
 import { describe, expect, it } from "vitest";
 
 import { parseAge, readAge } from "./profile";
+import { ageFromBirthDate } from "../../../shared/chatProtocol.mjs";
+
+describe("age from date of birth", () => {
+  const today = new Date("2026-10-22T00:00:00Z");
+
+  it.each([
+    ["1991-10-22", 35],
+    ["1991-10-23", 34],
+    ["2008-10-22", 18],
+    ["1926-10-23", 99],
+    ["1988-02-29", 38],
+  ])("derives %s as %s years old", (birthDate, age) => {
+    expect(ageFromBirthDate(birthDate, today)).toBe(age);
+  });
+
+  it.each([
+    "2008-10-23",
+    "1926-10-22",
+    "2027-01-01",
+    "1991-02-29",
+    "1991-04-31",
+    "1991-13-01",
+    "1991-1-01",
+    "35",
+    "",
+    null,
+    35,
+  ])("rejects an invalid or out-of-range date: %s", (birthDate) => {
+    expect(ageFromBirthDate(birthDate, today)).toBeUndefined();
+  });
+
+  it("advances a leap-day birthday on March 1 in non-leap years", () => {
+    expect(
+      ageFromBirthDate("2000-02-29", new Date("2026-02-28T23:59:59Z")),
+    ).toBe(25);
+    expect(
+      ageFromBirthDate("2000-02-29", new Date("2026-03-01T00:00:00Z")),
+    ).toBe(26);
+  });
+});
 
 describe("parseAge", () => {
   it.each([18, 30, 99])("accepts %s", (age) => {

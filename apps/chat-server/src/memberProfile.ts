@@ -1,4 +1,4 @@
-import { parseAge } from "./age.js";
+import { ageFromBirthDate, parseAge } from "./age.js";
 import { avatarSchema, parsePicture, type Avatar } from "./avatars.js";
 import { validateNickname } from "./identity.js";
 import { log } from "./log.js";
@@ -16,6 +16,7 @@ export type Profile = {
   avatar: Avatar;
   picture: string | undefined;
   age: number | undefined;
+  birthDate?: string;
 };
 
 export async function validateProfileUpdate(
@@ -72,7 +73,15 @@ export async function validateProfileUpdate(
     profile.picture = picture;
   }
 
-  if ("age" in fields) {
+  if ("birthDate" in fields) {
+    const age = ageFromBirthDate(fields.birthDate);
+    if (fields.birthDate !== null && age === undefined)
+      return { ok: false, error: "invalid_profile" };
+    profile.birthDate =
+      fields.birthDate === null ? undefined : (fields.birthDate as string);
+    profile.age = age;
+  } else if ("age" in fields) {
+    if (current.birthDate) return { ok: false, error: "invalid_profile" };
     const age = fields.age === null ? undefined : parseAge(fields.age);
     if (fields.age !== null && age === undefined) {
       return { ok: false, error: "invalid_profile" };
@@ -104,6 +113,7 @@ export async function saveMemberProfile(
         ...(profile.picture === undefined ? {} : { picture: profile.picture }),
         avatar: profile.avatar,
         age: profile.age ?? null,
+        birthDate: profile.birthDate ?? null,
       });
     } catch (error) {
       if (isTaken(error, "displayNameKey")) return "reserved_nickname";

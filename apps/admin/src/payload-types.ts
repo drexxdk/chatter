@@ -276,6 +276,7 @@ export interface User {
    */
   picture?: string | null;
   avatar: 'male' | 'female' | 'trans' | 'other';
+  birthDate?: string | null;
   age?: number | null;
   lastLoginAt?: string | null;
   updatedAt: string;
@@ -460,6 +461,7 @@ export interface UsersSelect<T extends boolean = true> {
       };
   picture?: T;
   avatar?: T;
+  birthDate?: T;
   age?: T;
   lastLoginAt?: T;
   updatedAt?: T;

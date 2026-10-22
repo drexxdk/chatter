@@ -371,6 +371,7 @@ export function App({
       avatar: saved.avatar,
       picture: saved.picture,
       age: saved.age,
+      birthDate: saved.birthDate,
       previousGuestIds: saved.guestIds,
       resume: saved.resume,
       threads: direct.threads,
@@ -435,6 +436,7 @@ export function App({
           avatar: account.avatar,
           picture: account.picture,
           age: account.age,
+          birthDate: account.birthDate,
         }
       : null;
 
@@ -446,13 +448,21 @@ export function App({
 
     try {
       const saved = await updateAccountProfile(account.token, changes);
-      const { age: _age, picture: _picture, ...rest } = account;
+      const {
+        age: _age,
+        picture: _picture,
+        birthDate: _birthDate,
+        ...rest
+      } = account;
       const next: Account = {
         ...rest,
         nickname: saved.nickname,
         ...(saved.picture ? { picture: saved.picture } : {}),
         avatar: saved.avatar,
         ...(saved.age === undefined ? {} : { age: saved.age }),
+        ...(saved.birthDate === undefined
+          ? {}
+          : { birthDate: saved.birthDate }),
       };
 
       saveAccount(next);
@@ -696,6 +706,7 @@ export function App({
         avatar: chat.session.avatar,
         picture: chat.session.picture,
         age: chat.session.age,
+        birthDate: chat.session.birthDate,
       });
     }
   }, [chat.session]);
@@ -745,18 +756,27 @@ export function App({
         (current.nickname === session.nickname &&
           current.avatar === session.avatar &&
           current.picture === session.picture &&
-          current.age === session.age)
+          current.age === session.age &&
+          current.birthDate === session.birthDate)
       ) {
         return current;
       }
 
-      const { age: _age, picture: _picture, ...rest } = current;
+      const {
+        age: _age,
+        picture: _picture,
+        birthDate: _birthDate,
+        ...rest
+      } = current;
       const next: Account = {
         ...rest,
         nickname: session.nickname,
         ...(session.picture ? { picture: session.picture } : {}),
         ...(session.avatar ? { avatar: session.avatar } : {}),
         ...(session.age === undefined ? {} : { age: session.age }),
+        ...(session.birthDate === undefined
+          ? {}
+          : { birthDate: session.birthDate }),
       };
 
       saveAccount(next);

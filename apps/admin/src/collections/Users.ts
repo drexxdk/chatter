@@ -153,7 +153,29 @@ export const Users: CollectionConfig = {
         { label: 'Not specified', value: 'other' },
       ],
     },
-    { name: 'age', type: 'number', min: 18, max: 99 },
+    {
+      name: 'birthDate',
+      type: 'text',
+      minLength: 10,
+      maxLength: 10,
+      admin: { hidden: true },
+      access: {
+        read: ({ req }) => req.user?.role === 'service',
+        create: ({ req }) => req.user?.role === 'service',
+        update: ({ req }) => req.user?.role === 'service',
+      },
+      validate: (value: string | null | undefined) => {
+        if (!value) return true
+        const date = new Date(`${value}T00:00:00Z`)
+        return (
+          (/^\d{4}-\d{2}-\d{2}$/.test(value) &&
+            !Number.isNaN(date.getTime()) &&
+            date.toISOString().slice(0, 10) === value) ||
+          'Enter a valid date of birth.'
+        )
+      },
+    },
+    { name: 'age', type: 'number', min: 18, max: 99, admin: { readOnly: true } },
     { name: 'lastLoginAt', type: 'date', admin: { readOnly: true } },
   ],
 }

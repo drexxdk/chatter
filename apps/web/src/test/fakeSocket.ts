@@ -1,4 +1,5 @@
 import { vi } from "vitest";
+import { ageFromBirthDate } from "../profile";
 
 import type { ChatSocket, CreateSocket } from "../chat/socket";
 
@@ -39,6 +40,12 @@ export class FakeSocket implements ChatSocket {
       if ((payload as Record<string, unknown>).age === null) {
         delete this.profile.age;
       }
+      if ("birthDate" in changes) {
+        if (changes.birthDate === null) {
+          delete this.profile.birthDate;
+          delete this.profile.age;
+        } else this.profile.age = ageFromBirthDate(changes.birthDate);
+      }
 
       return { ok: true, profile: this.profile };
     },
@@ -66,6 +73,7 @@ export class FakeSocket implements ChatSocket {
     readonly age?: number,
     // The picture the guest chose when connecting.
     readonly picture?: string,
+    readonly birthDate?: string,
   ) {
     this.admin = token?.startsWith("admin-") ?? false;
     this.role = !token
@@ -78,6 +86,9 @@ export class FakeSocket implements ChatSocket {
       avatar: token ? "other" : avatar,
       ...(picture && !token ? { picture } : {}),
       ...(age === undefined ? {} : { age }),
+      ...(birthDate === undefined
+        ? {}
+        : { birthDate, age: ageFromBirthDate(birthDate) }),
     };
     queueMicrotask(() => {
       if (handshakeError)
@@ -90,6 +101,9 @@ export class FakeSocket implements ChatSocket {
           avatar: token ? "other" : avatar,
           ...(picture && !token ? { picture } : {}),
           ...(age === undefined ? {} : { age }),
+          ...(birthDate === undefined
+            ? {}
+            : { birthDate, age: ageFromBirthDate(birthDate) }),
           ...(this.admin
             ? {
                 admin: true,
@@ -211,7 +225,7 @@ export function makeFakeServer(
   const upcomingHandshakeErrors: string[] = [];
 
   const createSocket = vi.fn<CreateSocket>(
-    (nickname, token, avatar, resume, age, picture) => {
+    (nickname, token, avatar, resume, age, picture, birthDate) => {
       // A real server honours a resume with the right secret; the fake always accepts it unless told otherwise.
       const guestId =
         (options.refuseResume ? undefined : resume?.guestId) ??
@@ -226,6 +240,7 @@ export function makeFakeServer(
         options.withoutSecret ? undefined : `secret-${sockets.length + 1}`,
         age,
         picture,
+        birthDate,
       );
       Object.assign(socket.acks, acks);
       socket.others = options.others ?? [];

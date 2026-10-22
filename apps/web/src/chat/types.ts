@@ -20,6 +20,7 @@ export interface Session {
   picture?: string;
   // Only when the guest said how old they are.
   age?: number;
+  birthDate?: string;
   resumeSecret?: string;
   // Only for an admin: they have the testing tools, and these rooms that nobody else can enter.
   admin?: boolean;
@@ -74,6 +75,7 @@ export interface ConnectOptions {
   avatar?: Avatar;
   picture?: string;
   age?: number;
+  birthDate?: string;
   // The ids this guest had on earlier connections (before a reload), so what they wrote is still theirs.
   previousGuestIds?: string[];
   // The identity to take over, when this is the same guest on a new page load.

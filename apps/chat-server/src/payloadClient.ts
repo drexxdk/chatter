@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { parseAge } from "./age.js";
+import { ageFromBirthDate, parseAge } from "./age.js";
 import { parseAvatar, parsePicture, type Avatar } from "./avatars.js";
 import { env } from "./env.js";
 import { isAdminRole } from "./roles.js";
@@ -415,6 +415,7 @@ const userSchema = z
     displayNameKey: z.string().nullish(),
     picture: z.string().nullish().transform(parsePicture),
     avatar: z.string().nullish().transform(parseAvatar),
+    birthDate: z.string().nullish(),
     age: z
       .number()
       .nullish()
@@ -422,6 +423,8 @@ const userSchema = z
   })
   .transform((user) => ({
     ...user,
+    birthDate: user.birthDate ?? undefined,
+    age: user.birthDate ? ageFromBirthDate(user.birthDate) : user.age,
     displayName: user.displayName || user.nickname,
     displayNameKey: user.displayNameKey || user.nicknameKey,
   }));
@@ -441,10 +444,12 @@ export interface NewUser {
   picture?: string;
   avatar: Avatar;
   age?: number;
+  birthDate?: string;
 }
 
 export interface UserChanges {
   passwordHash?: string;
+  birthDate?: string | null;
   displayName?: string;
   displayNameKey?: string;
   picture?: string;
@@ -562,6 +567,7 @@ export async function createUser(user: NewUser): Promise<UserRecord> {
         picture: user.picture,
         avatar: user.avatar,
         age: user.age,
+        birthDate: user.birthDate,
         lastLoginAt: new Date().toISOString(),
       }),
       "create user",

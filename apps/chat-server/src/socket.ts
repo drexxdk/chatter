@@ -4,7 +4,7 @@ import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { PROFILE_UPDATE_EVENT } from "../../../shared/chatProtocol.mjs";
 
-import { parseAge } from "./age.js";
+import { ageFromBirthDate, parseAge } from "./age.js";
 import {
   ADMIN_ROOMS,
   fakeMember,
@@ -104,6 +104,7 @@ interface SocketData {
   picture?: string;
   // Only when the guest said how old they are.
   age?: number;
+  birthDate?: string;
   // The Payload account behind a signed-in moderator; others have none.
   accountId?: number;
   // A super-admin, who may use the testing tools (see adminRooms.ts).
@@ -353,16 +354,20 @@ export function createSocketServer(
     io.to(roomKey(slug)).emit("room:presence", {
       roomSlug: slug,
       members: [
-        ...members.map((member) => ({
-          guestId: (member.data as SocketData).guestId,
-          nickname: (member.data as SocketData).nickname,
-          role: (member.data as SocketData).role,
-          avatar: (member.data as SocketData).avatar,
-          ...pictureOf(member.data as SocketData),
-          ...((member.data as SocketData).age === undefined
-            ? {}
-            : { age: (member.data as SocketData).age }),
-        })),
+        ...members.map((member) => {
+          const data = member.data as SocketData;
+          const age = data.birthDate
+            ? ageFromBirthDate(data.birthDate)
+            : data.age;
+          return {
+            guestId: (member.data as SocketData).guestId,
+            nickname: (member.data as SocketData).nickname,
+            role: (member.data as SocketData).role,
+            avatar: (member.data as SocketData).avatar,
+            ...pictureOf(member.data as SocketData),
+            ...(age === undefined ? {} : { age }),
+          };
+        }),
         ...(fakeMembers.get(slug) ?? []),
       ],
     });
@@ -562,6 +567,7 @@ export function createSocketServer(
     let avatar: Avatar = "other";
     let picture: string | undefined;
     let age: number | undefined;
+    let birthDate: string | undefined;
 
     if (auth.token !== undefined) {
       const claims = authTokenSecret
@@ -582,6 +588,7 @@ export function createSocketServer(
           avatar = user.avatar;
           picture = user.picture;
           age = user.age;
+          birthDate = user.birthDate;
           memberId = user.id;
           role = "member";
         } catch (error) {
@@ -635,7 +642,11 @@ export function createSocketServer(
 
       avatar = parseAvatar(auth.avatar);
       picture = parsePicture(auth.picture);
-      age = parseAge(auth.age);
+      if (auth.birthDate !== undefined) {
+        age = ageFromBirthDate(auth.birthDate);
+        if (age === undefined) return next(new Error("invalid_profile"));
+        birthDate = auth.birthDate;
+      } else age = parseAge(auth.age);
     }
 
     const ipHash = hashIdentifier(
@@ -725,6 +736,7 @@ export function createSocketServer(
       avatar,
       picture,
       age,
+      birthDate,
       accountId,
       ...(admin ? { admin } : {}),
       memberId,
@@ -801,6 +813,7 @@ export function createSocketServer(
       avatar: data.avatar,
       ...pictureOf(data),
       ...(data.age === undefined ? {} : { age: data.age }),
+      ...(data.birthDate === undefined ? {} : { birthDate: data.birthDate }),
       ...(data.admin ? { admin: true, adminRooms, queueTest } : {}),
       resumeSecret: resumeSecrets.get(socket),
     });
@@ -1855,6 +1868,25 @@ export function createSocketServer(
       }
     });
   });
+
+  const ageRefresh = setInterval(() => {
+    const rooms = new Set<string>();
+    for (const socket of io.of("/").sockets.values()) {
+      const data = socket.data as SocketData;
+      if (!data.birthDate) continue;
+      const age = ageFromBirthDate(data.birthDate);
+      if (age === data.age) continue;
+      data.age = age;
+      socket.emit("profile:age", { age });
+      if (data.roomSlug) rooms.add(data.roomSlug);
+    }
+    for (const slug of rooms)
+      void emitPresence(slug).catch((error) =>
+        log.error("Age presence update failed", error),
+      );
+  }, 60_000);
+  ageRefresh.unref();
+  httpServer.once("close", () => clearInterval(ageRefresh));
 
   return io;
 }

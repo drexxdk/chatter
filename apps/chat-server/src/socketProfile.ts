@@ -17,6 +17,7 @@ interface ProfileSocketData {
   avatar: Avatar;
   picture?: string;
   age?: number;
+  birthDate?: string;
   memberId?: number;
   username?: string;
   roomSlug?: string;
@@ -88,12 +89,13 @@ export async function handleProfileUpdate(
           avatar: account?.avatar ?? data.avatar,
           picture: account ? account.picture : data.picture,
           age: account ? account.age : data.age,
+          birthDate: account ? account.birthDate : data.birthDate,
         },
         payload,
         data.memberId,
       );
       if (!result.ok) return reply({ ok: false, error: result.error });
-      const { nickname, avatar, picture, age } = result.profile;
+      const { nickname, avatar, picture, age, birthDate } = result.profile;
 
       const slug = data.roomSlug;
       const apply = () => {
@@ -101,6 +103,7 @@ export async function handleProfileUpdate(
         data.avatar = avatar;
         data.picture = picture;
         data.age = age;
+        data.birthDate = birthDate;
       };
       // The change for good: a member's is kept in their account first, so what the others see is never ahead of it.
       const commit = async (): Promise<string | undefined> => {
@@ -141,6 +144,7 @@ export async function handleProfileUpdate(
           avatar,
           ...(picture === undefined ? {} : { picture }),
           ...(age === undefined ? {} : { age }),
+          ...(birthDate === undefined ? {} : { birthDate }),
         },
       });
 

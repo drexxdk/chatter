@@ -2,7 +2,7 @@ import { parseAvatar, type Avatar } from "./chat/avatar";
 import { parsePicture } from "./chat/picture";
 import { CHAT_SERVER_URL } from "./config";
 import { parseLegal, type LegalContent } from "./legal";
-import { parseAge, type ProfileChanges } from "./profile";
+import { ageFromBirthDate, parseAge, type ProfileChanges } from "./profile";
 
 export interface Room {
   id: number;
@@ -167,6 +167,7 @@ export interface AccountSession {
     picture?: string;
     avatar: Avatar;
     age?: number;
+    birthDate?: string;
   };
   expiresAt: number;
 }
@@ -197,6 +198,10 @@ const ACCOUNT_ERRORS = new Set([
 function parseAccountProfile(value: unknown): AccountSession["profile"] {
   const profile = (value ?? {}) as Record<string, unknown>;
   const age = parseAge(profile.age);
+  const birthDate =
+    ageFromBirthDate(profile.birthDate) === undefined
+      ? undefined
+      : (profile.birthDate as string);
 
   if (typeof profile.nickname !== "string")
     throw new AccountError("connection");
@@ -211,6 +216,7 @@ function parseAccountProfile(value: unknown): AccountSession["profile"] {
       : { picture: parsePicture(profile.picture) }),
     avatar: parseAvatar(profile.avatar),
     ...(age === undefined ? {} : { age }),
+    ...(birthDate === undefined ? {} : { birthDate }),
   };
 }
 
@@ -309,6 +315,7 @@ export async function registerAccount(input: {
   picture: string;
   avatar: Avatar;
   age?: number;
+  birthDate?: string;
 }): Promise<AccountSession> {
   return parseAccountSession(
     await accountRequest("/auth/register", {

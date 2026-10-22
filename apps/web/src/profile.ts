@@ -1,6 +1,16 @@
-// Mirrors the chat-server's limits on a guest's age (apps/chat-server/src/age.ts); the server stays authoritative.
+import { ageFromBirthDate } from "../../../shared/chatProtocol.mjs";
+export { ageFromBirthDate } from "../../../shared/chatProtocol.mjs";
+
 export const MIN_AGE = 18;
 export const MAX_AGE = 99;
+
+export function readBirthDate(
+  text: string,
+): { ok: true; birthDate?: string; age?: number } | { ok: false } {
+  if (!text.trim()) return { ok: true };
+  const age = ageFromBirthDate(text);
+  return age === undefined ? { ok: false } : { ok: true, birthDate: text, age };
+}
 
 export function parseAge(value: unknown): number | undefined {
   return typeof value === "number" &&

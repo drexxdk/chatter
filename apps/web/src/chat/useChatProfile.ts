@@ -1,7 +1,7 @@
 import { useCallback, useRef, type Dispatch, type SetStateAction } from "react";
 import { PROFILE_UPDATE_EVENT } from "../../../../shared/chatProtocol.mjs";
 import { isRecord } from "../isRecord";
-import { parseAge, type ProfileChanges } from "../profile";
+import { ageFromBirthDate, parseAge, type ProfileChanges } from "../profile";
 import { parseAvatar, PLAIN_AVATAR, type Avatar } from "./avatar";
 import { parsePicture } from "./picture";
 import {
@@ -17,6 +17,7 @@ interface ConnectionProfile {
   avatar: Avatar | null;
   picture: string | null;
   age: number | null;
+  birthDate: string | null;
 }
 
 export function useChatProfile({
@@ -31,6 +32,7 @@ export function useChatProfile({
     avatar: null,
     picture: null,
     age: null,
+    birthDate: null,
   });
 
   const getConnectionProfile = useCallback(
@@ -45,6 +47,7 @@ export function useChatProfile({
         avatar: options.avatar ?? null,
         picture: options.picture ?? null,
         age: options.age ?? null,
+        birthDate: options.birthDate ?? null,
       };
     },
     [],
@@ -63,15 +66,22 @@ export function useChatProfile({
       const avatar = parseAvatar(profile.avatar);
       const picture = parsePicture(profile.picture);
       const age = parseAge(profile.age);
+      const birthDate =
+        ageFromBirthDate(profile.birthDate) === undefined
+          ? undefined
+          : (profile.birthDate as string);
 
       profileRef.current = {
         nickname,
         picture: picture ?? null,
         avatar: avatar === PLAIN_AVATAR ? null : avatar,
         age: age ?? null,
+        birthDate: birthDate ?? null,
       };
       setSession((current) =>
-        current ? { ...current, nickname, avatar, picture, age } : current,
+        current
+          ? { ...current, nickname, avatar, picture, age, birthDate }
+          : current,
       );
       return { ok: true };
     },

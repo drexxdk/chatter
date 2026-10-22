@@ -3,6 +3,11 @@ export const NICKNAME_PATTERN: RegExp;
 export const USERNAME_PATTERN: RegExp;
 export const PROFILE_UPDATE_EVENT: "profile:update";
 
+export function ageFromBirthDate(
+  value: unknown,
+  today?: Date,
+): number | undefined;
+
 export function passwordChecks(password: string): {
   length: boolean;
   lowercase: boolean;
@@ -17,6 +22,7 @@ export interface ProfileChanges {
   avatar?: Avatar;
   picture?: string;
   age?: number | null;
+  birthDate?: string | null;
 }
 
 export type ProfileUpdateAck =
@@ -27,6 +33,7 @@ export type ProfileUpdateAck =
         avatar: Avatar;
         picture?: string;
         age?: number;
+        birthDate?: string;
       };
     }
   | { ok: false; error: string; retryAfterMs?: number };

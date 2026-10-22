@@ -37,6 +37,46 @@ beforeEach(() => {
 });
 
 describe("shared profile validation", () => {
+  const birthDate = `${new Date().getUTCFullYear() - 35}-01-01`;
+
+  it("derives age from the birth date instead of a supplied age", async () => {
+    expect(
+      await validateProfileUpdate(current, { birthDate, age: 99 }, 5),
+    ).toEqual({
+      ok: true,
+      profile: { ...current, birthDate, age: 35 },
+    });
+  });
+
+  it("clears the birth date and age together", async () => {
+    expect(
+      await validateProfileUpdate(
+        { ...current, birthDate },
+        { birthDate: null },
+        5,
+      ),
+    ).toEqual({
+      ok: true,
+      profile: { ...current, birthDate: undefined, age: undefined },
+    });
+  });
+
+  it("does not allow a numeric age to override a saved birth date", async () => {
+    expect(
+      await validateProfileUpdate({ ...current, birthDate }, { age: 99 }, 5),
+    ).toEqual({ ok: false, error: "invalid_profile" });
+  });
+
+  it.each(["2001-02-29", "2026-01-01", "1900-01-01", "", 35, undefined])(
+    "refuses invalid birth date %j",
+    async (birthDate) => {
+      expect(await validateProfileUpdate(current, { birthDate }, 5)).toEqual({
+        ok: false,
+        error: "invalid_profile",
+      });
+    },
+  );
+
   it("merges and normalizes a valid update without changing its input", async () => {
     expect(
       await validateProfileUpdate(

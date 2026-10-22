@@ -176,6 +176,14 @@ test("a guest claims their profile with a password and can sign in again from th
   const chatName = displayName("Pass");
   const handle = username("Pass");
   const password = "A private password for this test 1";
+  const birthDate = `${new Date().getUTCFullYear() - 35}-01-01`;
+  const presenceFrames: string[] = [];
+  page.on("websocket", (socket) =>
+    socket.on("framereceived", ({ payload }) => {
+      if (typeof payload === "string" && payload.includes('"room:presence"'))
+        presenceFrames.push(payload);
+    }),
+  );
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => {
@@ -186,6 +194,69 @@ test("a guest claims their profile with a password and can sign in again from th
   await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
   await page.getByRole("menuitem", { name: "Your profile" }).click();
   const profile = page.getByRole("dialog", { name: "Your profile" });
+  await profile.getByRole("button", { name: "Edit profile" }).click();
+  const dateField = profile.getByRole("group", { name: "Date of birth" });
+  const day = dateField.getByLabel("Day", { exact: true });
+  const month = dateField.getByRole("button", { name: "Month", exact: true });
+  const year = dateField.getByLabel("Year", { exact: true });
+  await day.fill("1");
+  await month.click();
+  await page.getByRole("option", { name: "January", exact: true }).click();
+  await year.fill(birthDate.slice(0, 4));
+  await expect(profile.getByText("35 years old")).toBeVisible();
+  for (const width of [1280, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(dateField).toBeVisible();
+    const fits = await dateField.evaluate((field) => {
+      const box = field.getBoundingClientRect();
+      const dialog = field.closest('[role="dialog"]')!.getBoundingClientRect();
+      return (
+        box.left >= dialog.left &&
+        box.right <= dialog.right &&
+        Array.from(field.querySelectorAll("input, button")).every((control) => {
+          const bounds = control.getBoundingClientRect();
+          return (
+            bounds.left >= box.left &&
+            bounds.right <= box.right &&
+            bounds.width > 0
+          );
+        })
+      );
+    });
+    expect(fits).toBe(true);
+    await month.click();
+    const months = page.getByRole("listbox");
+    await expect(months).toBeVisible();
+    const popup = await months.boundingBox();
+    expect(popup!.x).toBeGreaterThanOrEqual(0);
+    expect(popup!.x + popup!.width).toBeLessThanOrEqual(width);
+    await page.screenshot({
+      path: test.info().outputPath(`birth-date-${width}.png`),
+    });
+    await page.keyboard.press("Escape");
+    await expect(months).not.toBeVisible();
+  }
+  await profile.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    profile.getByRole("button", { name: "Edit profile" }),
+  ).toBeVisible();
+  await expect(profile.getByText("35 years old")).toBeVisible();
+  await expect
+    .poll(() => presenceFrames.some((frame) => frame.includes('"age":35')))
+    .toBe(true);
+  expect(
+    presenceFrames.every(
+      (frame) => !frame.includes("birthDate") && !frame.includes(birthDate),
+    ),
+  ).toBe(true);
+  await page.reload();
+  await inRoom(page);
+  await expect(profile).toBeVisible();
+  await profile.getByRole("button", { name: "Edit profile" }).click();
+  await expect(day).toHaveValue("01");
+  await expect(month).toHaveText("January");
+  await expect(year).toHaveValue(birthDate.slice(0, 4));
+  await profile.getByRole("button", { name: "Cancel", exact: true }).click();
   await profile
     .getByRole("button", { name: "Claim account", exact: true })
     .click();
@@ -218,6 +289,7 @@ test("a guest claims their profile with a password and can sign in again from th
     displayName: chatName,
   });
   expect(account).not.toHaveProperty("passwordHash");
+  expect(account).not.toHaveProperty("birthDate");
   expect(
     await page.evaluate(() => localStorage.getItem("chatter.account")),
   ).not.toContain(password);
@@ -237,6 +309,15 @@ test("a guest claims their profile with a password and can sign in again from th
   ).toBeVisible();
   await page.getByRole("button", { name: `Join ${ROOM.name}` }).click();
   await inRoom(page);
+  await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
+  await page
+    .getByRole("menuitem", { name: "Your profile", exact: true })
+    .click();
+  await profile.getByRole("button", { name: "Edit profile" }).click();
+  await expect(day).toHaveValue("01");
+  await expect(month).toHaveText("January");
+  await expect(year).toHaveValue(birthDate.slice(0, 4));
+  await expect(profile.getByText("35 years old")).toBeVisible();
   expect(errors).toEqual([]);
 });
 

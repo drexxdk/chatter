@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -6,6 +6,8 @@ import { loadAccount, saveAccount } from "./account";
 import { loadSession, saveSession } from "./session";
 import { ROOMS, joinRoom, setup } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
+import { ageFromBirthDate } from "./profile";
+const BIRTH_DATE = `${new Date().getUTCFullYear() - 29}-01-01`;
 
 const ACCOUNT = {
   token: "member-abc",
@@ -69,7 +71,15 @@ function stubBackend(
 
       return answer(
         options.update?.(changes) ?? {
-          body: { profile: { ...accountSession().profile, ...changes } },
+          body: {
+            profile: {
+              ...accountSession().profile,
+              ...changes,
+              ...(changes.birthDate
+                ? { age: ageFromBirthDate(changes.birthDate) }
+                : {}),
+            },
+          },
         },
       );
     }
@@ -631,7 +641,14 @@ describe("somebody signed in", () => {
       await user.click(dialog.getByRole("button", { name: "Edit profile" }));
       await user.clear(dialog.getByLabelText(/Display name/));
       await user.type(dialog.getByLabelText(/Display name/), "Alicia");
-      await user.type(dialog.getByLabelText("Age"), "29");
+      fireEvent.change(dialog.getByLabelText("Day"), {
+        target: { value: "01" },
+      });
+      await user.click(dialog.getByLabelText("Month"));
+      await user.click(await screen.findByRole("option", { name: "January" }));
+      fireEvent.change(dialog.getByLabelText("Year"), {
+        target: { value: BIRTH_DATE.slice(0, 4) },
+      });
       await user.click(dialog.getByRole("button", { name: "Save" }));
 
       expect(await dialog.findByText("29 years old")).toBeInTheDocument();
@@ -643,7 +660,7 @@ describe("somebody signed in", () => {
       });
       expect(JSON.parse(String(init.body))).toEqual({
         nickname: "Alicia",
-        age: 29,
+        birthDate: BIRTH_DATE,
       });
       expect(
         await screen.findByRole("button", {

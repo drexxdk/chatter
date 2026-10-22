@@ -15,7 +15,7 @@ import { useLegal } from "../legal/useLegal";
 import { normalizeNickname, normalizeUsername, tidyName } from "../nickname";
 import { slugFromPath } from "../place";
 import { loadTermsAccepted, saveTermsAccepted } from "../preferences";
-import { readAge } from "../profile";
+import { readBirthDate } from "../profile";
 import { clearSession, loadSession, saveSession } from "../session";
 import { usePageTitle } from "../usePageTitle";
 import { providerName } from "./AccountOptions";
@@ -24,7 +24,7 @@ import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
 import { Loading } from "./LoadState";
 import { PageFrame } from "./PageFrame";
-import { AvatarPicker, NameAndAge, PicturePicker } from "./ProfileFields";
+import { AvatarPicker, NameAndBirthDate, PicturePicker } from "./ProfileFields";
 import { TermsCheckbox } from "./TermsCheckbox";
 
 export type CallbackOutcome =
@@ -188,7 +188,7 @@ function RegisterForm({
   provider: string;
   suggested?: string;
   // Who this tab was as a guest, whose avatar and age carry over.
-  guest?: { avatar?: Avatar; age?: number };
+  guest?: { avatar?: Avatar; age?: number; birthDate?: string };
   returnPath: string;
   navigate: (path: string) => void;
   initialError?: string;
@@ -209,9 +209,7 @@ function RegisterForm({
   // Somebody who does not choose gets one at random.
   const [picture, setPicture] = useState(() => randomPicture());
   const [avatar, setAvatar] = useState<Avatar>(guest?.avatar ?? PLAIN_AVATAR);
-  const [ageText, setAgeText] = useState(
-    guest?.age === undefined ? "" : String(guest.age),
-  );
+  const [birthDateText, setBirthDateText] = useState(guest?.birthDate ?? "");
   const rememberedTerms = loadTermsAccepted(termsVersion);
   const [termsChoice, setTermsChoice] = useState<boolean | null>(null);
   const termsAccepted = termsChoice ?? rememberedTerms;
@@ -221,14 +219,14 @@ function RegisterForm({
 
   const usernameOk = normalizeUsername(username);
   const nickname = normalizeNickname(displayName);
-  const age = readAge(ageText);
+  const birthDate = readBirthDate(birthDateText);
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
     setTouched(true);
     setError(null);
 
-    if (!usernameOk || !nickname || !age.ok || !termsAccepted) return;
+    if (!usernameOk || !nickname || !birthDate.ok || !termsAccepted) return;
 
     setBusy(true);
 
@@ -239,7 +237,7 @@ function RegisterForm({
         nickname,
         picture,
         avatar,
-        age: age.age,
+        birthDate: birthDate.birthDate,
       });
 
       if (!rememberedTerms) saveTermsAccepted(termsVersion);
@@ -272,7 +270,7 @@ function RegisterForm({
         onChange={(event) => setUsername(event.target.value.replace(/\s/g, ""))}
         invalid={touched && !usernameOk}
       />
-      <NameAndAge
+      <NameAndBirthDate
         nicknameId="register-nickname"
         ageId="register-age"
         nickname={displayName}
@@ -280,9 +278,9 @@ function RegisterForm({
         invalidNickname={touched && !nickname}
         nicknameLabel={t("account.register.displayName")}
         nicknameHint={t("account.register.displayNameHint")}
-        age={ageText}
-        onAgeChange={setAgeText}
-        invalidAge={touched && !age.ok}
+        birthDate={birthDateText}
+        onBirthDateChange={setBirthDateText}
+        invalidAge={touched && !birthDate.ok}
         autoComplete="name"
       />
       <PicturePicker

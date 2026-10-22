@@ -8,21 +8,26 @@ import { randomPicture } from "../chat/picture";
 import type { ActionResult, Session } from "../chat/types";
 import { useRetryCountdown } from "../chat/useRetryCountdown";
 import { normalizeNickname } from "../nickname";
-import { MAX_AGE, MIN_AGE, readAge, type ProfileChanges } from "../profile";
+import {
+  MAX_AGE,
+  MIN_AGE,
+  readBirthDate,
+  type ProfileChanges,
+} from "../profile";
 import { ProviderLabel } from "./AccountOptions";
 import { AccountSection } from "./AccountSection";
 import { AvatarIcon, GenderLabel } from "./Avatar";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Modal } from "./Modal";
-import { AvatarPicker, NameAndAge, PicturePicker } from "./ProfileFields";
+import { AvatarPicker, NameAndBirthDate, PicturePicker } from "./ProfileFields";
 import { useReloadUiContext } from "../reloadUi";
 import { useTabText, writeTabDraft } from "../tabDraft";
 
 // Who somebody is shown as: a guest or an account in a room, or an account in the lobby.
 export type ProfileSubject = Pick<
   Session,
-  "role" | "nickname" | "avatar" | "picture" | "age"
+  "role" | "nickname" | "avatar" | "picture" | "age" | "birthDate"
 >;
 
 // Who you are, in a modal on top of the page, the same in the lobby and in a room: what is shown of you, who you are
@@ -216,9 +221,9 @@ function ProfileForm({
     profile.avatar ?? PLAIN_AVATAR,
   );
   const avatar = AVATARS.find((value) => value === avatarText) ?? PLAIN_AVATAR;
-  const [ageText, setAgeText] = useTabText(
-    `${draftKey}:age`,
-    profile.age === undefined ? "" : String(profile.age),
+  const [birthDateText, setBirthDateText] = useTabText(
+    `${draftKey}:birthDate`,
+    profile.birthDate ?? "",
   );
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -226,10 +231,10 @@ function ProfileForm({
   useRetryCountdown(failure, setFailure);
 
   const nickname = normalizeNickname(name);
-  const age = readAge(ageText);
+  const birthDate = readBirthDate(birthDateText);
 
   function finish() {
-    for (const field of ["name", "picture", "avatar", "age"])
+    for (const field of ["name", "picture", "avatar", "age", "birthDate"])
       writeTabDraft(`${draftKey}:${field}`, undefined);
     onDone();
   }
@@ -238,13 +243,15 @@ function ProfileForm({
     event.preventDefault();
     setTouched(true);
 
-    if (!nickname || !age.ok) return;
+    if (!nickname || !birthDate.ok) return;
 
     const changes: ProfileChanges = {
       ...(nickname === profile.nickname ? {} : { nickname }),
       ...(picture !== profile.picture ? { picture } : {}),
       ...(avatar === (profile.avatar ?? PLAIN_AVATAR) ? {} : { avatar }),
-      ...(age.age === profile.age ? {} : { age: age.age ?? null }),
+      ...(birthDate.birthDate === profile.birthDate
+        ? {}
+        : { birthDate: birthDate.birthDate ?? null }),
     };
 
     if (Object.keys(changes).length === 0) return finish();
@@ -259,7 +266,7 @@ function ProfileForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <NameAndAge
+      <NameAndBirthDate
         nicknameId="profile-nickname"
         ageId="profile-age"
         nickname={name}
@@ -269,9 +276,9 @@ function ProfileForm({
         nicknameHint={
           account ? t("account.register.displayNameHint") : undefined
         }
-        age={ageText}
-        onAgeChange={setAgeText}
-        invalidAge={touched && !age.ok}
+        birthDate={birthDateText}
+        onBirthDateChange={setBirthDateText}
+        invalidAge={touched && !birthDate.ok}
         autoComplete="off"
       />
 

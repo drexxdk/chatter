@@ -8,6 +8,7 @@ import * as migration_20261013_135258_add_user_display_name_picture from './2026
 import * as migration_20261013_144731_localize_room_text from './20261013_144731_localize_room_text'
 import * as migration_20261018_201837_add_user_name_claims from './20261018_201837_add_user_name_claims'
 import * as migration_20261019_174937_add_user_password from './20261019_174937_add_user_password'
+import * as migration_20261022_145536_add_user_birth_date from './20261022_145536_add_user_birth_date'
 
 export const migrations = [
   {
@@ -59,5 +60,10 @@ export const migrations = [
     up: migration_20261019_174937_add_user_password.up,
     down: migration_20261019_174937_add_user_password.down,
     name: '20261019_174937_add_user_password',
+  },
+  {
+    up: migration_20261022_145536_add_user_birth_date.up,
+    down: migration_20261022_145536_add_user_birth_date.down,
+    name: '20261022_145536_add_user_birth_date',
   },
 ]

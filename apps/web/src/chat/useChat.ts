@@ -15,6 +15,7 @@ import {
   type RoomEvent,
 } from "./roomEvents";
 import { isRecord } from "../isRecord";
+import { parseAge } from "../profile";
 import { MAX_GUEST_IDS } from "../session";
 import type { Avatar } from "./avatar";
 import {
@@ -299,20 +300,34 @@ export function useChat(
   const openSocket = useCallback(
     (nickname: string, onDrop: DropHandler): Promise<string | null> => {
       const token = tokenRef.current;
-      const { avatar, picture, age } = getConnectionProfile();
+      const { avatar, picture, age, birthDate } = getConnectionProfile();
       const resume = resumeRef.current;
       // Trailing arguments that are not needed are left off, so a plain guest's call is just the nickname.
-      const args: [string, string?, Avatar?, Resume?, number?, string?] = [
+      const args: [
+        string,
+        string?,
+        Avatar?,
+        Resume?,
+        number?,
+        string?,
+        string?,
+      ] = [
         nickname,
         token ?? undefined,
         avatar ?? undefined,
         resume ?? undefined,
         age ?? undefined,
         picture ?? undefined,
+        birthDate ?? undefined,
       ];
       while (args.length > 1 && args[args.length - 1] === undefined) args.pop();
       const socket = createSocket(...args);
       socketRef.current = socket;
+      socket.on("profile:age", (payload: unknown) => {
+        if (socketRef.current !== socket || !isRecord(payload)) return;
+        const age = parseAge(payload.age);
+        setSession((current) => (current ? { ...current, age } : current));
+      });
       const isCurrent = () => socketRef.current === socket;
 
       return new Promise((resolve) => {

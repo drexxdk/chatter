@@ -4,7 +4,7 @@
 import type { AccountSession } from "./api";
 import { AVATARS, type Avatar } from "./chat/avatar";
 import { parsePicture } from "./chat/picture";
-import { parseAge } from "./profile";
+import { ageFromBirthDate, parseAge } from "./profile";
 
 export const KEY = "chatter.account";
 
@@ -19,6 +19,7 @@ export interface Account {
   picture?: string;
   avatar?: Avatar;
   age?: number;
+  birthDate?: string;
   // When the token stops working, in milliseconds since 1970.
   expiresAt: number;
 }
@@ -35,6 +36,9 @@ export function accountOf(session: AccountSession): Account {
     ...(profile.picture ? { picture: profile.picture } : {}),
     avatar: profile.avatar,
     ...(profile.age === undefined ? {} : { age: profile.age }),
+    ...(profile.birthDate === undefined
+      ? {}
+      : { birthDate: profile.birthDate }),
     expiresAt,
   };
 }
@@ -53,6 +57,7 @@ export function loadAccount(now = Date.now()): Account | null {
       picture,
       avatar,
       age,
+      birthDate,
       expiresAt,
     } = value as Record<string, unknown>;
 
@@ -80,6 +85,9 @@ export function loadAccount(now = Date.now()): Account | null {
         ? { avatar: avatar as Avatar }
         : {}),
       ...(parseAge(age) === undefined ? {} : { age: parseAge(age) }),
+      ...(ageFromBirthDate(birthDate) === undefined
+        ? {}
+        : { birthDate: birthDate as string, age: ageFromBirthDate(birthDate) }),
       expiresAt,
     };
   } catch {

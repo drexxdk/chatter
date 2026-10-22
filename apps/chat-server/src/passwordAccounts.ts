@@ -28,7 +28,13 @@ const claimSchema = z.object({
 
 export async function claimGuestAccount(
   input: unknown,
-  profile: { nickname: string; avatar: Avatar; picture?: string; age?: number },
+  profile: {
+    nickname: string;
+    avatar: Avatar;
+    picture?: string;
+    age?: number;
+    birthDate?: string;
+  },
   secret: string,
 ) {
   const parsed = claimSchema.safeParse(input);
@@ -62,6 +68,7 @@ export async function claimGuestAccount(
         picture: profile.picture,
         avatar: profile.avatar,
         age: profile.age,
+        birthDate: profile.birthDate,
       });
       await cacheMemberNames(user.id, [user.nickname, user.displayName]);
       return memberSession(user, secret);

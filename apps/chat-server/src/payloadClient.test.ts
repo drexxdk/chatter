@@ -548,6 +548,12 @@ describe("accounts", () => {
     expect((await fetchUser(5))?.picture).toBeUndefined();
   });
 
+  it("recalculates age from the birth date instead of a stale stored age", async () => {
+    const birthDate = `${new Date().getUTCFullYear() - 35}-01-01`;
+    respondWith({ ...user, birthDate, age: 34 });
+    expect(await fetchUser(5)).toMatchObject({ birthDate, age: 35 });
+  });
+
   it("finds nobody for an identity that has no account", async () => {
     respondWith({ docs: [] });
 

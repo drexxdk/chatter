@@ -5,7 +5,7 @@ import { parseThreads, type DirectThread } from "./chat/direct";
 import { parsePicture } from "./chat/picture";
 import type { Resume } from "./chat/socket";
 import { KEY as ACCOUNT_KEY } from "./account";
-import { parseAge } from "./profile";
+import { ageFromBirthDate, parseAge } from "./profile";
 import { clearTabDrafts } from "./tabDraft";
 
 const KEY = "chatter.session";
@@ -25,6 +25,7 @@ export interface SavedSession {
   picture?: string;
   // Only when the guest said how old they are.
   age?: number;
+  birthDate?: string;
   // The ids the server gave this guest on earlier connections. A reload is a new connection with a new id, and these
   // are how what they wrote before is still shown as theirs.
   guestIds?: string[];
@@ -141,8 +142,16 @@ function loadTabSession(): SavedSession | null {
 
     if (typeof value !== "object" || value === null) return null;
 
-    const { nickname, token, avatar, picture, age, guestIds, resume } =
-      value as Record<string, unknown>;
+    const {
+      nickname,
+      token,
+      avatar,
+      picture,
+      age,
+      birthDate,
+      guestIds,
+      resume,
+    } = value as Record<string, unknown>;
 
     if (typeof nickname !== "string" || !nickname) return null;
     if (token !== undefined && typeof token !== "string") return null;
@@ -164,6 +173,9 @@ function loadTabSession(): SavedSession | null {
         ? {}
         : { picture: parsePicture(picture) }),
       ...(parseAge(age) === undefined ? {} : { age: parseAge(age) }),
+      ...(ageFromBirthDate(birthDate) === undefined
+        ? {}
+        : { birthDate: birthDate as string, age: ageFromBirthDate(birthDate) }),
       ...(ids.length > 0 ? { guestIds: ids.slice(-MAX_GUEST_IDS) } : {}),
       ...(resumable ? { resume: resumable } : {}),
     };
@@ -213,12 +225,19 @@ export function rememberProfile(profile: {
   avatar?: Avatar;
   picture?: string;
   age?: number;
+  birthDate?: string;
 }): void {
   const saved = loadSession();
 
   if (!saved || saved.token) return;
 
-  const { avatar: _avatar, picture: _picture, age: _age, ...rest } = saved;
+  const {
+    avatar: _avatar,
+    picture: _picture,
+    age: _age,
+    birthDate: _birthDate,
+    ...rest
+  } = saved;
 
   saveSession({
     ...rest,
@@ -228,6 +247,9 @@ export function rememberProfile(profile: {
       : {}),
     ...(profile.picture ? { picture: profile.picture } : {}),
     ...(profile.age === undefined ? {} : { age: profile.age }),
+    ...(profile.birthDate === undefined
+      ? {}
+      : { birthDate: profile.birthDate }),
   });
 }
 

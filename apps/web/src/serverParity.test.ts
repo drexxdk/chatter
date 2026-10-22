@@ -74,6 +74,7 @@ describe("what the client mirrors from the chat-server", () => {
       avatar?: SharedAvatar;
       picture?: string;
       age?: number | null;
+      birthDate?: string | null;
     }>();
   });
 });

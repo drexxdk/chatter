@@ -1,4 +1,10 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +19,21 @@ import { anyPicture } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
 const ROOMS = [{ id: 1, name: "General", slug: "general", maxMembers: 100 }];
+const birthDateFor = (age: number) =>
+  `${new Date().getUTCFullYear() - age}-01-01`;
+
+async function fillBirthDate(
+  dialog: ReturnType<typeof within>,
+  user: ReturnType<typeof userEvent.setup>,
+  age: number,
+) {
+  fireEvent.change(dialog.getByLabelText("Day"), { target: { value: "01" } });
+  await user.click(dialog.getByLabelText("Month"));
+  await user.click(await screen.findByRole("option", { name: "January" }));
+  fireEvent.change(dialog.getByLabelText("Year"), {
+    target: { value: birthDateFor(age).slice(0, 4) },
+  });
+}
 
 describe("account password changes", () => {
   const account = {
@@ -174,19 +195,29 @@ describe("saying who you are when joining", () => {
     );
   });
 
-  it("takes only digits in the age box of the profile, whatever is typed or pasted", async () => {
+  it("enters a birth date directly without losing successive digits", async () => {
     const { user } = await enter();
     const dialog = await openProfile(user);
 
-    await user.type(dialog.getByLabelText("Age"), "a2b.7-x");
-
-    expect(dialog.getByLabelText("Age")).toHaveValue("27");
-
-    await user.clear(dialog.getByLabelText("Age"));
-    await user.click(dialog.getByLabelText("Age"));
-    await user.paste("4 1e");
-
-    expect(dialog.getByLabelText("Age")).toHaveValue("41");
+    const day = dialog.getByLabelText("Day");
+    const year = dialog.getByLabelText("Year");
+    await user.type(day, "12");
+    await user.click(dialog.getByLabelText("Month"));
+    await screen.findByRole("listbox");
+    await user.keyboard("{Home}{Enter}");
+    await waitFor(() =>
+      expect(dialog.getByLabelText("Month")).toHaveTextContent("January"),
+    );
+    await user.type(year, String(new Date().getUTCFullYear() - 27));
+    expect(day).toHaveValue("12");
+    expect(year).toHaveValue(String(new Date().getUTCFullYear() - 27));
+    expect(dialog.getByText("27 years old")).toBeVisible();
+    await user.click(
+      dialog.getByRole("button", { name: "Clear date of birth" }),
+    );
+    expect(day).toHaveValue("");
+    expect(year).toHaveValue("");
+    expect(dialog.getByLabelText("Month")).toHaveTextContent("Month");
   });
 });
 
@@ -213,7 +244,9 @@ describe("the profile button", () => {
 
     expect(dialog.getByLabelText("Nickname")).toHaveValue("Alice");
     expect(dialog.getByRole("radio", { name: "Not specified" })).toBeChecked();
-    expect(dialog.getByLabelText("Age")).toHaveValue("");
+    expect(dialog.getByLabelText("Day")).toHaveValue("");
+    expect(dialog.getByLabelText("Month")).toHaveTextContent("Month");
+    expect(dialog.getByLabelText("Year")).toHaveValue("");
   });
 
   it("says when no age was given", async () => {
@@ -231,12 +264,12 @@ describe("the profile button", () => {
     await user.clear(dialog.getByLabelText("Nickname"));
     await user.type(dialog.getByLabelText("Nickname"), "Alicia");
     await user.click(dialog.getByRole("radio", { name: "Female" }));
-    await user.type(dialog.getByLabelText("Age"), "29");
+    await fillBirthDate(dialog, user, 29);
     await user.click(dialog.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
       expect(server.latest.emittedEvents("profile:update")).toEqual([
-        { nickname: "Alicia", avatar: "female", age: 29 },
+        { nickname: "Alicia", avatar: "female", birthDate: birthDateFor(29) },
       ]),
     );
     expect(
@@ -251,25 +284,32 @@ describe("the profile button", () => {
     expect(dialog.getByRole("button", { name: "Edit profile" })).toBeVisible();
     expect(
       JSON.parse(sessionStorage.getItem("chatter.session")!),
-    ).toMatchObject({ nickname: "Alicia", avatar: "female", age: 29 });
+    ).toMatchObject({
+      nickname: "Alicia",
+      avatar: "female",
+      age: 29,
+      birthDate: birthDateFor(29),
+    });
   });
 
   it("takes the age back when the box is emptied", async () => {
     const { user, server } = await enter();
     const dialog = await openProfile(user);
-    await user.type(dialog.getByLabelText("Age"), "40");
+    await fillBirthDate(dialog, user, 40);
     await user.click(dialog.getByRole("button", { name: "Save" }));
     await user.click(
       await dialog.findByRole("button", { name: "Edit profile" }),
     );
 
-    await user.clear(dialog.getByLabelText("Age"));
+    await user.click(
+      dialog.getByRole("button", { name: "Clear date of birth" }),
+    );
     await user.click(dialog.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
       expect(server.latest.emittedEvents("profile:update")).toEqual([
-        { age: 40 },
-        { age: null },
+        { birthDate: birthDateFor(40) },
+        { birthDate: null },
       ]),
     );
     expect(
@@ -295,17 +335,18 @@ describe("the profile button", () => {
 
     await user.clear(dialog.getByLabelText("Nickname"));
     await user.type(dialog.getByLabelText("Nickname"), "A");
-    await user.type(dialog.getByLabelText("Age"), "5");
-    await user.click(dialog.getByRole("button", { name: "Save" }));
+    await fillBirthDate(dialog, user, 5);
+    fireEvent.submit(
+      dialog.getByRole("button", { name: "Save" }).closest("form")!,
+    );
 
     expect(dialog.getByLabelText("Nickname")).toHaveAttribute(
       "aria-invalid",
       "true",
     );
-    expect(dialog.getByLabelText("Age")).toHaveAttribute(
-      "aria-invalid",
-      "true",
-    );
+    expect(
+      dialog.getByRole("group", { name: "Date of birth" }),
+    ).toHaveAttribute("aria-invalid", "true");
     expect(server.latest.emittedEvents("profile:update")).toEqual([]);
   });
 
@@ -336,7 +377,7 @@ describe("the profile button", () => {
     });
     const dialog = await openProfile(user);
 
-    await user.type(dialog.getByLabelText("Age"), "33");
+    await fillBirthDate(dialog, user, 33);
     await user.click(dialog.getByRole("button", { name: "Save" }));
 
     expect(await dialog.findByRole("alert")).toHaveTextContent(
@@ -348,7 +389,7 @@ describe("the profile button", () => {
     const { user, server } = await enter();
     const dialog = await openProfile(user);
 
-    await user.type(dialog.getByLabelText("Age"), "33");
+    await fillBirthDate(dialog, user, 33);
     await user.click(dialog.getByRole("button", { name: "Cancel" }));
 
     expect(

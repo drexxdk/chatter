@@ -1019,6 +1019,27 @@ describe("the account's own data", () => {
         body: JSON.stringify(body),
       });
 
+    it("stores a private birth date, derives the age and clears both on request", async () => {
+      await start();
+      const token = await signedIn();
+      const birthDate = `${new Date().getUTCFullYear() - 35}-01-01`;
+      const saved = await patch(token, { birthDate, age: 99 });
+      expect(saved.status).toBe(200);
+      expect(await saved.json()).toMatchObject({
+        profile: { birthDate, age: 35 },
+      });
+      expect(accounts.users.get(1)).toMatchObject({ birthDate, age: 35 });
+      const cleared = await patch(token, { birthDate: null });
+      expect(cleared.status).toBe(200);
+      const body = await cleared.json();
+      expect(body).not.toHaveProperty("profile.birthDate");
+      expect(body).not.toHaveProperty("profile.age");
+      expect(accounts.users.get(1)).toMatchObject({
+        birthDate: null,
+        age: null,
+      });
+    });
+
     it("preserves both fields when HTTP profile updates overlap", async () => {
       await start();
       const token = await signedIn();

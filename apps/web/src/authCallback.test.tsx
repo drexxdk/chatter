@@ -1,10 +1,17 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { loadAccount } from "./account";
 import { AuthCallback, parseCallback } from "./components/AuthCallback";
 import { loadSession, saveSession } from "./session";
+const BIRTH_DATE = `${new Date().getUTCFullYear() - 30}-01-01`;
 
 const SESSION = {
   token: "member-token",
@@ -200,7 +207,12 @@ describe("the page the providers send the browser back to", () => {
     it("starts from who they were, and asks for the rest", async () => {
       const navigate = vi.fn();
       const fetchMock = stubServer({ "POST /auth/register": registered });
-      saveSession({ nickname: "Alice Guest", avatar: "female", age: 30 });
+      saveSession({
+        nickname: "Alice Guest",
+        avatar: "female",
+        age: 30,
+        birthDate: BIRTH_DATE,
+      });
       const user = userEvent.setup();
 
       render(
@@ -214,7 +226,9 @@ describe("the page the providers send the browser back to", () => {
         "Alice Guest",
       );
       expect(screen.getByLabelText(/Username/)).toHaveValue("AliceGuest");
-      expect(screen.getByLabelText("Age")).toHaveValue("30");
+      expect(screen.getByLabelText("Day")).toHaveValue("01");
+      expect(screen.getByLabelText("Month")).toHaveTextContent("January");
+      expect(screen.getByLabelText("Year")).toHaveValue(BIRTH_DATE.slice(0, 4));
       expect(screen.getByRole("radio", { name: "Female" })).toBeChecked();
       expect(navigate).not.toHaveBeenCalled();
 
@@ -228,7 +242,7 @@ describe("the page the providers send the browser back to", () => {
         username: "AliceGuest",
         nickname: "Alice Guest",
         avatar: "female",
-        age: 30,
+        birthDate: BIRTH_DATE,
       });
       expect(loadSession()).toEqual({
         nickname: "Alice",
@@ -378,7 +392,14 @@ describe("the page the providers send the browser back to", () => {
       const displayName = screen.getByLabelText(/Display name/);
       await user.clear(displayName);
       await user.type(displayName, "  Alice    Wonder ");
-      await user.type(screen.getByLabelText("Age"), "30");
+      fireEvent.change(screen.getByLabelText("Day"), {
+        target: { value: "01" },
+      });
+      await user.click(screen.getByLabelText("Month"));
+      await user.click(await screen.findByRole("option", { name: "January" }));
+      fireEvent.change(screen.getByLabelText("Year"), {
+        target: { value: BIRTH_DATE.slice(0, 4) },
+      });
       await user.click(screen.getByRole("radio", { name: "Female" }));
       await user.click(screen.getByRole("radio", { name: "Avatar 2" }));
       const chosen = (
@@ -397,7 +418,7 @@ describe("the page the providers send the browser back to", () => {
         nickname: "Alice Wonder",
         picture: chosen,
         avatar: "female",
-        age: 30,
+        birthDate: BIRTH_DATE,
       });
       expect(loadAccount()).toMatchObject({ nickname: "Alice" });
       expect(localStorage.getItem("chatter.terms")).not.toBeNull();

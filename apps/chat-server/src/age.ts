@@ -3,6 +3,8 @@
 export const MIN_AGE = 18;
 export const MAX_AGE = 99;
 
+export { ageFromBirthDate } from "../../../shared/chatProtocol.mjs";
+
 export function parseAge(value: unknown): number | undefined {
   return typeof value === "number" &&
     Number.isInteger(value) &&
