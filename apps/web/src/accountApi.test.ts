@@ -6,8 +6,11 @@ import {
   deleteAccount,
   fetchAccount,
   fetchAuthProviders,
+  fetchAuthConfiguration,
   forgetAuthProviders,
   registerAccount,
+  signInModerator,
+  signInPassword,
 } from "./api";
 
 const SESSION = {
@@ -43,6 +46,58 @@ const callOf = (fetchMock: ReturnType<typeof respondWith>) =>
 afterEach(() => {
   vi.unstubAllGlobals();
   forgetAuthProviders();
+});
+
+describe("human verification API", () => {
+  it("shares public widget configuration with the provider request", async () => {
+    const request = respondWith({
+      providers: ["google"],
+      turnstileSiteKey: "public-key",
+    });
+    expect(await fetchAuthProviders()).toEqual(["google"]);
+    expect(await fetchAuthConfiguration()).toEqual({
+      providers: ["google"],
+      turnstileSiteKey: "public-key",
+    });
+    expect(request).toHaveBeenCalledOnce();
+  });
+
+  it("sends the challenge with password account credentials", async () => {
+    const request = respondWith({ ...SESSION, provider: "password" });
+    await signInPassword("alice", "PrivatePassword123", "single-use-token");
+    expect(JSON.parse(String(callOf(request)[1].body))).toEqual({
+      username: "alice",
+      password: "PrivatePassword123",
+      humanToken: "single-use-token",
+    });
+  });
+
+  it("sends the challenge with moderator credentials", async () => {
+    const request = respondWith({ token: "moderator-token", name: "Ada" });
+    await signInModerator(
+      "ada@example.com",
+      "PrivatePassword123",
+      "single-use-token",
+    );
+    expect(JSON.parse(String(callOf(request)[1].body))).toEqual({
+      email: "ada@example.com",
+      password: "PrivatePassword123",
+      humanToken: "single-use-token",
+    });
+  });
+
+  it.each(["human_check_required", "human_check_failed"])(
+    "preserves the server's %s message for both password forms",
+    async (code) => {
+      respondWith({ error: code }, { status: 400 });
+      await expect(
+        signInPassword("alice", "password", "token"),
+      ).rejects.toMatchObject({ code });
+      await expect(
+        signInModerator("ada@example.com", "password", "token"),
+      ).rejects.toMatchObject({ code });
+    },
+  );
 });
 
 describe("the providers", () => {

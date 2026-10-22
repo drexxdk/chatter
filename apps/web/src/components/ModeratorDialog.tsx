@@ -8,17 +8,20 @@ import { Field } from "./Field";
 import { Modal } from "./Modal";
 import { AccountOptions } from "./AccountOptions";
 import { useTabText } from "../tabDraft";
+import { HumanCheck } from "./HumanCheck";
 
 interface ModeratorDialogProps {
   returnPath: string;
+  showProviders?: boolean;
   signingIn: boolean;
   error: string | null;
-  onSignIn: (email: string, password: string) => void;
+  onSignIn: (email: string, password: string, humanToken?: string) => void;
   onCancel: () => void;
 }
 
 export function ModeratorDialog({
   returnPath,
+  showProviders = true,
   signingIn,
   error,
   onSignIn,
@@ -28,17 +31,21 @@ export function ModeratorDialog({
   const [email, setEmail] = useTabText("signin:identifier");
   const [password, setPassword] = useState("");
   const [touched, setTouched] = useState(false);
+  const [humanToken, setHumanToken] = useState<string | null>(null);
 
   function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
     setTouched(true);
 
-    if (email && password) onSignIn(email.trim(), password);
+    if (!signingIn && email && password && humanToken !== null)
+      onSignIn(email.trim(), password, humanToken || undefined);
   }
 
   return (
     <Modal onClose={onCancel} title={t("nickname.signIn")} closable>
-      <AccountOptions returnPath={returnPath} divider={t("account.or")} />
+      {showProviders && (
+        <AccountOptions returnPath={returnPath} divider={t("account.or")} />
+      )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-3">
           <Field
@@ -66,13 +73,18 @@ export function ModeratorDialog({
           />
         </div>
 
+        <HumanCheck
+          action="password_login"
+          onToken={setHumanToken}
+          busy={signingIn}
+        />
         <ErrorAlert code={error} />
 
         <Button
           type="submit"
           variant="primary"
           icon={LogIn}
-          disabled={signingIn}
+          disabled={signingIn || humanToken === null}
           className="w-full"
         >
           {signingIn ? t("nickname.signingIn") : t("nickname.signIn")}

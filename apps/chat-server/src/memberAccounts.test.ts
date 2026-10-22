@@ -36,6 +36,8 @@ const accounts = vi.hoisted(() => ({
 const getModeratorNames = vi.hoisted(() => vi.fn());
 const beforeCreateUser = vi.hoisted(() => vi.fn<() => Promise<void>>());
 const beforeUpdateUser = vi.hoisted(() => vi.fn<() => Promise<void>>());
+const verifyHuman = vi.hoisted(() => vi.fn());
+vi.mock("./turnstile.js", () => ({ verifyHuman }));
 
 vi.mock("./env.js", () => ({ env: testEnv }));
 vi.mock("./redis.js", () => ({
@@ -251,6 +253,7 @@ async function signInAs(who: string, returnPath = "/rooms/general") {
 }
 
 beforeEach(() => {
+  verifyHuman.mockReset().mockResolvedValue(undefined);
   store.clear();
   accounts.users.clear();
   accounts.names.clear();
@@ -277,6 +280,37 @@ afterEach(async () => {
 });
 
 describe("password accounts", () => {
+  it.each([
+    ["human_check_required", 400],
+    ["human_check_failed", 400],
+    ["unavailable", 503],
+  ])(
+    "requires human verification before password sign-in: %s",
+    async (error, status) => {
+      await start();
+      verifyHuman.mockResolvedValue(error);
+      const response = await post("/auth/password/login", {
+        username: "alice",
+        password: "PrivatePassword123",
+        humanToken: "token",
+      });
+      expect(response.status).toBe(status);
+      expect(await response.json()).toEqual({ error });
+      expect(verifyHuman).toHaveBeenCalledWith(
+        "token",
+        "password_login",
+        expect.any(String),
+      );
+    },
+  );
+
+  it("does not require a challenge to start provider sign-in", async () => {
+    await start();
+    verifyHuman.mockResolvedValue("human_check_required");
+    expect((await get("/auth/dev/start")).status).toBe(302);
+    expect(verifyHuman).not.toHaveBeenCalled();
+  });
+
   const password = "A long private password 1";
   const profile = {
     nickname: "Alice Guest",

@@ -102,6 +102,62 @@ afterEach(() => {
 });
 
 describe("signing in from the lobby", () => {
+  it.each([true, false])(
+    "offers local account sign-in from joining with providers enabled: %s",
+    async (enabled) => {
+      stubBackend({
+        providers: enabled ? ["google"] : [],
+        login: () => ({ body: { ...accountSession(), provider: "password" } }),
+      });
+      const { user, server } = setup();
+      await user.click(
+        await screen.findByRole("button", { name: "Join General" }),
+      );
+      const join = within(
+        await screen.findByRole("dialog", { name: "Join the chat" }),
+      );
+      await user.type(join.getByLabelText("Nickname"), "Guest Draft");
+      expect(
+        join.getByRole("button", { name: "Continue with Local" }),
+      ).toHaveAttribute("title", "Local");
+      await user.click(
+        join.getByRole("button", { name: "Continue with Local" }),
+      );
+      let login = within(
+        await screen.findByRole("dialog", { name: "Sign in" }),
+      );
+      expect(
+        screen.queryByRole("dialog", { name: "Join the chat" }),
+      ).toBeNull();
+      expect(login.getByLabelText("Username or email")).toBeVisible();
+      expect(login.queryByRole("link", { name: /Continue with/ })).toBeNull();
+      expect(login.queryByText("or", { exact: true })).toBeNull();
+      await user.click(login.getByRole("button", { name: "Close" }));
+      const restored = within(
+        await screen.findByRole("dialog", { name: "Join the chat" }),
+      );
+      expect(restored.getByLabelText("Nickname")).toHaveValue("Guest Draft");
+      await user.click(
+        restored.getByRole("button", { name: "Continue with Local" }),
+      );
+      login = within(await screen.findByRole("dialog", { name: "Sign in" }));
+      await user.type(login.getByLabelText("Username or email"), "alice_w");
+      await user.type(login.getByLabelText("Password"), "PrivatePassword123");
+      await user.click(
+        login.getByRole("button", { name: "Sign in", exact: true }),
+      );
+      await screen.findByRole("log", { name: "General" });
+      expect(server.latest.emittedEvents("room:join")).toContainEqual({
+        slug: "general",
+      });
+      expect(loadAccount()).toMatchObject({
+        nickname: "Alice",
+        provider: "password",
+      });
+      expect(screen.queryByRole("dialog")).toBeNull();
+    },
+  );
+
   it("offers password and provider claiming together beside profile editing", async () => {
     stubBackend({ providers: ["google"] });
     const { user } = setup();

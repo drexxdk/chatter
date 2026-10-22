@@ -457,6 +457,7 @@
     "intro": "Connect an account to keep your name, avatar and age, and to have the name to yourself.",
     "orContinue": "Or continue with an account:",
     "continueWith": "Continue with {provider}",
+    "local": "Local",
     "signOut": "Sign out",
     "delete": "Delete my account",
     "deleteWarning": "This deletes your account and frees your nickname. What you have written in a room stays there until it expires. It cannot be undone.",
@@ -473,6 +474,10 @@
       "submit": "Create account",
       "submitting": "Creating the account…"
     }
+  },
+  "humanCheck": {
+    "label": "Human verification",
+    "retry": "Retry verification"
   },
   "errors": {
     "invalid_password": "Use 8-128 characters with uppercase, lowercase and a number.",
@@ -506,6 +511,9 @@
     "unknown_provider": "That way of signing in is not available.",
     "invalid_ticket": "The sign-in has expired. Start again.",
     "invalid_credentials": "Wrong username, email or password.",
+    "human_check_required": "Complete the human verification to continue.",
+    "human_check_failed": "Human verification expired or failed. Please try again.",
+    "human_check_unavailable": "Human verification could not load. Please try again.",
     "not_a_moderator": "This account cannot moderate the chat.",
     "no_display_name": "This account has no display name yet. Ask an administrator to set one.",
     "moderator_login_disabled": "Moderator sign-in is not available right now.",

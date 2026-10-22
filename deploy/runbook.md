@@ -64,6 +64,12 @@ everybody; a moderator's report hides it at once. Each reported message is kept 
 - Where reports go to is the contact address in the terms (see "Terms and privacy" below): answer it, and delete a report from the
   admin panel earlier than the retention period when somebody asks for it.
 
+## Human verification
+
+Create a Cloudflare Turnstile **Managed** widget with the web client's hostname, then set both `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in `deploy/chat-server.env` and recreate the chat-server. Check `/auth/providers` for the public `turnstileSiteKey`; never expose the secret or put it in a web build variable. No web rebuild is needed for key changes. Both blank means disabled; one missing is a startup error. Public test keys are refused in production.
+
+New guest joins and username/password or moderator email/password sign-in require verification. Provider sign-in and valid guest resumes are exempt. Cloudflare outages fail closed, and existing password rate limits remain in effect. Deploy the updated web CSP with the feature, and update the published privacy policy to cover Cloudflare Turnstile. See the chat-server README for request fields, error codes and local test keys.
+
 ## Accounts (Google, Facebook, Discord)
 
 Guests can make an account by connecting one of the three; how it works is in the chat-server README, "Accounts". Each

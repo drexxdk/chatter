@@ -48,6 +48,15 @@ export default defineConfig({
         // The stand-in provider, so the sign-in with an account can be tried without Google, Facebook or Discord.
         DEV_OAUTH: "true",
         PUBLIC_API_URL: CHAT_SERVER_URL,
+        TURNSTILE_SITE_KEY:
+          process.env.E2E_TURNSTILE === "true"
+            ? "1x00000000000000000000AA"
+            : "",
+        TURNSTILE_SECRET_KEY:
+          process.env.E2E_TURNSTILE === "true"
+            ? "1x0000000000000000000000000000000AA"
+            : "",
+        TURNSTILE_TEST_MODE: "false",
       },
     },
     {

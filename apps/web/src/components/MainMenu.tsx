@@ -233,7 +233,7 @@ export function MainMenu({
                     type="button"
                     aria-checked={language.code === current}
                     onClick={() => setLanguage(language.code)}
-                    className={`${MENU_ITEM} flex-col gap-1 px-1 py-2 text-xs ${language.code === current ? "bg-neutral-800 ring-1 ring-indigo-400" : ""}`}
+                    className={`${MENU_ITEM} flex-col gap-1 px-1 py-2 text-xs ${language.code === current ? "bg-neutral-800" : ""}`}
                   >
                     <Flag code={language.code} />
                     {language.label}

@@ -10,6 +10,82 @@ const REQUIRED = {
 const parse = (extra: Record<string, string | undefined> = {}) =>
   parseEnv({ ...REQUIRED, ...extra });
 
+describe("Turnstile settings", () => {
+  it("skips local verification only when explicitly enabled, without changing the source settings", () => {
+    const source = {
+      TURNSTILE_SITE_KEY: "real-site-key",
+      TURNSTILE_SECRET_KEY: "real-secret-key",
+      TURNSTILE_TEST_MODE: "true",
+    };
+    const result = parse(source);
+    expect(result.TURNSTILE_SITE_KEY).toBeUndefined();
+    expect(result.TURNSTILE_SECRET_KEY).toBeUndefined();
+    expect(source.TURNSTILE_SITE_KEY).toBe("real-site-key");
+    expect(source.TURNSTILE_SECRET_KEY).toBe("real-secret-key");
+  });
+  it.each([undefined, "false", ""])(
+    "preserves real keys when test mode is %s",
+    (mode) => {
+      const result = parse({
+        TURNSTILE_SITE_KEY: "real-site-key",
+        TURNSTILE_SECRET_KEY: "real-secret-key",
+        TURNSTILE_TEST_MODE: mode,
+      });
+      expect(result.TURNSTILE_SITE_KEY).toBe("real-site-key");
+      expect(result.TURNSTILE_SECRET_KEY).toBe("real-secret-key");
+    },
+  );
+  it("can use local test mode without real keys", () => {
+    expect(
+      parse({ TURNSTILE_TEST_MODE: "true" }).TURNSTILE_SITE_KEY,
+    ).toBeUndefined();
+  });
+  it("refuses test mode in production even with valid real keys", () => {
+    expect(() =>
+      parse({
+        NODE_ENV: "production",
+        TURNSTILE_TEST_MODE: "true",
+        TURNSTILE_SITE_KEY: "real-site-key",
+        TURNSTILE_SECRET_KEY: "real-secret-key",
+      }),
+    ).toThrow("TURNSTILE_TEST_MODE: must not be true in production");
+  });
+  it("refuses invalid test-mode values", () => {
+    expect(() => parse({ TURNSTILE_TEST_MODE: "yes" })).toThrow(
+      'must be "true" or "false"',
+    );
+  });
+  it.each(["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"])(
+    "requires the matching key for %s",
+    (key) => {
+      expect(() => parse({ [key]: "configured-key" })).toThrow(
+        /is required together with TURNSTILE_/,
+      );
+    },
+  );
+  it("does not mistake Turnstile for a sign-in provider", () => {
+    expect(() =>
+      parse({
+        TURNSTILE_SITE_KEY: "public-key",
+        TURNSTILE_SECRET_KEY: "private-key",
+      }),
+    ).not.toThrow();
+  });
+  it.each(["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"])(
+    "rejects test keys in production: %s",
+    (key) => {
+      expect(() =>
+        parse({
+          NODE_ENV: "production",
+          TURNSTILE_SITE_KEY: "public-key",
+          TURNSTILE_SECRET_KEY: "private-key",
+          [key]: "1x00000000000000000000AA",
+        }),
+      ).toThrow("must not use a Turnstile test key in production");
+    },
+  );
+});
+
 describe("parseEnv defaults", () => {
   it("fills in every optional setting", () => {
     expect(parse()).toEqual({
@@ -31,6 +107,7 @@ describe("parseEnv defaults", () => {
       MAX_CONNECTIONS_PER_IP: undefined,
       TRUST_PROXY_HOPS: 0,
       DEV_OAUTH: false,
+      TURNSTILE_TEST_MODE: false,
     });
   });
 

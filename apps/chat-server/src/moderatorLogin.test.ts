@@ -11,6 +11,8 @@ const { loginAccount, rememberModerator } = vi.hoisted(() => ({
 vi.mock("./rooms.js", () => ({ getCachedPublicRooms: vi.fn() }));
 vi.mock("./payloadClient.js", () => ({ loginAccount }));
 vi.mock("./names.js", () => ({ rememberModerator }));
+const verifyHuman = vi.hoisted(() => vi.fn());
+vi.mock("./turnstile.js", () => ({ verifyHuman }));
 
 import { createApp } from "./app.js";
 import { verifyToken } from "./tokens.js";
@@ -42,6 +44,7 @@ const credentials = { email: "ada@example.com", password: "correct horse" };
 const account = { id: 7, role: "moderator", displayName: "Ada Mod" };
 
 beforeEach(() => {
+  verifyHuman.mockReset().mockResolvedValue(undefined);
   loginAccount.mockReset().mockResolvedValue(account);
   rememberModerator.mockReset().mockResolvedValue(undefined);
 });
@@ -59,6 +62,39 @@ afterEach(async () => {
 });
 
 describe("POST /moderator/login", () => {
+  it.each([
+    ["human_check_required", 400],
+    ["human_check_failed", 400],
+    ["unavailable", 503],
+  ])("refuses %s before checking credentials", async (error, status) => {
+    verifyHuman.mockResolvedValue(error);
+    const login = await start();
+    const response = await login({
+      ...credentials,
+      humanToken: "challenge-token",
+    });
+    expect(response.status).toBe(status);
+    expect(await response.json()).toEqual({ error });
+    expect(loginAccount).not.toHaveBeenCalled();
+  });
+
+  it("verifies a password challenge using only the trusted client IP", async () => {
+    const login = await start({ trustedProxyHops: 0 });
+    expect(
+      (
+        await login(
+          { ...credentials, humanToken: "challenge-token" },
+          { headers: { "X-Forwarded-For": "203.0.113.9" } },
+        )
+      ).status,
+    ).toBe(200);
+    expect(verifyHuman).toHaveBeenCalledWith(
+      "challenge-token",
+      "password_login",
+      expect.not.stringContaining("203.0.113.9"),
+    );
+  });
+
   it("signs a moderator in with a token for the account's chat name", async () => {
     const login = await start();
     const res = await login(credentials);

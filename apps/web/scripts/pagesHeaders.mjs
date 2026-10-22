@@ -15,11 +15,11 @@ export function chatServerSources(chatServerUrl) {
 export function contentSecurityPolicy(chatServerUrl) {
   return [
     "default-src 'none'",
-    "script-src 'self'",
+    "script-src 'self' https://challenges.cloudflare.com",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https://*.giphy.com https://i.ytimg.com",
     "media-src https://*.giphy.com",
-    "frame-src https://www.youtube-nocookie.com",
+    "frame-src https://www.youtube-nocookie.com https://challenges.cloudflare.com",
     `connect-src 'self' https://api.giphy.com ${chatServerSources(chatServerUrl)}`,
     "font-src 'self'",
     "manifest-src 'self'",

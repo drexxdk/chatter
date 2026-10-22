@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { LogIn } from "lucide-react";
 
 import { authStartUrl, fetchAuthProviders } from "../api";
-import { ButtonLink } from "./Button";
+import { Button, ButtonLink } from "./Button";
 import { providerIcon } from "./ProviderIcons";
 
 // The names are the services' own, written the same in every language.
@@ -56,34 +57,56 @@ export function AccountOptions({
   intro,
   divider,
   className,
+  onSignIn,
 }: {
   returnPath: string;
   intro?: string;
   // A line with this word between the buttons and whatever follows, shown only with the buttons.
   divider?: string;
   className?: string;
+  onSignIn?: () => void;
 }) {
   const { t } = useTranslation();
   const providers = useAuthProviders();
 
-  if (providers.length === 0) return null;
+  if (providers.length === 0 && !onSignIn) return null;
 
   return (
     <div className={`space-y-2 ${className ?? ""}`}>
       {intro && <p className="text-sm text-neutral-400">{intro}</p>}
-      <div className="flex flex-wrap gap-2">
+      <div className="grid auto-cols-fr grid-flow-col gap-2">
+        {onSignIn && (
+          <Button
+            variant="icon"
+            icon={LogIn}
+            onClick={onSignIn}
+            aria-label={t("account.continueWith", {
+              provider: t("account.local"),
+            })}
+            title={t("account.local")}
+            className="h-14 min-w-0 w-full flex-col gap-1! bg-neutral-800 px-0 hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-indigo-400 [&>svg]:size-5"
+          >
+            <span className="text-center text-xs leading-4 whitespace-nowrap">
+              {t("account.local")}
+            </span>
+          </Button>
+        )}
         {providers.map((provider) => (
           <ButtonLink
             key={provider}
+            variant="icon"
             href={authStartUrl(provider, returnPath)}
             icon={providerIcon(provider)}
             // The words are for those who cannot see the logo; the button shows the name.
             aria-label={t("account.continueWith", {
               provider: providerName(provider),
             })}
-            className="text-sm focus-visible:outline-2 focus-visible:outline-indigo-400"
+            title={providerName(provider)}
+            className="h-14 min-w-0 w-full flex-col gap-1! bg-neutral-800 px-0 hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-indigo-400 [&>svg]:size-5"
           >
-            {providerName(provider)}
+            <span className="text-center text-xs leading-4 whitespace-nowrap">
+              {providerName(provider)}
+            </span>
           </ButtonLink>
         ))}
       </div>

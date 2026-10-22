@@ -39,6 +39,7 @@ import {
 } from "./payloadClient.js";
 import { signTicket, verifyTicket } from "./tickets.js";
 import { signToken, verifyToken } from "./tokens.js";
+import { verifyHuman } from "./turnstile.js";
 
 // How long an account stays signed in on a browser; /me hands out a fresh token each time the page opens, so somebody who
 // keeps coming back stays in.
@@ -151,7 +152,12 @@ export function createAccountsRouter(options: {
   }
 
   router.get("/auth/providers", listLimiter, (_req, res) => {
-    res.json({ providers: enabledProviders(secret) });
+    res.json({
+      providers: enabledProviders(secret),
+      ...(env.TURNSTILE_SITE_KEY
+        ? { turnstileSiteKey: env.TURNSTILE_SITE_KEY }
+        : {}),
+    });
   });
 
   router.post(
@@ -160,6 +166,15 @@ export function createAccountsRouter(options: {
     express.json({ limit: "4kb" }),
     async (req, res) => {
       if (!secret) return res.status(503).json({ error: "unavailable" });
+      const humanError = await verifyHuman(
+        req.body?.humanToken,
+        "password_login",
+        req.ip,
+      );
+      if (humanError)
+        return res
+          .status(humanError === "unavailable" ? 503 : 400)
+          .json({ error: humanError });
       try {
         const session = await signInPassword(req.body, secret);
         res.set("Cache-Control", "no-store").json(session);

@@ -77,11 +77,14 @@ const SIGN_IN_ERRORS = new Set([
   "moderator_login_disabled",
   "unavailable",
   "invalid_request",
+  "human_check_required",
+  "human_check_failed",
 ]);
 
 export async function signInModerator(
   email: string,
   password: string,
+  humanToken?: string,
 ): Promise<ModeratorSession> {
   let response: Response;
 
@@ -89,7 +92,11 @@ export async function signInModerator(
     response = await fetch(`${CHAT_SERVER_URL}/moderator/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({
+        email,
+        password,
+        ...(humanToken ? { humanToken } : {}),
+      }),
     });
   } catch {
     throw new SignInError("connection");
@@ -119,33 +126,54 @@ export async function signInModerator(
 // The providers the chat-server has switched on (Google, Facebook, Discord); none when it has none or cannot be reached,
 // since the chat works without them. Every part of the page that offers them asks, so the answer is kept for the page;
 // an answer that did not come is not kept, and the next part asks again.
-let providersRequest: Promise<string[] | undefined> | undefined;
+interface AuthConfiguration {
+  providers: string[];
+  turnstileSiteKey: string | null;
+}
 
-async function loadAuthProviders(): Promise<string[] | undefined> {
+let providersRequest: Promise<AuthConfiguration | undefined> | undefined;
+
+async function loadAuthProviders(): Promise<AuthConfiguration | undefined> {
   try {
     const response = await fetch(`${CHAT_SERVER_URL}/auth/providers`);
 
     if (!response.ok) return undefined;
 
-    const body = (await response.json()) as { providers?: unknown };
+    const body = (await response.json()) as {
+      providers?: unknown;
+      turnstileSiteKey?: unknown;
+    };
 
-    return Array.isArray(body.providers)
+    const providers = Array.isArray(body.providers)
       ? body.providers.filter(
           (provider): provider is string => typeof provider === "string",
         )
-      : undefined;
+      : [];
+    return {
+      providers,
+      turnstileSiteKey:
+        typeof body.turnstileSiteKey === "string" && body.turnstileSiteKey
+          ? body.turnstileSiteKey
+          : null,
+    };
   } catch {
     return undefined;
   }
 }
 
-export async function fetchAuthProviders(): Promise<string[]> {
+export async function fetchAuthConfiguration(): Promise<
+  AuthConfiguration | undefined
+> {
   providersRequest ??= loadAuthProviders();
   const providers = await providersRequest;
 
   if (providers === undefined) providersRequest = undefined;
 
-  return providers ?? [];
+  return providers;
+}
+
+export async function fetchAuthProviders(): Promise<string[]> {
+  return (await fetchAuthConfiguration())?.providers ?? [];
 }
 
 // For tests: forget what the chat-server said, so the next page asks again.
@@ -192,6 +220,8 @@ const ACCOUNT_ERRORS = new Set([
   "password_mismatch",
   "invalid_current_password",
   "password_not_supported",
+  "human_check_required",
+  "human_check_failed",
   "unavailable",
 ]);
 
@@ -296,12 +326,17 @@ export async function changeAccountPassword(
 export async function signInPassword(
   username: string,
   password: string,
+  humanToken?: string,
 ): Promise<AccountSession> {
   return parseAccountSession(
     await accountRequest("/auth/password/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({
+        username,
+        password,
+        ...(humanToken ? { humanToken } : {}),
+      }),
     }),
   );
 }

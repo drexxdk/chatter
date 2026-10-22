@@ -18,6 +18,7 @@
     "@dicebear/styles": "^10.6.0",
     "@floating-ui/react": "^0.27.20",
     "@headlessui/react": "^2.2.10",
+    "@marsidev/react-turnstile": "^1.6.3",
     "@tiptap/core": "^3.31.4",
     "@tiptap/extension-document": "^3.31.4",
     "@tiptap/extension-hard-break": "^3.31.4",

@@ -28,6 +28,7 @@ export type CreateSocket = (
   age?: number,
   picture?: string,
   birthDate?: string,
+  humanToken?: string,
 ) => ChatSocket;
 
 // A moderator or an account presents the token from signing in; a guest presents a nickname and, if they chose one, an
@@ -40,6 +41,7 @@ export const createSocket: CreateSocket = (
   age,
   picture,
   birthDate,
+  humanToken,
 ) =>
   io(CHAT_SERVER_URL, {
     auth: {
@@ -51,6 +53,7 @@ export const createSocket: CreateSocket = (
             ...(picture ? { picture } : {}),
             ...(age ? { age } : {}),
             ...(birthDate ? { birthDate } : {}),
+            ...(humanToken ? { humanToken } : {}),
           }),
       ...(resume
         ? { guestId: resume.guestId, resumeSecret: resume.secret }

@@ -457,6 +457,7 @@
     "intro": "Forbind en konto for at beholde dit navn, din avatar og din alder og for at have navnet for dig selv.",
     "orContinue": "Eller fortsæt med en konto:",
     "continueWith": "Fortsæt med {provider}",
+    "local": "Lokal",
     "signOut": "Log ud",
     "delete": "Slet min konto",
     "deleteWarning": "Det sletter din konto og frigiver dit kaldenavn. Det, du har skrevet i et rum, bliver stående, indtil det udløber. Det kan ikke fortrydes.",
@@ -474,6 +475,7 @@
       "submitting": "Opretter kontoen…"
     }
   },
+  "humanCheck": { "label": "Bekræftelse af menneske", "retry": "Prøv igen" },
   "errors": {
     "invalid_password": "Brug 8-128 tegn med store og små bogstaver og et tal.",
     "invalid_current_password": "Din nuværende adgangskode er forkert.",
@@ -506,6 +508,9 @@
     "unknown_provider": "Den måde at logge ind på findes ikke.",
     "invalid_ticket": "Indlogningen er udløbet. Start forfra.",
     "invalid_credentials": "Forkert brugernavn, e-mail eller adgangskode.",
+    "human_check_required": "Bekræft, at du er et menneske, for at fortsætte.",
+    "human_check_failed": "Bekræftelsen er udløbet eller mislykkedes. Prøv igen.",
+    "human_check_unavailable": "Bekræftelsen kunne ikke indlæses. Prøv igen.",
     "not_a_moderator": "Denne konto kan ikke moderere chatten.",
     "no_display_name": "Denne konto har endnu ikke noget visningsnavn. Bed en administrator om at angive et.",
     "moderator_login_disabled": "Moderatorlogin er ikke tilgængeligt lige nu.",

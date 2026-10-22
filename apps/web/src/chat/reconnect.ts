@@ -32,10 +32,14 @@ export const HANDSHAKE_ERRORS = new Set([
   "banned",
   "unavailable",
   "too_many_connections",
+  "human_check_required",
+  "human_check_failed",
 ]);
 // Rejections that retrying cannot fix. A full per-network limit is not one: the guest's own dropped connection may
 // still be counted for a while.
 export const PERMANENT_ERRORS = new Set([
+  "human_check_required",
+  "human_check_failed",
   "invalid_nickname",
   "reserved_nickname",
   "invalid_token",

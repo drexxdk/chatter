@@ -16,6 +16,9 @@ export default defineConfig({
       ROOM_HISTORY_TTL_SECONDS: "3600",
       DEFAULT_SLOW_MODE_SECONDS: "",
       ROOMS_RATE_LIMIT_PER_MINUTE: "",
+      TURNSTILE_SITE_KEY: "",
+      TURNSTILE_SECRET_KEY: "",
+      TURNSTILE_TEST_MODE: "false",
     },
   },
 });

@@ -298,7 +298,11 @@ export function useChat(
 
   // Resolves with null once the server has accepted the guest, or with the reason it was not.
   const openSocket = useCallback(
-    (nickname: string, onDrop: DropHandler): Promise<string | null> => {
+    (
+      nickname: string,
+      onDrop: DropHandler,
+      humanToken?: string,
+    ): Promise<string | null> => {
       const token = tokenRef.current;
       const { avatar, picture, age, birthDate } = getConnectionProfile();
       const resume = resumeRef.current;
@@ -311,6 +315,7 @@ export function useChat(
         number?,
         string?,
         string?,
+        string?,
       ] = [
         nickname,
         token ?? undefined,
@@ -319,6 +324,7 @@ export function useChat(
         age ?? undefined,
         picture ?? undefined,
         birthDate ?? undefined,
+        humanToken,
       ];
       while (args.length > 1 && args[args.length - 1] === undefined) args.pop();
       const socket = createSocket(...args);
@@ -735,7 +741,11 @@ export function useChat(
       rememberConnectionProfile(nickname, options);
       tokenRef.current = token ?? null;
 
-      const failure = await openSocket(nickname, handleDrop);
+      const failure = await openSocket(
+        nickname,
+        handleDrop,
+        options.humanToken,
+      );
 
       if (failure) {
         setStatus("idle");

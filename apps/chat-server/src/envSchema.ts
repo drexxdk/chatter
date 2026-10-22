@@ -138,6 +138,14 @@ export const envSchema = z
     FACEBOOK_APP_SECRET: setting(z.string().optional()),
     DISCORD_CLIENT_ID: setting(z.string().optional()),
     DISCORD_CLIENT_SECRET: setting(z.string().optional()),
+    TURNSTILE_SITE_KEY: setting(z.string().optional()),
+    TURNSTILE_SECRET_KEY: setting(z.string().optional()),
+    TURNSTILE_TEST_MODE: setting(
+      z
+        .enum(["true", "false"], { error: 'must be "true" or "false"' })
+        .default("false")
+        .transform((value) => value === "true"),
+    ),
     // A stand-in provider for development and tests; refused when NODE_ENV is production.
     DEV_OAUTH: setting(
       z
@@ -149,6 +157,7 @@ export const envSchema = z
   })
   .superRefine((value, ctx) => {
     const pairs = [
+      ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"],
       ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
       ["FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET"],
       ["DISCORD_CLIENT_ID", "DISCORD_CLIENT_SECRET"],
@@ -164,7 +173,8 @@ export const envSchema = z
         });
       }
 
-      if (value[id] && value[secret]) anyProvider = true;
+      if (id !== "TURNSTILE_SITE_KEY" && value[id] && value[secret])
+        anyProvider = true;
     }
 
     if (anyProvider && !value.PUBLIC_API_URL) {
@@ -190,7 +200,37 @@ export const envSchema = z
         message: "must not be true in production",
       });
     }
-  });
+
+    if (value.TURNSTILE_TEST_MODE && value.NODE_ENV === "production") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["TURNSTILE_TEST_MODE"],
+        message: "must not be true in production",
+      });
+    }
+
+    for (const key of ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"] as const) {
+      if (
+        value.NODE_ENV === "production" &&
+        /^[123]x0{10,}/.test(value[key] ?? "")
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          path: [key],
+          message: "must not use a Turnstile test key in production",
+        });
+      }
+    }
+  })
+  .transform((value) =>
+    value.TURNSTILE_TEST_MODE
+      ? {
+          ...value,
+          TURNSTILE_SITE_KEY: undefined,
+          TURNSTILE_SECRET_KEY: undefined,
+        }
+      : value,
+  );
 
 export type Env = z.infer<typeof envSchema>;
 

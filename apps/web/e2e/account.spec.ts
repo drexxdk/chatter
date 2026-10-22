@@ -7,7 +7,7 @@ import {
 } from "@playwright/test";
 
 import { waitForRooms } from "./chatServer";
-import { E2E } from "./constants";
+import { CHAT_SERVER_URL, E2E } from "./constants";
 import { PayloadApi } from "./payload";
 
 const ROOM = {
@@ -65,6 +65,40 @@ async function joinAsGuest(page: Page, name: string) {
   await page.getByRole("button", { name: `Join ${ROOM.name}` }).click();
   await page.getByRole("textbox", { name: "Nickname" }).fill(name);
   await page.getByRole("checkbox", { name: /18 or older/ }).check();
+  if (process.env.E2E_TURNSTILE === "true") {
+    const challenge = page.getByRole("group", {
+      name: "Human verification",
+      exact: true,
+    });
+    for (const width of [1280, 375, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(challenge).toBeVisible();
+      await expect
+        .poll(async () =>
+          challenge.evaluate((frame) => {
+            const box = frame.getBoundingClientRect();
+            const dialog = frame
+              .closest('[role="dialog"]')!
+              .getBoundingClientRect();
+            return (
+              box.width > 0 &&
+              box.height >= 50 &&
+              frame.scrollWidth <= box.width + 1 &&
+              box.left >= dialog.left &&
+              box.right <= dialog.right
+            );
+          }),
+        )
+        .toBe(true);
+      await expect(
+        page.getByRole("button", { name: "Continue", exact: true }),
+      ).toBeEnabled({ timeout: 15000 });
+      await page.screenshot({
+        path: test.info().outputPath(`guest-turnstile-${width}.png`),
+      });
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+  }
   await page.getByRole("button", { name: "Continue" }).click();
 }
 
@@ -176,6 +210,14 @@ test("a guest claims their profile with a password and can sign in again from th
   const chatName = displayName("Pass");
   const handle = username("Pass");
   const password = "A private password for this test 1";
+  if (process.env.E2E_TURNSTILE === "true") {
+    const missing = await page.request.post(
+      `${CHAT_SERVER_URL}/auth/password/login`,
+      { data: { username: handle, password } },
+    );
+    expect(missing.status()).toBe(400);
+    expect(await missing.json()).toEqual({ error: "human_check_required" });
+  }
   const birthDate = `${new Date().getUTCFullYear() - 35}-01-01`;
   const presenceFrames: string[] = [];
   page.on("websocket", (socket) =>
@@ -250,7 +292,13 @@ test("a guest claims their profile with a password and can sign in again from th
     ),
   ).toBe(true);
   await page.reload();
-  await inRoom(page);
+  await expect(
+    page.getByRole("heading", {
+      name: ROOM.name,
+      level: 2,
+      includeHidden: true,
+    }),
+  ).toBeVisible();
   await expect(profile).toBeVisible();
   await profile.getByRole("button", { name: "Edit profile" }).click();
   await expect(day).toHaveValue("01");

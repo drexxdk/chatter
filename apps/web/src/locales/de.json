@@ -457,6 +457,7 @@
     "intro": "Verbinde ein Konto, um Namen, Avatar und Alter zu behalten und den Namen für dich allein zu haben.",
     "orContinue": "Oder mit einem Konto fortfahren:",
     "continueWith": "Weiter mit {provider}",
+    "local": "Lokal",
     "signOut": "Abmelden",
     "delete": "Mein Konto löschen",
     "deleteWarning": "Das löscht dein Konto und gibt deinen Spitznamen frei. Was du in einem Raum geschrieben hast, bleibt dort, bis es abläuft. Das lässt sich nicht rückgängig machen.",
@@ -473,6 +474,10 @@
       "submit": "Konto erstellen",
       "submitting": "Konto wird erstellt…"
     }
+  },
+  "humanCheck": {
+    "label": "Menschliche Verifizierung",
+    "retry": "Erneut versuchen"
   },
   "errors": {
     "invalid_password": "Verwende 8-128 Zeichen mit Großbuchstaben, Kleinbuchstaben und einer Zahl.",
@@ -506,6 +511,9 @@
     "unknown_provider": "Diese Art der Anmeldung gibt es nicht.",
     "invalid_ticket": "Die Anmeldung ist abgelaufen. Fange noch einmal an.",
     "invalid_credentials": "Falscher Benutzername, falsche E-Mail oder falsches Passwort.",
+    "human_check_required": "Bestätige, dass du ein Mensch bist, um fortzufahren.",
+    "human_check_failed": "Die Verifizierung ist abgelaufen oder fehlgeschlagen. Bitte versuche es erneut.",
+    "human_check_unavailable": "Die Verifizierung konnte nicht geladen werden. Bitte versuche es erneut.",
     "not_a_moderator": "Dieses Konto kann den Chat nicht moderieren.",
     "no_display_name": "Dieses Konto hat noch keinen Anzeigenamen. Bitte einen Administrator, einen festzulegen.",
     "moderator_login_disabled": "Die Moderatoren-Anmeldung ist gerade nicht verfügbar.",

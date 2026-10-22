@@ -64,6 +64,8 @@ const {
 }));
 
 const claimGuestAccount = vi.hoisted(() => vi.fn());
+const verifyHuman = vi.hoisted(() => vi.fn());
+vi.mock("./turnstile.js", () => ({ verifyHuman }));
 vi.mock("./passwordAccounts.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./passwordAccounts.js")>()),
   claimGuestAccount,
@@ -294,6 +296,7 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
+  verifyHuman.mockReset().mockResolvedValue(undefined);
   claimGuestAccount.mockReset().mockResolvedValue({ token: "member-token" });
   isBanned.mockReset().mockResolvedValue(false);
   getCachedPublicRooms.mockReset().mockResolvedValue(ROOMS);
@@ -330,6 +333,67 @@ afterEach(async () => {
   clients = [];
   // Otherwise members left over from one test show up in the next test's presence lists.
   await waitForNoSockets();
+});
+
+describe("guest human verification", () => {
+  it.each(["human_check_required", "human_check_failed", "unavailable"])(
+    "blocks direct guest connections on %s",
+    async (error) => {
+      verifyHuman.mockResolvedValue(error);
+      expect((await connect({ nickname: "Alice" })).error).toBe(error);
+      expect(rememberResume).not.toHaveBeenCalled();
+    },
+  );
+
+  it("checks a fresh guest token with the guest action and trusted address", async () => {
+    expect(
+      (await connect({ nickname: "Alice", humanToken: "fresh-token" })).socket,
+    ).toBeDefined();
+    expect(verifyHuman).toHaveBeenCalledWith(
+      "fresh-token",
+      "guest_join",
+      expect.any(String),
+    );
+  });
+
+  it("does not accept a forged resume secret instead of a challenge", async () => {
+    verifyHuman.mockResolvedValue("human_check_required");
+    expect(
+      (
+        await connect({
+          nickname: "Alice",
+          guestId: "previous-id",
+          resumeSecret: "forged",
+        })
+      ).error,
+    ).toBe("human_check_required");
+    expect(verifyResume).toHaveBeenCalledWith("previous-id", "forged");
+  });
+
+  it("allows a verified resume without consuming another challenge", async () => {
+    verifyResume.mockResolvedValue(true);
+    verifyHuman.mockResolvedValue("human_check_required");
+    const result = await connect({
+      nickname: "Alice",
+      guestId: "previous-id",
+      resumeSecret: "server-issued-secret",
+    });
+    expect(result.socket).toBeDefined();
+    expect(await result.session).toMatchObject({ guestId: "previous-id" });
+    expect(verifyHuman).not.toHaveBeenCalled();
+  });
+
+  it("does not challenge an authenticated account again", async () => {
+    const secret = "a-secret-that-is-long-enough-for-tests";
+    const { port } = await startServer({ authTokenSecret: secret });
+    verifyHuman.mockResolvedValue("human_check_required");
+    const token = signToken(
+      { sub: 7, name: "Ada Mod", role: "moderator" },
+      { secret, ttlMs: 60_000 },
+    );
+    expect((await connect({ token }, port)).socket).toBeDefined();
+    expect(verifyHuman).not.toHaveBeenCalled();
+  });
 });
 
 describe("guest account claiming", () => {

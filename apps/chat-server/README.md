@@ -115,6 +115,18 @@ A guest can make an account by connecting Google, Facebook or Discord, and then 
 
 Accounts are never linked by email, since an email at a provider is not always verified; it is kept (with whether the provider vouched for it) for contacting people and for a later sign-up without a provider.
 
+## Human verification
+
+For VS Code's integrated browser or other local previews, set `TURNSTILE_TEST_MODE=true` in the local `.env`. This skips the widget and server verification locally without replacing your saved real keys. It does not verify humans, is refused when `NODE_ENV=production`, and is explicitly disabled in automated test configuration. Set it back to `false`, restart the chat-server, and refresh the page to test your real widget in a regular browser. Embedded browsers can fail even test-key challenge iframes; do not bypass verification based on browser detection. Never expose a server running this local test mode publicly.
+
+Configure `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` together to enable Cloudflare Turnstile for new guest connections and password sign-ins, including moderator email/password sign-in. Create a **Managed** widget in the Cloudflare dashboard and allow the web client's hostname. Both settings belong to the chat-server; no web build setting or rebuild is needed. Leaving both unset disables the check; supplying just one stops startup.
+
+`GET /auth/providers` includes the public `turnstileSiteKey` when configured. The secret is never returned. The browser supplies `humanToken` in new guest socket auth or the JSON body of `POST /auth/password/login` and `POST /moderator/login`. The server validates the single-use token through Cloudflare Siteverify, checks the action (`guest_join` or `password_login`) and the hostname from `WEB_ORIGIN`, and uses only the trusted client IP. Missing/rejected/expired tokens produce `human_check_required` or `human_check_failed`; network failures fail closed with `unavailable`. Existing password rate limits still apply.
+
+Provider OAuth sign-in is unchanged. A guest with a valid server-issued resume secret can reconnect or reload without another challenge; an invented or expired resume secret cannot bypass verification. Challenge tokens are held only in component/request memory, never saved in browser storage or URLs, and are refreshed after failed attempts or expiry. nginx and Cloudflare Pages CSPs allow Cloudflare's script and frame host. Update the published privacy policy to cover Cloudflare Turnstile before enabling it in production.
+
+For local development only, use Cloudflare's public always-pass pair: site key `1x00000000000000000000AA`, secret key `1x0000000000000000000000000000000AA`. These do not verify humans. Cloudflare's dummy response does not carry the real action/hostname, so that metadata exception is limited to the exact public test secret outside production. Production refuses all public test keys. Automated security tests mock Siteverify and cover rejection, replay, metadata mismatches, outages, credential checks and guest resume behavior. Unit and ordinary browser tests explicitly disable local Turnstile settings. Set `E2E_TURNSTILE=true` when running the guest/password account browser test to exercise the real widget and Siteverify with public test keys, including 1280/375/320px screenshots.
+
 ## Announcements
 
 A moderator can tell everyone who is connected something, whether or not they are in a room.

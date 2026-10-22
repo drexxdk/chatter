@@ -21,6 +21,7 @@ import {
   type Announcement,
 } from "./announcements.js";
 import { env } from "./env.js";
+import { verifyHuman } from "./turnstile.js";
 import {
   getHistory,
   markAway,
@@ -688,6 +689,15 @@ export function createSocketServer(
                 (await verifyResume(claimedId, claimedSecret))
               ? claimedId
               : undefined;
+
+      if (role === "guest" && !takenOver) {
+        const humanError = await verifyHuman(
+          auth.humanToken,
+          "guest_join",
+          getClientIp(socket.handshake, trustedProxyHops),
+        );
+        if (humanError) return next(new Error(humanError));
+      }
 
       if (takenOver) {
         // The old connection may not have been noticed gone yet; the guest is only in the room once.

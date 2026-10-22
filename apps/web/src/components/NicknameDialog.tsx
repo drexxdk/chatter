@@ -13,14 +13,21 @@ import { Field } from "./Field";
 import { Modal } from "./Modal";
 import { TermsCheckbox } from "./TermsCheckbox";
 import { useTabText } from "../tabDraft";
+import { HumanCheck } from "./HumanCheck";
 
 interface NicknameDialogProps {
   // Whether it is shown; it is left in the page while it fades out.
   open: boolean;
   connecting: boolean;
   error: string | null;
-  onSubmit: (nickname: string, avatar: Avatar, picture: string) => void;
+  onSubmit: (
+    nickname: string,
+    avatar: Avatar,
+    picture: string,
+    humanToken?: string,
+  ) => void;
   onCancel: () => void;
+  onSignIn?: () => void;
   // The version of the terms the chat-server names now; null while it is not known.
   termsVersion: string | null;
   // Where the browser comes back to after signing in with a provider: the room that was being joined.
@@ -35,6 +42,7 @@ export function NicknameDialog({
   error,
   onSubmit,
   onCancel,
+  onSignIn,
   termsVersion,
   returnPath,
 }: NicknameDialogProps) {
@@ -43,6 +51,7 @@ export function NicknameDialog({
   // A guest gets a picture at random, and the plain avatar; both can be changed in the profile once they are in.
   const [picture] = useState(() => randomPicture());
   const [touched, setTouched] = useState(false);
+  const [humanToken, setHumanToken] = useState<string | null>(null);
   // The box is ticked for a browser that has accepted this version of the terms; null until the guest touches it.
   const rememberedTerms = loadTermsAccepted(termsVersion);
   const [termsChoice, setTermsChoice] = useState<boolean | null>(null);
@@ -54,9 +63,9 @@ export function NicknameDialog({
     event.preventDefault();
     setTouched(true);
 
-    if (nickname && termsAccepted) {
+    if (!connecting && nickname && termsAccepted && humanToken !== null) {
       if (!rememberedTerms) saveTermsAccepted(termsVersion);
-      onSubmit(nickname, PLAIN_AVATAR, picture);
+      onSubmit(nickname, PLAIN_AVATAR, picture, humanToken || undefined);
     }
   }
 
@@ -67,6 +76,7 @@ export function NicknameDialog({
           returnPath={returnPath}
           intro={t("nickname.withAccount")}
           divider={t("nickname.orGuest")}
+          onSignIn={onSignIn}
         />
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -82,6 +92,12 @@ export function NicknameDialog({
             onChange={(event) => setValue(event.target.value)}
             invalid={touched && !nickname}
           />
+          <HumanCheck
+            action="guest_join"
+            onToken={setHumanToken}
+            busy={connecting}
+            active={open}
+          />
           <TermsCheckbox
             checked={termsAccepted}
             onChange={setTermsChoice}
@@ -94,7 +110,7 @@ export function NicknameDialog({
             type="submit"
             variant="primary"
             icon={ArrowRight}
-            disabled={connecting}
+            disabled={connecting || humanToken === null}
             className="w-full"
           >
             {connecting ? t("nickname.connecting") : t("nickname.submit")}

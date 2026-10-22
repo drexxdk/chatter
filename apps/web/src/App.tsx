@@ -144,6 +144,7 @@ export function App({
   const startedInRoom = useRef(slugFromPath(location.pathname) !== null);
   // The room last tried, and whether the numbers have shown it full since it turned out to be.
   const attemptedRoom = useRef<string | null>(null);
+  const signInRoom = useRef<Room | null>(null);
   const sawFull = useRef(false);
   // The room the dialog asks for a nickname for stays for it to fade out.
   const shownRoom = useKept(pendingRoom);
@@ -480,6 +481,7 @@ export function App({
     nickname: string,
     avatar: Avatar,
     picture: string,
+    humanToken?: string,
   ) {
     if (!pendingRoom) return;
 
@@ -491,7 +493,10 @@ export function App({
     // The plain avatar is what the server gives anyone who sends none, so it is not sent or kept.
     const chosen = avatar === PLAIN_AVATAR ? undefined : avatar;
 
-    if (!(await chat.connect(nickname, { avatar: chosen, picture }))) return;
+    if (
+      !(await chat.connect(nickname, { avatar: chosen, picture, humanToken }))
+    )
+      return;
 
     saveSession({
       nickname,
@@ -508,11 +513,14 @@ export function App({
     if (joined.ok || joined.error !== NAME_TAKEN) setPendingRoom(null);
   }
 
-  async function acceptMember(session: AccountSession) {
+  async function acceptMember(
+    session: AccountSession,
+    targetRoomSlug?: string,
+  ) {
     const member = accountOf(session);
     saveAccount(member);
     setAccount(member);
-    const slug = chat.roomSlug;
+    const slug = targetRoomSlug ?? chat.roomSlug;
     const direct = loadDirect();
     if (
       !(await chat.connect(member.nickname, {
@@ -539,19 +547,27 @@ export function App({
     setProfileOpen(true);
   }
 
-  async function handleSignIn(email: string, password: string) {
+  async function handleSignIn(
+    email: string,
+    password: string,
+    humanToken?: string,
+  ) {
     setSignInError(null);
     chat.clearError();
     setSigningIn(true);
 
     try {
       if (!email.includes("@")) {
-        await acceptMember(await signInPassword(email, password));
+        await acceptMember(
+          await signInPassword(email, password, humanToken),
+          signInRoom.current?.slug,
+        );
+        signInRoom.current = null;
         setModeratorOpen(false);
         return;
       }
-      const slug = chat.roomSlug;
-      const moderator = await signInModerator(email, password);
+      const slug = signInRoom.current?.slug ?? chat.roomSlug;
+      const moderator = await signInModerator(email, password, humanToken);
 
       if (!(await chat.connect(moderator.name, { token: moderator.token })))
         return;
@@ -564,6 +580,7 @@ export function App({
       });
       saveModerator({ nickname: moderator.name, token: moderator.token });
       if (slug) await chat.joinRoom(slug);
+      signInRoom.current = null;
       setModeratorOpen(false);
     } catch (cause) {
       setSignInError(
@@ -1170,15 +1187,21 @@ export function App({
         />
       )}
 
-      {shownRoom && (
+      {shownRoom && !moderatorOpen && (
         <NicknameDialog
           open={pendingRoom !== null}
           connecting={chat.status === "connecting"}
           error={chat.error}
-          onSubmit={(nickname, avatar, picture) =>
-            void handleNickname(nickname, avatar, picture)
+          onSubmit={(nickname, avatar, picture, humanToken) =>
+            void handleNickname(nickname, avatar, picture, humanToken)
           }
           onCancel={handleCancel}
+          onSignIn={() => {
+            signInRoom.current = pendingRoom;
+            clearDialogErrors();
+            setPendingRoom(null);
+            setModeratorOpen(true);
+          }}
           termsVersion={termsVersion}
           returnPath={roomPath(shownRoom.slug)}
         />
@@ -1211,12 +1234,19 @@ export function App({
       {settled && moderatorOpen && (
         <ModeratorDialog
           returnPath={location.pathname}
+          showProviders={signInRoom.current === null}
           signingIn={signingIn}
           error={signInError ?? chat.error}
-          onSignIn={(email, password) => void handleSignIn(email, password)}
+          onSignIn={(email, password, humanToken) =>
+            void handleSignIn(email, password, humanToken)
+          }
           onCancel={() => {
             setModeratorOpen(false);
             clearDialogErrors();
+            if (signInRoom.current) {
+              setPendingRoom(signInRoom.current);
+              signInRoom.current = null;
+            }
           }}
         />
       )}

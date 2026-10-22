@@ -70,6 +70,7 @@ export interface CrowdState {
 }
 
 export interface ConnectOptions {
+  humanToken?: string;
   // A moderator's signed token, in place of a nickname.
   token?: string;
   avatar?: Avatar;

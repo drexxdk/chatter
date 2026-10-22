@@ -14,6 +14,7 @@ import { chatRoleFor, isAdminRole } from "./roles.js";
 import { getCachedPublicRooms } from "./rooms.js";
 import { signToken } from "./tokens.js";
 import { log } from "./log.js";
+import { verifyHuman } from "./turnstile.js";
 
 // Counted per process, like the per-IP connection cap.
 const ROOMS_RATE_LIMIT_WINDOW_MS = 60_000;
@@ -115,7 +116,7 @@ export function createApp(
   app.post(
     "/moderator/login",
     limiter(options.loginRateLimit ?? LOGIN_RATE_LIMIT),
-    express.json({ limit: "2kb" }),
+    express.json({ limit: "4kb" }),
     async (req, res) => {
       if (!authTokenSecret) {
         return res.status(503).json({ error: "moderator_login_disabled" });
@@ -126,6 +127,16 @@ export function createApp(
       if (!body.success) {
         return res.status(400).json({ error: "invalid_request" });
       }
+
+      const humanError = await verifyHuman(
+        req.body?.humanToken,
+        "password_login",
+        req.ip,
+      );
+      if (humanError)
+        return res
+          .status(humanError === "unavailable" ? 503 : 400)
+          .json({ error: humanError });
 
       let account;
 
