@@ -120,17 +120,19 @@ export function RoomSearch({
           elements.reference.getBoundingClientRect().bottom;
         const headerBottom = field.current
           ?.closest("header")
-          ?.getBoundingClientRect().bottom;
-        return (headerBottom ?? referenceBottom) - referenceBottom + 6;
+          ?.parentElement?.getBoundingClientRect().bottom;
+        return (headerBottom ?? referenceBottom) - referenceBottom + 8;
       }),
       shift({ padding: 16 }),
       size({
         padding: 16,
         apply({ availableHeight, elements }) {
           const headerBottom =
-            field.current?.closest("header")?.getBoundingClientRect().bottom ??
+            field.current
+              ?.closest("header")
+              ?.parentElement?.getBoundingClientRect().bottom ??
             elements.reference.getBoundingClientRect().bottom;
-          elements.floating.style.maxHeight = `max(0px, min(${availableHeight}px, calc(var(--composer-top, 100dvh) - ${headerBottom}px - 0.875rem)))`;
+          elements.floating.style.maxHeight = `max(0px, min(${availableHeight}px, calc(var(--composer-top, 100dvh) - ${headerBottom}px - 1rem)))`;
         },
       }),
     ],
