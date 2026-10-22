@@ -54,9 +54,31 @@ describe("private-message notification sounds", () => {
     expect(await openSettings(user)).not.toBeChecked();
     expect(screen.getByRole("slider", { name: "Volume" })).toBeDisabled();
     expect(screen.getByRole("slider", { name: "Volume" })).toHaveValue("50");
-    expect(
-      screen.getByRole("button", { name: "Preview sound" }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Preview sound" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Preview sound" }));
+    expect(notificationSound.playNotificationSound).toHaveBeenCalledWith({
+      preview: true,
+    });
+    expect(loadNotificationSound().enabled).toBe(false);
+  });
+
+  it("toggles sound directly in the menu without opening settings", async () => {
+    const { user } = await enter();
+    await user.click(
+      screen.getByRole("button", { name: "Account menu: Alice" }),
+    );
+    const toggle = await screen.findByRole("menuitem", {
+      name: "Private message sounds",
+      exact: true,
+    });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    expect(loadNotificationSound().enabled).toBe(true);
+    expect(screen.getByRole("menu")).toBeVisible();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await user.click(toggle);
+    expect(loadNotificationSound().enabled).toBe(false);
   });
 
   it("enables sound, remembers volume and offers a preview", async () => {
@@ -75,9 +97,7 @@ describe("private-message notification sounds", () => {
     fireEvent.change(screen.getByRole("slider", { name: "Volume" }), {
       target: { value: "0" },
     });
-    expect(
-      screen.getByRole("button", { name: "Preview sound" }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Preview sound" })).toBeEnabled();
     await user.click(
       screen.getByRole("checkbox", { name: "Private message sounds" }),
     );

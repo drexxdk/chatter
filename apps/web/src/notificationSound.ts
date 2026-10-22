@@ -3,8 +3,12 @@ import { loadNotificationSound } from "./preferences";
 let context: AudioContext | null = null;
 
 export async function prepareNotificationSound(): Promise<void> {
-  if (!loadNotificationSound().enabled || typeof AudioContext === "undefined")
-    return;
+  if (!loadNotificationSound().enabled) return;
+  await prepareAudioContext();
+}
+
+async function prepareAudioContext(): Promise<void> {
+  if (typeof AudioContext === "undefined") return;
   try {
     if (!context || context.state === "closed") context = new AudioContext();
     if (context.state === "suspended") await context.resume();
@@ -13,12 +17,15 @@ export async function prepareNotificationSound(): Promise<void> {
   }
 }
 
-export async function playNotificationSound(): Promise<void> {
+export async function playNotificationSound({
+  preview = false,
+} = {}): Promise<void> {
   const preference = loadNotificationSound();
-  if (!preference.enabled || preference.volume === 0) return;
-  await prepareNotificationSound();
-  const { enabled, volume } = loadNotificationSound();
-  if (!enabled || volume === 0) return;
+  if (!preview && (!preference.enabled || preference.volume === 0)) return;
+  await prepareAudioContext();
+  const latest = loadNotificationSound();
+  const volume = preview ? preference.volume || 0.5 : latest.volume;
+  if (!preview && (!latest.enabled || volume === 0)) return;
   if (!context || context.state !== "running") return;
 
   try {

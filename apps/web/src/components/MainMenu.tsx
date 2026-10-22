@@ -66,7 +66,11 @@ export function MainMenu({
   profile?: MenuProfile;
   // Only in a room's own chat, where there is a log that can show who came and went.
   movements?: { checked: boolean; onChange: (checked: boolean) => void };
-  notifications?: { enabled: boolean; onOpen: () => void };
+  notifications?: {
+    enabled: boolean;
+    onChange: (enabled: boolean) => void;
+    onOpen: () => void;
+  };
 }) {
   const { t, i18n } = useTranslation();
   const current = i18n.resolvedLanguage;
@@ -186,23 +190,37 @@ export function MainMenu({
             )}
 
             {profile && notifications && (
-              <MenuItem>
-                <button
-                  type="button"
-                  onClick={notifications.onOpen}
-                  className={item}
-                >
-                  <Sound aria-hidden="true" className="h-5 w-5 shrink-0" />
-                  <span className="flex-1">{t("notifications.title")}</span>
-                  <span className="text-xs text-neutral-400">
-                    {t(
-                      notifications.enabled
-                        ? "notifications.on"
-                        : "notifications.off",
-                    )}
-                  </span>
-                </button>
-              </MenuItem>
+              <div className="flex items-center gap-1">
+                <MenuItem>
+                  <button
+                    type="button"
+                    onClick={notifications.onOpen}
+                    className={`${item} min-w-0 flex-1`}
+                  >
+                    <Sound aria-hidden="true" className="h-5 w-5 shrink-0" />
+                    <span className="min-w-0 flex-1">
+                      {t("notifications.title")}
+                    </span>
+                  </button>
+                </MenuItem>
+                <MenuItem>
+                  <button
+                    type="button"
+                    aria-label={t("notifications.enabled")}
+                    aria-checked={notifications.enabled}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      notifications.onChange(!notifications.enabled);
+                    }}
+                    className={`mr-2 inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 outline-none data-focus:outline-2 data-focus:outline-offset-2 data-focus:outline-indigo-400 ${notifications.enabled ? "bg-indigo-500" : "bg-neutral-600"}`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`size-4 rounded-full bg-white transition-transform ${notifications.enabled ? "translate-x-4" : "translate-x-0"}`}
+                    />
+                  </button>
+                </MenuItem>
+              </div>
             )}
 
             <MenuSection className="grid grid-cols-3 gap-1 border-t border-neutral-800 pt-1">

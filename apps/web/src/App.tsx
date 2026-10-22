@@ -999,6 +999,8 @@ export function App({
               <MainMenu
                 notifications={{
                   enabled: notificationSound.enabled,
+                  onChange: (enabled) =>
+                    changeNotificationSound({ ...notificationSound, enabled }),
                   onOpen: () => setNotificationSoundOpen(true),
                 }}
                 profile={

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { saveNotificationSound } from "./preferences";
+import { loadNotificationSound, saveNotificationSound } from "./preferences";
 
 class TestAudioContext {
   state = "running";
@@ -58,6 +58,20 @@ describe("notification chime", () => {
       audio.createOscillator.mock.results[0].value.stop,
     ).toHaveBeenCalledWith(1.2);
   });
+
+  it.each([0, 0.25])(
+    "previews while disabled at volume %s without enabling notifications",
+    async (volume) => {
+      saveNotificationSound({ enabled: false, volume });
+      const { playNotificationSound } = await import("./notificationSound");
+      await playNotificationSound({ preview: true });
+      expect(audio.createOscillator).toHaveBeenCalledTimes(2);
+      expect(
+        audio.createGain.mock.results[0].value.gain.linearRampToValueAtTime,
+      ).toHaveBeenCalledWith((volume || 0.5) * 0.16, 1.015);
+      expect(loadNotificationSound()).toEqual({ enabled: false, volume });
+    },
+  );
 
   it("unlocks suspended audio following a user interaction", async () => {
     saveNotificationSound({ enabled: true, volume: 0.5 });

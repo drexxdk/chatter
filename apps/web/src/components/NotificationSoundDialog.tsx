@@ -70,8 +70,7 @@ export function NotificationSoundDialog({
       </div>
       <Button
         icon={Play}
-        disabled={!value.enabled || value.volume === 0}
-        onClick={() => void playNotificationSound()}
+        onClick={() => void playNotificationSound({ preview: true })}
       >
         {t("notifications.preview")}
       </Button>
