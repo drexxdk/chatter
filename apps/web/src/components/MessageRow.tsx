@@ -1,6 +1,6 @@
 import { LogOut } from "lucide-react";
 import clsx from "clsx";
-import { memo } from "react";
+import { memo, useContext, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Avatar } from "../chat/avatar";
@@ -17,6 +17,7 @@ import { MentionedText } from "./Mentions";
 import type { PersonMenuOptions } from "./PersonMenu";
 import { Timestamp } from "./Timestamp";
 import { messagePresentation } from "./messagePresentation";
+import { MessageEffectsContext } from "./messageEffects";
 
 export interface GroupMessage {
   id: string;
@@ -78,6 +79,19 @@ function MessageGroupView({
   onReport?: (messageId: string) => void;
 }) {
   const { t } = useTranslation();
+  const effects = useContext(MessageEffectsContext);
+  const groupRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (groupRef.current) {
+      effects?.reveal(
+        groupRef.current,
+        messages
+          .filter((message) => !message.banned)
+          .map((message) => message.id),
+        mine,
+      );
+    }
+  }, [effects, messages, mine]);
   const moderator = role === "moderator";
   const appearance = messagePresentation({ mine, moderator, direct: !!direct });
   const last = messages[messages.length - 1];
@@ -174,6 +188,7 @@ function MessageGroupView({
   };
   return (
     <li
+      ref={groupRef}
       data-side={appearance.side}
       data-message-variant={appearance.variant}
       {...(direct ? { "data-kind": "direct" } : {})}
@@ -255,6 +270,7 @@ function MessageGroupView({
               }
             >
               <div
+                data-message-id={message.id}
                 {...stop}
                 {...keyShortcut}
                 onClick={onSeen}
