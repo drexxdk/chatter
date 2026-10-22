@@ -208,23 +208,27 @@ describe("choosing the person to write to", () => {
     await waitFor(() => expect(writingTo()).toBeInTheDocument());
   });
 
-  it("has no name or avatar to click for somebody who has left", async () => {
+  it("keeps the name clickable for somebody online outside the room", async () => {
     const { user, server } = await enter();
     emit(server, said(BOB, "bye", 1));
-    act(() =>
+    act(() => {
       server.latest.serverEmit("room:presence", {
         roomSlug: "general",
         members: [{ guestId: "guest-me", nickname: "Alice" }, CAROL],
-      }),
-    );
+      });
+      server.latest.serverEmit("dm:presence", {
+        guestIds: [BOB.guestId],
+        members: [BOB],
+      });
+    });
 
-    expect(within(rows()[0]).getByText("Bob")).not.toHaveClass(
-      "cursor-pointer",
-    );
+    expect(within(rows()[0]).getByText("Bob")).toHaveClass("cursor-pointer");
 
     await user.click(within(rows()[0]).getByText("Bob"));
 
-    expect(screen.queryByText(/^Writing privately to /)).toBeNull();
+    expect(
+      await screen.findByRole("textbox", { name: "Message to Bob" }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -270,21 +274,29 @@ describe("in a private conversation", () => {
     expect(log.getAllByText("Bob")).toHaveLength(1);
   });
 
-  it("does not look clickable on a private message from somebody who has left", async () => {
-    const { server } = await enter();
+  it("keeps private messages clickable for somebody online outside the room", async () => {
+    const { user, server } = await enter();
     act(() => server.latest.serverEmit("dm:new", dm("psst", 1)));
     const label = () => within(rows()[0]).getByText("Direct message from Bob");
 
     expect(label()).toHaveClass("cursor-pointer", "hover:underline");
 
-    act(() =>
+    act(() => {
       server.latest.serverEmit("room:presence", {
         roomSlug: "general",
         members: [{ guestId: "guest-me", nickname: "Alice" }, CAROL],
-      }),
-    );
+      });
+      server.latest.serverEmit("dm:presence", {
+        guestIds: [BOB.guestId],
+        members: [BOB],
+      });
+    });
 
-    expect(label()).not.toHaveClass("cursor-pointer");
-    expect(label()).not.toHaveClass("hover:underline");
+    expect(label()).toHaveClass("cursor-pointer", "hover:underline");
+
+    await user.click(label());
+    expect(
+      await screen.findByRole("textbox", { name: "Message to Bob" }),
+    ).toBeInTheDocument();
   });
 });

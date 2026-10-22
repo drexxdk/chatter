@@ -99,7 +99,7 @@ async function joinAsGuest(page: Page, name: string) {
     }
     await page.setViewportSize({ width: 1280, height: 900 });
   }
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
 }
 
 // The accounts of this run with this username; the tests leave their accounts until the end.
@@ -522,7 +522,11 @@ test("an account is edited from the lobby, where it is only shown until it is as
 
   await dialog.getByRole("button", { name: "Edit profile" }).click();
   await dialog.getByLabel("Display name").fill(renamed);
-  await dialog.getByLabel("Age").fill("33");
+  const birthYear = String(new Date().getUTCFullYear() - 33);
+  await dialog.getByLabel("Day", { exact: true }).fill("1");
+  await dialog.getByRole("button", { name: "Month", exact: true }).click();
+  await page.getByRole("option", { name: "January", exact: true }).click();
+  await dialog.getByLabel("Year", { exact: true }).fill(birthYear);
   await dialog
     .getByRole("radio", { name: "Male", exact: true })
     .check({ force: true });
@@ -530,9 +534,15 @@ test("an account is edited from the lobby, where it is only shown until it is as
 
   await expect(dialog.getByText("33 years old")).toBeVisible();
   await expect(dialog.getByText("Male", { exact: true })).toBeVisible();
-  expect(await accountsNamed(handle)).toEqual([
-    expect.objectContaining({ displayName: renamed, age: 33, avatar: "male" }),
-  ]);
+  await expect
+    .poll(() => accountsNamed(handle))
+    .toEqual([
+      expect.objectContaining({ displayName: renamed, avatar: "male" }),
+    ]);
+
+  await page.reload();
+  await expect(dialog.getByText("33 years old")).toBeVisible();
+  await expect(dialog.getByText(renamed, { exact: true })).toBeVisible();
 
   // Joining a room afterwards is as the new name.
   await dialog.getByRole("button", { name: "Close" }).click();

@@ -143,9 +143,7 @@ describe("signing in from the lobby", () => {
       login = within(await screen.findByRole("dialog", { name: "Sign in" }));
       await user.type(login.getByLabelText("Username or email"), "alice_w");
       await user.type(login.getByLabelText("Password"), "PrivatePassword123");
-      await user.click(
-        login.getByRole("button", { name: "Sign in", exact: true }),
-      );
+      await user.click(login.getByRole("button", { name: "Sign in" }));
       await screen.findByRole("log", { name: "General" });
       expect(server.latest.emittedEvents("room:join")).toContainEqual({
         slug: "general",

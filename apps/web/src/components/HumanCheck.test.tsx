@@ -106,14 +106,10 @@ describe("human verification forms", () => {
     await screen.findByTestId("human-widget");
     await user.type(screen.getByLabelText("Username or email"), "alice");
     await user.type(screen.getByLabelText("Password"), "PrivatePassword123");
-    expect(
-      screen.getByRole("button", { name: "Sign in", exact: true }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeDisabled();
     expect(widget.props?.options?.action).toBe("password_login");
     act(() => widget.props?.onSuccess?.("login-human-token"));
-    await user.click(
-      screen.getByRole("button", { name: "Sign in", exact: true }),
-    );
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
     expect(submit).toHaveBeenCalledWith(
       "alice",
       "PrivatePassword123",

@@ -70,7 +70,6 @@ describe("private-message notification sounds", () => {
     );
     const toggle = await screen.findByRole("menuitem", {
       name: "Private message sounds",
-      exact: true,
     });
     expect(toggle).toHaveAttribute("aria-checked", "false");
     await user.click(toggle);
