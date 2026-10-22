@@ -114,7 +114,12 @@ vi.mock("./payloadClient.js", async (importOriginal) => {
       [...accounts.users.values()].find(
         (user) => user.provider === "password" && user.nicknameKey === key,
       ),
-    fetchUser: async (id: number) => accounts.users.get(id),
+    fetchUser: async (id: number) => {
+      const user = accounts.users.get(id);
+      return user
+        ? { ...user, birthDate: user.birthDate ?? undefined }
+        : undefined;
+    },
     createUser: async (data: Record<string, unknown>) => {
       await beforeCreateUser();
       const taken = [...accounts.users.values()];

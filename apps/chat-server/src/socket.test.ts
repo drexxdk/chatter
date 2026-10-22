@@ -5055,6 +5055,7 @@ describe("members", () => {
         picture: "lorelei:abc12345",
         avatar: "trans",
         age: null,
+        birthDate: null,
       });
       expect(claimMemberName).toHaveBeenCalledWith(5, "Alicia");
       expect(releaseMemberName).toHaveBeenCalledWith(5, "Alice");
