@@ -132,7 +132,7 @@ html:has([data-room-search] input:focus) {
       circle var(--glass-radius, 16rem) at 100% 0,
       color-mix(
         in srgb,
-        var(--glass-accent) var(--glass-fill, 24%),
+        var(--glass-accent) var(--glass-fill, 14%),
         transparent
       ),
       transparent 75%
@@ -141,16 +141,16 @@ html:has([data-room-search] input:focus) {
       circle var(--glass-radius, 16rem) at 0 100%,
       color-mix(
         in srgb,
-        var(--glass-secondary) var(--glass-fill, 24%),
+        var(--glass-secondary) var(--glass-fill, 14%),
         transparent
       ),
       transparent 75%
     );
   mask-image:
-    linear-gradient(to bottom, #000, transparent 8px),
-    linear-gradient(to top, #000, transparent 8px),
-    linear-gradient(to left, #000, transparent 8px),
-    linear-gradient(to right, #000, transparent 8px);
+    linear-gradient(to bottom, #0009, #0004 3px, #0001 8px, transparent 14px),
+    linear-gradient(to top, #0009, #0004 3px, #0001 8px, transparent 14px),
+    linear-gradient(to left, #0009, #0004 3px, #0001 8px, transparent 14px),
+    linear-gradient(to right, #0009, #0004 3px, #0001 8px, transparent 14px);
 }
 
 .glass-menu {
@@ -189,6 +189,36 @@ html:has([data-room-search] input:focus) {
 @media (min-width: 40rem) {
   :root {
     --page-gutter: 1.5rem;
+  }
+}
+
+.site-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to bottom,
+      var(--color-neutral-950),
+      transparent 35% 65%,
+      var(--color-neutral-950)
+    ),
+    linear-gradient(
+      115deg,
+      color-mix(in srgb, var(--glass-accent) 22%, var(--color-neutral-950)),
+      var(--color-neutral-950) 48%,
+      color-mix(in srgb, #df9eae 18%, var(--color-neutral-950))
+    );
+}
+
+.site-background[data-room] {
+  opacity: 0.4;
+}
+
+@media (forced-colors: active) {
+  .site-background {
+    display: none;
   }
 }
 
@@ -342,7 +372,8 @@ html:has(#headlessui-portal-root [role="dialog"][aria-modal="true"]) {
   --epr-font-family: inherit;
   --epr-emoji-size: 26px;
   --epr-emoji-padding: 7px;
-  --epr-dark-bg-color: var(--color-neutral-900);
+  --epr-bg-color: transparent;
+  --epr-dark-bg-color: transparent;
   --epr-dark-picker-border-color: transparent;
   --epr-picker-border-radius: 0;
   --epr-horizontal-padding: 0px;
@@ -352,10 +383,16 @@ html:has(#headlessui-portal-root [role="dialog"][aria-modal="true"]) {
   --epr-hover-bg-color: var(--color-neutral-800);
   --epr-dark-hover-bg-color: var(--color-neutral-800);
   --epr-focus-bg-color: transparent;
-  --epr-category-label-bg-color: var(--color-neutral-900);
+  --epr-category-label-bg-color: #202226;
   --epr-category-icon-active-color: var(--color-indigo-400);
   --epr-category-icon-inactive-color: var(--color-neutral-400);
   min-height: 14rem;
+}
+
+.emoji-pane [data-epr-part="category-label"] {
+  box-shadow: 0 -1px 0 var(--epr-category-label-bg-color);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* Focus is the outline the rest of the site has, round the emoji and the section buttons. */

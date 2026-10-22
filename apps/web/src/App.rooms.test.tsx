@@ -20,6 +20,37 @@ beforeEach(() => {
 });
 
 describe("lobby", () => {
+  it("keeps the decorative website background when entering and leaving a room", async () => {
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).endsWith("/auth/providers")
+        ? Promise.resolve(new Response(JSON.stringify({ providers: [] })))
+        : originalFetch(input, init),
+    );
+    const { user } = setup();
+    await screen.findByRole("region", { name: "Public rooms" });
+    const background = document.querySelector(".site-background");
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Chatter",
+    );
+    expect(background).toHaveAttribute("aria-hidden", "true");
+    expect(background).toBeEmptyDOMElement();
+    expect(screen.queryByRole("region", { name: "Chatter" })).toBeNull();
+    expect(screen.getByRole("contentinfo")).toContainElement(
+      screen.getByRole("navigation", { name: "Terms and privacy" }),
+    );
+
+    await joinRoom(user);
+    await screen.findByRole("log", { name: "General" });
+    expect(background).toBeInTheDocument();
+
+    await leaveRoom(user);
+    await screen.findByRole("region", { name: "Public rooms" });
+    expect(background).toBeInTheDocument();
+  });
+
   it("lists the public rooms from the chat server", async () => {
     setup();
 

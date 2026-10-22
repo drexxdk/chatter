@@ -305,6 +305,7 @@
   },
   "lobby": {
     "heading": "Public rooms",
+    "heroTagline": "Good conversations start with a hello.",
     "intro": "Pick a room to start chatting. No account needed.",
     "loading": "Loading rooms…",
     "loadError": "Could not load the rooms.",

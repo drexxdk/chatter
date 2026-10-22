@@ -305,6 +305,7 @@
   },
   "lobby": {
     "heading": "Öffentliche Räume",
+    "heroTagline": "Gute Gespräche beginnen mit einem Hallo.",
     "intro": "Wähle einen Raum und leg los. Ein Konto ist nicht nötig.",
     "loading": "Räume werden geladen…",
     "loadError": "Die Räume konnten nicht geladen werden.",

@@ -125,7 +125,7 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
               <li
                 key={room.id}
                 style={roomVars(room.slug)}
-                className="group relative flex items-center justify-between gap-3 rounded-lg border border-(--room-border) bg-(--room-card) p-4 transition-colors focus-within:border-(--room-accent) hover:border-(--room-accent)"
+                className="group relative flex items-center justify-between gap-3 rounded-lg border border-[color-mix(in_srgb,var(--room-accent)_40%,var(--color-neutral-700))] bg-(--room-card)/75 p-4 backdrop-blur-md transition-colors focus-within:border-(--room-accent) hover:border-(--room-accent)"
               >
                 <div>
                   <h3 className="flex items-center gap-2 font-medium">

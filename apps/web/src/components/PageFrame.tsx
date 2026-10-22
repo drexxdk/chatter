@@ -40,7 +40,12 @@ export function PageFrame({
   }, [accent]);
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="relative isolate flex min-h-dvh flex-col">
+      <div
+        aria-hidden="true"
+        className="site-background"
+        data-room={roomSlug}
+      />
       <HeaderFrame roomSlug={roomSlug} wide={wide}>
         {header ?? (
           <>

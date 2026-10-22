@@ -305,6 +305,7 @@
   },
   "lobby": {
     "heading": "Offentlige rum",
+    "heroTagline": "En god samtale starter med et hej.",
     "intro": "Vælg et rum for at komme i gang. Du behøver ikke en konto.",
     "loading": "Henter rum…",
     "loadError": "Rummene kunne ikke hentes.",
