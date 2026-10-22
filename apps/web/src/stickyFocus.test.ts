@@ -19,6 +19,97 @@ describe("keepStickyInView", () => {
     stop();
     HTMLElement.prototype.focus = original;
     document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+  });
+
+  describe("mobile text fields", () => {
+    const mobile = (media: string) =>
+      vi.stubGlobal(
+        "matchMedia",
+        vi.fn((query: string) => ({ matches: query === media })),
+      );
+
+    it("does not automatically focus text fields on touch devices", () => {
+      mobile("(hover: none)");
+      document.body.innerHTML = `<input type="search"><input type="password"><textarea></textarea><div contenteditable="true"></div>`;
+
+      for (const field of document.body.children) {
+        (field as HTMLElement).focus();
+      }
+
+      expect(calls).not.toHaveBeenCalled();
+    });
+
+    it("keeps autofocus in a narrow non-touch window", () => {
+      mobile("(max-width: 47.999rem)");
+      document.body.innerHTML = `<input type="search">`;
+
+      document.querySelector("input")!.focus();
+
+      expect(calls).toHaveBeenCalledTimes(1);
+    });
+
+    it("allows focus after a direct tap, but not after tapping a different control", () => {
+      mobile("(hover: none)");
+      document.body.innerHTML = `<input><button></button>`;
+      const field = document.querySelector("input")!;
+
+      field.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      field.focus();
+      expect(calls).toHaveBeenCalledTimes(1);
+
+      document
+        .querySelector("button")!
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      field.focus();
+      expect(calls).toHaveBeenCalledTimes(1);
+    });
+
+    it("allows tapping inside a contenteditable field", () => {
+      mobile("(hover: none)");
+      document.body.innerHTML = `<div contenteditable="true"><p>Message</p></div>`;
+
+      document
+        .querySelector("p")!
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      document.querySelector("div")!.focus();
+
+      expect(calls).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps non-text controls focusable", () => {
+      mobile("(hover: none)");
+      document.body.innerHTML = `<button></button><input type="checkbox"><select><option>January</option></select>`;
+
+      for (const control of document.body.children) {
+        (control as HTMLElement).focus();
+      }
+
+      expect(calls).toHaveBeenCalledTimes(3);
+    });
+
+    it("allows deliberate Tab navigation with a hardware keyboard", () => {
+      mobile("(hover: none)");
+      document.body.innerHTML = `<input type="search">`;
+      const field = document.querySelector("input")!;
+
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
+      field.focus();
+      expect(calls).toHaveBeenCalledTimes(1);
+
+      document.dispatchEvent(new KeyboardEvent("keyup", { key: "Tab" }));
+      field.focus();
+      expect(calls).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps desktop text-field focus", () => {
+      mobile("none");
+      document.body.innerHTML = `<input type="search">`;
+
+      document.querySelector("input")!.focus();
+
+      expect(calls).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("when Tab moves focus", () => {

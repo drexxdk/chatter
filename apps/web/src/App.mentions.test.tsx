@@ -41,7 +41,9 @@ describe("mentioning somebody with @", () => {
 
     await user.type(box, "@");
 
-    expect(names()).toEqual(["Bob", "Bobby", "Anne Linde", "Carol"]);
+    await waitFor(() =>
+      expect(names()).toEqual(["Bob", "Bobby", "Anne Linde", "Carol"]),
+    );
   });
 
   it("does not offer the guest themselves", async () => {
@@ -56,10 +58,10 @@ describe("mentioning somebody with @", () => {
     const { user, box } = await enter();
 
     await user.type(box, "@bo");
-    expect(names()).toEqual(["Bob", "Bobby"]);
+    await waitFor(() => expect(names()).toEqual(["Bob", "Bobby"]));
 
     await user.type(box, "bb");
-    expect(names()).toEqual(["Bobby"]);
+    await waitFor(() => expect(names()).toEqual(["Bobby"]));
 
     await user.type(box, "x");
     expect(list()).toBeNull();
@@ -69,11 +71,11 @@ describe("mentioning somebody with @", () => {
     const { user, box } = await enter();
 
     await user.type(box, "hello @");
-    expect(list()).not.toBeNull();
+    await screen.findByRole("listbox", { name: "People to mention" });
 
     await user.clear(box);
     await user.type(box, "hello{Shift>}{Enter}{/Shift}@ca");
-    expect(names()).toEqual(["Carol"]);
+    await waitFor(() => expect(names()).toEqual(["Carol"]));
   });
 
   it("does not come in the middle of a word, so an email address is left alone", async () => {
@@ -120,7 +122,7 @@ describe("mentioning somebody with @", () => {
     const { user, box } = await enter();
     await user.type(box, "@Anne L");
 
-    expect(names()).toEqual(["Anne Linde"]);
+    await waitFor(() => expect(names()).toEqual(["Anne Linde"]));
     await user.keyboard("{Enter}");
 
     expect(box).toHaveDraft("Anne Linde ");
@@ -138,16 +140,16 @@ describe("mentioning somebody with @", () => {
     it("highlights the first, and the arrow keys move around, from the last to the first and back", async () => {
       const { user, box } = await enter();
       await user.type(box, "@");
-      expect(highlighted()).toBe("Bob");
+      await waitFor(() => expect(highlighted()).toBe("Bob"));
 
       await user.keyboard("{ArrowDown}");
-      expect(highlighted()).toBe("Bobby");
+      await waitFor(() => expect(highlighted()).toBe("Bobby"));
 
       await user.keyboard("{ArrowUp}{ArrowUp}");
-      expect(highlighted()).toBe("Carol");
+      await waitFor(() => expect(highlighted()).toBe("Carol"));
 
       await user.keyboard("{ArrowDown}");
-      expect(highlighted()).toBe("Bob");
+      await waitFor(() => expect(highlighted()).toBe("Bob"));
     });
 
     it("chooses the highlighted one with Enter, which does not send the message", async () => {
@@ -182,7 +184,7 @@ describe("mentioning somebody with @", () => {
       expect(list()).toBeNull();
 
       await user.type(box, " and @");
-      expect(list()).not.toBeNull();
+      await screen.findByRole("listbox", { name: "People to mention" });
     });
 
     it("sends with Enter when there is no list", async () => {
@@ -209,10 +211,13 @@ describe("mentioning somebody with @", () => {
   it("points at the highlighted name for assistive technology, while the box stays a text box", async () => {
     const { user, box } = await enter();
     await user.type(box, "@");
+    const suggestions = await screen.findByRole("listbox", {
+      name: "People to mention",
+    });
 
-    expect(box).toHaveAttribute("aria-controls", list()!.id);
+    expect(box).toHaveAttribute("aria-controls", suggestions.id);
     expect(box.getAttribute("aria-activedescendant")).toBe(
-      within(list()!).getAllByRole("option")[0].id,
+      within(suggestions).getAllByRole("option")[0].id,
     );
 
     await user.keyboard("{Escape}");
@@ -233,7 +238,7 @@ describe("mentioning somebody with @", () => {
   it("follows who is in the room", async () => {
     const { user, server, box } = await enter();
     await user.type(box, "@");
-    expect(names()).toContain("Carol");
+    await waitFor(() => expect(names()).toContain("Carol"));
 
     const { act } = await import("@testing-library/react");
     act(() =>
@@ -243,7 +248,7 @@ describe("mentioning somebody with @", () => {
       }),
     );
 
-    expect(names()).not.toContain("Carol");
+    await waitFor(() => expect(names()).not.toContain("Carol"));
   });
 
   it("is not offered when the room is empty of others", async () => {

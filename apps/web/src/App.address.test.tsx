@@ -72,7 +72,8 @@ describe("keeping your place", () => {
     it("takes the guest out of the room with the browser's back button, and in again with forward", async () => {
       const { user, server } = setup();
       await joinRoom(user);
-      await screen.findByRole("button", { name: "Account menu: Alice" });
+      await screen.findByRole("log", { name: "General" });
+      await waitFor(() => expect(path()).toBe("/rooms/general"));
 
       act(() => window.history.back());
 

@@ -532,6 +532,10 @@ test("an account is edited from the lobby, where it is only shown until it is as
     .check({ force: true });
   await dialog.getByRole("button", { name: "Save" }).click();
 
+  await expect(
+    dialog.getByRole("button", { name: "Edit profile" }),
+  ).toBeVisible();
+  await expect(dialog.getByText(renamed, { exact: true })).toBeVisible();
   await expect(dialog.getByText("33 years old")).toBeVisible();
   await expect(dialog.getByText("Male", { exact: true })).toBeVisible();
   await expect
@@ -540,6 +544,9 @@ test("an account is edited from the lobby, where it is only shown until it is as
       expect.objectContaining({ displayName: renamed, avatar: "male" }),
     ]);
 
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get("dialog") === "profile",
+  );
   await page.reload();
   await expect(dialog.getByText("33 years old")).toBeVisible();
   await expect(dialog.getByText(renamed, { exact: true })).toBeVisible();

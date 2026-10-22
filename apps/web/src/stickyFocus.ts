@@ -1,3 +1,5 @@
+import { isTouchScreen } from "./touch";
+
 // Browsers scroll the page to where a focused element sits in the layout, not to where its sticky box is stuck, so
 // handing focus back to a button in the sticky header or footer (as a dropdown or dialog does when it closes) throws
 // the page to the top. A sticky box is always in view, so focusing inside one never needs to scroll. The same goes for
@@ -8,8 +10,30 @@
 // focus(), so a Tab that lands in a sticky box puts the page back where it was.
 export function keepStickyInView() {
   const focus = HTMLElement.prototype.focus;
+  let tappedField: HTMLElement | null = null;
+  let keyboardNavigation = false;
+
+  const onPointerDown = (event: PointerEvent) => {
+    keyboardNavigation = false;
+    tappedField =
+      event.target instanceof Element
+        ? event.target.closest<HTMLElement>(
+            'input, textarea, [contenteditable]:not([contenteditable="false"])',
+          )
+        : null;
+  };
 
   HTMLElement.prototype.focus = function (this: HTMLElement, options) {
+    if (
+      isTouchScreen() &&
+      opensKeyboard(this) &&
+      !keyboardNavigation &&
+      this !== document.activeElement &&
+      this !== tappedField
+    ) {
+      return;
+    }
+
     return focus.call(
       this,
       options?.preventScroll === undefined && keepsPageStill(this)
@@ -21,7 +45,12 @@ export function keepStickyInView() {
   let tabFrom: { x: number; y: number } | null = null;
 
   const onKeyDown = (event: KeyboardEvent) => {
+    keyboardNavigation = event.key === "Tab";
     if (event.key === "Tab") tabFrom = { x: scrollX, y: scrollY };
+  };
+
+  const onKeyUp = () => {
+    keyboardNavigation = false;
   };
 
   const onFocusIn = (event: FocusEvent) => {
@@ -42,14 +71,39 @@ export function keepStickyInView() {
     requestAnimationFrame(restore);
   };
 
+  document.addEventListener("pointerdown", onPointerDown, true);
   document.addEventListener("keydown", onKeyDown, true);
+  document.addEventListener("keyup", onKeyUp, true);
   document.addEventListener("focusin", onFocusIn, true);
 
   return () => {
     HTMLElement.prototype.focus = focus;
+    document.removeEventListener("pointerdown", onPointerDown, true);
     document.removeEventListener("keydown", onKeyDown, true);
+    document.removeEventListener("keyup", onKeyUp, true);
     document.removeEventListener("focusin", onFocusIn, true);
   };
+}
+
+function opensKeyboard(element: HTMLElement) {
+  if (element instanceof HTMLInputElement) {
+    return ![
+      "button",
+      "checkbox",
+      "color",
+      "file",
+      "hidden",
+      "image",
+      "radio",
+      "range",
+      "reset",
+      "submit",
+    ].includes(element.type);
+  }
+
+  return element.matches(
+    'textarea, [contenteditable]:not([contenteditable="false"])',
+  );
 }
 
 const POPUP =

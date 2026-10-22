@@ -539,10 +539,15 @@ test("private-message sounds are opt-in with adjustable volume", async ({
   expect((await audio()).notes).toBe(4);
 });
 
-test("the people dropdown focuses search and stays scrollable when resized", async ({
+test("the people dropdown avoids touch-device autofocus and keeps a padded scroll frame when resized", async ({
   browser,
 }) => {
-  const guest = await newGuest(browser);
+  const context = await browser.newContext({
+    locale: "en-US",
+    hasTouch: true,
+  });
+  guestContexts.push(context);
+  const guest = await context.newPage();
   await enterRoom(guest, LOUNGE.name, "Resize Guest");
   await expect(guest.getByRole("dialog")).toHaveCount(0);
   await guest.addStyleTag({ content: "::-webkit-scrollbar { width: 12px; }" });
@@ -559,6 +564,8 @@ test("the people dropdown focuses search and stays scrollable when resized", asy
   const search = panel.getByRole("searchbox", { name: "Search people" });
   await expect(panel).toBeVisible();
   await expect(panel).toHaveCSS("width", "224px");
+  await expect(search).not.toBeFocused();
+  await search.click();
   await expect(search).toBeFocused();
   await expect(root).toHaveCSS("padding-right", "0px");
   await expect(root).toHaveCSS("scrollbar-gutter", "stable");
@@ -580,7 +587,26 @@ test("the people dropdown focuses search and stays scrollable when resized", asy
     if (width === 240) expect(bounds!.width).toBeLessThan(224);
   }
 
-  await search.press("Escape");
+  for (const height of [391, 800]) {
+    await guest.setViewportSize({ width: 390, height });
+    const scrollFrame = panel.locator(":scope > div");
+    await scrollFrame.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    const frame = await scrollFrame.boundingBox();
+    const bounds = await panel.boundingBox();
+    const bottomInset = bounds!.y + bounds!.height - frame!.y - frame!.height;
+    expect(bottomInset).toBeGreaterThanOrEqual(12);
+    expect(bottomInset).toBeLessThan(14);
+    const empty = panel.getByText("No direct messages yet.", { exact: true });
+    await expect(empty).toBeVisible();
+    const emptyBounds = await empty.boundingBox();
+    expect(emptyBounds!.y + emptyBounds!.height).toBeLessThanOrEqual(
+      bounds!.y + bounds!.height - 12,
+    );
+  }
+
+  await guest.keyboard.press("Escape");
   await expect(panel).toHaveCount(0);
   await expect(toggle).toBeFocused();
   await expectPickerAligned(guest);
@@ -595,14 +621,14 @@ test("the people dropdown focuses search and stays scrollable when resized", asy
   );
   await roomMenu.press("Escape");
   await toggle.press("Enter");
-  await expect(search).toBeFocused();
+  await expect(search).not.toBeFocused();
   const message = guest.getByRole("textbox", { name: "Message", exact: true });
   await message.click();
   await expect(panel).toHaveCount(0);
   await expect(message).toBeFocused();
 
   await toggle.click();
-  await expect(search).toBeFocused();
+  await expect(search).not.toBeFocused();
   await guest.setViewportSize({ width: 1280, height: 800 });
   await expect(panel).toHaveCount(0);
   await expect(root).toHaveCSS("scrollbar-gutter", "stable");
@@ -629,6 +655,7 @@ for (const viewport of [
       .toBe(viewport.height);
     const backgroundY = await guest.evaluate(() => window.scrollY);
     const nickname = dialog.getByRole("textbox", { name: "Nickname" });
+    await expect(nickname).toBeFocused();
     await nickname.click();
     await nickname.pressSequentially("Scroll Guest");
     await expect(nickname).toHaveValue("Scroll Guest");
@@ -686,6 +713,7 @@ test("touch composers offer GIFs and YouTube from a left-hand plus button", asyn
   );
   const pickerButton = guest.getByRole("button", { name: "Add attachments" });
   const box = guest.getByRole("textbox", { name: "Message", exact: true });
+  await expect(box).not.toBeFocused();
   const sendButton = guest.getByRole("button", { name: "Send", exact: true });
   const plusBounds = (await pickerButton.boundingBox())!;
   const editorBounds = (await box.boundingBox())!;
@@ -707,9 +735,10 @@ test("touch composers offer GIFs and YouTube from a left-hand plus button", asyn
     picker.getByRole("tab", { name: "GIFs", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await picker.getByRole("tab", { name: "YouTube", exact: true }).click();
-  await picker
-    .getByLabel("YouTube link", { exact: true })
-    .fill("https://youtu.be/aqz-KE-bpKQ");
+  const link = picker.getByLabel("YouTube link", { exact: true });
+  await expect(link).not.toBeFocused();
+  await link.click();
+  await link.fill("https://youtu.be/aqz-KE-bpKQ");
   await expect(
     picker.getByRole("img", { name: "YouTube video", exact: true }),
   ).toHaveJSProperty("naturalWidth", 480);
@@ -789,7 +818,9 @@ test("viewport resizing keeps a pinned chat at the bottom without moving a reade
         return page.scrollHeight - page.scrollTop - page.clientHeight;
       });
     await expect.poll(distanceFromBottom).toBeLessThan(2);
-    await guest.getByRole("textbox", { name: "Message", exact: true }).focus();
+    const box = guest.getByRole("textbox", { name: "Message", exact: true });
+    await box.tap();
+    await expect(box).toBeFocused();
     await guest.getByRole("log").evaluate((log) => {
       log.style.paddingBottom = "128px";
       window.dispatchEvent(new Event("scroll"));
@@ -1182,6 +1213,11 @@ test("messages align with the composer without a divider", async ({
 
   for (const width of [390, 1280]) {
     await alice.setViewportSize({ width, height: 844 });
+    await alice.evaluate(() =>
+      Promise.allSettled(
+        document.getAnimations().map((animation) => animation.finished),
+      ),
+    );
     const formBounds = await composer.boundingBox();
     const avatarBounds = await log
       .locator('li[data-side="left"]')
