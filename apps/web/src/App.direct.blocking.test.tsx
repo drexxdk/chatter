@@ -11,6 +11,7 @@ import {
   enter,
   people,
   threads,
+  threadAction,
   receive,
   pane,
   log,
@@ -37,8 +38,8 @@ describe("direct messages", () => {
         ]),
       );
       expect(
-        (await screen.findAllByRole("button", { name: "Unblock Bob" })).length,
-      ).toBeGreaterThanOrEqual(2);
+        await screen.findByRole("button", { name: "Unblock Bob" }),
+      ).toBeVisible();
       const blockedNotice = screen.getByText(
         "You blocked Bob. Their messages no longer reach you, and you can't write to them until you unblock them.",
       );
@@ -347,7 +348,7 @@ describe("direct messages", () => {
         screen.getByRole("button", { name: "Back to the room" }),
       );
 
-      await user.click(threads().getByRole("button", { name: "Unblock Bob" }));
+      await threadAction(user, "Bob", "Unblock Bob");
 
       await waitFor(() =>
         expect(server.latest.emittedEvents("dm:unblock")).toEqual([

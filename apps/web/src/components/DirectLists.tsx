@@ -1,12 +1,12 @@
-import { ArrowRight, Ban, Bell, BellOff } from "lucide-react";
-import { memo } from "react";
+import { ArrowRight, Ban } from "lucide-react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { DirectThread, Partner } from "../chat/direct";
 import { PLAIN_AVATAR } from "../chat/avatar";
 import type { Member } from "../chat/useChat";
 import { AvatarIcon, GenderMark } from "./Avatar";
-import { Button } from "./Button";
+import { ThreadActions } from "./ThreadActions";
 
 const nameClass = (role: Partner["role"]) =>
   role === "moderator" ? "font-bold text-green-400" : undefined;
@@ -145,8 +145,7 @@ function PeopleListView({
 export const PeopleList = memo(PeopleListView);
 
 // Conversations with something in them, the one with the latest activity first. One with new words pulses (unless the
-// person has asked for less motion) and shows a count, which is also what a screen reader is told. The bell beside each
-// one switches off being told about that person.
+// person has asked for less motion) and shows a count, which is also what a screen reader is told.
 export function ThreadList({
   threads,
   searching = false,
@@ -164,6 +163,18 @@ export function ThreadList({
   onSetBlocked: (guestId: string, blocked: boolean) => void;
 }) {
   const { t } = useTranslation();
+  const list = useRef<HTMLUListElement>(null);
+  const [menuWidth, setMenuWidth] = useState<number>();
+
+  useEffect(() => {
+    const element = list.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setMenuWidth(entry.contentRect.width || undefined);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [threads.length]);
 
   if (threads.length === 0) {
     return (
@@ -174,7 +185,7 @@ export function ThreadList({
   }
 
   return (
-    <ul aria-label={t("dm.list")} className="space-y-1 text-sm">
+    <ul ref={list} aria-label={t("dm.list")} className="space-y-1 text-sm">
       {threads.map((thread) => (
         <li key={thread.guestId} className="flex items-center gap-1">
           <button
@@ -190,8 +201,8 @@ export function ThreadList({
             }
             className={
               thread.unread > 0
-                ? "flex min-w-0 flex-1 items-center justify-between gap-2 rounded border border-amber-400 bg-amber-400/15 px-2 py-1 text-left motion-safe:animate-pulse"
-                : "flex min-w-0 flex-1 items-center justify-between gap-2 rounded px-2 py-1 text-left hover:bg-neutral-800"
+                ? "flex h-9 min-w-0 flex-1 items-center justify-between gap-2 rounded border border-amber-400 bg-amber-400/15 px-2 py-1 text-left motion-safe:animate-pulse"
+                : "flex h-9 min-w-0 flex-1 items-center justify-between gap-2 rounded px-2 py-1 text-left hover:bg-neutral-800"
             }
           >
             <span className="flex min-w-0 items-center gap-2">
@@ -224,35 +235,13 @@ export function ThreadList({
               </>
             )}
           </button>
-          {blockedIds.includes(thread.guestId) ? (
-            <Button
-              variant="inline"
-              onClick={() => onSetBlocked(thread.guestId, false)}
-              aria-label={t("dm.unblock", { name: thread.nickname })}
-              className="shrink-0"
-            >
-              {t("dm.unblockAction")}
-            </Button>
-          ) : (
-            <button
-              type="button"
-              aria-pressed={thread.muted === true}
-              onClick={() => onSetMuted(thread.guestId, !thread.muted)}
-              aria-label={t(thread.muted ? "dm.unmuteFrom" : "dm.muteFrom", {
-                name: thread.nickname,
-              })}
-              title={t(thread.muted ? "dm.unmuteFrom" : "dm.muteFrom", {
-                name: thread.nickname,
-              })}
-              className="shrink-0 rounded p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-40 disabled:hover:bg-transparent"
-            >
-              {thread.muted ? (
-                <BellOff aria-hidden="true" className="h-4 w-4" />
-              ) : (
-                <Bell aria-hidden="true" className="h-4 w-4" />
-              )}
-            </button>
-          )}
+          <ThreadActions
+            thread={thread}
+            menuWidth={menuWidth}
+            blocked={blockedIds.includes(thread.guestId)}
+            onSetMuted={onSetMuted}
+            onSetBlocked={onSetBlocked}
+          />
         </li>
       ))}
     </ul>

@@ -107,7 +107,7 @@ function PanelSection({
       </h3>
       <DisclosurePanel
         transition
-        className="-mx-1 -mb-1 flex min-h-0 flex-1 flex-col gap-2 overflow-hidden px-1 pt-2 pb-1 transition-opacity duration-200 data-closed:opacity-0"
+        className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden pt-2 transition-opacity duration-200 data-closed:opacity-0"
       >
         {children}
       </DisclosurePanel>

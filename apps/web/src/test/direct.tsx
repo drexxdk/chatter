@@ -1,4 +1,5 @@
 import { act, screen, within } from "@testing-library/react";
+import type { UserEvent } from "@testing-library/user-event";
 
 import { joinRoom, setup } from "./app";
 import type { makeFakeServer } from "./fakeSocket";
@@ -83,6 +84,16 @@ export const people = () =>
   within(screen.getByRole("list", { name: "People in this room" }));
 export const threads = () =>
   within(screen.getByRole("list", { name: "Direct messages" }));
+export async function threadAction(
+  user: UserEvent,
+  name: string,
+  action: string,
+) {
+  await user.click(
+    threads().getByRole("button", { name: `Actions for ${name}` }),
+  );
+  await user.click(await screen.findByRole("menuitem", { name: action }));
+}
 export const receive = (server: Server, message: unknown) =>
   act(() => server.latest.serverEmit("dm:new", message));
 export const pane = (name: string) =>

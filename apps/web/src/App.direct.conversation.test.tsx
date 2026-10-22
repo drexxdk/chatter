@@ -15,6 +15,7 @@ import {
   enter,
   people,
   threads,
+  threadAction,
   receive,
   pane,
   log,
@@ -127,17 +128,10 @@ describe("private-message notification sounds", () => {
     const { user, server } = await enter();
     receive(server, dm());
     vi.mocked(notificationSound.playNotificationSound).mockClear();
-    await user.click(
-      screen.getByRole("button", { name: "Stop notifications from Bob" }),
-    );
-    await screen.findByRole("button", {
-      name: "Turn on notifications from Bob",
-    });
+    await threadAction(user, "Bob", "Stop notifications from Bob");
     receive(server, dm({ text: "muted arrival" }));
     expect(notificationSound.playNotificationSound).not.toHaveBeenCalled();
-    await user.click(
-      screen.getByRole("button", { name: "Turn on notifications from Bob" }),
-    );
+    await threadAction(user, "Bob", "Turn on notifications from Bob");
     receive(server, dm({ text: "unmuted arrival" }));
     expect(notificationSound.playNotificationSound).toHaveBeenCalledTimes(1);
   });

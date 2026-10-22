@@ -89,7 +89,7 @@ export function ComposerBar({
   }, [anchor]);
 
   return (
-    <div className="sticky bottom-0 z-20 space-y-2 pb-3 pt-2">
+    <div className="composer-surface sticky bottom-0 z-20 space-y-2 bg-neutral-950 py-4">
       <ScrollToEnd />
       {alert}
       {above}

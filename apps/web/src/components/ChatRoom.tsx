@@ -466,7 +466,7 @@ export function ChatRoom({
       <section
         ref={root}
         aria-labelledby="room-heading"
-        className="grid flex-1 gap-4 md:grid-cols-[14rem_1fr]"
+        className="@container grid flex-1 gap-4 md:grid-cols-[14rem_1fr]"
       >
         <div className="flex min-w-0 flex-col md:col-start-2 md:w-full md:max-w-4xl md:justify-self-center">
           <div className="sticky top-(--header-height) z-20 -mt-4 space-y-2 bg-neutral-950 pb-2 pt-4 empty:hidden">

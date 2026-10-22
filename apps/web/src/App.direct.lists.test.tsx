@@ -11,6 +11,7 @@ import {
   enter,
   people,
   threads,
+  threadAction,
   receive,
   pane,
   log,
@@ -21,6 +22,82 @@ beforeEach(() => {
 });
 
 describe("direct messages", () => {
+  describe("conversation actions", () => {
+    it("opens a public profile with the keyboard and restores focus when closed", async () => {
+      const { user, server } = await enter();
+      receive(server, dm());
+      const actions = threads().getByRole("button", {
+        name: "Actions for Bob",
+      });
+      actions.focus();
+      await user.keyboard("{Enter}");
+      await screen.findByRole("menuitem", { name: "View profile" });
+      await user.keyboard("{End}{Enter}");
+      const profile = within(
+        await screen.findByRole("dialog", { name: "Profile: Bob" }),
+      );
+      expect(profile.getByText("Bob")).toBeVisible();
+      expect(profile.getByText("Male")).toBeVisible();
+      expect(profile.getByText("Online")).toBeVisible();
+      expect(profile.queryByRole("textbox")).toBeNull();
+      expect(screen.queryByRole("menu")).toBeNull();
+      await user.keyboard("{Escape}");
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      await waitFor(() => expect(actions).toHaveFocus());
+    });
+
+    it("blocks and unblocks a conversation from its actions menu", async () => {
+      const { user, server } = await enter();
+      receive(server, dm());
+      await user.click(
+        threads().getByRole("button", { name: "Actions for Bob" }),
+      );
+      await user.click(
+        await screen.findByRole("menuitem", { name: "Block Bob" }),
+      );
+      await waitFor(() => expect(threads().getByText("Blocked")).toBeVisible());
+      expect(screen.queryByRole("menu")).toBeNull();
+      await user.click(
+        threads().getByRole("button", { name: "Actions for Bob" }),
+      );
+      expect(
+        await screen.findByRole("menuitem", {
+          name: "Stop notifications from Bob",
+        }),
+      ).toBeVisible();
+      expect(
+        screen.getByRole("menuitem", { name: "View profile" }),
+      ).toBeVisible();
+      await user.click(screen.getByRole("menuitem", { name: "Unblock Bob" }));
+      await waitFor(() => expect(threads().queryByText("Blocked")).toBeNull());
+    });
+
+    it("does not offer blocking a moderator", async () => {
+      const { user, server } = await enter();
+      receive(
+        server,
+        dm({
+          fromGuestId: ada.guestId,
+          fromNickname: ada.nickname,
+          fromRole: "moderator",
+          fromAvatar: "other",
+        }),
+      );
+      await user.click(
+        threads().getByRole("button", { name: "Actions for Ada Mod" }),
+      );
+      expect(
+        await screen.findByRole("menuitem", { name: "View profile" }),
+      ).toBeVisible();
+      expect(
+        screen.getByRole("menuitem", {
+          name: "Stop notifications from Ada Mod",
+        }),
+      ).toBeVisible();
+      expect(screen.queryByRole("menuitem", { name: /Block/ })).toBeNull();
+    });
+  });
+
   describe("the lists", () => {
     it("opens the panel above the box from the People button, and closes it when a conversation is chosen", async () => {
       const { user, server } = await enter();
@@ -182,7 +259,7 @@ describe("direct messages", () => {
       const conversations = () =>
         threads()
           .getAllByRole("button")
-          .filter((button) => !button.hasAttribute("aria-pressed"))
+          .filter((button) => !button.hasAttribute("aria-haspopup"))
           .map((button) => button.textContent);
       const names = conversations();
       expect(names[0]).toMatch(/Carol/);
@@ -459,9 +536,7 @@ describe("direct messages", () => {
         }),
       );
 
-      await user.click(
-        screen.getByRole("button", { name: "Stop notifications from Bob" }),
-      );
+      await threadAction(user, "Bob", "Stop notifications from Bob");
 
       expect(
         threads().getByRole("button", { name: /^Bob/ }),
@@ -469,9 +544,15 @@ describe("direct messages", () => {
       expect(
         threads().getByRole("button", { name: /^Carol/ }),
       ).toHaveAccessibleName(/1 unread message/);
+      await user.click(
+        threads().getByRole("button", { name: "Actions for Bob" }),
+      );
       expect(
-        screen.getByRole("button", { name: "Turn on notifications from Bob" }),
-      ).toHaveAttribute("aria-pressed", "true");
+        await screen.findByRole("menuitem", {
+          name: "Turn on notifications from Bob",
+        }),
+      ).toBeVisible();
+      await user.keyboard("{Escape}");
 
       receive(server, dm({ text: "still muted" }));
 
@@ -482,9 +563,7 @@ describe("direct messages", () => {
         screen.getByRole("log").querySelectorAll("[data-nav-id]"),
       ).toHaveLength(3);
 
-      await user.click(
-        screen.getByRole("button", { name: "Turn on notifications from Bob" }),
-      );
+      await threadAction(user, "Bob", "Turn on notifications from Bob");
       receive(server, dm({ text: "audible again" }));
 
       expect(

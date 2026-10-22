@@ -136,6 +136,10 @@
   },
   "person": {
     "actions": "Aktionen für {name}",
+    "viewProfile": "Profil anzeigen",
+    "profile": "Profil: {name}",
+    "online": "Online",
+    "offline": "Offline",
     "message": "{name} schreiben",
     "openChat": "Privaten Chat öffnen",
     "report": "Nachricht melden"
@@ -428,6 +432,9 @@
     "noMatches": "Niemand passt.",
     "muteFrom": "Benachrichtigungen von {name} ausschalten",
     "unmuteFrom": "Benachrichtigungen von {name} einschalten",
+    "muteAction": "Benachrichtigungen ausschalten",
+    "unmuteAction": "Benachrichtigungen einschalten",
+    "blockAction": "Blockieren",
     "replyPlaceholder": "Private Nachricht an {name} schreiben"
   },
   "account": {

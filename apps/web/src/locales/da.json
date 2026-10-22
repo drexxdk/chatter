@@ -136,6 +136,10 @@
   },
   "person": {
     "actions": "Handlinger for {name}",
+    "viewProfile": "Vis profil",
+    "profile": "Profil: {name}",
+    "online": "Online",
+    "offline": "Offline",
     "message": "Skriv til {name}",
     "openChat": "Åbn privat chat",
     "report": "Anmeld besked"
@@ -428,6 +432,9 @@
     "noMatches": "Ingen matcher.",
     "muteFrom": "Stop besked om nye beskeder fra {name}",
     "unmuteFrom": "Giv besked om nye beskeder fra {name}",
+    "muteAction": "Slå notifikationer fra",
+    "unmuteAction": "Slå notifikationer til",
+    "blockAction": "Bloker",
     "replyPlaceholder": "Skriv en privat besked til {name}"
   },
   "account": {
