@@ -14,6 +14,14 @@ export interface ChatSocket {
   disconnect(): unknown;
 }
 
+export type CreateLobbySocket = () => ChatSocket;
+
+export const createLobbySocket: CreateLobbySocket = () =>
+  io(`${CHAT_SERVER_URL}/lobby`, {
+    forceNew: true,
+    transports: ["websocket"],
+  });
+
 // What lets a new connection be the same guest as an old one: the old guest id and the secret the server gave it.
 export interface Resume {
   guestId: string;

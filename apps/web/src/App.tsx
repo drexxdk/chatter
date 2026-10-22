@@ -36,7 +36,7 @@ import {
   type Account,
 } from "./account";
 import { PLAIN_AVATAR, type Avatar } from "./chat/avatar";
-import type { CreateSocket } from "./chat/socket";
+import type { CreateLobbySocket, CreateSocket } from "./chat/socket";
 import type { ActionResult } from "./chat/types";
 import { useChat } from "./chat/useChat";
 import { AboutPage } from "./components/AboutPage";
@@ -104,10 +104,12 @@ const NAME_TAKEN = "nickname_taken";
 
 export function App({
   createSocket,
+  createLobbySocket,
   reconnectDelaysMs,
   tabs: tabsOverride,
 }: {
   createSocket?: CreateSocket;
+  createLobbySocket?: CreateLobbySocket;
   reconnectDelaysMs?: number[];
   // How the tabs of the browser agree that one of them is in a room; the browser's own channel unless told otherwise.
   tabs?: TabCoordinator;
@@ -121,7 +123,7 @@ export function App({
     state: roomsState,
     retry,
     refresh: refreshRooms,
-  } = useRooms(!chat.roomSlug);
+  } = useRooms(!chat.roomSlug, createLobbySocket);
   const { state: legalState, retry: retryLegal } = useLegal();
   // The version of the terms the guest has to have accepted; null while the chat-server has not said.
   const termsVersion =

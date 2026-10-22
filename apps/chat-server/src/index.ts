@@ -29,7 +29,9 @@ const httpServer = http.createServer(
 const io = createSocketServer(httpServer);
 
 const timers = [
-  startPublicRoomsSync(),
+  startPublicRoomsSync(() => {
+    io.of("/lobby").emit("rooms:changed", { kind: "metadata" });
+  }),
   startModeratorsSync((ids) => enforceModerators(io, ids)),
   startBansSync((hashes) => enforceBans(io, hashes)),
   startReportsPrune(),

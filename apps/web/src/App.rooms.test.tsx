@@ -139,11 +139,15 @@ describe("lobby", () => {
       vi.useRealTimers();
     });
 
-    it("fetches them again every so often while the lobby is open", async () => {
+    it("refreshes the numbers when the server reports a change, without polling", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const fetchMock = stubRooms();
-      setup();
+      const { server } = setup();
       await screen.findByRole("heading", { name: "General" });
+
+      const requests = fetchMock.mock.calls.length;
+      await act(() => vi.advanceTimersByTimeAsync(30_000));
+      expect(fetchMock).toHaveBeenCalledTimes(requests);
 
       fetchMock.mockImplementation(
         async () =>
@@ -152,7 +156,7 @@ describe("lobby", () => {
             json: async () => [{ ...ROOMS[0], memberCount: 7 }],
           }) as never,
       );
-      await act(() => vi.advanceTimersByTimeAsync(10_000));
+      act(() => server.lobby.serverEmit("rooms:changed", { kind: "presence" }));
 
       expect(await screen.findByText("7 people here now")).toBeInTheDocument();
     });
@@ -160,14 +164,60 @@ describe("lobby", () => {
     it("keeps the rooms it has when a refresh fails", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const fetchMock = stubRooms();
-      setup();
+      const { server } = setup();
       await screen.findByRole("heading", { name: "General" });
 
       fetchMock.mockImplementation(async () => ({ ok: false, status: 503 }));
-      await act(() => vi.advanceTimersByTimeAsync(10_000));
+      act(() => server.lobby.serverEmit("rooms:changed", { kind: "presence" }));
 
       expect(screen.getByRole("heading", { name: "General" })).toBeVisible();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("recovers the room snapshot on reconnect and closes the subscription on unmount", async () => {
+      const fetchMock = stubRooms();
+      const { server, unmount } = setup();
+      await screen.findByRole("heading", { name: "General" });
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => [{ ...ROOMS[0], memberCount: 9 }],
+      });
+      act(() => server.lobby.serverEmit("connect"));
+      expect(await screen.findByText("9 people here now")).toBeVisible();
+      unmount();
+      expect(server.lobby.disconnected).toBe(true);
+    });
+
+    it("ignores occupancy changes while chatting but refreshes changed room metadata", async () => {
+      const fetchMock = stubRooms();
+      const originalFetch = globalThis.fetch;
+      vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+        String(input).endsWith("/auth/providers")
+          ? Promise.resolve(new Response(JSON.stringify({ providers: [] })))
+          : originalFetch(input, init),
+      );
+      const { server, user } = setup();
+      await joinRoom(user);
+      await screen.findByRole("log", { name: "General" });
+      const requests = fetchMock.mock.calls.length;
+      act(() => server.lobby.serverEmit("rooms:changed", { kind: "presence" }));
+      expect(fetchMock).toHaveBeenCalledTimes(requests);
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () =>
+          ROOMS.map((room) => ({
+            ...room,
+            name: room.slug === "music" ? "Live Music" : room.name,
+          })),
+      });
+      act(() => server.lobby.serverEmit("rooms:changed", { kind: "metadata" }));
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledTimes(requests + 1),
+      );
+      await leaveRoom(user);
+      expect(
+        await screen.findByRole("heading", { name: "Live Music" }),
+      ).toBeVisible();
     });
   });
 

@@ -219,6 +219,8 @@ export function makeFakeServer(
   } = {},
 ) {
   const sockets: FakeSocket[] = [];
+  const lobby = new FakeSocket("Lobby");
+  const createLobbySocket = vi.fn(() => lobby);
   // Applied to every socket created, e.g. { "room:join": () => ({ ok: false, error: "room_full" }) }.
   const acks: Record<string, AckResponder> = {};
   // Handshake errors for the next connection attempts, consumed in order (e.g. to fail reconnects).
@@ -250,6 +252,8 @@ export function makeFakeServer(
   );
 
   return {
+    lobby,
+    createLobbySocket,
     acks,
     sockets,
     failNextConnections(...errors: string[]) {

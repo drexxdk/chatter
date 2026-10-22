@@ -325,6 +325,38 @@ export function createSocketServer(
     createAdapter(pubClient, subClient, { key: env.SOCKET_ADAPTER_KEY }),
   );
 
+  const lobby = io.of("/lobby");
+  const lobbyConnections = new Map<string, number>();
+  lobby.use((socket, next) => {
+    const ipHash = hashIdentifier(
+      getClientIp(socket.handshake, trustedProxyHops),
+    );
+    const count = lobbyConnections.get(ipHash) ?? 0;
+    if (count >= (maxConnectionsPerIp ?? 10)) {
+      return next(new Error("too_many_connections"));
+    }
+    lobbyConnections.set(ipHash, count + 1);
+    socket.data.ipHash = ipHash;
+    next();
+  });
+  lobby.on("connection", (socket) => {
+    socket.on("disconnect", () => {
+      const count = (lobbyConnections.get(socket.data.ipHash) ?? 1) - 1;
+      if (count > 0) lobbyConnections.set(socket.data.ipHash, count);
+      else lobbyConnections.delete(socket.data.ipHash);
+    });
+  });
+  let lobbyUpdate: ReturnType<typeof setTimeout> | undefined;
+  function notifyLobby(): void {
+    if (lobbyUpdate) return;
+    lobbyUpdate = setTimeout(() => {
+      lobbyUpdate = undefined;
+      lobby.emit("rooms:changed", { kind: "presence" });
+    }, 150);
+    lobbyUpdate.unref();
+  }
+  httpServer.once("close", () => clearTimeout(lobbyUpdate));
+
   // People who were only for show go when the last real one does; in a test room, when the last admin does.
   async function dropShow(slug: string): Promise<void> {
     if (
@@ -349,6 +381,7 @@ export function createSocketServer(
 
   async function emitPresence(slug: string): Promise<void> {
     const members = await io.in(roomKey(slug)).fetchSockets();
+    if (!isAdminRoom(slug)) notifyLobby();
 
     if (members.length === 0) await dropShow(slug);
 

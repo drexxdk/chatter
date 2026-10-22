@@ -21,6 +21,12 @@ The realtime backend end-users connect to. Built with Express + Socket.IO, backe
 
 ## Socket protocol
 
+### Public Room Updates
+
+Anonymous visitors connect to the read-only `/lobby` namespace with `io(url + "/lobby")`; it requires no nickname or chat identity and exposes no chat commands or member profiles. Connections have a separate per-IP cap of `MAX_CONNECTIONS_PER_IP` (10 when unset). Public-room presence changes are batched over 150ms and broadcast through the Redis adapter as `rooms:changed { kind: "presence" }`. Changed room metadata is announced as `rooms:changed { kind: "metadata" }` after the existing Payload sync caches it. Unchanged metadata syncs send nothing.
+
+Clients fetch `GET /rooms` initially and after connection/reconnection, then refresh on notifications instead of polling. While in a chat room, occupancy notifications need no HTTP refresh because `room:presence` already pushes live membership; metadata notifications still refresh the room list. Metadata changes retain the existing `SYNC_INTERVAL_MS` propagation delay from Payload.
+
 Connect with `io(url, { auth: { nickname, avatar, guestId, resumeSecret } })` as a guest (`avatar`, `guestId` and `resumeSecret` are optional, see Resuming an identity), or `io(url, { auth: { token } })` as a moderator (see Moderators). Nicknames are 2-24 characters (letters, digits, space, `_`, `.`, `-`). Connections are rejected with a `connect_error` message of `invalid_nickname`, `reserved_nickname` (the nickname is a moderator's name or looks like an authority such as "Admin"), `invalid_token` (the moderator token is wrong, expired, or sign-in is switched off), `banned` (the client IP, salted and hashed, matches an active entry in the Payload `bans` collection), `too_many_connections` (the client IP already has `MAX_CONNECTIONS_PER_IP` live connections) or `unavailable` (ban or moderator-name cache unreachable; fails closed).
 
 A client may send packets of up to 8 KB (`MAX_PACKET_BYTES` in `socket.ts`; Socket.IO's default is 1 MB, and the biggest thing a client sends is a 500-character message). A larger one closes its connection. The server pings every 25 s and drops a client that does not answer within 20 s.

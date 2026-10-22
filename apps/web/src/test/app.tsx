@@ -7,7 +7,9 @@ import { expect, vi } from "vitest";
 
 import { App as RealApp } from "../App";
 import { PICTURE_PATTERN } from "../chat/picture";
-import { makeFakeServer } from "./fakeSocket";
+import { FakeSocket, makeFakeServer } from "./fakeSocket";
+
+const createLobbySocket = () => new FakeSocket("Lobby");
 
 // What a guest who joined through the dialog connects with: a picture was chosen for them, at random.
 export const anyPicture = expect.stringMatching(PICTURE_PATTERN);
@@ -60,7 +62,7 @@ export function stubRooms(
 export function App(props: ComponentProps<typeof RealApp>) {
   return (
     <BrowserRouter>
-      <RealApp {...props} />
+      <RealApp createLobbySocket={createLobbySocket} {...props} />
     </BrowserRouter>
   );
 }
@@ -69,7 +71,10 @@ export function App(props: ComponentProps<typeof RealApp>) {
 export function renderAt(path: string, server = makeFakeServer()) {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <RealApp createSocket={server.createSocket} />
+      <RealApp
+        createSocket={server.createSocket}
+        createLobbySocket={server.createLobbySocket}
+      />
     </MemoryRouter>,
   );
 }
@@ -79,6 +84,7 @@ export function setup(server = makeFakeServer(), reconnectDelaysMs?: number[]) {
   const { unmount } = render(
     <App
       createSocket={server.createSocket}
+      createLobbySocket={server.createLobbySocket}
       reconnectDelaysMs={reconnectDelaysMs}
     />,
   );

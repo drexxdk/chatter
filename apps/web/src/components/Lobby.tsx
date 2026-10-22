@@ -1,21 +1,29 @@
 import { ChevronRight } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import { fetchRooms, localizeRoom, type Room } from "../api";
+import { createLobbySocket, type CreateLobbySocket } from "../chat/socket";
 import { roomVars, sortRooms } from "../roomThemes";
 import { LoadError, Loading } from "./LoadState";
 import { RoomIcon } from "./RoomIcon";
-
-// How often the numbers of people in the rooms are fetched again while the lobby is open.
-const REFRESH_MS = 10_000;
 
 type RoomsState =
   | { status: "loading" }
   | { status: "error" }
   | { status: "ready"; rooms: Room[] };
 
-export function useRooms(lobbyOpen = false) {
+export function useRooms(
+  lobbyOpen = false,
+  connect: CreateLobbySocket = createLobbySocket,
+) {
   const { i18n } = useTranslation();
   const [fetched, setState] = useState<RoomsState>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
@@ -66,13 +74,49 @@ export function useRooms(lobbyOpen = false) {
       void refresh();
     }
 
-    const timer = setInterval(() => void refresh(), REFRESH_MS);
-
     return () => {
       controller.abort();
-      clearInterval(timer);
     };
   }, [lobbyOpen]);
+
+  const shouldRefresh = useEffectEvent(
+    (change?: { kind?: string }) => lobbyOpen || change?.kind !== "presence",
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const socket = connect();
+    let fetching = false;
+    let pending = false;
+    const refresh = async () => {
+      if (controller.signal.aborted) return;
+      if (fetching) {
+        pending = true;
+        return;
+      }
+      fetching = true;
+      try {
+        const rooms = await fetchRooms(controller.signal);
+        if (!controller.signal.aborted) setState({ status: "ready", rooms });
+      } catch {
+        // Keep the last snapshot until the next update or reconnection.
+      } finally {
+        fetching = false;
+        if (pending) {
+          pending = false;
+          void refresh();
+        }
+      }
+    };
+    socket.on("connect", () => void refresh());
+    socket.on("rooms:changed", (change?: { kind?: string }) => {
+      if (shouldRefresh(change)) void refresh();
+    });
+    return () => {
+      controller.abort();
+      socket.disconnect();
+    };
+  }, [connect]);
 
   const retry = useCallback(() => setAttempt((value) => value + 1), []);
 

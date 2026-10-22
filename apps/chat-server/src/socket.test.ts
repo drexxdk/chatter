@@ -335,6 +335,55 @@ afterEach(async () => {
   await waitForNoSockets();
 });
 
+describe("public lobby updates", () => {
+  async function connectLobby(targetPort = port): Promise<Socket> {
+    const socket = connectClient(`http://localhost:${targetPort}/lobby`, {
+      reconnection: false,
+      transports: ["websocket"],
+    });
+    clients.push(socket);
+    await new Promise<void>((resolve, reject) => {
+      socket.once("connect", resolve);
+      socket.once("connect_error", reject);
+    });
+    return socket;
+  }
+
+  it("lets anonymous visitors receive batched count changes without a chat identity", async () => {
+    const lobby = await connectLobby();
+    expect(verifyHuman).not.toHaveBeenCalled();
+    expect(await roomOccupancy(ioServer)).toEqual(new Map());
+    const updates = vi.fn();
+    lobby.on("rooms:changed", updates);
+    const alice = await connectGuest("Alice");
+    const bob = await connectGuest("Bob");
+    const changed = waitFor(lobby, "rooms:changed");
+    await emit(alice, "room:join", { slug: "general" });
+    await emit(bob, "room:join", { slug: "general" });
+    await changed;
+    expect(updates).toHaveBeenCalledTimes(1);
+    expect(updates).toHaveBeenCalledWith({ kind: "presence" });
+    expect(await roomOccupancy(ioServer)).toEqual(new Map([["general", 2]]));
+    const left = waitFor(lobby, "rooms:changed");
+    await emit(alice, "room:leave");
+    await left;
+    const disconnected = waitFor(lobby, "rooms:changed");
+    bob.disconnect();
+    await disconnected;
+    await expect(
+      lobby.timeout(100).emitWithAck("room:join", { slug: "general" }),
+    ).rejects.toThrow();
+  });
+
+  it("caps anonymous lobby connections per address", async () => {
+    const server = await startServer({ maxConnectionsPerIp: 1 });
+    await connectLobby(server.port);
+    await expect(connectLobby(server.port)).rejects.toThrow(
+      "too_many_connections",
+    );
+  });
+});
+
 describe("guest human verification", () => {
   it.each(["human_check_required", "human_check_failed", "unavailable"])(
     "blocks direct guest connections on %s",
