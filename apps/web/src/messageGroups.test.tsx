@@ -155,7 +155,7 @@ describe("choosing the person to write to", () => {
     await user.click(within(rows()[0]).getByText("Bob"));
 
     expect(screen.queryByRole("menu")).toBeNull();
-    expect(screen.getByText("Writing privately to Bob")).toBeInTheDocument();
+    expect(screen.getByText("Private: Bob")).toBeInTheDocument();
     await waitFor(() =>
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),

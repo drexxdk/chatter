@@ -31,6 +31,8 @@ import { isStatus, type Partner } from "../chat/direct";
 import { runs } from "../chat/runs";
 import type { ReportReason } from "../chat/types";
 import { useComposer } from "../chat/useComposer";
+import type { TypingApi } from "../chat/useTyping";
+import { TypingIndicator } from "./TypingIndicator";
 import { readTabDraft } from "../tabDraft";
 import { useRetryCountdown } from "../chat/useRetryCountdown";
 import {
@@ -94,6 +96,7 @@ interface ChatRoomProps {
   onReport: (messageId: string, reason: ReportReason) => Promise<ActionResult>;
   onAnnounce: (text: string) => Promise<AnnounceResult>;
   direct: DirectApi;
+  typing: TypingApi;
   // When the guest is disconnected for doing nothing, once they have been warned (milliseconds since 1970).
   idleDeadline: number | null;
 }
@@ -118,6 +121,7 @@ export function ChatRoom({
   onReport,
   onAnnounce,
   direct,
+  typing,
   idleDeadline,
 }: ChatRoomProps) {
   const { t } = useTranslation();
@@ -523,6 +527,8 @@ export function ChatRoom({
               key={direct.active.guestId}
               draftKey={`composer:private:${direct.active.guestId}`}
               partner={direct.active}
+              typing={typing}
+              typingBlockedIds={[...direct.blockedIds, ...direct.blockedByIds]}
               ownGuestIds={ownGuestIds}
               ownNickname={session.nickname}
               present={direct.isPresent(direct.active.guestId)}
@@ -758,6 +764,11 @@ export function ChatRoom({
             <ComposerBar
               composer={composer}
               id="message"
+              typing={{
+                update: typing.update,
+                toGuestId: replyTo?.guestId,
+                enabled: !direct.active && !announce,
+              }}
               label={
                 announce
                   ? t("announcement.label")
@@ -819,10 +830,50 @@ export function ChatRoom({
                   ? { active: announce, onChange: chooseSendMode }
                   : undefined
               }
+              destination={
+                replyTo ? (
+                  <div className="flex min-w-0 flex-1 items-center gap-1 text-xs text-neutral-300">
+                    <MessageSquare
+                      aria-hidden="true"
+                      className="h-3.5 w-3.5 shrink-0"
+                    />
+                    <span
+                      className="min-w-0 wrap-break-word"
+                      aria-live="polite"
+                    >
+                      {t("dm.writingTo", { name: replyTo.nickname })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openConversation(replyTo)}
+                      title={t("person.openChat")}
+                      aria-label={t("person.openChat")}
+                      className="shrink-0 rounded p-1 hover:bg-neutral-700/50"
+                    >
+                      <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => chooseRecipient(null)}
+                      title={t("dm.closeBar")}
+                      aria-label={t("dm.closeBar")}
+                      className="shrink-0 rounded p-1 hover:bg-neutral-700/50"
+                    >
+                      <X aria-hidden="true" className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <span
+                    className="min-w-0 text-xs text-neutral-400"
+                    aria-live="polite"
+                  >
+                    {t("info.everyoneHeading")}
+                  </span>
+                )
+              }
               above={
                 <>
-                  {/* Who is being written to, as on a wide screen, with the button that shows the panel beside it where there is no room for the panel to stay. */}
-                  <div className="flex min-h-10 items-center gap-2">
+                  <div className="flex min-h-5 items-center gap-2">
                     <RoomPanelDropdown
                       roomSlug={roomSlug}
                       unread={unread}
@@ -838,46 +889,16 @@ export function ChatRoom({
                       onSetBlocked={direct.setBlocked}
                       onSetMuted={direct.setMuted}
                     />
-
-                    {replyTo ? (
-                      <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-sm text-neutral-300">
-                        <MessageSquare
-                          aria-hidden="true"
-                          className="hidden h-4 w-4 shrink-0 md:block"
-                        />
-                        <span
-                          className="min-w-0 flex-1 wrap-break-word"
-                          aria-live="polite"
-                        >
-                          {t("dm.writingTo", { name: replyTo.nickname })}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => openConversation(replyTo)}
-                          title={t("person.openChat")}
-                          aria-label={t("person.openChat")}
-                          className="shrink-0 rounded p-1 hover:bg-neutral-700/50"
-                        >
-                          <ArrowRight aria-hidden="true" className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => chooseRecipient(null)}
-                          title={t("dm.closeBar")}
-                          aria-label={t("dm.closeBar")}
-                          className="shrink-0 rounded p-1 hover:bg-neutral-700/50"
-                        >
-                          <X aria-hidden="true" className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <span
-                        className="min-w-0 text-sm text-neutral-400"
-                        aria-live="polite"
-                      >
-                        {t("info.everyoneHeading")}
-                      </span>
-                    )}
+                    <div className="min-w-0 flex-1">
+                      <TypingIndicator
+                        writers={connected ? typing.writers : []}
+                        roomSlug={replyTo ? undefined : roomSlug}
+                        blockedIds={[
+                          ...direct.blockedIds,
+                          ...direct.blockedByIds,
+                        ]}
+                      />
+                    </div>
                   </div>
 
                   {replyTo && !replyPresent && (

@@ -335,6 +335,181 @@ afterEach(async () => {
   await waitForNoSockets();
 });
 
+describe("typing indicators", () => {
+  async function writer(nickname: string, roomSlug = "general") {
+    const connection = await connect({ nickname });
+    const socket = connection.socket!;
+    const session = await connection.session!;
+    expect((await emit(socket, "room:join", { slug: roomSlug })).ok).toBe(true);
+    return { socket, guestId: session.guestId };
+  }
+
+  it("sends private typing only to its recipient, even across rooms", async () => {
+    const alice = await writer("Alice");
+    const bob = await writer("Bob", "random");
+    const carol = await writer("Carol");
+    const overheard = vi.fn();
+    carol.socket.on("chat:typing", overheard);
+    alice.socket.on("chat:typing", overheard);
+    const notice = waitFor(bob.socket, "chat:typing");
+
+    expect(
+      await emit(alice.socket, "chat:typing", {
+        active: true,
+        toGuestId: bob.guestId,
+        nickname: "Forged",
+      }),
+    ).toEqual({ ok: true });
+    expect(await notice).toEqual({
+      guestId: alice.guestId,
+      nickname: "Alice",
+      active: true,
+      toGuestId: bob.guestId,
+    });
+    expect(overheard).not.toHaveBeenCalled();
+  });
+
+  it("keeps room typing in the sender's actual room and clears it on leaving", async () => {
+    const alice = await writer("Alice");
+    const bob = await writer("Bob");
+    const carol = await writer("Carol", "random");
+    const overheard = vi.fn();
+    carol.socket.on("chat:typing", overheard);
+    const started = waitFor(bob.socket, "chat:typing");
+    expect(
+      await emit(alice.socket, "chat:typing", {
+        active: true,
+        roomSlug: "random",
+      }),
+    ).toEqual({ ok: true });
+    expect(await started).toEqual({
+      guestId: alice.guestId,
+      nickname: "Alice",
+      active: true,
+      roomSlug: "general",
+    });
+    const stopped = waitFor<{ active: boolean }>(
+      bob.socket,
+      "chat:typing",
+      (notice) => !notice.active,
+    );
+    await emit(alice.socket, "room:leave");
+    expect(await stopped).toMatchObject({ active: false, roomSlug: "general" });
+    expect(overheard).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed activity and room typing outside a room", async () => {
+    const socket = await connectGuest("Alice");
+    for (const payload of [null, {}, { active: "yes" }]) {
+      expect(await emit(socket, "chat:typing", payload)).toMatchObject({
+        ok: false,
+        error: "invalid_typing",
+      });
+    }
+    expect(await emit(socket, "chat:typing", { active: true })).toMatchObject({
+      ok: false,
+      error: "not_in_room",
+    });
+    expect(
+      await emit(socket, "chat:typing", { active: true, toGuestId: 123 }),
+    ).toMatchObject({ ok: false, error: "invalid_recipient" });
+  });
+
+  it("clears the previous audience when switching to a private recipient", async () => {
+    const alice = await writer("Alice");
+    const bob = await writer("Bob");
+    const carol = await writer("Carol");
+    await emit(alice.socket, "chat:typing", { active: true });
+    const stoppedRoom = waitFor<{ active: boolean }>(
+      carol.socket,
+      "chat:typing",
+      (notice) => !notice.active,
+    );
+    const startedPrivate = waitFor<{ toGuestId?: string }>(
+      bob.socket,
+      "chat:typing",
+      (notice) => notice.toGuestId === bob.guestId,
+    );
+    await emit(alice.socket, "chat:typing", {
+      active: true,
+      toGuestId: bob.guestId,
+    });
+    expect(await stoppedRoom).toMatchObject({
+      active: false,
+      roomSlug: "general",
+    });
+    expect(await startedPrivate).toMatchObject({
+      active: true,
+      toGuestId: bob.guestId,
+    });
+    const stoppedPrivate = waitFor<{ active: boolean }>(
+      bob.socket,
+      "chat:typing",
+      (notice) => !notice.active,
+    );
+    await emit(alice.socket, "chat:typing", { active: false });
+    expect(await stoppedPrivate).toMatchObject({
+      active: false,
+      toGuestId: bob.guestId,
+    });
+  });
+
+  it("expires stale activity and clears private activity on disconnect", async () => {
+    const alice = await writer("Alice");
+    const bob = await writer("Bob");
+    const expired = waitFor<{ active: boolean }>(
+      bob.socket,
+      "chat:typing",
+      (notice) => !notice.active,
+    );
+    await emit(alice.socket, "chat:typing", { active: true });
+    expect(await expired).toMatchObject({ active: false, roomSlug: "general" });
+    await emit(alice.socket, "chat:typing", {
+      active: true,
+      toGuestId: bob.guestId,
+    });
+    const disconnected = waitFor<{ active: boolean }>(
+      bob.socket,
+      "chat:typing",
+      (notice) => !notice.active,
+    );
+    alice.socket.disconnect();
+    expect(await disconnected).toMatchObject({
+      active: false,
+      toGuestId: bob.guestId,
+    });
+  }, 8000);
+
+  it("rate limits typing broadcasts without preventing a stop", async () => {
+    const alice = await writer("Alice");
+    for (let index = 0; index < 8; index += 1)
+      expect(await emit(alice.socket, "chat:typing", { active: true })).toEqual(
+        { ok: true },
+      );
+    expect(
+      await emit(alice.socket, "chat:typing", { active: true }),
+    ).toMatchObject({ ok: false, error: "rate_limited" });
+    expect(await emit(alice.socket, "chat:typing", { active: false })).toEqual({
+      ok: true,
+    });
+  });
+
+  it("does not reveal typing to somebody who blocked the writer", async () => {
+    const alice = await writer("Alice");
+    const bob = await writer("Bob");
+    await emit(bob.socket, "dm:block", { guestId: alice.guestId });
+    const received = vi.fn();
+    bob.socket.on("chat:typing", received);
+    expect(
+      await emit(alice.socket, "chat:typing", {
+        active: true,
+        toGuestId: bob.guestId,
+      }),
+    ).toMatchObject({ ok: false, error: "blocked_by_recipient" });
+    expect(received).not.toHaveBeenCalled();
+  });
+});
+
 describe("public lobby updates", () => {
   async function connectLobby(targetPort = port): Promise<Socket> {
     const socket = connectClient(`http://localhost:${targetPort}/lobby`, {
@@ -5478,6 +5653,8 @@ describe("admin tools", () => {
       m.guestId.startsWith("fake-"),
     );
     const heard: { fromGuestId: string; text: string }[] = [];
+    const typing = vi.fn();
+    socket.on("chat:typing", typing);
     socket.on("dm:new", (message) => heard.push(message));
     const answered = waitFor<{ fromGuestId: string }>(
       socket,
@@ -5490,7 +5667,15 @@ describe("admin tools", () => {
     ).toEqual({ ok: true });
 
     expect(heard[0]).toMatchObject({ text: "hi" });
+    await vi.waitFor(() =>
+      expect(typing).toHaveBeenCalledWith(
+        expect.objectContaining({ guestId: fake?.guestId, active: true }),
+      ),
+    );
     expect((await answered).fromGuestId).toBe(fake?.guestId);
+    expect(typing).toHaveBeenLastCalledWith(
+      expect.objectContaining({ guestId: fake?.guestId, active: false }),
+    );
     expect(
       await emit(socket, "dm:send", { toGuestId: "fake-gone", text: "hi" }),
     ).toEqual({ ok: false, error: "user_not_found" });
@@ -5518,24 +5703,116 @@ describe("admin tools", () => {
     });
   });
 
-  it("shows the admin being removed, for a reason they choose, and keeps them connected", async () => {
-    const { socket } = await signIn(7, "Ada Admin");
-    const kicked = waitFor<{ reason: string }>(socket, "kicked");
+  it.each(["inactivity", "banned", "replaced", "invalid_token"])(
+    "removes the admin with the simulated reason %s",
+    async (reason) => {
+      const { socket } = await signIn(7, "Ada Admin");
+      await emit(socket, "room:join", { slug: "admin-lab" });
+      const kicked = waitFor<{ reason: string }>(socket, "kicked");
+      const disconnected = waitFor<string>(socket, "disconnect");
+      const order: string[] = [];
+      socket.on("kicked", () => order.push("kicked"));
+      socket.on("disconnect", () => order.push("disconnect"));
 
-    expect(await emit(socket, "admin:kick", { reason: "nonsense" })).toEqual({
-      ok: false,
-      error: "invalid_reason",
-    });
-    expect(await emit(socket, "admin:kick", { reason: "banned" })).toEqual({
-      ok: true,
-    });
+      expect(await emit(socket, "admin:kick", { reason: "nonsense" })).toEqual({
+        ok: false,
+        error: "invalid_reason",
+      });
+      expect(socket.connected).toBe(true);
+      const response = await new Promise<unknown>((resolve) => {
+        socket.emit("admin:kick", { reason }, (ack: unknown) => {
+          order.push("ack");
+          resolve(ack);
+        });
+      });
+      expect(response).toEqual({ ok: true });
 
-    expect(await kicked).toEqual({ reason: "banned" });
-    expect(socket.connected).toBe(true);
-  });
+      expect(await kicked).toEqual({ reason });
+      expect(await disconnected).toBe("io server disconnect");
+      expect(socket.connected).toBe(false);
+      expect(order).toEqual(["ack", "kicked", "disconnect"]);
+    },
+  );
 
   describe("the crowd", () => {
     type CrowdState = { roomSlug: string; status: string; people: number };
+
+    it("previews room and private typing with private notices only sent to the requesting admin", async () => {
+      getModerators.mockResolvedValue([
+        { id: 7, name: "Ada Admin", admin: true },
+        { id: 8, name: "Grace", admin: true },
+      ]);
+      const admin = await signIn(7, "Ada Admin");
+      const observer = await signIn(8, "Grace", admin.port);
+      await emit(admin.socket, "room:join", { slug: "admin-lab" });
+      await emit(observer.socket, "room:join", { slug: "admin-lab" });
+      const filled = waitFor<CrowdState>(
+        admin.socket,
+        "crowd:state",
+        (next) => next.people === 5,
+      );
+      await emit(admin.socket, "admin:crowd:start", { people: 5 });
+      await filled;
+      await emit(admin.socket, "admin:crowd:pause");
+      const own = vi.fn();
+      const other = vi.fn();
+      admin.socket.on("chat:typing", own);
+      observer.socket.on("chat:typing", other);
+      expect(
+        await emit(admin.socket, "admin:crowd:typing", { room: 3, direct: 2 }),
+      ).toEqual({ ok: true });
+      await vi.waitFor(() => expect(own).toHaveBeenCalledTimes(5));
+      await vi.waitFor(() => expect(other).toHaveBeenCalledTimes(3));
+      expect(
+        own.mock.calls.filter(
+          ([notice]) => notice.toGuestId === admin.session.guestId,
+        ),
+      ).toHaveLength(2);
+      expect(
+        other.mock.calls.every(
+          ([notice]) =>
+            notice.roomSlug === "admin-lab" && notice.toGuestId === undefined,
+        ),
+      ).toBe(true);
+      expect(
+        await emit(admin.socket, "admin:crowd:typing", { room: 0, direct: 0 }),
+      ).toEqual({ ok: true });
+      await vi.waitFor(() =>
+        expect(
+          own.mock.calls.filter(([notice]) => !notice.active),
+        ).toHaveLength(5),
+      );
+      await emit(admin.socket, "admin:crowd:typing", { room: 3, direct: 2 });
+      await emit(admin.socket, "admin:fake:clear");
+      await vi.waitFor(() =>
+        expect(
+          own.mock.calls.filter(([notice]) => !notice.active),
+        ).toHaveLength(10),
+      );
+    });
+
+    it("rejects invalid typing counts and non-admin preview requests", async () => {
+      const admin = await signIn(7, "Ada Admin");
+      await emit(admin.socket, "room:join", { slug: "admin-lab" });
+      for (const counts of [
+        { room: -1, direct: 0 },
+        { room: 1.5, direct: 0 },
+        { room: 0, direct: "1" },
+        { room: 1, direct: 0 },
+      ]) {
+        expect(await emit(admin.socket, "admin:crowd:typing", counts)).toEqual({
+          ok: false,
+          error: "invalid_people",
+        });
+      }
+      const moderator = await signIn(8, "Grace", admin.port);
+      expect(
+        await emit(moderator.socket, "admin:crowd:typing", {
+          room: 0,
+          direct: 0,
+        }),
+      ).toEqual({ ok: false, error: "forbidden" });
+    });
 
     it("comes in when started, with the state told to the room, and goes when stopped", async () => {
       const { socket } = await signIn(7, "Ada Admin");

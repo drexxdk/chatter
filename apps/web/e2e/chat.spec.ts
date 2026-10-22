@@ -539,6 +539,100 @@ test("private-message sounds are opt-in with adjustable volume", async ({
   expect((await audio()).notes).toBe(4);
 });
 
+test("typing indicators keep private drafts private and follow the current conversation", async ({
+  browser,
+}, testInfo) => {
+  const room = await isolatedRoom("E2E Typing");
+  const otherRoom = await isolatedRoom("E2E Other Typing");
+  const alice = await newGuest(browser);
+  const bob = await newGuest(browser);
+  const carol = await newGuest(browser);
+  const dana = await newGuest(browser);
+  await enterRoom(alice, room.name, "Typing Alice");
+  await enterRoom(bob, room.name, "Typing Bob");
+  await enterRoom(carol, room.name, "Typing Carol");
+  await enterRoom(dana, otherRoom.name, "Typing Dana");
+  const activity = (page: Page) =>
+    page.locator("[data-typing-indicator]:visible");
+  const aliceBox = alice.getByRole("textbox", { name: "Message", exact: true });
+  await fillMessage(aliceBox, "Public draft");
+  await expect(activity(bob)).toHaveText("Typing Alice is typing");
+  await expect(activity(carol)).toHaveText("Typing Alice is typing");
+  await expect(activity(dana)).toBeEmpty();
+  await alice.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(activity(bob)).toBeEmpty();
+
+  await alice
+    .getByRole("button", { name: "Open private chat with Typing Bob" })
+    .click();
+  const alicePrivate = alice.getByRole("textbox", {
+    name: "Message to Typing Bob",
+    exact: true,
+  });
+  await fillMessage(alicePrivate, "Private draft");
+  await expect(activity(bob)).toHaveText("Typing Alice is typing privately");
+  await expect(activity(carol)).toBeEmpty();
+  await expect(activity(dana)).toBeEmpty();
+
+  await fillMessage(
+    carol.getByRole("textbox", { name: "Message", exact: true }),
+    "Another public draft",
+  );
+  await expect(activity(bob)).toHaveText("Typing Alice is typing privately");
+  for (const width of [1280, 390]) {
+    await bob.setViewportSize({ width, height: 800 });
+    await fillMessage(alicePrivate, "Still writing privately");
+    await fillMessage(
+      carol.getByRole("textbox", { name: "Message", exact: true }),
+      "Still writing publicly",
+    );
+    await expect(activity(bob)).toHaveText("Typing Alice is typing privately");
+    const indicator = await activity(bob).boundingBox();
+    const recipient = await bob
+      .getByText("Room", { exact: true })
+      .boundingBox();
+    expect(indicator!.y + indicator!.height).toBeLessThanOrEqual(recipient!.y);
+    expect(
+      await bob.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await bob.screenshot({
+      path: testInfo.outputPath(`typing-room-${width}.png`),
+      animations: "disabled",
+    });
+  }
+  await bob.setViewportSize({ width: 1280, height: 800 });
+  await expect(activity(alice)).toBeEmpty();
+  await bob
+    .getByRole("button", { name: "Open private chat with Typing Alice" })
+    .click();
+  await expect(activity(bob)).toHaveText("Typing Alice is typing privately");
+  const bobPrivate = bob.getByRole("textbox", {
+    name: "Message to Typing Alice",
+    exact: true,
+  });
+  await fillMessage(bobPrivate, "A private reply");
+  await expect(activity(alice)).toHaveText("Typing Bob is typing privately");
+  await expect(activity(carol)).toBeEmpty();
+
+  for (const width of [1280, 390]) {
+    await alice.setViewportSize({ width, height: 800 });
+    await expect(activity(alice)).toBeInViewport();
+    expect(
+      await alice.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await alice.screenshot({
+      path: testInfo.outputPath(`typing-${width}.png`),
+      animations: "disabled",
+    });
+  }
+  await bobPrivate.fill("");
+  await expect(activity(alice)).toBeEmpty();
+});
+
 test("the people dropdown avoids touch-device autofocus and keeps a padded scroll frame when resized", async ({
   browser,
 }) => {
@@ -2295,6 +2389,102 @@ for (const viewport of [
     }
   });
 }
+
+test("the Test lab crowd previews private and room typing counts", async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(60_000);
+  const unique = String(Date.now());
+  const name = `Typing Tester ${unique.slice(-6)}`;
+  const email = `${E2E.moderatorEmailPrefix}typing-${unique}@chatter.test`;
+  const password = crypto.randomUUID();
+  const accountId = await payload.createModerator(
+    email,
+    password,
+    name,
+    "super-admin",
+  );
+  try {
+    await waitForReservedNickname(name);
+    const page = await newGuest(browser);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await page.getByRole("textbox", { name: "Username or email" }).fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await page.getByRole("button", { name: "Join Test lab" }).click();
+    await expect(page.getByRole("log", { name: "Test lab" })).toBeVisible();
+    const tools = page.getByRole("button", { name: "Admin tools" });
+    await tools.click();
+    await page.getByRole("spinbutton", { name: "Room limit" }).fill("20");
+    await page.getByRole("button", { name: "Save room limit" }).click();
+    await page
+      .getByRole("textbox", { name: "Number of people (1–20)" })
+      .fill("19");
+    await page.getByRole("button", { name: "Start the crowd" }).click();
+    await expect(page.getByRole("menu")).toContainText("19 of 19", {
+      timeout: 15_000,
+    });
+    await page.getByRole("menuitem", { name: "Pause", exact: true }).click();
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.getByRole("spinbutton", { name: "Typing to you" }).fill("7");
+      await page
+        .getByRole("spinbutton", { name: "Typing to the room" })
+        .fill("12");
+      await page
+        .getByRole("button", { name: "Simulate typing", exact: true })
+        .click();
+      await expect(page.getByRole("menu")).toBeVisible();
+      await page.screenshot({
+        path: testInfo.outputPath(`crowd-typing-controls-${width}.png`),
+        animations: "disabled",
+      });
+      await page.keyboard.press("Escape");
+      const activity = page.getByRole("status", { name: "Typing activity" });
+      await expect(activity).toHaveText("7 are typing privately");
+      await expect(activity).toBeInViewport();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: testInfo.outputPath(`crowd-typing-${width}.png`),
+        animations: "disabled",
+      });
+      await tools.click();
+      await page.getByRole("spinbutton", { name: "Typing to you" }).fill("0");
+      await page
+        .getByRole("button", { name: "Simulate typing", exact: true })
+        .click();
+      await page.keyboard.press("Escape");
+      await expect(activity).toHaveText("12 are typing");
+      await tools.click();
+      await page.getByRole("button", { name: "Stop simulated typing" }).click();
+      await page.keyboard.press("Escape");
+      await expect(page.locator("[data-typing-indicator]:visible")).toBeEmpty();
+      await tools.click();
+    }
+    await page.getByRole("spinbutton", { name: "Typing to you" }).fill("7");
+    await page
+      .getByRole("button", { name: "Simulate typing", exact: true })
+      .click();
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("status", { name: "Typing activity" }),
+    ).toHaveText("7 are typing privately");
+    await expect(page.locator("[data-typing-indicator]:visible")).toBeEmpty({
+      timeout: 20_000,
+    });
+    await tools.click();
+    await page
+      .getByRole("menuitem", { name: "Stop and send them away" })
+      .click();
+  } finally {
+    await payload.remove("admins", accountId);
+  }
+});
 
 test("a moderator signs in, and guests see their messages stand out", async ({
   browser,

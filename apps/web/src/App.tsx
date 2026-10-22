@@ -1138,6 +1138,7 @@ export function App({
                 onAnnounce={chat.sendAnnouncement}
                 announcements={chat.announcements}
                 direct={chat.direct}
+                typing={chat.typing}
                 idleDeadline={chat.idleDeadline}
               />
             </Suspense>

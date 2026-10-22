@@ -7,6 +7,8 @@ import { isStatus } from "../chat/direct";
 import { runs } from "../chat/runs";
 import type { ActionResult } from "../chat/useChat";
 import { useComposer } from "../chat/useComposer";
+import type { TypingApi } from "../chat/useTyping";
+import { TypingIndicator } from "./TypingIndicator";
 import { useRetryCountdown } from "../chat/useRetryCountdown";
 import { focusMessageBox } from "../focusMessageBox";
 import { ComposerBar } from "./ComposerBar";
@@ -34,6 +36,8 @@ interface DirectChatProps {
   onReact: (messageId: string, emoji: string) => void;
   onSetBlocked: (blocked: boolean) => Promise<ActionResult>;
   idleDeadline: number | null;
+  typing?: TypingApi;
+  typingBlockedIds?: readonly string[];
 }
 
 export function DirectChat({
@@ -48,6 +52,8 @@ export function DirectChat({
   onReact,
   onSetBlocked,
   idleDeadline,
+  typing,
+  typingBlockedIds,
 }: DirectChatProps) {
   const { t } = useTranslation();
   const composer = useComposer(draftKey);
@@ -131,6 +137,11 @@ export function DirectChat({
       <ComposerBar
         composer={composer}
         id="direct-message"
+        typing={
+          typing
+            ? { update: typing.update, toGuestId: partner.guestId }
+            : undefined
+        }
         label={t("dm.label", { name: partner.nickname })}
         placeholder={
           blockedBy
@@ -156,6 +167,10 @@ export function DirectChat({
         }
         above={
           <>
+            <TypingIndicator
+              writers={typing?.writers ?? []}
+              blockedIds={typingBlockedIds}
+            />
             {blockedBy && (
               <Notice role="status" tone="neutral" icon={Ban}>
                 {t("dm.blockedByWrite", { name: partner.nickname })}

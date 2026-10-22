@@ -1,5 +1,12 @@
 {
   "app": { "title": "Chatter" },
+  "typing": {
+    "label": "Schreibaktivität",
+    "directNames": "{names} {count, plural, one {schreibt} other {schreiben}} privat",
+    "roomNames": "{names} {count, plural, one {schreibt} other {schreiben}}",
+    "directCount": "{count} {count, plural, one {schreibt} other {schreiben}} privat",
+    "roomCount": "{count} {count, plural, one {schreibt} other {schreiben}}"
+  },
   "language": { "label": "Sprache" },
   "menu": { "open": "Menü" },
   "notifications": {
@@ -40,6 +47,15 @@
       "advance": "Warteschlange vorrücken"
     },
     "crowd": {
+      "typing": {
+        "title": "Schreibvorschau",
+        "room": "Schreiben im Raum",
+        "direct": "Schreiben dir",
+        "roomShort": "Im Raum",
+        "directShort": "An dich",
+        "start": "Schreiben simulieren",
+        "stop": "Simuliertes Schreiben stoppen"
+      },
       "title": "Menschenmenge",
       "count": "{people} von {target}",
       "stopped": "Läuft nicht",
@@ -52,17 +68,17 @@
       "amount": "Anzahl Personen (1–{max})",
       "set": "Ändern"
     },
-    "people": "Leute im Raum",
+    "people": "Personen",
     "addPerson": "Person hinzufügen",
     "fillRoom": "Raum füllen",
     "removePerson": "Person entfernen",
     "clearPeople": "Alle entfernen",
-    "kick": "Entfernt werden zeigen",
+    "kick": "Entfernung simulieren",
     "kicks": {
-      "inactivity": "Wegen Inaktivität",
-      "banned": "Wegen einer Sperre",
-      "replaced": "Wegen eines weiteren Fensters",
-      "invalid_token": "Wegen einer abgelaufenen Sitzung"
+      "inactivity": "Inaktiv",
+      "banned": "Gesperrt",
+      "replaced": "Ersetzt",
+      "invalid_token": "Abgelaufen"
     }
   },
   "profile": {
@@ -305,7 +321,7 @@
     "chip": "{emoji} {count}: {names}"
   },
   "info": {
-    "everyoneHeading": "An den Raum schreiben"
+    "everyoneHeading": "Raum"
   },
   "lobby": {
     "heading": "Öffentliche Räume",
@@ -424,7 +440,7 @@
     "blockedPlaceholder": "Hebe die Blockierung von {name} auf, um zu schreiben",
     "from": "Direktnachricht von {name}",
     "to": "Direktnachricht an {name}",
-    "writingTo": "Schreibt privat an {name}",
+    "writingTo": "Privat: {name}",
     "closeBar": "Nicht mehr privat schreiben",
     "openWith": "Privaten Chat mit {name} öffnen",
     "search": "Personen suchen",

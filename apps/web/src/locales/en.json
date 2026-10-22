@@ -1,5 +1,12 @@
 {
   "app": { "title": "Chatter" },
+  "typing": {
+    "label": "Typing activity",
+    "directNames": "{names} {count, plural, one {is} other {are}} typing privately",
+    "roomNames": "{names} {count, plural, one {is} other {are}} typing",
+    "directCount": "{count, plural, one {# is} other {# are}} typing privately",
+    "roomCount": "{count, plural, one {# is} other {# are}} typing"
+  },
   "language": { "label": "Language" },
   "menu": { "open": "Menu" },
   "notifications": {
@@ -40,6 +47,15 @@
       "advance": "Advance queue"
     },
     "crowd": {
+      "typing": {
+        "title": "Typing preview",
+        "room": "Typing to the room",
+        "direct": "Typing to you",
+        "roomShort": "To room",
+        "directShort": "To you",
+        "start": "Simulate typing",
+        "stop": "Stop simulated typing"
+      },
       "title": "Crowd",
       "count": "{people} of {target}",
       "stopped": "Not running",
@@ -52,17 +68,17 @@
       "amount": "Number of people (1–{max})",
       "set": "Change"
     },
-    "people": "People in the room",
+    "people": "People",
     "addPerson": "Add a person",
     "fillRoom": "Fill the room",
     "removePerson": "Remove a person",
     "clearPeople": "Remove everybody",
-    "kick": "Show being removed",
+    "kick": "Simulate removal",
     "kicks": {
-      "inactivity": "For being inactive",
-      "banned": "For being banned",
-      "replaced": "For opening another window",
-      "invalid_token": "For an expired session"
+      "inactivity": "Inactive",
+      "banned": "Banned",
+      "replaced": "Replaced",
+      "invalid_token": "Expired"
     }
   },
   "profile": {
@@ -305,7 +321,7 @@
     "chip": "{emoji} {count}: {names}"
   },
   "info": {
-    "everyoneHeading": "Writing to the room"
+    "everyoneHeading": "Room"
   },
   "lobby": {
     "heading": "Public rooms",
@@ -424,7 +440,7 @@
     "blockedPlaceholder": "Unblock {name} to write",
     "from": "Direct message from {name}",
     "to": "Direct message to {name}",
-    "writingTo": "Writing privately to {name}",
+    "writingTo": "Private: {name}",
     "closeBar": "Stop writing privately",
     "openWith": "Open private chat with {name}",
     "search": "Search people",

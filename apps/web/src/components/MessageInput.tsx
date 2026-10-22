@@ -81,6 +81,7 @@ export function MessageInput({
   placeholder,
   disabled,
   people,
+  onTyping,
 }: {
   id: string;
   // The element that names the box.
@@ -90,6 +91,7 @@ export function MessageInput({
   disabled: boolean;
   // Who an "@" can name; without it, an "@" is just a character.
   people?: Partner[];
+  onTyping?: (active: boolean) => void;
 }) {
   const [suggestion, setSuggestion] = useState<SuggestionProps<
     Partner,
@@ -101,9 +103,23 @@ export function MessageInput({
     ? suggestMentions(people ?? [], suggestion.query)
     : [];
   // What the editor's callbacks need. They are made once, so they look here for the latest of what this was given.
-  const latest = useRef({ composer, people, suggestion, matches, active });
+  const latest = useRef({
+    composer,
+    people,
+    suggestion,
+    matches,
+    active,
+    onTyping,
+  });
   useLayoutEffect(() => {
-    latest.current = { composer, people, suggestion, matches, active };
+    latest.current = {
+      composer,
+      people,
+      suggestion,
+      matches,
+      active,
+      onTyping,
+    };
   });
 
   const editor = useEditor({
@@ -197,12 +213,18 @@ export function MessageInput({
     ],
     editable: !disabled,
     // The list belongs to the cursor in the box (choosing from it keeps the focus there, see MentionList).
-    onBlur: () => setSuggestion(null),
-    onUpdate: ({ editor: updated }) =>
+    onBlur: () => {
+      setSuggestion(null);
+      latest.current.onTyping?.(false);
+    },
+    onUpdate: ({ editor: updated }) => {
       latest.current.composer.setText(
         plainText(updated.state.doc, false),
         plainText(updated.state.doc),
-      ),
+      );
+      if (updated.isFocused || !plainText(updated.state.doc).trim())
+        latest.current.onTyping?.(!!plainText(updated.state.doc).trim());
+    },
     editorProps: {
       attributes: {
         id,

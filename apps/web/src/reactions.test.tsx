@@ -121,9 +121,7 @@ describe("reacting to a message", () => {
     expect(server.latest.emittedEvents("reaction:toggle")).toEqual([
       { messageId: "m1", emoji: "❤️" },
     ]);
-    expect(
-      screen.queryByText("Writing privately to Bob"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Private: Bob")).not.toBeInTheDocument();
   });
 
   it("opens every emoji from the add button and reacts with the one chosen", async () => {
@@ -362,9 +360,7 @@ describe("on a touch screen", () => {
     fireEvent.pointerUp(stopOf("from bob"), touch);
     fireEvent.click(stopOf("from bob"));
 
-    expect(
-      screen.queryByText("Writing privately to Bob"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Private: Bob")).not.toBeInTheDocument();
   });
 
   it("shows nothing on a short tap, and does not choose the person either", async () => {
@@ -376,9 +372,7 @@ describe("on a touch screen", () => {
     await new Promise((resolve) => setTimeout(resolve, 600));
 
     expect(barOf("from bob")).not.toHaveAttribute("data-held");
-    expect(
-      screen.queryByText("Writing privately to Bob"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Private: Bob")).not.toBeInTheDocument();
   });
 
   it("does nothing when the finger moves away, as when scrolling", async () => {

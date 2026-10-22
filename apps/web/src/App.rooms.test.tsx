@@ -13,10 +13,161 @@ import {
   anyPicture,
 } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
-import { ME, bob, dm, fromMe, receive } from "./test/direct";
+import {
+  ME,
+  bob,
+  dm,
+  fromMe,
+  receive,
+  enter as enterWithPeople,
+} from "./test/direct";
 
 beforeEach(() => {
   stubRooms();
+});
+
+describe("typing indicators", () => {
+  it("prioritizes private writers and ignores other rooms and recipients", async () => {
+    const { server } = await enterWithPeople();
+    act(() => {
+      for (const notice of [
+        { guestId: "carol", nickname: "Carol", roomSlug: "general" },
+        { guestId: "bob", nickname: "Bob", toGuestId: ME },
+        { guestId: "elsewhere", nickname: "Elsewhere", roomSlug: "music" },
+        { guestId: "secret", nickname: "Secret", toGuestId: "someone-else" },
+      ])
+        server.latest.serverEmit("chat:typing", { active: true, ...notice });
+    });
+    expect(
+      screen.getByRole("status", { name: "Typing activity" }),
+    ).toHaveTextContent(/^Bob is typing privately$/);
+  });
+
+  it("groups many writers into counts and prioritizes private activity", async () => {
+    const { server } = await enterWithPeople();
+    act(() => {
+      for (let index = 0; index < 19; index += 1)
+        server.latest.serverEmit("chat:typing", {
+          guestId: `writer-${index}`,
+          nickname: `Writer ${index}`,
+          active: true,
+          ...(index < 7 ? { toGuestId: ME } : { roomSlug: "general" }),
+        });
+    });
+    expect(
+      screen.getByRole("status", { name: "Typing activity" }),
+    ).toHaveTextContent(/^7 are typing privately$/);
+  });
+
+  it("hides room writers in a private chat and restores them on returning", async () => {
+    const { user, server } = await enterWithPeople();
+    act(() => {
+      server.latest.serverEmit("chat:typing", {
+        guestId: "carol",
+        nickname: "Carol",
+        active: true,
+        roomSlug: "general",
+      });
+      server.latest.serverEmit("chat:typing", {
+        guestId: bob.guestId,
+        nickname: "Bob",
+        active: true,
+        toGuestId: ME,
+      });
+    });
+    await user.click(
+      screen.getByRole("button", { name: "Open private chat with Bob" }),
+    );
+    expect(
+      screen.getByRole("status", { name: "Typing activity" }),
+    ).toHaveTextContent(/^Bob is typing privately$/);
+    await user.click(screen.getByRole("button", { name: "Back to the room" }));
+    expect(
+      screen.getByRole("status", { name: "Typing activity" }),
+    ).toHaveTextContent(/^Bob is typing privately$/);
+    act(() => {
+      server.latest.serverEmit("chat:typing", {
+        guestId: bob.guestId,
+        nickname: "Bob",
+        active: false,
+        toGuestId: ME,
+      });
+    });
+    expect(
+      screen.getByRole("status", { name: "Typing activity" }),
+    ).toHaveTextContent(/^Carol is typing$/);
+  });
+
+  it("reports editor activity to the correct audience and stops after sending", async () => {
+    const { user, server } = await enterWithPeople();
+    const box = await screen.findByRole("textbox", { name: "Message" });
+    await user.click(box);
+    await user.type(box, "Hello");
+    expect(server.latest.emitted).toContainEqual({
+      event: "chat:typing",
+      payload: { active: true },
+    });
+    await user.click(
+      within(
+        screen.getByRole("list", { name: "People in this room" }),
+      ).getByRole("button", { name: /^Bob/ }),
+    );
+    act(() => {
+      server.latest.serverEmit("chat:typing", {
+        guestId: "carol",
+        nickname: "Carol",
+        active: true,
+        roomSlug: "general",
+      });
+      server.latest.serverEmit("chat:typing", {
+        guestId: bob.guestId,
+        nickname: "Bob",
+        active: true,
+        toGuestId: ME,
+      });
+    });
+    expect(
+      screen.getByRole("status", { name: "Typing activity" }),
+    ).toHaveTextContent(/^Bob is typing privately$/);
+    const inlineBox = await screen.findByRole("textbox", {
+      name: "Message to Bob",
+    });
+    await user.click(inlineBox);
+    await user.type(inlineBox, "Private inline draft");
+    expect(
+      server.latest.emitted
+        .filter((entry) => entry.event === "chat:typing")
+        .at(-1),
+    ).toEqual({
+      event: "chat:typing",
+      payload: { active: true, toGuestId: bob.guestId },
+    });
+    await user.click(
+      screen.getByRole("button", { name: "Open private chat with Bob" }),
+    );
+    const privateBox = await screen.findByRole("textbox", {
+      name: "Message to Bob",
+    });
+    await user.click(privateBox);
+    await user.type(privateBox, "Private draft");
+    expect(
+      server.latest.emitted
+        .filter((entry) => entry.event === "chat:typing")
+        .at(-1),
+    ).toEqual({
+      event: "chat:typing",
+      payload: { active: true, toGuestId: bob.guestId },
+    });
+    await user.click(screen.getByRole("button", { name: /^Send$/ }));
+    expect(
+      server.latest.emitted
+        .filter((entry) => entry.event === "chat:typing")
+        .at(-1),
+    ).toEqual({
+      event: "chat:typing",
+      payload: { active: false },
+    });
+  });
 });
 
 describe("lobby", () => {

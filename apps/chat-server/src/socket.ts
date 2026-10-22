@@ -2,7 +2,12 @@ import crypto from "crypto";
 import type { Server as HttpServer } from "http";
 import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
-import { PROFILE_UPDATE_EVENT } from "../../../shared/chatProtocol.mjs";
+import {
+  PROFILE_UPDATE_EVENT,
+  TYPING_EVENT,
+  TYPING_TTL_MS,
+  type TypingNotice,
+} from "../../../shared/chatProtocol.mjs";
 
 import { ageFromBirthDate, parseAge } from "./age.js";
 import {
@@ -369,6 +374,7 @@ export function createSocketServer(
     }
 
     fakeMembers.delete(slug);
+    stopCrowdTyping(slug);
     crowd.discard(slug);
   }
 
@@ -448,11 +454,51 @@ export function createSocketServer(
     return Math.max(0, limit - (await peopleIn(slug)));
   }
 
+  const crowdTyping = new Map<
+    string,
+    {
+      owner: string;
+      notices: TypingNotice[];
+      refresh: NodeJS.Timeout;
+      end: NodeJS.Timeout;
+    }
+  >();
+
+  function emitCrowdTyping(notice: TypingNotice) {
+    io.to(
+      notice.toGuestId ? guestKey(notice.toGuestId) : roomKey(notice.roomSlug!),
+    ).emit(TYPING_EVENT, notice);
+  }
+
+  function stopCrowdTyping(slug: string) {
+    const preview = crowdTyping.get(slug);
+    if (!preview) return;
+    clearInterval(preview.refresh);
+    clearTimeout(preview.end);
+    crowdTyping.delete(slug);
+    for (const notice of preview.notices)
+      emitCrowdTyping({ ...notice, active: false });
+  }
+
   // The crowd of a test room: made-up people who write and react as real ones would, through the same paths.
   const crowd: Crowd = createCrowd(
     {
       fakes: fakeMembers,
       seatsLeft,
+      typing: (slug, who, active) => {
+        if (
+          crowdTyping
+            .get(slug)
+            ?.notices.some((notice) => notice.guestId === who.guestId)
+        )
+          return;
+        io.to(roomKey(slug)).emit(TYPING_EVENT, {
+          guestId: who.guestId,
+          nickname: who.nickname,
+          active,
+          roomSlug: slug,
+        });
+      },
       say: async (slug, who, text) => {
         const message = {
           id: crypto.randomUUID(),
@@ -495,6 +541,12 @@ export function createSocketServer(
         await emitPresence(slug);
       },
       left: async (slug, who) => {
+        if (
+          crowdTyping
+            .get(slug)
+            ?.notices.some((notice) => notice.guestId === who.guestId)
+        )
+          stopCrowdTyping(slug);
         announceFake(slug, "left", who);
         await emitPresence(slug);
       },
@@ -863,7 +915,45 @@ export function createSocketServer(
       }
     }
 
+    let typing: TypingNotice | null = null;
+    const fakeReplies = new Map<
+      string,
+      { notice: TypingNotice; timer: NodeJS.Timeout }
+    >();
+
+    function stopFakeReplies() {
+      for (const { notice, timer } of fakeReplies.values()) {
+        clearTimeout(timer);
+        socket.emit(TYPING_EVENT, { ...notice, active: false });
+      }
+      fakeReplies.clear();
+    }
+    let typingTimer: ReturnType<typeof setTimeout> | undefined;
+    let typingVersion = 0;
+    let typingTimes: number[] = [];
+
+    function publishTyping(notice: TypingNotice) {
+      socket
+        .to(
+          notice.toGuestId
+            ? guestKey(notice.toGuestId)
+            : roomKey(notice.roomSlug!),
+        )
+        .emit(TYPING_EVENT, notice);
+    }
+
+    function stopTyping() {
+      typingVersion += 1;
+      clearTimeout(typingTimer);
+      if (typing) publishTyping({ ...typing, active: false });
+      typing = null;
+    }
+
     async function leaveRoom(): Promise<void> {
+      stopTyping();
+      stopFakeReplies();
+      if (data.roomSlug && crowdTyping.get(data.roomSlug)?.owner === socket.id)
+        stopCrowdTyping(data.roomSlug);
       const slug = data.roomSlug;
       if (!slug) return;
 
@@ -986,6 +1076,79 @@ export function createSocketServer(
       );
 
       io.emit("announcement:new", announcement);
+      reply({ ok: true });
+    });
+
+    socket.on(TYPING_EVENT, async (payload: unknown, ack?: Ack) => {
+      const reply = ackOf(ack);
+      const request = payload as {
+        active?: unknown;
+        toGuestId?: unknown;
+      } | null;
+      if (typeof request?.active !== "boolean")
+        return reply({ ok: false, error: "invalid_typing" });
+      if (!request.active) {
+        stopTyping();
+        return reply({ ok: true });
+      }
+      const toGuestId = request.toGuestId;
+      if (
+        toGuestId !== undefined &&
+        (typeof toGuestId !== "string" ||
+          !toGuestId ||
+          toGuestId.length > MAX_GUEST_ID_LENGTH ||
+          toGuestId === data.guestId)
+      )
+        return reply({ ok: false, error: "invalid_recipient" });
+      if (!toGuestId && !data.roomSlug)
+        return reply({ ok: false, error: "not_in_room" });
+      const now = Date.now();
+      const limit = slidingWindow(typingTimes, now, 5000, 8);
+      typingTimes = limit.recent;
+      if (limit.waitMs > 0) return reply({ ok: false, error: "rate_limited" });
+      typingTimes.push(now);
+      const version = ++typingVersion;
+      const roomSlug = data.roomSlug;
+      if (toGuestId) {
+        if (data.blockedGuestIds.includes(toGuestId))
+          return reply({ ok: false, error: "recipient_blocked" });
+        try {
+          const recipient = await findGuest(toGuestId);
+          if (!recipient) return reply({ ok: false, error: "user_not_found" });
+          if (
+            ROLE_RULES[data.role].blockable &&
+            (recipient.data as SocketData).blockedGuestIds.includes(
+              data.guestId,
+            )
+          )
+            return reply({ ok: false, error: "blocked_by_recipient" });
+        } catch (error) {
+          log.error("Failed to look up typing recipient", error);
+          return reply({ ok: false, error: "unavailable" });
+        }
+      }
+      if (
+        version !== typingVersion ||
+        !socket.connected ||
+        data.banned ||
+        roomSlug !== data.roomSlug
+      )
+        return reply({ ok: false, error: "unavailable" });
+      if (
+        typing &&
+        (typing.toGuestId !== toGuestId ||
+          typing.roomSlug !== (toGuestId ? undefined : roomSlug))
+      )
+        stopTyping();
+      clearTimeout(typingTimer);
+      typing = {
+        guestId: data.guestId,
+        nickname: data.nickname,
+        active: true,
+        ...(toGuestId ? { toGuestId } : { roomSlug }),
+      };
+      publishTyping(typing);
+      typingTimer = setTimeout(stopTyping, TYPING_TTL_MS);
       reply({ ok: true });
     });
 
@@ -1168,13 +1331,29 @@ export function createSocketServer(
 
     // Somebody who is not there answers a private message after a moment, if they and the guest are still in the room.
     function answerAsFake(slug: string, who: FakeMember) {
-      setTimeout(
+      if (fakeReplies.has(who.guestId)) return;
+      const notice: TypingNotice = {
+        guestId: who.guestId,
+        nickname: who.nickname,
+        toGuestId: data.guestId,
+        active: true,
+      };
+      socket.emit(TYPING_EVENT, notice);
+      const timer = setTimeout(
         () => {
+          fakeReplies.delete(who.guestId);
+          socket.emit(TYPING_EVENT, { ...notice, active: false });
           const here = (fakeMembers.get(slug) ?? []).some(
             (fake) => fake.guestId === who.guestId,
           );
 
-          if (!here || data.roomSlug !== slug || !socket.connected) return;
+          if (
+            !here ||
+            data.roomSlug !== slug ||
+            !socket.connected ||
+            data.blockedGuestIds.includes(who.guestId)
+          )
+            return;
 
           socket.emit("dm:new", {
             id: crypto.randomUUID(),
@@ -1191,8 +1370,10 @@ export function createSocketServer(
             sentAt: new Date().toISOString(),
           });
         },
-        1500 + Math.random() * 3500,
-      ).unref();
+        1500 + Math.random() * 3000,
+      );
+      timer.unref();
+      fakeReplies.set(who.guestId, { notice, timer });
     }
 
     // Direct messages are not stored, so there is nothing to keep a reaction in: it is passed on to both people, whose
@@ -1696,6 +1877,12 @@ export function createSocketServer(
 
       if (!who) return "nobody";
 
+      if (
+        crowdTyping
+          .get(slug)
+          ?.notices.some((notice) => notice.guestId === who.guestId)
+      )
+        stopCrowdTyping(slug);
       fakeMembers.set(slug, made.slice(0, -1));
       crowd.release(slug, who.guestId);
       announceFake(slug, "left", who);
@@ -1703,6 +1890,7 @@ export function createSocketServer(
     });
 
     adminTool("admin:fake:clear", async (slug) => {
+      stopCrowdTyping(slug);
       await crowd.stop(slug);
       fakeMembers.delete(slug);
       await emitPresence(slug);
@@ -1733,22 +1921,65 @@ export function createSocketServer(
       return people ? crowd.setPeople(slug, people) : "invalid_people";
     });
 
-    adminTool("admin:crowd:pause", (slug) => crowd.pause(slug));
+    adminTool("admin:crowd:typing", (slug, payload) => {
+      if (data.roomSlug !== slug) return "not_in_test_room";
+      const { room, direct } = (payload ?? {}) as {
+        room?: unknown;
+        direct?: unknown;
+      };
+      const people = fakeMembers.get(slug) ?? [];
+      if (
+        typeof room !== "number" ||
+        typeof direct !== "number" ||
+        !Number.isSafeInteger(room) ||
+        !Number.isSafeInteger(direct) ||
+        room < 0 ||
+        direct < 0 ||
+        room + direct > people.length ||
+        room + direct > MAX_CROWD
+      )
+        return "invalid_people";
+      stopCrowdTyping(slug);
+      if (room + direct === 0) return;
+      const notices: TypingNotice[] = people
+        .slice(0, room + direct)
+        .map((who, index) => ({
+          guestId: who.guestId,
+          nickname: who.nickname,
+          active: true,
+          ...(index < direct
+            ? { toGuestId: data.guestId }
+            : { roomSlug: slug }),
+        }));
+      const refresh = setInterval(() => notices.forEach(emitCrowdTyping), 1500);
+      const end = setTimeout(() => stopCrowdTyping(slug), 15_000);
+      refresh.unref();
+      end.unref();
+      crowdTyping.set(slug, { owner: socket.id, notices, refresh, end });
+      notices.forEach(emitCrowdTyping);
+    });
+
+    adminTool("admin:crowd:pause", (slug) => {
+      stopCrowdTyping(slug);
+      return crowd.pause(slug);
+    });
     adminTool("admin:crowd:resume", (slug) => crowd.resume(slug));
-    adminTool("admin:crowd:stop", (slug) => crowd.stop(slug));
+    adminTool("admin:crowd:stop", (slug) => {
+      stopCrowdTyping(slug);
+      return crowd.stop(slug);
+    });
 
-    // What a guest is told when the server removes them, for each reason it does; the admin stays connected.
-    adminTool(
-      "admin:kick",
-      (_slug, payload) => {
-        const reason = stringField(payload, "reason");
+    socket.on("admin:kick", (payload: unknown, ack?: Ack) => {
+      const reply = ackOf(ack);
+      if (!data.admin) return reply({ ok: false, error: "forbidden" });
+      const reason = stringField(payload, "reason");
+      if (!KICK_REASONS.includes(reason))
+        return reply({ ok: false, error: "invalid_reason" });
 
-        if (!KICK_REASONS.includes(reason)) return "invalid_reason";
-
-        socket.emit("kicked", { reason });
-      },
-      { inTestRoom: false },
-    );
+      reply({ ok: true });
+      socket.emit("kicked", { reason });
+      socket.disconnect(true);
+    });
 
     socket.on("message:send", async (payload: unknown, ack?: Ack) => {
       const reply = ackOf(ack);
@@ -1992,6 +2223,11 @@ export function createSocketServer(
     });
 
     socket.on("disconnect", () => {
+      stopTyping();
+      stopFakeReplies();
+      for (const [slug, preview] of crowdTyping) {
+        if (preview.owner === socket.id) stopCrowdTyping(slug);
+      }
       idleTimers.forEach(clearTimeout);
       removeFromQueue(socket.id);
       void emitDirectPresence(data.guestId).catch((error) =>

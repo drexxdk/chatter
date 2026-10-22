@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useDirectChat } from "./useDirectChat";
 import { useChatProfile } from "./useChatProfile";
+import { useTyping } from "./useTyping";
+import { TYPING_EVENT } from "../../../../shared/chatProtocol.mjs";
 import {
   AccountError,
   parseAccountSession,
@@ -186,6 +188,14 @@ export function useChat(
     redactDirectMessages,
   } = useDirectChat({ emitWithAck, settle, membersRef, ownGuestIdsRef });
 
+  const typing = useTyping({
+    socketRef,
+    roomRef,
+    ownGuestIdsRef,
+    getBlockedGuestIds,
+  });
+  const { receive: receiveTyping, reset: resetTyping } = typing;
+
   const { getConnectionProfile, rememberConnectionProfile, updateProfile } =
     useChatProfile({ emitWithAck, setSession });
 
@@ -233,6 +243,7 @@ export function useChat(
 
   const resetRoom = useCallback(() => {
     roomRef.current = null;
+    resetTyping();
     resetDirectRoom();
     bannedGuestIdsRef.current = new Set();
     setRoomSlug(null);
@@ -240,7 +251,7 @@ export function useChat(
     setMessages([]);
     setAnnouncements([]);
     setRoomEvents([]);
-  }, [resetDirectRoom]);
+  }, [resetDirectRoom, resetTyping]);
 
   const resetQueue = useCallback(() => {
     queueTargetRef.current = null;
@@ -281,8 +292,9 @@ export function useChat(
     const socket = socketRef.current;
     socketRef.current = null;
     socket?.disconnect();
+    resetTyping();
     resetQueue();
-  }, [resetQueue]);
+  }, [resetQueue, resetTyping]);
 
   const resetConnection = useCallback(() => {
     setStatus("idle");
@@ -334,6 +346,10 @@ export function useChat(
         setSession((current) => (current ? { ...current, age } : current));
       });
       const isCurrent = () => socketRef.current === socket;
+
+      socket.on(TYPING_EVENT, (value: unknown) => {
+        if (isCurrent()) receiveTyping(value);
+      });
 
       return new Promise((resolve) => {
         socket.on("session", (next: Session) => {
@@ -628,6 +644,7 @@ export function useChat(
 
         socket.on("disconnect", (reason: string) => {
           if (!isCurrent()) return;
+          resetTyping();
           setIdleDeadline(null);
           socketRef.current = null;
           resetQueue();
@@ -643,6 +660,8 @@ export function useChat(
       finishJoin,
       getBlockedGuestIds,
       getConnectionProfile,
+      receiveTyping,
+      resetTyping,
       receiveDirect,
       receiveDirectPresence,
       receiveDirectBlock,
@@ -924,6 +943,7 @@ export function useChat(
     announcement,
     announcements,
     idleDeadline,
+    typing,
     direct,
     connect,
     joinRoom,

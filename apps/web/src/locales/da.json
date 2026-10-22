@@ -1,5 +1,12 @@
 {
   "app": { "title": "Chatter" },
+  "typing": {
+    "label": "Skriveaktivitet",
+    "directNames": "{names} {count, plural, one {skriver} other {skriver}} privat",
+    "roomNames": "{names} {count, plural, one {skriver} other {skriver}}",
+    "directCount": "{count} skriver privat",
+    "roomCount": "{count} skriver"
+  },
   "language": { "label": "Sprog" },
   "menu": { "open": "Menu" },
   "notifications": {
@@ -40,6 +47,15 @@
       "advance": "Ryk køen frem"
     },
     "crowd": {
+      "typing": {
+        "title": "Skriveaktivitet",
+        "room": "Skriver til rummet",
+        "direct": "Skriver til dig",
+        "roomShort": "Til rummet",
+        "directShort": "Til dig",
+        "start": "Simuler skrivning",
+        "stop": "Stop simuleret skrivning"
+      },
       "title": "Menneskemængde",
       "count": "{people} af {target}",
       "stopped": "Kører ikke",
@@ -52,17 +68,17 @@
       "amount": "Antal personer (1–{max})",
       "set": "Skift"
     },
-    "people": "Folk i rummet",
+    "people": "Personer",
     "addPerson": "Tilføj en person",
     "fillRoom": "Fyld rummet",
     "removePerson": "Fjern en person",
     "clearPeople": "Fjern alle",
-    "kick": "Vis at blive fjernet",
+    "kick": "Simuler fjernelse",
     "kicks": {
-      "inactivity": "For inaktivitet",
-      "banned": "For at være udelukket",
-      "replaced": "For at åbne et andet vindue",
-      "invalid_token": "For en udløbet session"
+      "inactivity": "Inaktiv",
+      "banned": "Udelukket",
+      "replaced": "Erstattet",
+      "invalid_token": "Udløbet"
     }
   },
   "profile": {
@@ -305,7 +321,7 @@
     "chip": "{emoji} {count}: {names}"
   },
   "info": {
-    "everyoneHeading": "Skriv til rummet"
+    "everyoneHeading": "Rummet"
   },
   "lobby": {
     "heading": "Offentlige rum",
@@ -424,7 +440,7 @@
     "blockedPlaceholder": "Fjern blokeringen af {name} for at skrive",
     "from": "Direkte besked fra {name}",
     "to": "Direkte besked til {name}",
-    "writingTo": "Skriver privat til {name}",
+    "writingTo": "Privat: {name}",
     "closeBar": "Stop med at skrive privat",
     "openWith": "Åbn privat samtale med {name}",
     "search": "Søg efter personer",

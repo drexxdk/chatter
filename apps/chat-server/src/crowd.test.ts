@@ -14,6 +14,7 @@ function setup(options: { seats?: number } = {}) {
     fakes,
     seatsLeft: vi.fn(async () => options.seats ?? Infinity),
     say: vi.fn(async (_slug: string, _who: FakeMember, _text: string) => {}),
+    typing: vi.fn((_slug: string, _who: FakeMember, _active: boolean) => {}),
     react: vi.fn(
       async (
         _slug: string,
@@ -136,6 +137,32 @@ describe("the crowd of a test room", () => {
     expect(slug).toBe(SLUG);
     expect(fakes.get(SLUG)).toContain(who);
     expect(text.length).toBeGreaterThan(0);
+    expect(host.typing).toHaveBeenCalledWith(slug, who, true);
+    expect(host.typing).toHaveBeenCalledWith(slug, who, false);
+    const start = host.typing.mock.calls.findIndex(
+      (call) => call[1] === who && call[2],
+    );
+    expect(host.typing.mock.invocationCallOrder[start]).toBeLessThan(
+      host.say.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("cancels an in-progress typing phase when paused", async () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.5);
+    try {
+      const { crowd, host, fakes } = setup();
+      await crowd.start(SLUG, 1);
+      await settle();
+      await vi.advanceTimersByTimeAsync(76_300);
+      const who = fakes.get(SLUG)![0]!;
+      expect(host.typing).toHaveBeenLastCalledWith(SLUG, who, true);
+      crowd.pause(SLUG);
+      expect(host.typing).toHaveBeenLastCalledWith(SLUG, who, false);
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(host.say).not.toHaveBeenCalled();
+    } finally {
+      random.mockRestore();
+    }
   });
 
   it("changes how many there are while it runs", async () => {

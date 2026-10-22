@@ -160,7 +160,7 @@ describe("direct messages", () => {
 
       await user.click(people().getByRole("button", { name: /^Bob/ }));
 
-      expect(screen.getByText("Writing privately to Bob")).toBeInTheDocument();
+      expect(screen.getByText("Private: Bob")).toBeInTheDocument();
       expect(people().getByRole("button", { name: /^Bob/ })).toHaveAttribute(
         "aria-pressed",
         "true",
@@ -168,9 +168,7 @@ describe("direct messages", () => {
 
       await user.click(people().getByRole("button", { name: /^Bob/ }));
 
-      expect(
-        screen.queryByText("Writing privately to Bob"),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText("Private: Bob")).not.toBeInTheDocument();
     });
 
     it("closes the private writing bar, or goes into the private chat from it", async () => {
@@ -180,9 +178,7 @@ describe("direct messages", () => {
       await user.click(
         screen.getByRole("button", { name: "Stop writing privately" }),
       );
-      expect(
-        screen.queryByText("Writing privately to Bob"),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText("Private: Bob")).not.toBeInTheDocument();
 
       await user.click(people().getByRole("button", { name: /^Bob/ }));
       await user.click(

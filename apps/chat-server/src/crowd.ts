@@ -5,6 +5,7 @@ import { AVATARS, PICTURE_STYLES } from "./avatars.js";
 import content from "./crowdContent.json" with { type: "json" };
 import { log } from "./log.js";
 import { REACTION_EMOJIS } from "./reactions.js";
+import { TYPING_TTL_MS } from "../../../shared/chatProtocol.mjs";
 
 // People who are not there, but write, answer each other by name and react like a crowd, in a room an admin is testing. The
 // same behaviour as `npm run crowd` (scripts/crowd.mjs), which makes real connections instead. Everything is in memory on
@@ -40,6 +41,7 @@ export interface CrowdHost {
   // How many more people the room has room for.
   seatsLeft: (slug: string) => Promise<number>;
   say: (slug: string, who: FakeMember, text: string) => Promise<void>;
+  typing: (slug: string, who: FakeMember, active: boolean) => void;
   react: (
     slug: string,
     who: FakeMember,
@@ -66,6 +68,7 @@ interface Bot {
   who: FakeMember;
   persona: Persona;
   timers: Set<NodeJS.Timeout>;
+  typingTimer?: NodeJS.Timeout;
 }
 
 interface Run {
@@ -197,11 +200,29 @@ export function createCrowd(
 
     timer.unref();
     bot.timers.add(timer);
+    return timer;
+  }
+
+  function stopTyping(slug: string, bot: Bot) {
+    if (!bot.typingTimer) return;
+    clearTimeout(bot.typingTimer);
+    bot.timers.delete(bot.typingTimer);
+    bot.typingTimer = undefined;
+    host.typing(slug, bot.who, false);
   }
 
   const speak = (slug: string, run: Run, bot: Bot, text: string) => {
-    if (alive(slug, run, bot) && !run.paused)
-      void host.say(slug, bot.who, text);
+    if (!alive(slug, run, bot) || run.paused || bot.typingTimer) return;
+    host.typing(slug, bot.who, true);
+    bot.typingTimer = later(
+      bot,
+      Math.min(TYPING_TTL_MS - 500, 1500 + text.length * 25),
+      () => {
+        stopTyping(slug, bot);
+        if (alive(slug, run, bot) && !run.paused)
+          void host.say(slug, bot.who, text);
+      },
+    );
   };
 
   function scheduleMessage(slug: string, run: Run, bot: Bot) {
@@ -248,13 +269,15 @@ export function createCrowd(
     await host.joined(slug, bot.who);
   }
 
-  function forget(run: Run, guestId: string) {
-    run.bots.get(guestId)?.timers.forEach(clearTimeout);
+  function forget(slug: string, run: Run, guestId: string) {
+    const bot = run.bots.get(guestId);
+    if (bot) stopTyping(slug, bot);
+    bot?.timers.forEach(clearTimeout);
     run.bots.delete(guestId);
   }
 
   async function removeBot(slug: string, run: Run, bot: Bot) {
-    forget(run, bot.who.guestId);
+    forget(slug, run, bot.who.guestId);
     host.fakes.set(
       slug,
       (host.fakes.get(slug) ?? []).filter(
@@ -344,6 +367,7 @@ export function createCrowd(
       if (!run) return "not_running";
 
       run.paused = true;
+      run.bots.forEach((bot) => stopTyping(slug, bot));
       announce(slug);
     },
 
@@ -365,7 +389,7 @@ export function createCrowd(
       runs.delete(slug);
 
       for (const bot of [...run.bots.values()]) {
-        forget(run, bot.who.guestId);
+        forget(slug, run, bot.who.guestId);
         host.fakes.set(
           slug,
           (host.fakes.get(slug) ?? []).filter(
@@ -385,7 +409,10 @@ export function createCrowd(
       if (!run) return;
 
       runs.delete(slug);
-      run.bots.forEach((bot) => bot.timers.forEach(clearTimeout));
+      run.bots.forEach((bot) => {
+        stopTyping(slug, bot);
+        bot.timers.forEach(clearTimeout);
+      });
     },
 
     // Somebody was taken away by hand; they are no longer the crowd's.
@@ -394,7 +421,7 @@ export function createCrowd(
 
       if (!run?.bots.has(guestId)) return;
 
-      forget(run, guestId);
+      forget(slug, run, guestId);
       announce(slug);
     },
 

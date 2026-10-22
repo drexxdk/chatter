@@ -1,5 +1,7 @@
 import { Megaphone, SendHorizontal } from "lucide-react";
 import {
+  useCallback,
+  useEffect,
   useLayoutEffect,
   useState,
   type SubmitEvent,
@@ -9,6 +11,7 @@ import { useTranslation } from "react-i18next";
 
 import type { Partner } from "../chat/direct";
 import type { useComposer } from "../chat/useComposer";
+import type { TypingApi } from "../chat/useTyping";
 import { ComposerPicker } from "./ComposerPicker";
 import { composerIconButton, ComposerSeparator } from "./composerControls";
 import { IdleWarning } from "./IdleWarning";
@@ -33,11 +36,17 @@ interface ComposerBarProps {
   alert?: ReactNode;
   // Notes above the form.
   above?: ReactNode;
+  destination?: ReactNode;
   // For a moderator: what is written can go out as an announcement, which the send button then says, and a menu beside
   // it chooses between that and a message.
   announce?: { active: boolean; onChange: (active: boolean) => void };
   // In place of the picker and the send button.
   actions?: ReactNode;
+  typing?: {
+    update: TypingApi["update"];
+    toGuestId?: string;
+    enabled?: boolean;
+  };
 }
 
 // The bar kept at the bottom of the window in a room and in a private conversation: what is being written and the way
@@ -53,11 +62,32 @@ export function ComposerBar({
   mentionable,
   alert,
   above,
+  destination,
   announce,
   actions,
+  typing,
 }: ComposerBarProps) {
   const { t } = useTranslation();
   const [anchor, setAnchor] = useState<HTMLFormElement | null>(null);
+  const updateTyping = typing?.update;
+  const toGuestId = typing?.toGuestId;
+  const typingEnabled = !!typing && typing.enabled !== false && !disabled;
+  const reportTyping = useCallback(
+    (active: boolean) => {
+      if (typingEnabled) updateTyping?.(active, toGuestId);
+    },
+    [typingEnabled, updateTyping, toGuestId],
+  );
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) reportTyping(false);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      reportTyping(false);
+    };
+  }, [reportTyping]);
   useLayoutEffect(() => {
     if (!anchor) return;
     const measure = () => {
@@ -99,7 +129,10 @@ export function ComposerBar({
       <form
         ref={setAnchor}
         data-composer
-        onSubmit={onSubmit}
+        onSubmit={(event) => {
+          reportTyping(false);
+          onSubmit(event);
+        }}
         className="relative"
       >
         {/* One box that looks like the text box and holds the controls, as in Teams; a click anywhere in it types. */}
@@ -128,8 +161,13 @@ export function ComposerBar({
                 ?.focus();
             }
           }}
-          className="composer-focus max-h-[calc(5*1.5rem+1rem+2px)] cursor-text overflow-y-auto rounded-md border border-neutral-700 bg-neutral-900 has-[[data-type=gif]]:max-h-[min(20rem,50dvh)] has-[[data-type=youtube]]:max-h-[min(20rem,50dvh)]"
+          className={`composer-focus ${destination ? "max-h-[calc(5*1.5rem+3rem+2px)]" : "max-h-[calc(5*1.5rem+1rem+2px)]"} cursor-text overflow-y-auto rounded-md border border-neutral-700 bg-neutral-900 has-[[data-type=gif]]:max-h-[min(20rem,50dvh)] has-[[data-type=youtube]]:max-h-[min(20rem,50dvh)]`}
         >
+          {destination && (
+            <div className="flex min-h-8 cursor-default items-center gap-2 border-b border-neutral-800 px-3 py-1">
+              {destination}
+            </div>
+          )}
           <div className="flex min-w-0 items-end">
             <label id={"${id}-label"} className="sr-only">
               {label}
@@ -157,6 +195,7 @@ export function ComposerBar({
                 placeholder={placeholder}
                 disabled={disabled}
                 people={mentionable}
+                onTyping={reportTyping}
               />
             </div>
             {/* On the box's last line, whatever its height; clipped to the box's corners (its own radius less its border). */}

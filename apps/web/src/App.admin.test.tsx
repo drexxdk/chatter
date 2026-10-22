@@ -351,21 +351,36 @@ describe("the admin's tools", () => {
     expect(server.latest.emittedEvents("admin:fake:fill")).toHaveLength(1);
   });
 
-  it("show being removed, for the reason chosen", async () => {
-    stubLogin("admin-token", "Ada Admin");
-    const server = makeFakeServer();
-    const { user } = setup(server);
+  it.each([
+    ["Inactive", "inactivity", "You were disconnected for being inactive."],
+    ["Banned", "banned", "You are banned from this chat."],
+    ["Replaced", "replaced", "You opened the chat in another window"],
+    ["Expired", "invalid_token", "Your session has expired."],
+  ])(
+    "returns to the lobby with a persistent explanation for %s",
+    async (label, reason, explanation) => {
+      stubLogin("admin-token", "Ada Admin");
+      const server = makeFakeServer();
+      const { user } = setup(server, [0]);
 
-    await signInAndJoin(user);
-    await openTools(user);
-    await user.click(
-      await screen.findByRole("menuitem", { name: "For being banned" }),
-    );
+      await signInAndJoin(user);
+      await openTools(user);
+      await user.click(await screen.findByRole("menuitem", { name: label }));
 
-    expect(server.latest.emittedEvents("admin:kick")).toEqual([
-      { reason: "banned" },
-    ]);
-  });
+      expect(server.latest.emittedEvents("admin:kick")).toEqual([{ reason }]);
+      act(() => {
+        server.latest.serverEmit("kicked", { reason });
+        server.latest.serverEmit("disconnect", "io server disconnect");
+      });
+      expect(await screen.findByRole("alert")).toHaveTextContent(explanation);
+      expect(
+        await screen.findByRole("heading", { name: "Public rooms" }),
+      ).toBeVisible();
+      expect(screen.queryByRole("log")).not.toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent(explanation);
+      expect(server.createSocket).toHaveBeenCalledTimes(1);
+    },
+  );
 });
 
 describe("the crowd", () => {
@@ -435,6 +450,64 @@ describe("the crowd", () => {
         target,
       }),
     );
+
+  it("previews separate private and room typing counts and can stop them without closing the menu", async () => {
+    stubLogin("admin-token", "Ada Admin");
+    const server = makeFakeServer();
+    const { user } = setup(server);
+    await enterTestLab(user);
+    await openTools(user);
+    const start = screen.getByRole("button", { name: "Simulate typing" });
+    const direct = screen.getByRole("spinbutton", { name: "Typing to you" });
+    const room = screen.getByRole("spinbutton", { name: "Typing to the room" });
+    expect(start).toBeDisabled();
+    expect(direct).toBeDisabled();
+    expect(room).toBeDisabled();
+    expect(direct).not.toBeInvalid();
+    expect(room).not.toBeInvalid();
+    await user.click(start);
+    expect(server.latest.emittedEvents("admin:crowd:typing")).toEqual([]);
+    told(server, "paused", 19, 19);
+    expect(start).toBeEnabled();
+    expect(direct).toBeEnabled();
+    expect(room).toBeEnabled();
+    await user.clear(direct);
+    await user.type(direct, "7");
+    await user.clear(room);
+    await user.type(room, "12{Enter}");
+    expect(server.latest.emittedEvents("admin:crowd:typing")).toEqual([
+      { room: 12, direct: 7, slug: "admin-lab" },
+    ]);
+    expect(screen.getByRole("menu")).toBeVisible();
+    await user.keyboard("{Escape}");
+    await openTools(user);
+    expect(
+      screen.getByRole("spinbutton", { name: "Typing to you" }),
+    ).toHaveValue(7);
+    expect(
+      screen.getByRole("spinbutton", { name: "Typing to the room" }),
+    ).toHaveValue(12);
+    await user.click(
+      screen.getByRole("button", { name: "Stop simulated typing" }),
+    );
+    expect(server.latest.emittedEvents("admin:crowd:typing").at(-1)).toEqual({
+      room: 0,
+      direct: 0,
+      slug: "admin-lab",
+    });
+    told(server, "paused", 5, 5);
+    expect(
+      screen.getByRole("button", { name: "Simulate typing" }),
+    ).toBeDisabled();
+    const reopenedRoom = screen.getByRole("spinbutton", {
+      name: "Typing to the room",
+    });
+    await user.clear(reopenedRoom);
+    await user.type(reopenedRoom, "-1");
+    expect(
+      screen.getByRole("button", { name: "Simulate typing" }),
+    ).toBeDisabled();
+  });
 
   it("starts with the number typed, 10 until another is", async () => {
     stubLogin("admin-token", "Ada Admin");

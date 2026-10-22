@@ -160,7 +160,7 @@ describe("the keyboard in the messages", () => {
 
     await user.keyboard(" {Enter}");
 
-    expect(screen.queryByText(/^Writing privately to /)).toBeNull();
+    expect(screen.queryByText(/^Private: /)).toBeNull();
   });
 
   it("goes from the message box back to the messages with Escape", async () => {

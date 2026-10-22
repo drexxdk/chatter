@@ -85,8 +85,8 @@ describe("direct messages", () => {
     // Who the box writes to is shown above it; people are chosen in the panel.
     const writingTo = (name?: string) =>
       name
-        ? screen.queryByText(`Writing privately to ${name}`)
-        : screen.queryByText(/^Writing privately to /);
+        ? screen.queryByText(`Private: ${name}`)
+        : screen.queryByText(/^Private: /);
     const chooseRecipient = (
       user: ReturnType<typeof setup>["user"],
       name: string,
@@ -143,11 +143,29 @@ describe("direct messages", () => {
       expect(server.latest.emittedEvents("message:send")).toEqual([]);
     });
 
+    it("opens the private conversation from the compact composer destination", async () => {
+      const { user } = await enter();
+      await chooseRecipient(user, "Bob");
+      const destination = screen.getByText("Private: Bob");
+      const form = destination.closest("form[data-composer]");
+      expect(form).not.toBeNull();
+      const controls = within(form as HTMLFormElement);
+      expect(
+        controls.getByRole("button", { name: "Stop writing privately" }),
+      ).toBeVisible();
+      await user.click(
+        controls.getByRole("button", {
+          name: "Open private chat",
+        }),
+      );
+      expect(pane("Bob")).toBeInTheDocument();
+    });
+
     it("sends to everybody by default, and to one person when chosen from the slide-out", async () => {
       const { user, server } = await enter();
 
       expect(writingTo()).toBeNull();
-      expect(screen.getByText("Writing to the room")).toBeInTheDocument();
+      expect(screen.getByText("Room")).toBeInTheDocument();
       const peopleButton = screen.getByRole("button", {
         name: "People and direct messages",
       });
@@ -159,7 +177,7 @@ describe("direct messages", () => {
 
       await chooseRecipient(user, "Carol");
       expect(writingTo("Carol")).toBeInTheDocument();
-      expect(screen.queryByText("Writing to the room")).toBeNull();
+      expect(screen.queryByText("Room")).toBeNull();
       await user.type(
         screen.getByRole("textbox", { name: "Message to Carol" }),
         "psst",
@@ -173,7 +191,7 @@ describe("direct messages", () => {
 
       await chooseRecipient(user, "Carol");
 
-      expect(screen.getByText("Writing to the room")).toBeInTheDocument();
+      expect(screen.getByText("Room")).toBeInTheDocument();
       expect(
         screen.getByRole("textbox", { name: "Message" }),
       ).toBeInTheDocument();

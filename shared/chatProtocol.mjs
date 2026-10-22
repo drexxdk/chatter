@@ -6,6 +6,10 @@ export const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{2,24}$/u;
 
 export const PROFILE_UPDATE_EVENT = "profile:update";
 
+export const TYPING_EVENT = "chat:typing";
+export const TYPING_TTL_MS = 5000;
+export const TYPING_INTERVAL_MS = 1500;
+
 export function ageFromBirthDate(value, today = new Date()) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value))
     return undefined;
