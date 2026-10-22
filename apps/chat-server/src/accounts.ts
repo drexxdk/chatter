@@ -13,6 +13,7 @@ import { saveMemberProfile, validateProfileUpdate } from "./memberProfile.js";
 import { withProfileLock } from "./profileLock.js";
 import { MEMBER_TOKEN_TTL_MS, profileOf } from "./memberSession.js";
 import { PasswordAccountError, signInPassword } from "./passwordAccounts.js";
+import { hashPassword, passwordSchema, verifyPassword } from "./passwords.js";
 import {
   getModeratorNames,
   isReservedNickname,
@@ -168,6 +169,50 @@ export function createAccountsRouter(options: {
         log.error("Password sign-in unavailable");
         res.status(503).json({ error: "unavailable" });
       }
+    },
+  );
+
+  router.post(
+    "/me/password",
+    limiter,
+    express.json({ limit: "4kb" }),
+    async (req, res) => {
+      res.set("Cache-Control", "no-store");
+      const authenticated = await memberOf(req, res);
+      if (!authenticated) return;
+      return withProfileLock(`member:${authenticated.id}`, async () => {
+        const user = await memberOf(req, res);
+        if (!user) return;
+        if (user.provider !== "password")
+          return res.status(400).json({ error: "password_not_supported" });
+        const parsed = z
+          .object({
+            currentPassword: z.string().min(1).max(128),
+            password: passwordSchema,
+            confirmation: z.string().max(128),
+          })
+          .safeParse(req.body);
+        if (!parsed.success)
+          return res.status(400).json({ error: "invalid_password" });
+        if (parsed.data.password !== parsed.data.confirmation)
+          return res.status(400).json({ error: "password_mismatch" });
+        try {
+          if (
+            !(await verifyPassword(
+              parsed.data.currentPassword,
+              user.passwordHash ?? undefined,
+            ))
+          )
+            return res.status(403).json({ error: "invalid_current_password" });
+          await updateUser(user.id, {
+            passwordHash: await hashPassword(parsed.data.password),
+          });
+          res.json({ ok: true });
+        } catch {
+          log.error("Password change unavailable");
+          res.status(503).json({ error: "unavailable" });
+        }
+      });
     },
   );
 

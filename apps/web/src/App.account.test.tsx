@@ -371,10 +371,10 @@ describe("password sign-in and claiming", () => {
     );
     await user.type(
       dialog.getByLabelText("Password"),
-      "a private long password",
+      "A private long password 1",
     );
     expect(dialog.getByLabelText("Password")).toHaveValue(
-      "a private long password",
+      "A private long password 1",
     );
     await user.type(
       dialog.getByLabelText("Confirm password"),
@@ -410,19 +410,19 @@ describe("password sign-in and claiming", () => {
     );
     await user.type(
       dialog.getByLabelText("Password"),
-      "a private long password",
+      "A private long password 1",
     );
     await user.type(
       dialog.getByLabelText("Confirm password"),
-      "a private long password",
+      "A private long password 1",
     );
     await user.click(dialog.getByRole("button", { name: "Claim account" }));
     await waitFor(() => expect(loadAccount()?.provider).toBe("password"));
     expect(guest.emittedEvents("account:claim")).toEqual([
       {
         username: "Alice",
-        password: "a private long password",
-        confirmation: "a private long password",
+        password: "A private long password 1",
+        confirmation: "A private long password 1",
       },
     ]);
     await waitFor(() => expect(server.latest.role).toBe("member"));
@@ -430,10 +430,10 @@ describe("password sign-in and claiming", () => {
       slug: "general",
     });
     expect(JSON.stringify(loadAccount())).not.toContain(
-      "a private long password",
+      "A private long password 1",
     );
     expect(JSON.stringify(loadSession())).not.toContain(
-      "a private long password",
+      "A private long password 1",
     );
     expect(
       await screen.findByRole("dialog", { name: "Your profile" }),

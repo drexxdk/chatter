@@ -104,7 +104,7 @@ function ProfileBody({
         onCreateAccount={onCreateAccount}
       />
       {profile.role === "member" && account && (
-        <AccountSection onDelete={onDelete} separated />
+        <AccountSection account={account} onDelete={onDelete} separated />
       )}
     </div>
   );

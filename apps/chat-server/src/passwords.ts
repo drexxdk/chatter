@@ -1,7 +1,11 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import { passwordChecks } from "../../../shared/chatProtocol.mjs";
 
-export const passwordSchema = z.string().min(12).max(128);
+export const passwordSchema = z
+  .string()
+  .max(128)
+  .refine((value) => Object.values(passwordChecks(value)).every(Boolean));
 
 const DUMMY_HASH = `scrypt-v1:${"0".repeat(32)}:${"0".repeat(128)}`;
 

@@ -187,6 +187,10 @@ const ACCOUNT_ERRORS = new Set([
   "reserved_username",
   "invalid_profile",
   "invalid_credentials",
+  "invalid_password",
+  "password_mismatch",
+  "invalid_current_password",
+  "password_not_supported",
   "unavailable",
 ]);
 
@@ -264,6 +268,23 @@ export interface PasswordClaim {
   username: string;
   password: string;
   confirmation: string;
+}
+
+export interface PasswordChange {
+  currentPassword: string;
+  password: string;
+  confirmation: string;
+}
+
+export async function changeAccountPassword(
+  token: string,
+  input: PasswordChange,
+): Promise<void> {
+  await accountRequest("/me/password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...bearer(token) },
+    body: JSON.stringify(input),
+  });
 }
 
 export async function signInPassword(

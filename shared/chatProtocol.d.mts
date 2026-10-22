@@ -3,6 +3,13 @@ export const NICKNAME_PATTERN: RegExp;
 export const USERNAME_PATTERN: RegExp;
 export const PROFILE_UPDATE_EVENT: "profile:update";
 
+export function passwordChecks(password: string): {
+  length: boolean;
+  lowercase: boolean;
+  uppercase: boolean;
+  number: boolean;
+};
+
 export type Avatar = "male" | "female" | "trans" | "other";
 
 export interface ProfileChanges {

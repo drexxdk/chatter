@@ -5,10 +5,123 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./test/app";
 import { ProfileDialog } from "./components/ProfileDialog";
+import {
+  AccountSection,
+  CreateAccountDialog,
+} from "./components/AccountSection";
 import { anyPicture } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
 
 const ROOMS = [{ id: 1, name: "General", slug: "general", maxMembers: 100 }];
+
+describe("account password changes", () => {
+  const account = {
+    token: "member-token",
+    provider: "password",
+    nickname: "Alice",
+    username: "alice",
+    expiresAt: Date.now() + 60_000,
+  };
+  const password = "NewSecurePassword42";
+  async function fillForm() {
+    const user = userEvent.setup();
+    render(<AccountSection account={account} onDelete={async () => {}} />);
+    await user.click(screen.getByRole("button", { name: "Change password" }));
+    await user.type(
+      screen.getByLabelText("Current password"),
+      "OldPassword123",
+    );
+    await user.type(screen.getByLabelText("New password"), password);
+    await user.type(screen.getByLabelText("Confirm password"), password);
+    return user;
+  }
+
+  it("shows policy feedback and changes the password without storing credentials", async () => {
+    const request = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", request);
+    const user = await fillForm();
+    expect(
+      screen.getByRole("meter", { name: "Password strength" }),
+    ).toHaveAttribute("aria-valuenow", "4");
+    expect(screen.getByText("Meets requirements")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Change password" }));
+    await screen.findByText("Your password has been changed.");
+    expect(request).toHaveBeenCalledWith(
+      "http://localhost:4000/me/password",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer member-token",
+        }),
+        body: JSON.stringify({
+          currentPassword: "OldPassword123",
+          password,
+          confirmation: password,
+        }),
+      }),
+    );
+    expect(screen.queryByLabelText("Current password")).toBeNull();
+    expect(
+      JSON.stringify({ ...sessionStorage, ...localStorage }),
+    ).not.toContain(password);
+    await user.click(screen.getByRole("button", { name: "Change password" }));
+    expect(screen.getByLabelText("New password")).toHaveValue("");
+  });
+
+  it("reports an incorrect current password and clears fields on cancel", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({ error: "invalid_current_password" }, { status: 403 }),
+      ),
+    );
+    const user = await fillForm();
+    await user.click(screen.getByRole("button", { name: "Change password" }));
+    await screen.findByText("Your current password is incorrect.");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Change password" }));
+    expect(screen.getByLabelText("Current password")).toHaveValue("");
+    expect(screen.getByLabelText("New password")).toHaveValue("");
+  });
+
+  it("does not offer password changes for provider accounts", () => {
+    render(
+      <AccountSection
+        account={{ ...account, provider: "google" }}
+        onDelete={async () => {}}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Change password" }),
+    ).toBeNull();
+  });
+
+  it("shows weak creation passwords in red and refuses them before submitting", async () => {
+    const claim = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <CreateAccountDialog
+        nickname="Alice"
+        returnPath="/"
+        onClaim={claim}
+        onClose={() => {}}
+      />,
+    );
+    await user.type(screen.getByLabelText("Password"), "alllowercaseonly");
+    await user.type(
+      screen.getByLabelText("Confirm password"),
+      "alllowercaseonly",
+    );
+    const meter = screen.getByRole("meter", { name: "Password strength" });
+    expect(meter).toHaveAttribute("aria-valuenow", "2");
+    expect(meter.firstElementChild).toHaveClass("bg-red-400");
+    await user.click(screen.getByRole("button", { name: "Claim account" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "uppercase, lowercase and a number",
+    );
+    expect(claim).not.toHaveBeenCalled();
+  });
+});
 
 beforeEach(() => {
   vi.stubGlobal(

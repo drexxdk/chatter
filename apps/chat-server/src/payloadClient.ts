@@ -444,6 +444,7 @@ export interface NewUser {
 }
 
 export interface UserChanges {
+  passwordHash?: string;
   displayName?: string;
   displayNameKey?: string;
   picture?: string;

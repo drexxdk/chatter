@@ -20,14 +20,24 @@ describe("password credentials", () => {
     );
   });
 
-  it.each(["", "short", "a".repeat(129), null, 123])(
-    "rejects an invalid password: %s",
-    (value) => {
-      expect(passwordSchema.safeParse(value).success).toBe(false);
-    },
-  );
+  it.each([
+    "",
+    "short",
+    "Aa1xxxx",
+    "a".repeat(129),
+    "a".repeat(8),
+    "PasswordOnly",
+    "UPPERCASE1234",
+    "lowercase1234",
+    null,
+    123,
+  ])("rejects an invalid password: %s", (value) => {
+    expect(passwordSchema.safeParse(value).success).toBe(false);
+  });
 
-  it.each([12, 128])("accepts a %s-character password", (length) => {
-    expect(passwordSchema.safeParse("a".repeat(length)).success).toBe(true);
+  it.each([8, 128])("accepts a %s-character password", (length) => {
+    expect(
+      passwordSchema.safeParse(`Aa1${"x".repeat(length - 3)}`).success,
+    ).toBe(true);
   });
 });

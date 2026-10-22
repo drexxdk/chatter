@@ -175,7 +175,7 @@ test("a guest claims their profile with a password and can sign in again from th
   const page = await newPage(browser);
   const chatName = displayName("Pass");
   const handle = username("Pass");
-  const password = "a private password for this test";
+  const password = "A private password for this test 1";
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => {

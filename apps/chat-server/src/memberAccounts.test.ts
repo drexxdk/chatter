@@ -277,7 +277,7 @@ afterEach(async () => {
 });
 
 describe("password accounts", () => {
-  const password = "a long private password";
+  const password = "A long private password 1";
   const profile = {
     nickname: "Alice Guest",
     avatar: "other" as const,
@@ -289,6 +289,109 @@ describe("password accounts", () => {
       profile,
       testEnv.AUTH_TOKEN_SECRET,
     );
+
+  const change = (token: string, changes = {}) =>
+    post(
+      "/me/password",
+      {
+        currentPassword: password,
+        password: "Another secure password 2",
+        confirmation: "Another secure password 2",
+        ...changes,
+      },
+      { Authorization: `Bearer ${token}` },
+    );
+
+  it("changes a password only after verifying the current one", async () => {
+    const session = await claim();
+    await start();
+    const response = await change(session.token);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toEqual({ ok: true });
+    expect(
+      (await post("/auth/password/login", { username: "alice", password }))
+        .status,
+    ).toBe(401);
+    expect(
+      (
+        await post("/auth/password/login", {
+          username: "alice",
+          password: "Another secure password 2",
+        })
+      ).status,
+    ).toBe(200);
+  });
+
+  it("still signs in existing passwords that predate the stronger policy", async () => {
+    await claim();
+    const { hashPassword } = await import("./passwords.js");
+    accounts.users.set(1, {
+      ...accounts.users.get(1),
+      passwordHash: await hashPassword("old lowercase password"),
+    });
+    await start();
+    expect(
+      (
+        await post("/auth/password/login", {
+          username: "alice",
+          password: "old lowercase password",
+        })
+      ).status,
+    ).toBe(200);
+  });
+
+  it.each([
+    [{ currentPassword: "incorrect" }, 403, "invalid_current_password"],
+    [
+      { password: "weakpassword", confirmation: "weakpassword" },
+      400,
+      "invalid_password",
+    ],
+    [{ confirmation: "does not match" }, 400, "password_mismatch"],
+  ])(
+    "rejects an invalid password change without writing credentials",
+    async (changes, status, error) => {
+      const session = await claim();
+      const original = accounts.users.get(1)?.passwordHash;
+      await start();
+      const response = await change(session.token, changes);
+      expect(response.status).toBe(status);
+      expect(await response.json()).toEqual({ error });
+      expect(accounts.users.get(1)?.passwordHash).toBe(original);
+    },
+  );
+
+  it("requires authentication and refuses changes for provider accounts", async () => {
+    const session = await claim();
+    await start();
+    expect((await post("/me/password", {})).status).toBe(401);
+    accounts.users.set(1, { ...accounts.users.get(1), provider: "google" });
+    const response = await change(session.token);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "password_not_supported" });
+  });
+
+  it("serializes concurrent changes so the old password cannot be reused", async () => {
+    const session = await claim();
+    await start();
+    const responses = await Promise.all([
+      change(session.token),
+      change(session.token),
+    ]);
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      200, 403,
+    ]);
+  });
+
+  it("rate limits current-password guesses", async () => {
+    const session = await claim();
+    await start({ authRateLimit: { max: 1, windowMs: 60_000 } });
+    expect(
+      (await change(session.token, { currentPassword: "incorrect" })).status,
+    ).toBe(403);
+    expect((await change(session.token)).status).toBe(429);
+  });
 
   it("claims the server's guest profile and returns no credential hash", async () => {
     const session = await claim();
