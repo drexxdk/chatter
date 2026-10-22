@@ -50,6 +50,50 @@ describe("Button", () => {
 });
 
 describe("Field", () => {
+  it("reveals and hides a password without changing it or submitting", async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn((event: React.SubmitEvent) => event.preventDefault());
+    render(
+      <form onSubmit={submit}>
+        <Field
+          id="password"
+          label="Password"
+          type="password"
+          autoComplete="new-password"
+        />
+      </form>,
+    );
+    const box = screen.getByLabelText("Password");
+    await user.type(box, "sample-password");
+    await user.click(screen.getByRole("button", { name: "Show password" }));
+    expect(box).toHaveAttribute("type", "text");
+    expect(box).toHaveAttribute("autocomplete", "new-password");
+    expect(box).toHaveValue("sample-password");
+    expect(box).toHaveFocus();
+    expect(
+      screen.getByRole("button", { name: "Hide password" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await user.keyboard("{Tab}{Enter}");
+    expect(box).toHaveAttribute("type", "password");
+    expect(box).toHaveValue("sample-password");
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it("disables password reveal with the field and omits it from other fields", () => {
+    render(
+      <>
+        <Field id="password" label="Password" type="password" disabled />
+        <Field id="email" label="Email" type="email" />
+      </>,
+    );
+    expect(
+      screen.getAllByRole("button", { name: "Show password" }),
+    ).toHaveLength(1);
+    expect(
+      screen.getByRole("button", { name: "Show password" }),
+    ).toBeDisabled();
+  });
+
   it("labels the box and describes it by its hint", () => {
     render(<Field id="nick" label="Nickname" hint="2 to 24 letters" />);
 

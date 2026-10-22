@@ -320,6 +320,8 @@
     "moderatorTitle": "Log ind som moderator",
     "email": "E-mail",
     "password": "Adgangskode",
+    "showPassword": "Vis adgangskode",
+    "hidePassword": "Skjul adgangskode",
     "signIn": "Log ind",
     "signingIn": "Logger ind…"
   },

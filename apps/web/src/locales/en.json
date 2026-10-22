@@ -320,6 +320,8 @@
     "moderatorTitle": "Sign in as moderator",
     "email": "Email",
     "password": "Password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "signIn": "Sign in",
     "signingIn": "Signing in…"
   },

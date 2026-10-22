@@ -320,6 +320,8 @@
     "moderatorTitle": "Als Moderator anmelden",
     "email": "E-Mail",
     "password": "Passwort",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
     "signIn": "Anmelden",
     "signingIn": "Melde an…"
   },

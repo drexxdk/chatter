@@ -1,6 +1,8 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import clsx from "clsx";
-import type { ComponentProps } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import { useState, type ComponentProps } from "react";
+import { useTranslation } from "react-i18next";
 
 const input = cva(
   "rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2",
@@ -31,7 +33,25 @@ export function Field({
   width,
   ...props
 }: FieldProps) {
+  const { t } = useTranslation();
+  const [revealed, setRevealed] = useState(false);
+  const password = props.type === "password";
+  const RevealIcon = revealed ? EyeOff : Eye;
+  const revealLabel = t(
+    revealed ? "nickname.hidePassword" : "nickname.showPassword",
+  );
   const hintId = hint ? `${id}-hint` : undefined;
+  const control = (
+    <input
+      {...props}
+      type={password && revealed ? "text" : props.type}
+      id={id}
+      aria-required={required}
+      aria-invalid={invalid}
+      aria-describedby={hintId}
+      className={clsx(input({ width }), password && "pr-12")}
+    />
+  );
 
   return (
     <div className="space-y-1">
@@ -44,14 +64,26 @@ export function Field({
       >
         {label}
       </label>
-      <input
-        {...props}
-        id={id}
-        aria-required={required}
-        aria-invalid={invalid}
-        aria-describedby={hintId}
-        className={input({ width })}
-      />
+      {password ? (
+        <div className="relative">
+          {control}
+          <button
+            type="button"
+            aria-label={revealLabel}
+            aria-controls={id}
+            aria-pressed={revealed}
+            title={revealLabel}
+            disabled={props.disabled}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setRevealed((value) => !value)}
+            className="absolute inset-y-0 right-1 flex w-9 items-center justify-center rounded text-neutral-400 hover:text-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-default disabled:opacity-40"
+          >
+            <RevealIcon aria-hidden="true" className="size-5" />
+          </button>
+        </div>
+      ) : (
+        control
+      )}
       {hint && (
         <p
           id={hintId}
