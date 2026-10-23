@@ -66,6 +66,23 @@ export function useTyping({
     setWriters([]);
   }, []);
 
+  const clearWriter = useCallback(
+    (
+      guestId: string,
+      audience: Pick<TypingNotice, "roomSlug" | "toGuestId">,
+    ) => {
+      setWriters((previous) =>
+        previous.filter(
+          (writer) =>
+            writer.guestId !== guestId ||
+            writer.roomSlug !== audience.roomSlug ||
+            writer.toGuestId !== audience.toGuestId,
+        ),
+      );
+    },
+    [],
+  );
+
   const receive = useCallback(
     (value: unknown) => {
       if (
@@ -139,7 +156,7 @@ export function useTyping({
 
   useEffect(() => () => clearTimeout(stopTimer.current), []);
 
-  return { writers, update, receive, reset };
+  return { writers, update, receive, reset, clearWriter };
 }
 
 export type TypingApi = ReturnType<typeof useTyping>;

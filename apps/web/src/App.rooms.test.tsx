@@ -27,6 +27,68 @@ beforeEach(() => {
 });
 
 describe("typing indicators", () => {
+  it.each(["room", "private"])(
+    "clears the sender immediately when a %s message arrives during the stop grace period",
+    async (audience) => {
+      const { user, server } = await enterWithPeople();
+      if (audience === "private")
+        await user.click(
+          screen.getByRole("button", { name: "Open private chat with Bob" }),
+        );
+      const target =
+        audience === "room" ? { roomSlug: "general" } : { toGuestId: ME };
+      act(() => {
+        server.latest.serverEmit("chat:typing", {
+          guestId: "carol",
+          nickname: "Carol",
+          roomSlug: "general",
+          active: true,
+        });
+        server.latest.serverEmit("chat:typing", {
+          guestId: bob.guestId,
+          nickname: "Bob",
+          ...target,
+          active: true,
+        });
+        server.latest.serverEmit("chat:typing", {
+          guestId: bob.guestId,
+          nickname: "Bob",
+          ...target,
+          active: false,
+        });
+      });
+      expect(
+        screen.getByRole("status", { name: "Typing activity" }),
+      ).toHaveTextContent(
+        audience === "room" ? "Carol and Bob are typing" : "Bob is typing",
+      );
+      const text = "Just finished writing";
+      act(() => {
+        server.latest.serverEmit(
+          audience === "room" ? "message:new" : "dm:new",
+          audience === "room"
+            ? message({ guestId: bob.guestId, nickname: "Bob", text })
+            : dm({ text }),
+        );
+      });
+      if (audience === "room")
+        expect(
+          screen.getByRole("status", { name: "Typing activity" }),
+        ).toHaveTextContent(/^Carol is typing$/);
+      else
+        expect(
+          screen.queryByRole("status", { name: "Typing activity" }),
+        ).not.toBeInTheDocument();
+      expect(
+        within(
+          screen.getByRole("log", {
+            name: audience === "room" ? "General" : "Direct message with Bob",
+          }),
+        ).getByText(text),
+      ).toBeVisible();
+    },
+  );
+
   it("prioritizes private writers and ignores other rooms and recipients", async () => {
     const { server } = await enterWithPeople();
     act(() => {

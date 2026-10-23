@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDirectChat } from "./useDirectChat";
 import { useChatProfile } from "./useChatProfile";
 import { useTyping } from "./useTyping";
+import { parseDirectMessage } from "./direct";
 import { TYPING_EVENT } from "../../../../shared/chatProtocol.mjs";
 import {
   AccountError,
@@ -194,7 +195,11 @@ export function useChat(
     ownGuestIdsRef,
     getBlockedGuestIds,
   });
-  const { receive: receiveTyping, reset: resetTyping } = typing;
+  const {
+    receive: receiveTyping,
+    reset: resetTyping,
+    clearWriter: clearTypingWriter,
+  } = typing;
 
   const { getConnectionProfile, rememberConnectionProfile, updateProfile } =
     useChatProfile({ emitWithAck, setSession });
@@ -449,6 +454,7 @@ export function useChat(
 
         socket.on("message:new", (message: ChatMessage) => {
           if (isCurrent() && message.roomSlug === roomRef.current) {
+            clearTypingWriter(message.guestId, { roomSlug: message.roomSlug });
             const live = { ...message, seq: ++arrivalRef.current };
             // Already known, e.g. it came with the history or was since replaced by a placeholder.
             setMessages((previous) =>
@@ -521,7 +527,13 @@ export function useChat(
         });
 
         socket.on("dm:new", (value: unknown) => {
-          if (isCurrent()) receiveDirect(value);
+          if (!isCurrent()) return;
+          receiveDirect(value);
+          const message = parseDirectMessage(value);
+          if (message && ownGuestIdsRef.current.includes(message.toGuestId))
+            clearTypingWriter(message.fromGuestId, {
+              toGuestId: message.toGuestId,
+            });
         });
 
         socket.on("dm:presence", (value: unknown) => {
@@ -655,6 +667,7 @@ export function useChat(
     [
       addRoomEvents,
       applyDirectPresence,
+      clearTypingWriter,
       closeSocket,
       createSocket,
       finishJoin,

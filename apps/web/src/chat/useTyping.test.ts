@@ -108,6 +108,43 @@ describe("typing activity", () => {
     ]);
   });
 
+  it.each([{ roomSlug: "general" }, { toGuestId: "me" }])(
+    "clears a message sender immediately during the stop grace period for %j",
+    (audience) => {
+      const { result } = setup();
+      const alice = { guestId: "alice", nickname: "Alice", ...audience };
+      act(() => {
+        result.current.receive({ ...alice, active: true });
+        result.current.receive({
+          guestId: "bob",
+          nickname: "Bob",
+          roomSlug: "general",
+          active: true,
+        });
+        result.current.receive({ ...alice, active: false });
+      });
+      expect(result.current.writers).toHaveLength(2);
+      act(() => result.current.clearWriter("alice", audience));
+      expect(result.current.writers.map((writer) => writer.nickname)).toEqual([
+        "Bob",
+      ]);
+    },
+  );
+
+  it("does not clear typing for a newer audience when an older message arrives", () => {
+    const { result } = setup();
+    act(() => {
+      result.current.receive({
+        guestId: "alice",
+        nickname: "Alice",
+        toGuestId: "me",
+        active: true,
+      });
+      result.current.clearWriter("alice", { roomSlug: "general" });
+    });
+    expect(result.current.writers).toHaveLength(1);
+  });
+
   it("clears immediately on reset even when a stop grace period is pending", () => {
     const { result } = setup();
     const writer = { guestId: "alice", nickname: "Alice", roomSlug: "general" };
