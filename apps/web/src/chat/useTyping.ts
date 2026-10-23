@@ -14,6 +14,8 @@ import {
 import { isRecord } from "../isRecord";
 import type { ChatSocket } from "./socket";
 
+const STOP_GRACE_MS = 1000;
+
 export function useTyping({
   socketRef,
   roomRef,
@@ -93,22 +95,29 @@ export function useTyping({
         return;
       const notice = value as unknown as TypingNotice;
       setWriters((previous) => {
-        const remaining = previous.filter(
-          (writer) =>
-            writer.expiresAt > Date.now() &&
-            !(
-              writer.guestId === notice.guestId &&
-              (notice.active ||
-                (writer.toGuestId === notice.toGuestId &&
-                  writer.roomSlug === notice.roomSlug))
-            ),
+        const now = Date.now();
+        const remaining = previous.filter((writer) => writer.expiresAt > now);
+        const index = remaining.findIndex(
+          (writer) => writer.guestId === notice.guestId,
         );
-        return notice.active
-          ? [
-              ...remaining,
-              { ...notice, expiresAt: Date.now() + TYPING_TTL_MS },
-            ].slice(-200)
-          : remaining;
+        if (notice.active) {
+          const refreshed = { ...notice, expiresAt: now + TYPING_TTL_MS };
+          return index < 0
+            ? [...remaining, refreshed].slice(-200)
+            : remaining.map((writer, position) =>
+                position === index ? refreshed : writer,
+              );
+        }
+        return remaining.map((writer) =>
+          writer.guestId === notice.guestId &&
+          writer.toGuestId === notice.toGuestId &&
+          writer.roomSlug === notice.roomSlug
+            ? {
+                ...writer,
+                expiresAt: Math.min(writer.expiresAt, now + STOP_GRACE_MS),
+              }
+            : writer,
+        );
       });
     },
     [getBlockedGuestIds, ownGuestIdsRef, roomRef],

@@ -28,7 +28,7 @@ import { ReloadMenu } from "./ReloadMenu";
 const item = `${MENU_ITEM} gap-3 px-2 py-2`;
 const heading = "px-2 py-1 text-xs font-semibold uppercase text-neutral-500";
 const iconAction =
-  "flex size-9 shrink-0 items-center justify-center rounded text-neutral-300 hover:bg-neutral-800 data-focus:bg-neutral-800 data-disabled:opacity-50";
+  "flex size-9 shrink-0 items-center justify-center rounded bg-neutral-800 text-neutral-300 enabled:hover:bg-neutral-700 data-focus:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400 disabled:cursor-default disabled:opacity-50 data-disabled:cursor-default data-disabled:opacity-50 data-disabled:hover:bg-neutral-800 [&_svg]:size-4";
 
 // Why the server removes somebody; each can be shown to the admin themselves.
 const KICK_REASONS = ["inactivity", "banned", "replaced", "invalid_token"];
@@ -114,7 +114,7 @@ function QueueSettingsForm({
           aria-label={t("admin.queue.save")}
           title={t("admin.queue.save")}
           disabled={pending || !valid || ahead === settings.ahead}
-          className="flex size-9 shrink-0 items-center justify-center rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 disabled:hover:bg-neutral-800"
+          className={iconAction}
         >
           <Save aria-hidden="true" className="size-4" />
         </button>
@@ -125,11 +125,13 @@ function QueueSettingsForm({
 
 function TypingPreviewForm({
   people,
+  maxPeople,
   counts,
   onChange,
   onApply,
 }: {
   people: number;
+  maxPeople: number;
   counts: { room: string; direct: string };
   onChange: (target: "room" | "direct", value: string) => void;
   onApply: (counts: { room: number; direct: number }) => void;
@@ -138,11 +140,12 @@ function TypingPreviewForm({
   const { room, direct } = counts;
   const roomCount = /^\d+$/.test(room) ? Number(room) : NaN;
   const directCount = /^\d+$/.test(direct) ? Number(direct) : NaN;
-  const valid =
+  const validCounts =
     Number.isSafeInteger(roomCount) &&
     Number.isSafeInteger(directCount) &&
     roomCount + directCount > 0 &&
-    roomCount + directCount <= people;
+    roomCount + directCount <= maxPeople;
+  const valid = validCounts && roomCount + directCount <= people;
   return (
     <form
       className="grid grid-cols-[1fr_1fr_auto] items-end gap-2 px-2 py-2"
@@ -167,10 +170,10 @@ function TypingPreviewForm({
             type="number"
             role="spinbutton"
             min={0}
-            max={people}
+            max={maxPeople}
             step={1}
             aria-label={t(`admin.crowd.typing.${target}`)}
-            aria-invalid={people > 0 && !valid}
+            aria-invalid={people > 0 && !validCounts}
             disabled={!people}
             value={value}
             onChange={(event) => onChange(target, event.target.value)}
@@ -178,7 +181,7 @@ function TypingPreviewForm({
               if (event.key !== "Escape" && event.key !== "Tab")
                 event.stopPropagation();
             }}
-            className="h-8 w-full min-w-0 rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-sm outline-none focus:border-indigo-400 aria-invalid:border-red-500 disabled:opacity-50"
+            className="h-9 w-full min-w-0 rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-sm outline-none focus:border-indigo-400 aria-invalid:border-red-500 disabled:opacity-50"
           />
         </label>
       ))}
@@ -186,23 +189,19 @@ function TypingPreviewForm({
         <button
           type="submit"
           role="button"
-          title={t("admin.crowd.typing.start")}
+          title={
+            validCounts && !valid
+              ? t("admin.crowd.typing.waiting", {
+                  count: roomCount + directCount,
+                  available: people,
+                })
+              : t("admin.crowd.typing.start")
+          }
           aria-label={t("admin.crowd.typing.start")}
           disabled={!valid}
-          className="flex size-8 items-center justify-center rounded bg-neutral-800 enabled:hover:bg-neutral-700 disabled:cursor-default disabled:opacity-50"
+          className={iconAction}
         >
           <Play aria-hidden="true" className="size-4" />
-        </button>
-        <button
-          type="button"
-          role="button"
-          title={t("admin.crowd.typing.stop")}
-          aria-label={t("admin.crowd.typing.stop")}
-          disabled={!people}
-          onClick={() => onApply({ room: 0, direct: 0 })}
-          className="flex size-8 items-center justify-center rounded bg-neutral-800 enabled:hover:bg-neutral-700 disabled:cursor-default disabled:opacity-50"
-        >
-          <Square aria-hidden="true" className="size-4" />
         </button>
       </div>
     </form>
@@ -259,7 +258,7 @@ function RoomLimitForm({
         aria-label={t("admin.applyRoomLimit")}
         title={t("admin.applyRoomLimit")}
         disabled={!room || !valid || maxMembers === room.maxMembers}
-        className="flex size-9 shrink-0 items-center justify-center rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 disabled:hover:bg-neutral-800"
+        className={iconAction}
       >
         <Save aria-hidden="true" className="size-4" />
       </button>
@@ -272,6 +271,7 @@ function RoomLimitForm({
 export function AdminMenu({
   room,
   crowd,
+  previewPeople = crowd?.people ?? 0,
   queueTest,
   onTool,
   onAdvance,
@@ -279,6 +279,7 @@ export function AdminMenu({
   // The test room the tools are for; none, and they cannot be used.
   room: Room | null;
   crowd: CrowdState | null;
+  previewPeople?: number;
   queueTest: QueueTestSettings;
   onTool: (event: string, payload?: unknown) => void;
   onAdvance?: () => Promise<unknown>;
@@ -426,7 +427,7 @@ export function AdminMenu({
                       ? "admin.crowd.start"
                       : "admin.crowd.set",
                   )}
-                  className="flex size-9 shrink-0 items-center justify-center rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50"
+                  className={iconAction}
                 >
                   {status === "stopped" ? (
                     <Play aria-hidden="true" className="h-4 w-4 shrink-0" />
@@ -500,7 +501,15 @@ export function AdminMenu({
               </MenuHeading>
               <TypingPreviewForm
                 key={room?.slug}
-                people={inTestRoom ? (crowd?.people ?? 0) : 0}
+                people={inTestRoom ? previewPeople : 0}
+                maxPeople={Math.min(
+                  MAX_AMOUNT,
+                  Math.max(
+                    room?.maxMembers ?? MAX_AMOUNT,
+                    previewPeople,
+                    crowd?.target ?? 0,
+                  ),
+                )}
                 counts={typingCounts}
                 onChange={(target, value) =>
                   setTypingCounts((current) => ({

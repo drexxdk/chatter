@@ -570,7 +570,7 @@ test("typing indicators keep private drafts private and follow the current conve
     exact: true,
   });
   await fillMessage(alicePrivate, "Private draft");
-  await expect(activity(bob)).toHaveText("Typing Alice is typing privately");
+  await expect(activity(bob)).toHaveText("Typing Alice is typing");
   await expect(activity(carol)).toBeEmpty();
   await expect(activity(dana)).toBeEmpty();
 
@@ -578,7 +578,9 @@ test("typing indicators keep private drafts private and follow the current conve
     carol.getByRole("textbox", { name: "Message", exact: true }),
     "Another public draft",
   );
-  await expect(activity(bob)).toHaveText("Typing Alice is typing privately");
+  await expect(activity(bob)).toHaveText(
+    "Typing Alice and Typing Carol are typing",
+  );
   for (const width of [1280, 390]) {
     await bob.setViewportSize({ width, height: 800 });
     await fillMessage(alicePrivate, "Still writing privately");
@@ -586,7 +588,9 @@ test("typing indicators keep private drafts private and follow the current conve
       carol.getByRole("textbox", { name: "Message", exact: true }),
       "Still writing publicly",
     );
-    await expect(activity(bob)).toHaveText("Typing Alice is typing privately");
+    await expect(activity(bob)).toHaveText(
+      "Typing Alice and Typing Carol are typing",
+    );
     const indicator = await activity(bob).boundingBox();
     const recipient = await bob
       .getByText("Room", { exact: true })
@@ -607,13 +611,13 @@ test("typing indicators keep private drafts private and follow the current conve
   await bob
     .getByRole("button", { name: "Open private chat with Typing Alice" })
     .click();
-  await expect(activity(bob)).toHaveText("Typing Alice is typing privately");
+  await expect(activity(bob)).toHaveText("Typing Alice is typing");
   const bobPrivate = bob.getByRole("textbox", {
     name: "Message to Typing Alice",
     exact: true,
   });
   await fillMessage(bobPrivate, "A private reply");
-  await expect(activity(alice)).toHaveText("Typing Bob is typing privately");
+  await expect(activity(alice)).toHaveText("Typing Bob is typing");
   await expect(activity(carol)).toBeEmpty();
 
   for (const width of [1280, 390]) {
@@ -2393,7 +2397,7 @@ for (const viewport of [
 test("the Test lab crowd previews private and room typing counts", async ({
   browser,
 }, testInfo) => {
-  test.setTimeout(60_000);
+  test.setTimeout(75_000);
   const unique = String(Date.now());
   const name = `Typing Tester ${unique.slice(-6)}`;
   const email = `${E2E.moderatorEmailPrefix}typing-${unique}@chatter.test`;
@@ -2419,6 +2423,27 @@ test("the Test lab crowd previews private and room typing counts", async ({
     await page.getByRole("spinbutton", { name: "Room limit" }).fill("20");
     await page.getByRole("button", { name: "Save room limit" }).click();
     await page
+      .getByRole("menuitem", { name: "Fill the room", exact: true })
+      .click();
+    const preview = page.getByRole("button", {
+      name: "Simulate typing",
+      exact: true,
+    });
+    await expect(preview).toBeEnabled();
+    await expect(
+      page.getByRole("button", { name: "Stop simulated typing" }),
+    ).toHaveCount(0);
+    await preview.click();
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("status", { name: "Typing activity" }),
+    ).toHaveText(/^.+ and 3 others are typing$/);
+    await tools.click();
+    await page
+      .getByRole("menuitem", { name: "Remove everybody", exact: true })
+      .click();
+    await expect(preview).toBeDisabled();
+    await page
       .getByRole("textbox", { name: "Number of people (1–20)" })
       .fill("19");
     await page.getByRole("button", { name: "Start the crowd" }).click();
@@ -2428,6 +2453,9 @@ test("the Test lab crowd previews private and room typing counts", async ({
     await page.getByRole("menuitem", { name: "Pause", exact: true }).click();
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 800 });
+      if ((await tools.getAttribute("aria-expanded")) !== "true")
+        await tools.click();
+      await expect(page.getByRole("menu")).toBeVisible();
       await page.getByRole("spinbutton", { name: "Typing to you" }).fill("7");
       await page
         .getByRole("spinbutton", { name: "Typing to the room" })
@@ -2442,7 +2470,7 @@ test("the Test lab crowd previews private and room typing counts", async ({
       });
       await page.keyboard.press("Escape");
       const activity = page.getByRole("status", { name: "Typing activity" });
-      await expect(activity).toHaveText("7 are typing privately");
+      await expect(activity).toHaveText(/and 12 others are typing$/);
       await expect(activity).toBeInViewport();
       expect(
         await page.evaluate(
@@ -2456,28 +2484,52 @@ test("the Test lab crowd previews private and room typing counts", async ({
       await tools.click();
       await page.getByRole("spinbutton", { name: "Typing to you" }).fill("0");
       await page
+        .getByRole("spinbutton", { name: "Typing to the room" })
+        .fill("3");
+      await page
         .getByRole("button", { name: "Simulate typing", exact: true })
         .click();
       await page.keyboard.press("Escape");
-      await expect(activity).toHaveText("12 are typing");
-      await tools.click();
-      await page.getByRole("button", { name: "Stop simulated typing" }).click();
-      await page.keyboard.press("Escape");
-      await expect(page.locator("[data-typing-indicator]:visible")).toBeEmpty();
+      await expect(activity).toHaveText(/are typing$/);
+      await expect(activity).not.toContainText("others");
+      const stableNames = await activity.innerText();
+      const changes = await activity.evaluate(async (element) => {
+        let changed = false;
+        const initial = element.textContent;
+        const observer = new MutationObserver(() => {
+          if (element.textContent !== initial) changed = true;
+        });
+        observer.observe(element, {
+          subtree: true,
+          childList: true,
+          characterData: true,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 3200));
+        observer.disconnect();
+        return changed;
+      });
+      expect(changes).toBe(false);
+      await expect(activity).toHaveText(stableNames);
       await tools.click();
     }
     await page.getByRole("spinbutton", { name: "Typing to you" }).fill("7");
+    await page
+      .getByRole("spinbutton", { name: "Typing to the room" })
+      .fill("12");
     await page
       .getByRole("button", { name: "Simulate typing", exact: true })
       .click();
     await page.keyboard.press("Escape");
     await expect(
       page.getByRole("status", { name: "Typing activity" }),
-    ).toHaveText("7 are typing privately");
+    ).toHaveText(/and 12 others are typing$/);
     await expect(page.locator("[data-typing-indicator]:visible")).toBeEmpty({
       timeout: 20_000,
     });
     await tools.click();
+    await expect(
+      page.getByRole("button", { name: "Stop simulated typing" }),
+    ).toHaveCount(0);
     await page
       .getByRole("menuitem", { name: "Stop and send them away" })
       .click();

@@ -40,10 +40,10 @@ describe("typing indicators", () => {
     });
     expect(
       screen.getByRole("status", { name: "Typing activity" }),
-    ).toHaveTextContent(/^Bob is typing privately$/);
+    ).toHaveTextContent(/^Bob and Carol are typing$/);
   });
 
-  it("groups many writers into counts and prioritizes private activity", async () => {
+  it("keeps private writers named and counts room writers above three people", async () => {
     const { server } = await enterWithPeople();
     act(() => {
       for (let index = 0; index < 19; index += 1)
@@ -56,8 +56,42 @@ describe("typing indicators", () => {
     });
     expect(
       screen.getByRole("status", { name: "Typing activity" }),
-    ).toHaveTextContent(/^7 are typing privately$/);
+    ).toHaveTextContent(
+      "Writer 0, Writer 1, Writer 2, Writer 3, Writer 4, Writer 5, Writer 6, and 12 others are typing",
+    );
   });
+
+  it.each([
+    { direct: 0, room: 3, expected: "Alice, Bob, and Carol are typing" },
+    { direct: 0, room: 4, expected: "4 people are typing" },
+    { direct: 1, room: 3, expected: "Alice and 3 others are typing" },
+    {
+      direct: 3,
+      room: 1,
+      expected: "Alice, Bob, Carol, and 1 other are typing",
+    },
+    { direct: 4, room: 0, expected: "Alice, Bob, Carol, and Dan are typing" },
+  ])(
+    "uses natural wording for $direct private and $room room writers",
+    async ({ direct, room, expected }) => {
+      const { server } = await enterWithPeople();
+      act(() => {
+        ["Alice", "Bob", "Carol", "Dan"]
+          .slice(0, direct + room)
+          .forEach((nickname, index) => {
+            server.latest.serverEmit("chat:typing", {
+              guestId: `writer-${index}`,
+              nickname,
+              active: true,
+              ...(index < direct ? { toGuestId: ME } : { roomSlug: "general" }),
+            });
+          });
+      });
+      expect(
+        screen.getByRole("status", { name: "Typing activity" }).textContent,
+      ).toBe(expected);
+    },
+  );
 
   it("hides room writers in a private chat and restores them on returning", async () => {
     const { user, server } = await enterWithPeople();
@@ -80,11 +114,11 @@ describe("typing indicators", () => {
     );
     expect(
       screen.getByRole("status", { name: "Typing activity" }),
-    ).toHaveTextContent(/^Bob is typing privately$/);
+    ).toHaveTextContent(/^Bob is typing$/);
     await user.click(screen.getByRole("button", { name: "Back to the room" }));
     expect(
       screen.getByRole("status", { name: "Typing activity" }),
-    ).toHaveTextContent(/^Bob is typing privately$/);
+    ).toHaveTextContent(/^Bob and Carol are typing$/);
     act(() => {
       server.latest.serverEmit("chat:typing", {
         guestId: bob.guestId,
@@ -93,12 +127,16 @@ describe("typing indicators", () => {
         toGuestId: ME,
       });
     });
-    expect(
-      screen.getByRole("status", { name: "Typing activity" }),
-    ).toHaveTextContent(/^Carol is typing$/);
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole("status", { name: "Typing activity" }),
+        ).toHaveTextContent(/^Carol is typing$/),
+      { timeout: 2000 },
+    );
   });
 
-  it("reports editor activity to the correct audience and stops after sending", async () => {
+  it("keeps room writers visible during inline private replies and reports activity to the correct audience", async () => {
     const { user, server } = await enterWithPeople();
     const box = await screen.findByRole("textbox", { name: "Message" });
     await user.click(box);
@@ -128,7 +166,7 @@ describe("typing indicators", () => {
     });
     expect(
       screen.getByRole("status", { name: "Typing activity" }),
-    ).toHaveTextContent(/^Bob is typing privately$/);
+    ).toHaveTextContent(/^Bob and Carol are typing$/);
     const inlineBox = await screen.findByRole("textbox", {
       name: "Message to Bob",
     });

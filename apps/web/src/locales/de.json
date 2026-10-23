@@ -2,10 +2,9 @@
   "app": { "title": "Chatter" },
   "typing": {
     "label": "Schreibaktivität",
-    "directNames": "{names} {count, plural, one {schreibt} other {schreiben}} privat",
-    "roomNames": "{names} {count, plural, one {schreibt} other {schreiben}}",
-    "directCount": "{count} {count, plural, one {schreibt} other {schreiben}} privat",
-    "roomCount": "{count} {count, plural, one {schreibt} other {schreiben}}"
+    "summary": "{names} {count, plural, one {schreibt} other {schreiben}}",
+    "others": "{count, plural, one {# weitere Person} other {# weitere Personen}}",
+    "people": "{count, plural, one {# Person} other {# Personen}}"
   },
   "language": { "label": "Sprache" },
   "menu": { "open": "Menü" },
@@ -54,7 +53,8 @@
         "roomShort": "Im Raum",
         "directShort": "An dich",
         "start": "Schreiben simulieren",
-        "stop": "Simuliertes Schreiben stoppen"
+        "stop": "Simuliertes Schreiben stoppen",
+        "waiting": "Benötigt {count} simulierte Personen ({available} verfügbar)"
       },
       "title": "Menschenmenge",
       "count": "{people} von {target}",

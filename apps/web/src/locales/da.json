@@ -2,10 +2,9 @@
   "app": { "title": "Chatter" },
   "typing": {
     "label": "Skriveaktivitet",
-    "directNames": "{names} {count, plural, one {skriver} other {skriver}} privat",
-    "roomNames": "{names} {count, plural, one {skriver} other {skriver}}",
-    "directCount": "{count} skriver privat",
-    "roomCount": "{count} skriver"
+    "summary": "{names} {count, plural, one {skriver} other {skriver}}",
+    "others": "{count, plural, one {# anden} other {# andre}}",
+    "people": "{count, plural, one {# person} other {# personer}}"
   },
   "language": { "label": "Sprog" },
   "menu": { "open": "Menu" },
@@ -54,7 +53,8 @@
         "roomShort": "Til rummet",
         "directShort": "Til dig",
         "start": "Simuler skrivning",
-        "stop": "Stop simuleret skrivning"
+        "stop": "Stop simuleret skrivning",
+        "waiting": "Kræver {count} simulerede personer ({available} tilgængelige)"
       },
       "title": "Menneskemængde",
       "count": "{people} af {target}",

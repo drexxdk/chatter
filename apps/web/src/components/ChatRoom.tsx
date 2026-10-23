@@ -892,7 +892,7 @@ export function ChatRoom({
                     <div className="min-w-0 flex-1">
                       <TypingIndicator
                         writers={connected ? typing.writers : []}
-                        roomSlug={replyTo ? undefined : roomSlug}
+                        roomSlug={roomSlug}
                         blockedIds={[
                           ...direct.blockedIds,
                           ...direct.blockedByIds,

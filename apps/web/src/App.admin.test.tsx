@@ -451,13 +451,16 @@ describe("the crowd", () => {
       }),
     );
 
-  it("previews separate private and room typing counts and can stop them without closing the menu", async () => {
+  it("previews separate private and room typing counts and can restart them without closing the menu", async () => {
     stubLogin("admin-token", "Ada Admin");
     const server = makeFakeServer();
     const { user } = setup(server);
     await enterTestLab(user);
     await openTools(user);
     const start = screen.getByRole("button", { name: "Simulate typing" });
+    expect(
+      screen.queryByRole("button", { name: "Stop simulated typing" }),
+    ).not.toBeInTheDocument();
     const direct = screen.getByRole("spinbutton", { name: "Typing to you" });
     const room = screen.getByRole("spinbutton", { name: "Typing to the room" });
     expect(start).toBeDisabled();
@@ -467,6 +470,21 @@ describe("the crowd", () => {
     expect(room).not.toBeInvalid();
     await user.click(start);
     expect(server.latest.emittedEvents("admin:crowd:typing")).toEqual([]);
+    told(server, "running", 1, 19);
+    expect(start).toBeDisabled();
+    expect(start).toHaveAttribute(
+      "title",
+      "Needs 4 simulated people (1 available)",
+    );
+    expect(direct).not.toBeInvalid();
+    expect(room).not.toBeInvalid();
+    told(server, "paused", 19, 19);
+    told(server, "paused", 3, 19);
+    expect(start).toBeDisabled();
+    expect(start).toHaveAttribute(
+      "title",
+      "Needs 4 simulated people (3 available)",
+    );
     told(server, "paused", 19, 19);
     expect(start).toBeEnabled();
     expect(direct).toBeEnabled();
@@ -487,14 +505,16 @@ describe("the crowd", () => {
     expect(
       screen.getByRole("spinbutton", { name: "Typing to the room" }),
     ).toHaveValue(12);
-    await user.click(
-      screen.getByRole("button", { name: "Stop simulated typing" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Simulate typing" }));
     expect(server.latest.emittedEvents("admin:crowd:typing").at(-1)).toEqual({
-      room: 0,
-      direct: 0,
+      room: 12,
+      direct: 7,
       slug: "admin-lab",
     });
+    expect(screen.getByRole("menu")).toBeVisible();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    await openTools(user);
     told(server, "paused", 5, 5);
     expect(
       screen.getByRole("button", { name: "Simulate typing" }),
@@ -507,6 +527,31 @@ describe("the crowd", () => {
     expect(
       screen.getByRole("button", { name: "Simulate typing" }),
     ).toBeDisabled();
+  });
+
+  it("previews typing with people added using Fill room without starting a crowd", async () => {
+    stubLogin("admin-token", "Ada Admin");
+    const server = makeFakeServer();
+    const { user } = setup(server);
+    await enterTestLab(user);
+    await openTools(user);
+    await user.click(screen.getByRole("menuitem", { name: "Fill the room" }));
+    act(() =>
+      server.latest.serverEmit("room:presence", {
+        roomSlug: "admin-lab",
+        members: Array.from({ length: 6 }, (_, index) => ({
+          guestId: `fake-${index}`,
+          nickname: `Person ${index}`,
+          role: "guest",
+        })),
+      }),
+    );
+    const start = screen.getByRole("button", { name: "Simulate typing" });
+    expect(start).toBeEnabled();
+    await user.click(start);
+    expect(server.latest.emittedEvents("admin:crowd:typing")).toEqual([
+      { room: 3, direct: 1, slug: "admin-lab" },
+    ]);
   });
 
   it("starts with the number typed, 10 until another is", async () => {

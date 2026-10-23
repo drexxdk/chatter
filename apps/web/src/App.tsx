@@ -949,6 +949,16 @@ export function App({
         room={testRoom}
         queueTest={chat.session.queueTest ?? { enabled: false, ahead: 0 }}
         crowd={chat.crowd?.roomSlug === testRoom?.slug ? chat.crowd : null}
+        previewPeople={
+          chat.roomSlug === testRoom?.slug
+            ? Math.max(
+                chat.crowd?.people ?? 0,
+                chat.members.filter((member) =>
+                  member.guestId.startsWith("fake-"),
+                ).length,
+              )
+            : 0
+        }
         onTool={(event, payload) => void chat.adminTool(event, payload)}
         onAdvance={
           chat.queue &&

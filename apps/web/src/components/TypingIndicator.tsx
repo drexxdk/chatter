@@ -18,20 +18,22 @@ export function TypingIndicator({
   const room = visible.filter(
     (writer) => roomSlug !== undefined && writer.roomSlug === roomSlug,
   );
-  function describe(group: TypingNotice[], target: "direct" | "room") {
-    const names = new Intl.ListFormat(i18n.resolvedLanguage, {
-      type: "conjunction",
-    }).format(group.map((writer) => writer.nickname));
-    return t(`typing.${target}${group.length > 3 ? "Count" : "Names"}`, {
-      count: group.length,
-      names,
-    });
-  }
-  const text = direct.length
-    ? describe(direct, "direct")
-    : room.length
-      ? describe(room, "room")
-      : "";
+  const count = direct.length + room.length;
+  const named = count <= 3 ? [...direct, ...room] : direct;
+  const subjects = named.map((writer) => writer.nickname);
+  const remaining = count - named.length;
+  if (remaining)
+    subjects.push(
+      t(named.length ? "typing.others" : "typing.people", { count: remaining }),
+    );
+  const text = count
+    ? t("typing.summary", {
+        count,
+        names: new Intl.ListFormat(i18n.resolvedLanguage, {
+          type: "conjunction",
+        }).format(subjects),
+      })
+    : "";
   return (
     <div
       role={text ? "status" : undefined}

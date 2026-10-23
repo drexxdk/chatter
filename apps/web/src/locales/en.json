@@ -2,10 +2,9 @@
   "app": { "title": "Chatter" },
   "typing": {
     "label": "Typing activity",
-    "directNames": "{names} {count, plural, one {is} other {are}} typing privately",
-    "roomNames": "{names} {count, plural, one {is} other {are}} typing",
-    "directCount": "{count, plural, one {# is} other {# are}} typing privately",
-    "roomCount": "{count, plural, one {# is} other {# are}} typing"
+    "summary": "{names} {count, plural, one {is} other {are}} typing",
+    "others": "{count, plural, one {# other} other {# others}}",
+    "people": "{count, plural, one {# person} other {# people}}"
   },
   "language": { "label": "Language" },
   "menu": { "open": "Menu" },
@@ -54,7 +53,8 @@
         "roomShort": "To room",
         "directShort": "To you",
         "start": "Simulate typing",
-        "stop": "Stop simulated typing"
+        "stop": "Stop simulated typing",
+        "waiting": "Needs {count} simulated people ({available} available)"
       },
       "title": "Crowd",
       "count": "{people} of {target}",

@@ -59,9 +59,64 @@ describe("typing activity", () => {
     });
     expect(result.current.writers).toHaveLength(2);
     act(() => result.current.receive({ ...room, active: false }));
+    expect(result.current.writers).toHaveLength(2);
+    act(() => vi.advanceTimersByTime(1000));
     expect(result.current.writers.map((writer) => writer.nickname)).toEqual([
       "Bob",
     ]);
+    act(() => vi.advanceTimersByTime(TYPING_TTL_MS));
+    expect(result.current.writers).toEqual([]);
+  });
+
+  it("keeps writer order stable across refreshes and smooths short stop-start bursts", () => {
+    const { result } = setup();
+    const alice = {
+      guestId: "alice",
+      nickname: "Alice",
+      active: true,
+      roomSlug: "general",
+    };
+    const bob = {
+      guestId: "bob",
+      nickname: "Bob",
+      active: true,
+      roomSlug: "general",
+    };
+    act(() => {
+      result.current.receive(alice);
+      result.current.receive(bob);
+      result.current.receive(alice);
+    });
+    expect(result.current.writers.map((writer) => writer.nickname)).toEqual([
+      "Alice",
+      "Bob",
+    ]);
+    act(() => result.current.receive({ ...alice, active: false }));
+    act(() => vi.advanceTimersByTime(600));
+    act(() => result.current.receive(alice));
+    act(() => vi.advanceTimersByTime(600));
+    expect(result.current.writers.map((writer) => writer.nickname)).toEqual([
+      "Alice",
+      "Bob",
+    ]);
+    act(() => result.current.receive({ ...alice, active: false }));
+    act(() => vi.advanceTimersByTime(999));
+    expect(result.current.writers).toHaveLength(2);
+    act(() => vi.advanceTimersByTime(1));
+    expect(result.current.writers.map((writer) => writer.nickname)).toEqual([
+      "Bob",
+    ]);
+  });
+
+  it("clears immediately on reset even when a stop grace period is pending", () => {
+    const { result } = setup();
+    const writer = { guestId: "alice", nickname: "Alice", roomSlug: "general" };
+    act(() => {
+      result.current.receive({ ...writer, active: true });
+      result.current.receive({ ...writer, active: false });
+      result.current.reset();
+    });
+    expect(result.current.writers).toEqual([]);
     act(() => vi.advanceTimersByTime(TYPING_TTL_MS));
     expect(result.current.writers).toEqual([]);
   });
