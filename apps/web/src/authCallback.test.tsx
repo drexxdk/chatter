@@ -477,7 +477,7 @@ describe("the page the providers send the browser back to", () => {
       expect(loadAccount()).toBeNull();
     });
 
-    it("keeps the frame of the site: the header with the menu", async () => {
+    it("keeps the frame of the site: the header with direct settings", async () => {
       open();
 
       const header = within(await screen.findByRole("banner"));
@@ -486,7 +486,9 @@ describe("the page the providers send the browser back to", () => {
         "href",
         "/",
       );
-      expect(header.getByRole("button", { name: "Menu" })).toBeInTheDocument();
+      expect(
+        header.getByRole("button", { name: "Settings" }),
+      ).toBeInTheDocument();
     });
   });
 });

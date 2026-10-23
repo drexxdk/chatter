@@ -603,8 +603,7 @@ describe("language", () => {
     const { user } = setup();
     await screen.findByRole("heading", { name: "Public rooms" });
 
-    await user.click(screen.getByRole("button", { name: "Menu" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Settings" }));
+    await user.click(screen.getByRole("button", { name: "Settings" }));
     await user.click(await screen.findByRole("radio", { name: /Dansk/ }));
     await user.keyboard("{Escape}");
 

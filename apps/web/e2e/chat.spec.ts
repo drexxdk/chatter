@@ -1056,6 +1056,118 @@ test("private-message sounds are opt-in with adjustable volume", async ({
   ).toHaveText("Wood");
 });
 
+test("sidebar accordions share edge-aligned scrollbars and content gutters", async ({
+  browser,
+}, testInfo) => {
+  const guest = await newGuest(browser);
+  const writer = await newGuest(browser);
+  await guest.setViewportSize({ width: 1280, height: 800 });
+  await enterRoom(guest, LOUNGE.name, "Panel Guest");
+  await enterRoom(writer, LOUNGE.name, "Panel Writer");
+  await writer
+    .getByRole("button", { name: "Open private chat with Panel Guest" })
+    .click();
+  await send(writer, "A conversation for the sidebar", "Panel Guest");
+  const aside = guest.locator("aside.panel");
+  await expect(
+    aside.getByRole("list", { name: "Direct messages" }),
+  ).toContainText("Panel Writer");
+  await guest.addStyleTag({
+    content: ".panel .panel-list { max-height: 2rem; }",
+  });
+  const lists = aside.locator(".panel-list");
+  await expect(lists).toHaveCount(2);
+
+  for (const width of [1280, 900]) {
+    await guest.setViewportSize({ width, height: 800 });
+    const bounds = await aside.boundingBox();
+    for (const list of await lists.all()) {
+      const layout = await list.evaluate((element) => {
+        const style = getComputedStyle(element);
+        const bounds = element.getBoundingClientRect();
+        return {
+          right: bounds.right,
+          padding: style.paddingInlineEnd,
+          scrolls: element.scrollHeight > element.clientHeight,
+          contentRight: element.querySelector("ul")!.getBoundingClientRect()
+            .right,
+          gutterStart: bounds.left + element.clientWidth,
+        };
+      });
+      expect(layout.right).toBeCloseTo(bounds!.x + bounds!.width - 1, 0);
+      expect(layout.padding).toBe("12px");
+      expect(layout.scrolls).toBe(true);
+      expect(layout.gutterStart - layout.contentRight).toBeCloseTo(12, 0);
+    }
+    await aside.screenshot({
+      path: testInfo.outputPath(`sidebar-scrollbars-${width}.png`),
+      animations: "disabled",
+    });
+  }
+});
+
+test("the recipient chip sits above the textarea beside typing activity", async ({
+  browser,
+}, testInfo) => {
+  const guest = await newGuest(browser);
+  const writer = await newGuest(browser);
+  await guest.setViewportSize({ width: 1280, height: 800 });
+  await enterRoom(guest, LOUNGE.name, "Chip Guest");
+  await enterRoom(writer, LOUNGE.name, "Long Recipient");
+  await guest
+    .getByRole("list", { name: "People in this room" })
+    .getByRole("button", { name: /^Long Recipient/ })
+    .click();
+
+  const surface = guest.locator(".composer-surface:visible");
+  const chip = surface.getByRole("button", {
+    name: "Open private chat",
+    exact: true,
+  });
+  const input = guest.getByRole("textbox", {
+    name: "Message to Long Recipient",
+    exact: true,
+  });
+  const activity = surface.locator("[data-typing-indicator]");
+  for (const width of [1280, 375, 320]) {
+    await guest.setViewportSize({ width, height: 800 });
+    await fillMessage(
+      writer.getByRole("textbox", { name: "Message", exact: true }),
+      `Room draft ${width}`,
+    );
+    await expect(activity).toHaveText("Long Recipient is typing");
+    await expect(chip).toBeVisible();
+    await expect(
+      surface
+        .locator("form")
+        .getByRole("button", { name: "Open private chat", exact: true }),
+    ).toHaveCount(0);
+    const chipBounds = await chip.boundingBox();
+    const inputBounds = await input.boundingBox();
+    const activityBounds = await activity.boundingBox();
+    expect(chipBounds!.y + chipBounds!.height).toBeLessThanOrEqual(
+      inputBounds!.y,
+    );
+    expect(chipBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(chipBounds!.x + chipBounds!.width).toBeLessThanOrEqual(width);
+    expect(activityBounds!.x + activityBounds!.width).toBeLessThanOrEqual(
+      width,
+    );
+    if (width === 1280)
+      expect(chipBounds!.x + chipBounds!.width).toBeLessThan(activityBounds!.x);
+    await surface.screenshot({
+      path: testInfo.outputPath(`recipient-chip-${width}.png`),
+      animations: "disabled",
+    });
+  }
+
+  await surface.getByRole("button", { name: "Stop writing privately" }).click();
+  await expect(
+    guest.getByRole("textbox", { name: "Message", exact: true }),
+  ).toBeVisible();
+  await expect(surface.getByText("Room", { exact: true })).toBeVisible();
+});
+
 test("typing indicators keep private drafts private and follow the current conversation", async ({
   browser,
 }, testInfo) => {
@@ -1918,6 +2030,110 @@ test("the composer highlights keyboard focus but not pointer focus", async ({
   await expect(input).toBeFocused();
   await expect(box).toHaveCSS("border-top-color", neutral);
   await expect(box).toHaveCSS("outline-style", "none");
+});
+
+test("signed-out settings open directly from the header", async ({
+  browser,
+}, testInfo) => {
+  const guest = await newGuest(browser);
+  await guest.goto("/");
+
+  for (const width of [1280, 375, 320]) {
+    await guest.setViewportSize({ width, height: 800 });
+    const settings = guest.getByRole("button", {
+      name: "Settings",
+      exact: true,
+    });
+    await expect(settings).toHaveAttribute("title", "Settings");
+    await expect(settings).toHaveAttribute("aria-haspopup", "dialog");
+    await expect(
+      guest.getByRole("button", { name: "Menu", exact: true }),
+    ).toHaveCount(0);
+    await settings.click();
+    const dialog = guest.getByRole("dialog", { name: "Settings" });
+    await expect(dialog).toBeVisible();
+    const languages = dialog.locator('input[name="settings-language"] + span');
+    await expect
+      .poll(() =>
+        languages.evaluateAll((options) =>
+          options.map((option) => getComputedStyle(option).flexDirection),
+        ),
+      )
+      .toEqual(Array(3).fill(width === 1280 ? "row" : "column"));
+    expect(
+      await languages.evaluateAll((options) =>
+        options.every((option) => option.scrollWidth <= option.clientWidth),
+      ),
+    ).toBe(true);
+    await dialog
+      .locator("fieldset")
+      .first()
+      .screenshot({
+        path: testInfo.outputPath(`settings-languages-${width}.png`),
+        animations: "disabled",
+      });
+    await expect(guest.getByRole("menu")).toHaveCount(0);
+    await guest.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(settings).toBeFocused();
+  }
+});
+
+test("reloading settings does not focus an individual setting", async ({
+  browser,
+}) => {
+  const guest = await newGuest(browser);
+  await enterRoom(guest, LOUNGE.name, "Settings Focus Guest");
+  await guest
+    .getByRole("button", { name: "Account menu: Settings Focus Guest" })
+    .click();
+  await guest.getByRole("menuitem", { name: "Settings", exact: true }).click();
+  const dialog = guest.getByRole("dialog", { name: "Settings", exact: true });
+  await expect(dialog).toBeFocused();
+  await expect(guest).toHaveURL(/dialog=settings/);
+
+  await guest.reload();
+
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toBeFocused();
+  await expect(
+    dialog.getByRole("checkbox", { name: "Private message sounds" }),
+  ).not.toBeFocused();
+  await guest.keyboard.press("Tab");
+  await expect(
+    dialog.getByRole("button", { name: "Close", exact: true }),
+  ).toBeFocused();
+});
+
+test("the composer background has a top border matching the header", async ({
+  browser,
+}) => {
+  const guest = await newGuest(browser);
+  await enterRoom(guest, LOUNGE.name, "Border Guest");
+
+  for (const width of [1280, 375, 320]) {
+    await guest.setViewportSize({ width, height: 800 });
+    const headerColor = await guest
+      .locator("header")
+      .evaluate(
+        (element) => getComputedStyle(element.parentElement!).borderBottomColor,
+      );
+    const border = await guest
+      .locator(".composer-surface:visible")
+      .evaluate((element) => {
+        const style = getComputedStyle(element, "::before");
+        return {
+          width: style.borderTopWidth,
+          style: style.borderTopStyle,
+          color: style.borderTopColor,
+        };
+      });
+    expect(border).toEqual({
+      width: "1px",
+      style: "solid",
+      color: headerColor,
+    });
+  }
 });
 
 test("neon glass menus and modals preserve focus and accessibility fallbacks", async ({

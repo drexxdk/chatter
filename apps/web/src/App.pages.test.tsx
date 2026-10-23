@@ -57,7 +57,7 @@ describe("the pages of the site", () => {
     expect(window.location.pathname).toBe("/");
   });
 
-  it("have the header of the lobby, with the menu and no login", async () => {
+  it("have the header of the lobby, with direct settings and no login", async () => {
     const { user } = setup();
     await user.click(
       await screen.findByRole("link", { name: "How it is built" }),
@@ -65,7 +65,12 @@ describe("the pages of the site", () => {
 
     await screen.findByRole("heading", { level: 1 });
 
-    expect(header().getByRole("button", { name: "Menu" })).toBeInTheDocument();
+    await user.click(header().getByRole("button", { name: "Settings" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Settings" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
     expect(header().queryByRole("button", { name: "Login" })).toBeNull();
   });
 });

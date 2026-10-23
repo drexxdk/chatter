@@ -147,17 +147,17 @@ describe("direct messages", () => {
       const { user } = await enter();
       await chooseRecipient(user, "Bob");
       const destination = screen.getByText("Private: Bob");
-      const form = destination.closest("form[data-composer]");
-      expect(form).not.toBeNull();
-      const controls = within(form as HTMLFormElement);
+      expect(destination.closest("form[data-composer]")).toBeNull();
+      const surface = destination.closest(".composer-surface");
+      expect(surface).not.toBeNull();
+      const controls = within(surface as HTMLElement);
       expect(
         controls.getByRole("button", { name: "Stop writing privately" }),
       ).toBeVisible();
-      await user.click(
-        controls.getByRole("button", {
-          name: "Open private chat",
-        }),
-      );
+      expect(
+        controls.getByRole("button", { name: "Open private chat" }),
+      ).toContainElement(destination);
+      await user.click(destination);
       expect(pane("Bob")).toBeInTheDocument();
     });
 

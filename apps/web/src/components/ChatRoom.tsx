@@ -9,10 +9,10 @@ import {
 } from "react";
 import {
   ArrowLeft,
-  ArrowRight,
+  ArrowUpRight,
   Ban,
+  LockKeyhole,
   Megaphone,
-  MessageSquare,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -842,50 +842,9 @@ export function ChatRoom({
                   ? { active: announce, onChange: chooseSendMode }
                   : undefined
               }
-              destination={
-                replyTo ? (
-                  <div className="flex min-w-0 flex-1 items-center gap-1 text-xs text-neutral-300">
-                    <MessageSquare
-                      aria-hidden="true"
-                      className="h-3.5 w-3.5 shrink-0"
-                    />
-                    <span
-                      className="min-w-0 wrap-break-word"
-                      aria-live="polite"
-                    >
-                      {t("dm.writingTo", { name: replyTo.nickname })}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => openConversation(replyTo)}
-                      title={t("person.openChat")}
-                      aria-label={t("person.openChat")}
-                      className="shrink-0 rounded p-1 hover:bg-neutral-700/50"
-                    >
-                      <ArrowRight aria-hidden="true" className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => chooseRecipient(null)}
-                      title={t("dm.closeBar")}
-                      aria-label={t("dm.closeBar")}
-                      className="shrink-0 rounded p-1 hover:bg-neutral-700/50"
-                    >
-                      <X aria-hidden="true" className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <span
-                    className="min-w-0 text-xs text-neutral-400"
-                    aria-live="polite"
-                  >
-                    {t("info.everyoneHeading")}
-                  </span>
-                )
-              }
               above={
                 <>
-                  <div className="flex min-h-5 items-center gap-2">
+                  <div className="flex min-h-8 min-w-0 flex-wrap items-center gap-2">
                     <RoomPanelDropdown
                       roomSlug={roomSlug}
                       unread={unread}
@@ -901,7 +860,49 @@ export function ChatRoom({
                       onSetBlocked={direct.setBlocked}
                       onSetMuted={direct.setMuted}
                     />
-                    <div className="min-w-0 flex-1">
+                    {replyTo ? (
+                      <div className="inline-flex min-w-0 max-w-[calc(100%-2.5rem)] items-center overflow-hidden rounded-md border border-neutral-600/60 bg-neutral-800/70 text-xs text-neutral-200">
+                        <button
+                          type="button"
+                          onClick={() => openConversation(replyTo)}
+                          title={t("person.openChat")}
+                          aria-label={t("person.openChat")}
+                          className="flex min-h-8 min-w-0 items-center gap-2 px-2.5 py-1 text-left outline-none hover:bg-white/5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--room-accent)"
+                        >
+                          <LockKeyhole
+                            aria-hidden="true"
+                            className="size-3.5 shrink-0 text-(--room-accent)"
+                          />
+                          <span
+                            className="min-w-0 wrap-break-word"
+                            aria-live="polite"
+                          >
+                            {t("dm.writingTo", { name: replyTo.nickname })}
+                          </span>
+                          <ArrowUpRight
+                            aria-hidden="true"
+                            className="size-3.5 shrink-0 text-neutral-400"
+                          />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => chooseRecipient(null)}
+                          title={t("dm.closeBar")}
+                          aria-label={t("dm.closeBar")}
+                          className="flex size-8 shrink-0 items-center justify-center border-l border-neutral-600/40 text-neutral-400 outline-none hover:bg-white/5 hover:text-neutral-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--room-accent)"
+                        >
+                          <X aria-hidden="true" className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span
+                        className="min-w-0 text-xs text-neutral-400"
+                        aria-live="polite"
+                      >
+                        {t("info.everyoneHeading")}
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1 basis-32">
                       <TypingIndicator
                         writers={connected ? typing.writers : []}
                         roomSlug={roomSlug}

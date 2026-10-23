@@ -38,7 +38,7 @@ export function SettingsDialog({
             <legend className="mb-2 text-sm text-neutral-400">
               {t("language.label")}
             </legend>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="@container grid grid-cols-3 gap-2">
               {LANGUAGES.map((language) => {
                 const Flag = FLAGS[language.code as keyof typeof FLAGS];
                 return (
@@ -54,7 +54,7 @@ export function SettingsDialog({
                       onChange={() => setLanguage(language.code)}
                       className="peer sr-only"
                     />
-                    <span className="flex min-h-11 flex-wrap items-center justify-center gap-2 rounded border border-neutral-700 px-2 py-2 text-sm peer-checked:border-indigo-400 peer-checked:bg-indigo-500/10 peer-focus-visible:outline-2 peer-focus-visible:outline-indigo-400">
+                    <span className="flex h-full min-h-11 flex-col items-center justify-center gap-2 rounded border border-neutral-700 px-2 py-2 text-sm peer-checked:border-indigo-400 peer-checked:bg-indigo-500/10 peer-focus-visible:outline-2 peer-focus-visible:outline-indigo-400 @min-[24rem]:flex-row">
                       {Flag && (
                         <Flag
                           aria-hidden="true"

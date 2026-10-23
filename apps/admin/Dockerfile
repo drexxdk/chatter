@@ -17,6 +17,7 @@ COPY apps/web/package.json apps/web/
 RUN npm ci --workspace apps/admin --ignore-scripts
 
 FROM deps AS builder
+COPY shared shared
 COPY apps/admin apps/admin
 ENV NEXT_TELEMETRY_DISABLED=1
 # Placeholders for the build only: it loads the config, which checks them, but nothing connects to a database.

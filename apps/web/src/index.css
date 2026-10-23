@@ -326,6 +326,7 @@ html:has([data-room-search] input:focus) {
   );
   right: calc((100% - var(--composer-column-width)) / 2 - var(--page-gutter));
   background-color: var(--color-neutral-950);
+  border-top: 1px solid var(--room-border, var(--color-neutral-800));
   pointer-events: none;
 }
 
@@ -454,6 +455,19 @@ html:has(#headlessui-portal-root [role="dialog"][aria-modal="true"]) {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.panel .panel-section {
+  margin-inline-end: -0.75rem;
+}
+
+.panel .panel-section > h3,
+.panel .panel-section > div > :not(.panel-list):not(:has(.panel-list)) {
+  margin-inline-end: 0.75rem;
+}
+
+.panel .panel-list {
+  padding-inline-end: 0.75rem;
 }
 
 .panel-list :focus-visible,

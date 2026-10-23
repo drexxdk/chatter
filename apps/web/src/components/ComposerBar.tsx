@@ -36,7 +36,6 @@ interface ComposerBarProps {
   alert?: ReactNode;
   // Notes above the form.
   above?: ReactNode;
-  destination?: ReactNode;
   // For a moderator: what is written can go out as an announcement, which the send button then says, and a menu beside
   // it chooses between that and a message.
   announce?: { active: boolean; onChange: (active: boolean) => void };
@@ -62,7 +61,6 @@ export function ComposerBar({
   mentionable,
   alert,
   above,
-  destination,
   announce,
   actions,
   typing,
@@ -161,13 +159,8 @@ export function ComposerBar({
                 ?.focus();
             }
           }}
-          className={`composer-focus ${destination ? "max-h-[calc(5*1.5rem+3rem+2px)]" : "max-h-[calc(5*1.5rem+1rem+2px)]"} cursor-text overflow-y-auto rounded-md border border-neutral-700 bg-neutral-900 has-[[data-type=gif]]:max-h-[min(20rem,50dvh)] has-[[data-type=youtube]]:max-h-[min(20rem,50dvh)]`}
+          className="composer-focus max-h-[calc(5*1.5rem+1rem+2px)] cursor-text overflow-y-auto rounded-md border border-neutral-700 bg-neutral-900 has-[[data-type=gif]]:max-h-[min(20rem,50dvh)] has-[[data-type=youtube]]:max-h-[min(20rem,50dvh)]"
         >
-          {destination && (
-            <div className="flex min-h-8 cursor-default items-center gap-2 border-b border-neutral-800 px-3 py-1">
-              {destination}
-            </div>
-          )}
           <div className="flex min-w-0 items-end">
             <label id={"${id}-label"} className="sr-only">
               {label}

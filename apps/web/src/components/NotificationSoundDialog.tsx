@@ -75,7 +75,6 @@ export function NotificationSoundSettings({
                 <SettingsCheckbox
                   label={label}
                   disabled={status === "loading" || status === "load-error"}
-                  autoFocus={kind === "private"}
                   checked={channel.enabled}
                   onChange={(enabled) =>
                     changeChannel(kind, { ...channel, enabled })

@@ -41,12 +41,8 @@ describe("private-message notification sounds", () => {
 
   it("offers sectioned settings before joining or signing in", async () => {
     const { user } = setup();
-    await user.click(await screen.findByRole("button", { name: "Menu" }));
-    expect(screen.getByRole("menu")).toBeVisible();
-    expect(
-      screen.queryByRole("menuitem", { name: /Notification sounds/ }),
-    ).not.toBeInTheDocument();
-    await user.click(screen.getByRole("menuitem", { name: "Settings" }));
+    await user.click(await screen.findByRole("button", { name: "Settings" }));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     expect(
       await screen.findByRole("dialog", { name: "Settings" }),
     ).toBeVisible();
@@ -58,6 +54,10 @@ describe("private-message notification sounds", () => {
       screen.getByRole("heading", { name: "Notification sounds" }),
     ).toBeVisible();
     expect(screen.getByRole("radio", { name: "English" })).toBeChecked();
+    expect(screen.getByRole("dialog", { name: "Settings" })).toHaveFocus();
+    expect(
+      screen.getByRole("checkbox", { name: "Private message sounds" }),
+    ).not.toHaveFocus();
     expect(
       screen.getByRole("checkbox", {
         name: "Show a message in the chat when someone joins or leaves the room.",

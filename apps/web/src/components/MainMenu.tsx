@@ -4,14 +4,7 @@ import {
   MenuItems,
   MenuSection,
 } from "@headlessui/react";
-import {
-  DoorOpen,
-  LogIn,
-  Menu as MenuIcon,
-  User,
-  UserPlus,
-  Settings,
-} from "lucide-react";
+import { DoorOpen, LogIn, User, UserPlus, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
@@ -36,8 +29,7 @@ export interface MenuProfile {
   onSignOut: () => void;
 }
 
-// The header's one menu: with somebody signed in it opens from their avatar and starts with who they are; otherwise it is
-// the burger. Then what the room's log shows and the language.
+// The profile opens the account menu; without a profile, the header opens Settings directly.
 export function MainMenu({
   profile,
   onSettings,
@@ -47,29 +39,34 @@ export function MainMenu({
 }) {
   const { t } = useTranslation();
 
+  if (!profile)
+    return (
+      <button
+        type="button"
+        aria-label={t("settings.title")}
+        title={t("settings.title")}
+        aria-haspopup="dialog"
+        onClick={onSettings}
+        className="rounded-md p-2 outline-none hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400"
+      >
+        <Settings aria-hidden="true" className="h-5 w-5" />
+      </button>
+    );
+
   return (
     <div className="relative">
       <ReloadMenu name="main">
-        {profile ? (
-          <MenuButton
-            aria-label={t("profile.open", { name: profile.nickname })}
-            className="flex rounded-full p-1 outline-none hover:bg-neutral-800 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
-          >
-            <AvatarIcon
-              avatar={profile.avatar ?? PLAIN_AVATAR}
-              picture={profile.picture}
-              small
-              titled={false}
-            />
-          </MenuButton>
-        ) : (
-          <MenuButton
-            aria-label={t("menu.open")}
-            className="rounded-md p-2 outline-none hover:bg-neutral-800 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
-          >
-            <MenuIcon aria-hidden="true" className="h-5 w-5" />
-          </MenuButton>
-        )}
+        <MenuButton
+          aria-label={t("profile.open", { name: profile.nickname })}
+          className="flex rounded-full p-1 outline-none hover:bg-neutral-800 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
+        >
+          <AvatarIcon
+            avatar={profile.avatar ?? PLAIN_AVATAR}
+            picture={profile.picture}
+            small
+            titled={false}
+          />
+        </MenuButton>
         <div className="absolute right-0 w-0">
           <MenuItems modal={false} className={HEADER_MENU}>
             {profile && (
@@ -146,15 +143,6 @@ export function MainMenu({
                   )}
                 </MenuSection>
               </>
-            )}
-
-            {!profile && (
-              <MenuItem>
-                <button type="button" onClick={onSettings} className={item}>
-                  <Settings aria-hidden="true" className="h-5 w-5 shrink-0" />
-                  {t("settings.title")}
-                </button>
-              </MenuItem>
             )}
 
             {profile && (

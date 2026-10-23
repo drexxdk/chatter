@@ -207,13 +207,12 @@ describe("a page of the documents", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Loading");
   });
 
-  it("is shown in the language the guest picks in the site's menu", async () => {
+  it("is shown in the language the guest picks in settings", async () => {
     const user = userEvent.setup();
     renderAt("/terms");
     await screen.findByRole("heading", { level: 1, name: "Terms of use" });
 
-    await user.click(screen.getByRole("button", { name: "Menu" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Settings" }));
+    await user.click(screen.getByRole("button", { name: "Settings" }));
     await user.click(await screen.findByRole("radio", { name: /Dansk/ }));
     await user.keyboard("{Escape}");
 
@@ -223,7 +222,7 @@ describe("a page of the documents", () => {
     expect(localStorage.getItem("chatter.language")).toBe("da");
   });
 
-  it("has the site's header, with the way back to the lobby and the same menu as everywhere", async () => {
+  it("has the site's header, with the way back to the lobby and direct settings", async () => {
     const user = userEvent.setup();
     renderAt("/privacy");
 
@@ -233,9 +232,9 @@ describe("a page of the documents", () => {
       "/",
     );
 
-    await user.click(header.getByRole("button", { name: "Menu" }));
+    await user.click(header.getByRole("button", { name: "Settings" }));
     expect(
-      await screen.findByRole("menuitem", { name: "Settings" }),
+      await screen.findByRole("dialog", { name: "Settings" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("menuitem", { name: "How the chat works" }),
