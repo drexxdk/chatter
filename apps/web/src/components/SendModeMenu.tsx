@@ -1,4 +1,5 @@
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
+import { autoUpdate, offset, shift, useFloating } from "@floating-ui/react";
 import { Check, ChevronDown, Megaphone, SendHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -9,15 +10,23 @@ const item = `${MENU_ITEM} gap-2 px-3 py-2`;
 
 // Beside the send button of a moderator: whether what is written goes out as a message or as an announcement.
 export function SendModeMenu({
+  anchor,
   announce,
   disabled,
   onChange,
 }: {
+  anchor: HTMLFormElement | null;
   announce: boolean;
   disabled: boolean;
   onChange: (announce: boolean) => void;
 }) {
   const { t } = useTranslation();
+  const { refs, floatingStyles } = useFloating({
+    elements: { reference: anchor },
+    placement: "top-end",
+    whileElementsMounted: autoUpdate,
+    middleware: [offset(8), shift({ padding: 16 })],
+  });
 
   return (
     <Menu>
@@ -30,8 +39,10 @@ export function SendModeMenu({
       </MenuButton>
       <MenuItems
         modal={false}
-        anchor={{ to: "top end", gap: 8, padding: 16 }}
+        portal
+        ref={refs.setFloating}
         style={{
+          ...floatingStyles,
           maxHeight:
             "max(0px, min(var(--anchor-max-height, 100dvh), calc(var(--composer-top, 100dvh) - var(--header-height, 0px) - 1rem)))",
         }}

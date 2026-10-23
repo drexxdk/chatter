@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { NotificationSoundPreferences } from "../../../shared/notificationPreferences.mjs";
 
 import { ageFromBirthDate, parseAge } from "./age.js";
 import { parseAvatar, parsePicture, type Avatar } from "./avatars.js";
@@ -170,6 +171,35 @@ export interface Account {
   id: number;
   role: string;
   displayName: string | null;
+}
+
+export async function fetchNotificationOwner(
+  collection: "users" | "admins",
+  id: number,
+) {
+  try {
+    return await payloadFetch(
+      `/api/${collection}/${id}?depth=0`,
+      z.object({
+        id: z.number(),
+        role: z.string().optional(),
+        notificationPreferences: z.unknown().optional(),
+      }),
+    );
+  } catch (error) {
+    if (error instanceof PayloadError && error.status === 404) return undefined;
+    throw error;
+  }
+}
+
+export async function saveNotificationPreferences(
+  collection: "users" | "admins",
+  id: number,
+  notificationPreferences: NotificationSoundPreferences,
+): Promise<void> {
+  await payloadSend("PATCH", `/api/${collection}/${id}`, {
+    notificationPreferences,
+  });
 }
 
 // Payload checks the credentials itself (and locks an account after repeated failures). The service key is left

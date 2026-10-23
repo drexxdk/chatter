@@ -1,6 +1,7 @@
 import express from "express";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
+import { parseNotificationPreferences } from "../../../shared/notificationPreferences.mjs";
 
 import { ageFromBirthDate, parseAge } from "./age.js";
 import { parseAvatar, parsePicture } from "./avatars.js";
@@ -32,6 +33,8 @@ import {
   createUser,
   deleteUser,
   fetchUser,
+  fetchNotificationOwner,
+  saveNotificationPreferences,
   findUserByIdentity,
   isTaken,
   updateUser,
@@ -456,6 +459,81 @@ export function createAccountsRouter(options: {
           res.status(503).json({ error: "unavailable" });
         }
       }),
+  );
+
+  const notificationOwner = async (
+    req: express.Request,
+    res: express.Response,
+  ) => {
+    const header = req.get("authorization") ?? "";
+    const claims = header.startsWith("Bearer ")
+      ? verifyToken(header.slice(7), { secret })
+      : undefined;
+    if (!secret || !claims) {
+      res.status(401).json({ error: "invalid_token" });
+      return undefined;
+    }
+    const collection = claims.role === "member" ? "users" : "admins";
+    const owner = await fetchNotificationOwner(collection, claims.sub);
+    if (
+      !owner ||
+      (collection === "admins" &&
+        !["moderator", "super-admin"].includes(owner.role ?? ""))
+    ) {
+      res.status(401).json({ error: "invalid_token" });
+      return undefined;
+    }
+    return {
+      collection,
+      id: claims.sub,
+      preferences: owner.notificationPreferences,
+    } as const;
+  };
+
+  router.get("/me/notifications", limiter, async (req, res) => {
+    try {
+      const owner = await notificationOwner(req, res);
+      if (!owner) return;
+      res.set("Cache-Control", "no-store").json({
+        preferences: parseNotificationPreferences(owner.preferences) ?? {
+          enabled: false,
+          volume: 0.5,
+        },
+      });
+    } catch (error) {
+      log.error("Failed to read notification preferences", error);
+      res.status(503).json({ error: "unavailable" });
+    }
+  });
+
+  router.patch(
+    "/me/notifications",
+    limiter,
+    express.json({ limit: "4kb" }),
+    async (req, res) => {
+      try {
+        const owner = await notificationOwner(req, res);
+        if (!owner) return;
+        const preferences = parseNotificationPreferences(req.body);
+        if (!preferences) {
+          res.status(400).json({ error: "invalid_profile" });
+          return;
+        }
+        await withProfileLock(
+          `${owner.collection}:${owner.id}:notifications`,
+          () =>
+            saveNotificationPreferences(
+              owner.collection,
+              owner.id,
+              preferences,
+            ),
+        );
+        res.set("Cache-Control", "no-store").json({ preferences });
+      } catch (error) {
+        log.error("Failed to save notification preferences", error);
+        res.status(503).json({ error: "unavailable" });
+      }
+    },
   );
 
   router.get("/me", limiter, async (req, res) => {

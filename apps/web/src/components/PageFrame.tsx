@@ -1,10 +1,48 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { LOBBY_PATH } from "../place";
 import { roomTheme } from "../roomThemes";
 import { HeaderFrame } from "./HeaderFrame";
 import { MainMenu } from "./MainMenu";
+import { SettingsDialog } from "./SettingsDialog";
+import { loadAccount } from "../account";
+import { loadSession } from "../session";
+import { loadShowMovements, saveShowMovements } from "../preferences";
+import { useNotificationPreferences } from "../useNotificationPreferences";
+
+function PageSettingsMenu() {
+  const [open, setOpen] = useState(false);
+  const [movements, setMovements] = useState(loadShowMovements);
+  const [token] = useState(() => loadAccount()?.token ?? loadSession()?.token);
+  const notifications = useNotificationPreferences(token);
+  return (
+    <>
+      <MainMenu onSettings={() => setOpen(true)} />
+      {open && (
+        <SettingsDialog
+          movements={{
+            checked: movements,
+            onChange: (checked) => {
+              setMovements(checked);
+              saveShowMovements(checked);
+            },
+          }}
+          notifications={{
+            value: notifications.value,
+            onChange: notifications.change,
+            status: token ? notifications.status : undefined,
+            onRetry: notifications.retry,
+          }}
+          onClose={() => {
+            notifications.flush();
+            setOpen(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
 
 // The frame every page has: the header across the top, and the page's one `main` under it, as wide as the header's
 // content. A page that gives no header gets the site's title (a way back to the lobby) and the menu.
@@ -52,7 +90,7 @@ export function PageFrame({
             <a href={LOBBY_PATH} className="text-2xl font-bold">
               {t("app.title")}
             </a>
-            <MainMenu />
+            <PageSettingsMenu />
           </>
         )}
       </HeaderFrame>

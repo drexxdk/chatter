@@ -23,16 +23,28 @@ describe("who comes and goes", () => {
   const CAROL = { guestId: "guest-carol", nickname: "Carol" };
   const KEY = "chatter.showMovements";
 
-  const roomLog = () => within(screen.getByRole("log", { name: "General" }));
-  // The setting is an item of the burger menu, which closes when it is used.
-  const toggleItem = async (user: ReturnType<typeof userEvent.setup>) => {
-    await user.click(
-      screen.getByRole("button", { name: /^(Menu|Account menu:)/ }),
-    );
+  beforeEach(() => {
+    localStorage.setItem(KEY, "true");
+  });
 
-    return screen.findByRole("menuitem", {
+  const roomLog = () => within(screen.getByRole("log", { name: "General" }));
+  const toggleItem = async (user: ReturnType<typeof userEvent.setup>) => {
+    if (!screen.queryByRole("dialog", { name: "Settings" })) {
+      if (!screen.queryByRole("menu"))
+        await user.click(
+          screen.getByRole("button", { name: /^(Menu|Account menu:)/ }),
+        );
+      await user.click(
+        await screen.findByRole("menuitem", { name: "Settings" }),
+      );
+    }
+    return screen.findByRole("switch", {
       name: "Joins and leaves",
     });
+  };
+  const toggleMovements = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(await toggleItem(user));
+    await user.keyboard("{Escape}");
   };
   const present = (
     server: ReturnType<typeof makeFakeServer>,
@@ -386,11 +398,23 @@ describe("who comes and goes", () => {
     });
   });
 
-  describe("the checkbox", () => {
-    it("is ticked to begin with", async () => {
-      const { user } = await enter();
-
-      expect(await toggleItem(user)).toHaveAttribute("aria-checked", "true");
+  describe("the toggle", () => {
+    it("defaults off and can be enabled without closing settings", async () => {
+      localStorage.removeItem(KEY);
+      const { user, server } = await enter();
+      came(server, CAROL);
+      expect(roomLog().queryByText("You joined the room.")).toBeNull();
+      expect(roomLog().queryByText("Carol joined the room.")).toBeNull();
+      const toggle = await toggleItem(user);
+      expect(toggle).toHaveAttribute("aria-checked", "false");
+      await user.click(toggle);
+      expect(screen.getByRole("dialog", { name: "Settings" })).toBeVisible();
+      expect(toggle).toHaveAttribute("aria-checked", "true");
+      await user.keyboard("{Escape}");
+      expect(roomLog().getByText("Carol joined the room.")).toBeVisible();
+      expect(
+        screen.queryByRole("dialog", { name: "Settings" }),
+      ).not.toBeInTheDocument();
     });
 
     it("hides what was announced, and shows it again", async () => {
@@ -398,31 +422,31 @@ describe("who comes and goes", () => {
       said(server, "hello all");
       came(server, CAROL);
 
-      await user.click(await toggleItem(user));
+      await toggleMovements(user);
 
       expect(roomLog().queryByText("Carol joined the room.")).toBeNull();
       expect(roomLog().getByText("hello all")).toBeInTheDocument();
 
-      await user.click(await toggleItem(user));
+      await toggleMovements(user);
 
       expect(roomLog().getByText("Carol joined the room.")).toBeInTheDocument();
     });
 
     it("keeps what happened while it was off, for when it is turned on", async () => {
       const { user, server } = await enter();
-      await user.click(await toggleItem(user));
+      await toggleMovements(user);
 
       came(server, CAROL);
       expect(roomLog().queryByText("Carol joined the room.")).toBeNull();
 
-      await user.click(await toggleItem(user));
+      await toggleMovements(user);
 
       expect(roomLog().getByText("Carol joined the room.")).toBeInTheDocument();
     });
 
     it("is remembered by the browser", async () => {
       const { user, unmount } = await enter();
-      await user.click(await toggleItem(user));
+      await toggleMovements(user);
       expect(localStorage.getItem(KEY)).toBe("false");
       unmount();
       // A new tab: the browser's choice stays, what the tab knew does not.
@@ -442,18 +466,18 @@ describe("who comes and goes", () => {
 
     it("is remembered when it is ticked again", async () => {
       const { user } = await enter();
-      await user.click(await toggleItem(user));
-      await user.click(await toggleItem(user));
+      await toggleMovements(user);
+      await toggleMovements(user);
 
       expect(localStorage.getItem(KEY)).toBe("true");
     });
 
-    it("is ticked when the browser holds something else", async () => {
+    it("is off when the browser holds something else", async () => {
       localStorage.setItem(KEY, "maybe");
 
       const { user } = await enter();
 
-      expect(await toggleItem(user)).toHaveAttribute("aria-checked", "true");
+      expect(await toggleItem(user)).toHaveAttribute("aria-checked", "false");
     });
   });
 

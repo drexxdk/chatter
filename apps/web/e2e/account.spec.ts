@@ -113,6 +113,100 @@ const inRoom = (page: Page) =>
     page.getByRole("heading", { name: ROOM.name, level: 2 }),
   ).toBeVisible();
 
+test("notification choices follow the account into a different browser", async ({
+  browser,
+}) => {
+  const page = await newPage(browser);
+  const chatName = displayName("Sounds");
+  const handle = username("Sounds");
+  const password = "SoundSettings123";
+  await joinAsGuest(page, chatName);
+  await inRoom(page);
+  await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
+  await page
+    .getByRole("menuitem", { name: "Claim account", exact: true })
+    .click();
+  const registration = page.getByRole("dialog", { name: "Claim account" });
+  await registration.getByLabel("Username", { exact: true }).fill(handle);
+  await registration.getByLabel("Password", { exact: true }).fill(password);
+  await registration.getByLabel("Confirm password").fill(password);
+  await registration
+    .getByRole("button", { name: "Claim account", exact: true })
+    .click();
+  const profile = page.getByRole("dialog", { name: "Your profile" });
+  await expect(
+    profile.getByText("Signed in with", { exact: true }),
+  ).toBeVisible();
+  await profile.getByRole("button", { name: "Close", exact: true }).click();
+  const openSettings = async (target: Page) => {
+    await target
+      .getByRole("button", { name: `Account menu: ${chatName}` })
+      .click();
+    await target
+      .getByRole("menuitem", { name: "Settings", exact: true })
+      .click();
+    const dialog = target.getByRole("dialog", {
+      name: "Settings",
+      exact: true,
+    });
+    await expect(dialog.getByText("Saved", { exact: true })).toBeVisible();
+    return dialog;
+  };
+  const settings = await openSettings(page);
+  await settings.getByRole("checkbox", { name: "Warnings" }).check();
+  await settings.getByRole("checkbox", { name: "People joining" }).check();
+  await settings
+    .getByRole("combobox", { name: "Sound for Warnings" })
+    .selectOption("bell");
+  await settings
+    .getByRole("combobox", { name: "Sound for People joining" })
+    .selectOption("wood");
+  const volume = settings.getByRole("slider", { name: "Volume" });
+  await volume.focus();
+  await volume.press("Home");
+  for (let step = 0; step < 37; step += 1) await volume.press("ArrowRight");
+  await expect(settings.getByText("Saved", { exact: true })).toBeVisible();
+  const otherBrowser = await newPage(browser);
+  await otherBrowser.goto("/");
+  await otherBrowser
+    .getByRole("button", { name: "Sign in", exact: true })
+    .click();
+  const login = otherBrowser.getByRole("dialog", {
+    name: "Sign in",
+    exact: true,
+  });
+  await login.getByLabel("Username or email").fill(handle);
+  await login.getByLabel("Password", { exact: true }).fill(password);
+  await login.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(
+    otherBrowser.getByRole("button", { name: `Account menu: ${chatName}` }),
+  ).toBeVisible();
+  const restored = await openSettings(otherBrowser);
+  await expect(
+    restored.getByRole("checkbox", { name: "Private message sounds" }),
+  ).not.toBeChecked();
+  await expect(
+    restored.getByRole("checkbox", { name: "Warnings" }),
+  ).toBeChecked();
+  await expect(
+    restored.getByRole("checkbox", { name: "People joining" }),
+  ).toBeChecked();
+  await expect(
+    restored.getByRole("combobox", { name: "Sound for Warnings" }),
+  ).toHaveValue("bell");
+  await expect(
+    restored.getByRole("combobox", { name: "Sound for People joining" }),
+  ).toHaveValue("wood");
+  await expect(restored.getByRole("slider", { name: "Volume" })).toHaveValue(
+    "37",
+  );
+  expect(
+    await otherBrowser.evaluate(() =>
+      localStorage.getItem("chatter.notificationSound"),
+    ),
+  ).toBeNull();
+});
+
 for (const width of [375, 1280]) {
   test(`guest account navigation is separate from their profile at ${width}px`, async ({
     browser,

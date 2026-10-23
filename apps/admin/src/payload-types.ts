@@ -133,6 +133,15 @@ export interface AdminAuthOperations {
  */
 export interface Admin {
   id: number;
+  notificationPreferences?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   role: 'super-admin' | 'moderator' | 'service';
   /**
    * The name shown in the chat when this account moderates. Required for moderators; guests cannot take it. 2-24 letters, numbers, spaces, or _ . -
@@ -234,6 +243,15 @@ export interface Report {
  */
 export interface User {
   id: number;
+  notificationPreferences?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   /**
    * google, facebook or discord.
    */
@@ -373,6 +391,7 @@ export interface PayloadMigration {
  * via the `definition` "admins_select".
  */
 export interface AdminsSelect<T extends boolean = true> {
+  notificationPreferences?: T;
   role?: T;
   displayName?: T;
   updatedAt?: T;
@@ -443,6 +462,7 @@ export interface ReportsSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  notificationPreferences?: T;
   provider?: T;
   providerUserId?: T;
   passwordHash?: T;

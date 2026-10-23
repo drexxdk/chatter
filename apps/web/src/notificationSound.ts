@@ -1,9 +1,44 @@
 import { loadNotificationSound } from "./preferences";
+import type { NotificationSoundPreferences } from "./preferences";
+import {
+  NOTIFICATION_KINDS,
+  notificationChannel,
+  type NotificationKind,
+} from "../../../shared/notificationPreferences.mjs";
 
 let context: AudioContext | null = null;
+let accountPreferences: NotificationSoundPreferences | undefined;
+export function setAccountNotificationSound(
+  value?: NotificationSoundPreferences,
+): void {
+  accountPreferences = value;
+}
+const currentPreferences = () => accountPreferences ?? loadNotificationSound();
+const NOTES = {
+  chime: [
+    [740, 0],
+    [988, 0.1],
+  ],
+  bell: [
+    [1175, 0],
+    [1568, 0.16],
+  ],
+  pulse: [
+    [440, 0],
+    [440, 0.1],
+    [660, 0.2],
+  ],
+  wood: [[330, 0]],
+} as const;
 
 export async function prepareNotificationSound(): Promise<void> {
-  if (!loadNotificationSound().enabled) return;
+  const preference = currentPreferences();
+  if (
+    !NOTIFICATION_KINDS.some(
+      (kind) => notificationChannel(preference, kind).enabled,
+    )
+  )
+    return;
   await prepareAudioContext();
 }
 
@@ -19,24 +54,27 @@ async function prepareAudioContext(): Promise<void> {
 
 export async function playNotificationSound({
   preview = false,
-} = {}): Promise<void> {
-  const preference = loadNotificationSound();
-  if (!preview && (!preference.enabled || preference.volume === 0)) return;
+  kind = "private",
+}: { preview?: boolean; kind?: NotificationKind } = {}): Promise<void> {
+  const preference = currentPreferences();
+  if (
+    preference.volume === 0 ||
+    (!preview && !notificationChannel(preference, kind).enabled)
+  )
+    return;
   await prepareAudioContext();
-  const latest = loadNotificationSound();
-  const volume = preview ? preference.volume || 0.5 : latest.volume;
-  if (!preview && (!latest.enabled || volume === 0)) return;
+  const latest = currentPreferences();
+  const volume = latest.volume;
+  const channel = notificationChannel(latest, kind);
+  if (volume === 0 || (!preview && !channel.enabled)) return;
   if (!context || context.state !== "running") return;
 
   try {
-    for (const [frequency, offset] of [
-      [740, 0],
-      [988, 0.1],
-    ] as const) {
+    for (const [frequency, offset] of NOTES[channel.sound]) {
       const oscillator = context.createOscillator();
       const gain = context.createGain();
       const start = context.currentTime + offset;
-      oscillator.type = "sine";
+      oscillator.type = channel.sound === "wood" ? "triangle" : "sine";
       oscillator.frequency.setValueAtTime(frequency, start);
       gain.gain.setValueAtTime(0, start);
       gain.gain.linearRampToValueAtTime(volume * 0.16, start + 0.015);

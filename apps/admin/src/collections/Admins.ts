@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { parseNotificationPreferences } from '../../../../shared/notificationPreferences.mjs'
 
 // Same shape as the nickname rule in chat-server, so a moderator's name looks like any other name in the chat.
 const DISPLAY_NAME_PATTERN = /^[\p{L}\p{N} _.-]{2,24}$/u
@@ -27,10 +28,29 @@ export const Admins: CollectionConfig = {
       return { id: { equals: user.id } }
     },
     create: ({ req }) => req.user?.role === 'super-admin',
-    update: ({ req }) => req.user?.role === 'super-admin',
+    update: ({ req, data }) =>
+      req.user?.role === 'super-admin' ||
+      (req.user?.role === 'service' &&
+        data != null &&
+        Object.keys(data).length === 1 &&
+        Object.hasOwn(data, 'notificationPreferences')),
     delete: ({ req }) => req.user?.role === 'super-admin',
   },
   fields: [
+    {
+      name: 'notificationPreferences',
+      type: 'json',
+      admin: { hidden: true },
+      access: {
+        read: ({ req }) => req.user?.role === 'service',
+        create: ({ req }) => req.user?.role === 'service',
+        update: ({ req }) => req.user?.role === 'service',
+      },
+      validate: (value: unknown) =>
+        value == null ||
+        parseNotificationPreferences(value) !== undefined ||
+        'Invalid notification preferences.',
+    },
     {
       name: 'role',
       type: 'select',

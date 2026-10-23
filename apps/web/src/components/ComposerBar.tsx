@@ -233,6 +233,7 @@ export function ComposerBar({
                     <>
                       <ComposerSeparator />
                       <SendModeMenu
+                        anchor={anchor}
                         announce={announce.active}
                         disabled={disabled}
                         onChange={announce.onChange}

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDirectChat } from "./useDirectChat";
 import { useChatProfile } from "./useChatProfile";
 import { useTyping } from "./useTyping";
+import { playNotificationSound } from "../notificationSound";
 import { parseDirectMessage } from "./direct";
 import { TYPING_EVENT } from "../../../../shared/chatProtocol.mjs";
 import {
@@ -125,6 +126,8 @@ export function useChat(
   const arrivalRef = useRef(0);
   // Guests banned while here: nothing about them is announced.
   const bannedGuestIdsRef = useRef(new Set<string>());
+  const knownRoomEventIds = useRef(new Set<string>());
+  const idleWarningSounded = useRef(false);
   const membersRef = useRef<Member[]>([]);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [announcements, setAnnouncements] = useState<
@@ -231,7 +234,7 @@ export function useChat(
 
   // The events known so far with these added; the same one can come both live and in the history.
   const addRoomEvents = useCallback(
-    (added: RoomEvent[]) => {
+    (added: RoomEvent[], notify = false) => {
       const shown = added.filter(
         (event) =>
           !bannedGuestIdsRef.current.has(event.guestId) &&
@@ -239,6 +242,19 @@ export function useChat(
       );
       if (shown.length === 0) return;
 
+      for (const event of shown) {
+        const known = knownRoomEventIds.current;
+        if (known.has(event.id)) continue;
+        known.add(event.id);
+        if (known.size > MAX_ROOM_EVENTS)
+          known.delete(known.values().next().value!);
+        if (
+          notify &&
+          event.event === "joined" &&
+          !ownGuestIdsRef.current.includes(event.guestId)
+        )
+          void playNotificationSound({ kind: "joins" });
+      }
       setRoomEvents((previous) =>
         mergeEvents(previous, shown).slice(-MAX_ROOM_EVENTS),
       );
@@ -251,6 +267,8 @@ export function useChat(
     resetTyping();
     resetDirectRoom();
     bannedGuestIdsRef.current = new Set();
+    knownRoomEventIds.current.clear();
+    idleWarningSounded.current = false;
     setRoomSlug(null);
     setMembers([]);
     setMessages([]);
@@ -550,19 +568,25 @@ export function useChat(
             return;
           }
 
-          addRoomEvents([{ ...event, seq: ++arrivalRef.current }]);
+          addRoomEvents([{ ...event, seq: ++arrivalRef.current }], true);
         });
 
         socket.on("idle:warning", (value: unknown) => {
           const remaining = isRecord(value) ? Number(value.remainingMs) : NaN;
           if (!isCurrent() || !(remaining > 0)) return;
 
+          if (!idleWarningSounded.current)
+            void playNotificationSound({ kind: "warnings" });
+          idleWarningSounded.current = true;
           setIdleDeadline(Date.now() + remaining);
         });
 
         // The guest did something, so the disconnect is a full wait away again.
         socket.on("idle:cleared", () => {
-          if (isCurrent()) setIdleDeadline(null);
+          if (isCurrent()) {
+            idleWarningSounded.current = false;
+            setIdleDeadline(null);
+          }
         });
 
         socket.on("dm:reaction", (value: unknown) => {
@@ -650,6 +674,7 @@ export function useChat(
 
         socket.on("kicked", (payload: { reason: string }) => {
           if (!isCurrent()) return;
+          void playNotificationSound({ kind: "warnings" });
           setIdleDeadline(null);
           setError(payload.reason);
         });

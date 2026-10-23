@@ -1060,7 +1060,7 @@ describe("inside a room", () => {
         await user.click(
           screen.getByRole("button", { name: /^(Menu|Account menu:)/ }),
         );
-        await screen.findByRole("menuitem", { name: /Dansk/ });
+        await screen.findByRole("menuitem", { name: "Settings" });
         expect(
           screen.queryByRole("menuitem", { name: "How the chat works" }),
         ).toBeNull();

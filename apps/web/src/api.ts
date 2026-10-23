@@ -1,4 +1,8 @@
 import { parseAvatar, type Avatar } from "./chat/avatar";
+import {
+  parseNotificationPreferences,
+  type NotificationSoundPreferences,
+} from "../../../shared/notificationPreferences.mjs";
 import { parsePicture } from "./chat/picture";
 import { CHAT_SERVER_URL } from "./config";
 import { parseLegal, type LegalContent } from "./legal";
@@ -362,6 +366,31 @@ export async function registerAccount(input: {
 }
 
 // Who the token belongs to, and the token renewed. Fails with `invalid_token` when it no longer works.
+export async function fetchNotificationPreferences(token: string) {
+  const body = await accountRequest("/me/notifications", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const preferences = parseNotificationPreferences(
+    (body as { preferences?: unknown } | null)?.preferences,
+  );
+  if (!preferences) throw new AccountError("connection");
+  return preferences;
+}
+
+export async function updateNotificationPreferences(
+  token: string,
+  preferences: NotificationSoundPreferences,
+): Promise<void> {
+  await accountRequest("/me/notifications", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(preferences),
+  });
+}
+
 export async function fetchAccount(token: string): Promise<AccountSession> {
   return parseAccountSession(
     await accountRequest("/me", { headers: bearer(token) }),

@@ -106,6 +106,19 @@ vi.mock("./payloadClient.js", async (importOriginal) => {
 
   return {
     ...original,
+    fetchNotificationOwner: async (_collection: string, id: number) =>
+      accounts.users.get(id),
+    saveNotificationPreferences: async (
+      _collection: string,
+      id: number,
+      preferences: unknown,
+    ) => {
+      await beforeUpdateUser();
+      accounts.users.set(id, {
+        ...accounts.users.get(id),
+        notificationPreferences: preferences,
+      });
+    },
     findUserByIdentity: async (identity: string) =>
       [...accounts.users.values()].find(
         (user) => identityOf(user) === identity,
@@ -282,6 +295,83 @@ afterEach(async () => {
         }),
     ),
   );
+});
+
+describe("notification preferences", () => {
+  const preferences = {
+    enabled: false,
+    volume: 0.25,
+    sound: "bell",
+    warnings: { enabled: true, sound: "pulse" },
+    joins: { enabled: true, sound: "wood" },
+  };
+  const authorization = (role: "member" | "moderator" = "member") => ({
+    Authorization: `Bearer ${signToken(
+      { sub: 7, name: "Alice", role },
+      { secret: testEnv.AUTH_TOKEN_SECRET, ttlMs: 60_000 },
+    )}`,
+  });
+  const save = (
+    body: unknown,
+    headers: Record<string, string> = authorization(),
+  ) =>
+    fetch(`${base}/me/notifications`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(body),
+    });
+
+  beforeEach(async () => {
+    await start();
+    accounts.users.set(7, { id: 7 });
+  });
+
+  it("rejects unauthenticated reads and writes", async () => {
+    expect((await get("/me/notifications")).status).toBe(401);
+    expect((await save(preferences, {})).status).toBe(401);
+  });
+
+  it.each(["member", "moderator"] as const)(
+    "persists only the %s token owner's preferences",
+    async (role) => {
+      accounts.users.set(7, { id: 7, role });
+      accounts.users.set(8, { id: 8 });
+      const headers = authorization(role);
+      expect(await (await get("/me/notifications", headers)).json()).toEqual({
+        preferences: { enabled: false, volume: 0.5 },
+      });
+      const response = await save({ ...preferences, userId: 8 }, headers);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ preferences });
+      const restored = await get("/me/notifications", headers);
+      expect(restored.headers.get("cache-control")).toBe("no-store");
+      expect(await restored.json()).toEqual({ preferences });
+      expect(accounts.users.get(8)).toEqual({ id: 8 });
+    },
+  );
+
+  it("rejects unknown sound names without writing anything", async () => {
+    const response = await save({ ...preferences, sound: "unknown" });
+    expect(response.status).toBe(400);
+    expect(accounts.users.get(7)).toEqual({ id: 7 });
+  });
+
+  it("rejects deleted users and staff that no longer have access", async () => {
+    accounts.users.delete(7);
+    expect((await get("/me/notifications", authorization())).status).toBe(401);
+    accounts.users.set(7, { id: 7, role: "service" });
+    expect((await save(preferences, authorization("moderator"))).status).toBe(
+      401,
+    );
+  });
+
+  it("reports failed database saves rather than claiming success", async () => {
+    beforeUpdateUser.mockRejectedValueOnce(new Error("database unavailable"));
+    const response = await save(preferences);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "unavailable" });
+    expect(accounts.users.get(7)).toEqual({ id: 7 });
+  });
 });
 
 describe("password accounts", () => {

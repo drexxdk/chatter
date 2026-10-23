@@ -87,19 +87,24 @@ describe("reload UI state", () => {
     );
   });
 
-  it("restores allowed flags on first load and cleans invalid values", async () => {
-    render(
-      <MemoryRouter initialEntries={["/?dialog=profile&menu=unknown&keep=yes"]}>
-        <Page />
-      </MemoryRouter>,
-    );
-    expect(screen.getByLabelText("Dialog")).toHaveTextContent("profile");
-    await waitFor(() =>
-      expect(screen.getByLabelText("Address")).toHaveTextContent(
-        "/?keep=yes&dialog=profile",
-      ),
-    );
-  });
+  it.each(["profile", "settings"])(
+    "restores %s on first load and cleans invalid values",
+    async (dialog) => {
+      render(
+        <MemoryRouter
+          initialEntries={[`/?dialog=${dialog}&menu=unknown&keep=yes`]}
+        >
+          <Page />
+        </MemoryRouter>,
+      );
+      expect(screen.getByLabelText("Dialog")).toHaveTextContent(dialog);
+      await waitFor(() =>
+        expect(screen.getByLabelText("Address")).toHaveTextContent(
+          `/?keep=yes&dialog=${dialog}`,
+        ),
+      );
+    },
+  );
 
   it("replaces UI changes and does not replay them on Back or Forward", async () => {
     render(

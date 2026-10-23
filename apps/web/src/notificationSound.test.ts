@@ -65,11 +65,54 @@ describe("notification chime", () => {
       saveNotificationSound({ enabled: false, volume });
       const { playNotificationSound } = await import("./notificationSound");
       await playNotificationSound({ preview: true });
-      expect(audio.createOscillator).toHaveBeenCalledTimes(2);
+      expect(audio.createOscillator).toHaveBeenCalledTimes(
+        volume === 0 ? 0 : 2,
+      );
+      if (volume)
+        expect(
+          audio.createGain.mock.results[0].value.gain.linearRampToValueAtTime,
+        ).toHaveBeenCalledWith(volume * 0.16, 1.015);
+      expect(loadNotificationSound()).toEqual({ enabled: false, volume });
+    },
+  );
+
+  it.each(["warnings", "joins"] as const)(
+    "plays enabled %s independently from private messages at the shared volume",
+    async (kind) => {
+      saveNotificationSound({
+        enabled: false,
+        volume: 0.25,
+        [kind]: { enabled: true, sound: "wood" },
+      });
+      const { playNotificationSound } = await import("./notificationSound");
+      await playNotificationSound();
+      expect(audio.createOscillator).not.toHaveBeenCalled();
+      await playNotificationSound({ kind });
+      expect(audio.createOscillator).toHaveBeenCalledTimes(1);
+      expect(audio.createOscillator.mock.results[0].value.type).toBe(
+        "triangle",
+      );
       expect(
         audio.createGain.mock.results[0].value.gain.linearRampToValueAtTime,
-      ).toHaveBeenCalledWith((volume || 0.5) * 0.16, 1.015);
-      expect(loadNotificationSound()).toEqual({ enabled: false, volume });
+      ).toHaveBeenCalledWith(0.04, 1.015);
+    },
+  );
+
+  it.each([
+    ["chime", 740, 2],
+    ["bell", 1175, 2],
+    ["pulse", 440, 3],
+    ["wood", 330, 1],
+  ] as const)(
+    "previews the selected %s sound",
+    async (sound, frequency, count) => {
+      saveNotificationSound({ enabled: false, volume: 0.5, sound });
+      const { playNotificationSound } = await import("./notificationSound");
+      await playNotificationSound({ preview: true });
+      expect(audio.createOscillator).toHaveBeenCalledTimes(count);
+      expect(
+        audio.createOscillator.mock.results[0].value.frequency.setValueAtTime,
+      ).toHaveBeenCalledWith(frequency, 1);
     },
   );
 

@@ -423,6 +423,7 @@ test("joining as a guest opens long room history at the bottom", async ({
 test("private-message sounds are opt-in with adjustable volume", async ({
   browser,
 }, testInfo) => {
+  test.setTimeout(60_000);
   const sender = await newGuest(browser);
   const recipient = await newGuest(browser);
   await recipient.addInitScript(() => {
@@ -472,11 +473,9 @@ test("private-message sounds are opt-in with adjustable volume", async ({
     await recipient
       .getByRole("button", { name: "Account menu: Sound Recipient" })
       .click();
-    await recipient
-      .getByRole("menuitem", { name: /Notification sounds/ })
-      .click();
+    await recipient.getByRole("menuitem", { name: "Settings" }).click();
     return recipient.getByRole("dialog", {
-      name: "Notification sounds",
+      name: "Settings",
       exact: true,
     });
   };
@@ -537,6 +536,49 @@ test("private-message sounds are opt-in with adjustable volume", async ({
       .getByText("Muted private message", { exact: true }),
   ).toBeVisible();
   expect((await audio()).notes).toBe(4);
+
+  await openSettings();
+  await enabled.uncheck();
+  const warnings = dialog.getByRole("checkbox", { name: "Warnings" });
+  const joins = dialog.getByRole("checkbox", { name: "People joining" });
+  await warnings.check();
+  await joins.check();
+  await dialog
+    .getByRole("combobox", { name: "Sound for Warnings" })
+    .selectOption("bell");
+  await dialog
+    .getByRole("combobox", { name: "Sound for People joining" })
+    .selectOption("wood");
+  await dialog.getByRole("button", { name: "Preview Warnings" }).click();
+  expect((await audio()).notes).toBe(4);
+  await volume.focus();
+  for (let step = 0; step < 25; step += 1) await volume.press("ArrowRight");
+  await dialog.getByRole("button", { name: "Preview Warnings" }).click();
+  await expect.poll(async () => (await audio()).notes).toBe(6);
+  await dialog.press("Escape");
+  const joiner = await newGuest(browser);
+  await enterRoom(joiner, LOUNGE.name, "Sound Joiner");
+  await expect.poll(async () => (await audio()).notes).toBe(7);
+  await send(sender, "Private sounds stay off", "Sound Recipient");
+  await expect(
+    recipient
+      .getByRole("log")
+      .getByText("Private sounds stay off", { exact: true }),
+  ).toBeVisible();
+  expect((await audio()).notes).toBe(7);
+  await recipient.reload();
+  await expect(recipient.getByRole("log")).toBeVisible();
+  await openSettings();
+  await expect(enabled).not.toBeChecked();
+  await expect(warnings).toBeChecked();
+  await expect(joins).toBeChecked();
+  await expect(volume).toHaveValue("25");
+  await expect(
+    dialog.getByRole("combobox", { name: "Sound for Warnings" }),
+  ).toHaveValue("bell");
+  await expect(
+    dialog.getByRole("combobox", { name: "Sound for People joining" }),
+  ).toHaveValue("wood");
 });
 
 test("typing indicators keep private drafts private and follow the current conversation", async ({
@@ -2655,18 +2697,48 @@ test("a moderator's announcement reaches everyone, including guests who arrive l
     for (const width of [390, 1280]) {
       await moderator.setViewportSize({ width, height: 844 });
       await expectPickerAligned(moderator);
-      await moderator
-        .getByRole("button", { name: "Choose how to send" })
-        .click();
-      const sendMenu = moderator.getByRole("menu");
-      await expect(sendMenu).toBeVisible();
-      const sendBounds = await sendMenu.boundingBox();
-      const headerBounds = await moderator.locator("header").boundingBox();
-      expect(sendBounds!.y).toBeGreaterThanOrEqual(
-        headerBounds!.y + headerBounds!.height + 8 - 1,
-      );
-      await sendMenu.press("Escape");
+      for (const draft of ["", "First line\nSecond line\nThird line"]) {
+        const messageBox = moderator.getByRole("textbox", {
+          name: "Message",
+          exact: true,
+        });
+        await messageBox.press("ControlOrMeta+A");
+        await messageBox.press("Backspace");
+        await fillMessage(messageBox, draft);
+        await moderator
+          .getByRole("button", { name: "Choose how to send" })
+          .click();
+        const sendMenu = moderator.getByRole("menu");
+        await expect(sendMenu).toBeVisible();
+        await expect
+          .poll(async () => {
+            const menuBounds = await sendMenu.boundingBox();
+            const composerBounds = await moderator
+              .locator("form[data-composer]")
+              .boundingBox();
+            return Math.abs(
+              composerBounds!.y - menuBounds!.y - menuBounds!.height - 8,
+            );
+          })
+          .toBeLessThan(1);
+        const sendBounds = await sendMenu.boundingBox();
+        const headerBounds = await moderator.locator("header").boundingBox();
+        expect(sendBounds!.y).toBeGreaterThanOrEqual(
+          headerBounds!.y + headerBounds!.height + 8 - 1,
+        );
+        expect(sendBounds!.x).toBeGreaterThanOrEqual(16);
+        expect(sendBounds!.x + sendBounds!.width).toBeLessThanOrEqual(
+          width - 16,
+        );
+        await sendMenu.press("Escape");
+      }
     }
+    const messageBox = moderator.getByRole("textbox", {
+      name: "Message",
+      exact: true,
+    });
+    await messageBox.press("ControlOrMeta+A");
+    await messageBox.press("Backspace");
     const startAnnouncing = async () => {
       await moderator
         .getByRole("button", { name: "Choose how to send" })
@@ -3194,25 +3266,37 @@ test("a reload restores a conversation outside the room but closes it when the o
   ).toBeVisible();
 });
 
-test("the room says who comes and goes, unless a guest switches that off", async ({
+test("the room only says who comes and goes when a guest switches that on", async ({
   browser,
 }) => {
+  test.setTimeout(45_000);
   const alice = await newGuest(browser);
   await enterRoom(alice, LOUNGE.name, "Alice");
   const room = alice.getByRole("log", { name: LOUNGE.name });
-  // The setting is an item of the burger menu, which closes again when it is used.
   const openSetting = async () => {
-    await alice.getByRole("button", { name: /^(Menu|Account menu:)/ }).click();
-
-    return alice.getByRole("menuitem", {
+    if (!(await alice.getByRole("dialog", { name: "Settings" }).isVisible())) {
+      const trigger = alice.getByRole("button", {
+        name: /^(Menu|Account menu:)/,
+      });
+      if ((await trigger.getAttribute("aria-expanded")) !== "true")
+        await trigger.click();
+      await alice.getByRole("menuitem", { name: "Settings" }).click();
+    }
+    return alice.getByRole("switch", {
       name: "Joins and leaves",
     });
   };
-  await expect(await openSetting()).toHaveAttribute("aria-checked", "true");
+  await expect(await openSetting()).toHaveAttribute("aria-checked", "false");
   await alice.keyboard.press("Escape");
 
   const bob = await newGuest(browser);
   await enterRoom(bob, LOUNGE.name, "Bob");
+  await expect(room).not.toContainText("Bob joined the room.");
+  const toggle = await openSetting();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
+  await expect(alice.getByRole("dialog", { name: "Settings" })).toBeVisible();
+  await alice.keyboard.press("Escape");
   await expect(room).toContainText("Bob joined the room.");
 
   await leaveRoom(bob);
@@ -3220,6 +3304,7 @@ test("the room says who comes and goes, unless a guest switches that off", async
   await expect(room).toContainText("Bob left the room.", { timeout: 25_000 });
 
   await (await openSetting()).click();
+  await alice.keyboard.press("Escape");
   await expect(room).not.toContainText("Bob left the room.");
 
   // The choice belongs to the browser, so a reload keeps it.

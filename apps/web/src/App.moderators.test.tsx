@@ -653,7 +653,7 @@ describe("announcements", () => {
       await enterAsModerator();
 
       expect(
-        screen.getByRole("button", { name: "Choose how to send" }),
+        await screen.findByRole("button", { name: "Choose how to send" }),
       ).toBeInTheDocument();
       expect(
         screen.getByRole("textbox", { name: "Message" }),

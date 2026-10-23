@@ -50,7 +50,7 @@ import { legalDocOf, LegalPage } from "./components/LegalPage";
 import { Lobby, useRooms } from "./components/Lobby";
 import { MainMenu } from "./components/MainMenu";
 import { NicknameDialog } from "./components/NicknameDialog";
-import { NotificationSoundDialog } from "./components/NotificationSoundDialog";
+import { SettingsDialog } from "./components/SettingsDialog";
 import { ModeratorDialog } from "./components/ModeratorDialog";
 import { PageFrame } from "./components/PageFrame";
 import { ProfileDialog, type ProfileSubject } from "./components/ProfileDialog";
@@ -61,13 +61,12 @@ import { TabNotice } from "./components/TabNotice";
 import { ViewTransition } from "./components/ViewTransition";
 import { LOBBY_PATH, pageFromPath, roomPath, slugFromPath } from "./place";
 import { useLegal } from "./legal/useLegal";
+import { loadShowMovements, saveShowMovements } from "./preferences";
+import { useNotificationPreferences } from "./useNotificationPreferences";
 import {
-  loadNotificationSound,
-  loadShowMovements,
-  saveNotificationSound,
-  saveShowMovements,
-  type NotificationSoundPreferences,
-} from "./preferences";
+  NOTIFICATION_KINDS,
+  notificationChannel,
+} from "../../../shared/notificationPreferences.mjs";
 import { prepareNotificationSound } from "./notificationSound";
 import type { ProfileChanges } from "./profile";
 import {
@@ -176,19 +175,23 @@ export function App({
   // Who is signed in with a provider, kept in this browser; null for a guest.
   const [account, setAccount] = useState<Account | null>(loadAccount);
   const [showMovements, setShowMovements] = useState(loadShowMovements);
-  const [notificationSound, setNotificationSound] = useState(
-    loadNotificationSound,
+  const soundToken =
+    account?.token ??
+    (chat.session?.role === "guest" ? undefined : loadSession()?.token);
+  const soundPreferences = useNotificationPreferences(soundToken);
+  const notificationSound = soundPreferences.value;
+  const soundEnabled = NOTIFICATION_KINDS.some(
+    (kind) => notificationChannel(notificationSound, kind).enabled,
   );
-  const notificationSoundOpen = reloadUi.dialog === "sound";
-  const setNotificationSoundOpen = dialogSetter("sound");
+  const settingsOpen =
+    reloadUi.dialog === "settings" || reloadUi.dialog === "sound";
+  const setSettingsOpen = dialogSetter("settings");
 
   useEffect(() => {
     if (!settled) return;
     const hasProfile = Boolean(chat.session || account);
     const unavailable =
-      ((reloadUi.dialog === "profile" ||
-        reloadUi.dialog === "profile-edit" ||
-        reloadUi.dialog === "sound") &&
+      ((reloadUi.dialog === "profile" || reloadUi.dialog === "profile-edit") &&
         !hasProfile) ||
       (reloadUi.dialog === "create-account" && chat.session?.role !== "guest");
     if (unavailable) reloadUi.setDialog(null);
@@ -217,14 +220,8 @@ export function App({
     reloadUi,
   ]);
 
-  function changeNotificationSound(value: NotificationSoundPreferences) {
-    setNotificationSound(value);
-    saveNotificationSound(value);
-    if (value.enabled) void prepareNotificationSound();
-  }
-
   useEffect(() => {
-    if (!notificationSound.enabled) return;
+    if (!soundEnabled) return;
     const unlock = () => {
       void prepareNotificationSound();
     };
@@ -234,7 +231,7 @@ export function App({
       window.removeEventListener("pointerdown", unlock, true);
       window.removeEventListener("keydown", unlock, true);
     };
-  }, [notificationSound.enabled]);
+  }, [soundEnabled]);
 
   function changeShowMovements(show: boolean) {
     setShowMovements(show);
@@ -1051,12 +1048,7 @@ export function App({
               )}
               {!chat.queue && adminTools}
               <MainMenu
-                notifications={{
-                  enabled: notificationSound.enabled,
-                  onChange: (enabled) =>
-                    changeNotificationSound({ ...notificationSound, enabled }),
-                  onOpen: () => setNotificationSoundOpen(true),
-                }}
+                onSettings={() => setSettingsOpen(true)}
                 profile={
                   !settled
                     ? undefined
@@ -1091,11 +1083,6 @@ export function App({
                             onSignOut: signOut,
                           }
                         : undefined
-                }
-                movements={
-                  chat.roomSlug && chat.session && !chat.direct.active
-                    ? { checked: showMovements, onChange: changeShowMovements }
-                    : undefined
                 }
               />
             </div>
@@ -1180,11 +1167,19 @@ export function App({
         </ViewTransition>
       </PageFrame>
 
-      {settled && notificationSoundOpen && (chat.session || account) && (
-        <NotificationSoundDialog
-          value={notificationSound}
-          onChange={changeNotificationSound}
-          onClose={() => setNotificationSoundOpen(false)}
+      {settled && settingsOpen && (
+        <SettingsDialog
+          movements={{ checked: showMovements, onChange: changeShowMovements }}
+          notifications={{
+            value: notificationSound,
+            onChange: soundPreferences.change,
+            status: soundToken ? soundPreferences.status : undefined,
+            onRetry: soundPreferences.retry,
+          }}
+          onClose={() => {
+            soundPreferences.flush();
+            setSettingsOpen(false);
+          }}
         />
       )}
 

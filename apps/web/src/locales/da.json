@@ -8,9 +8,30 @@
   },
   "language": { "label": "Sprog" },
   "menu": { "open": "Menu" },
+  "settings": {
+    "title": "Indstillinger",
+    "general": "Generelt",
+    "activity": "Chataktivitet"
+  },
   "notifications": {
     "title": "Notifikationslyde",
     "enabled": "Lyd ved private beskeder",
+    "warnings": "Advarsler",
+    "joins": "Folk kommer ind",
+    "soundFor": "Lyd til {category}",
+    "previewCategory": "Afspil {category}",
+    "sounds": {
+      "chime": "Klokkespil",
+      "bell": "Klokke",
+      "pulse": "Puls",
+      "wood": "Træ"
+    },
+    "loading": "Henter indstillinger...",
+    "saving": "Gemmer...",
+    "saved": "Gemt",
+    "load-error": "Kunne ikke hente lydindstillinger.",
+    "save-error": "Kunne ikke gemme lydindstillinger.",
+    "retry": "Prøv igen",
     "volume": "Lydstyrke",
     "preview": "Afspil lyd",
     "on": "Til",

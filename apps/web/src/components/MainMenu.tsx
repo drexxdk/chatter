@@ -1,43 +1,23 @@
 import {
   MenuButton,
-  MenuHeading,
   MenuItem,
   MenuItems,
   MenuSection,
 } from "@headlessui/react";
 import {
-  DoorClosed,
   DoorOpen,
   LogIn,
   Menu as MenuIcon,
   User,
   UserPlus,
-  Volume2,
-  VolumeX,
+  Settings,
 } from "lucide-react";
-import { Check } from "lucide-react";
-import { DE, DK, GB } from "country-flag-icons/react/3x2";
 import { useTranslation } from "react-i18next";
 
 import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
-import { LANGUAGES, setLanguage } from "../i18n";
 import { AvatarIcon } from "./Avatar";
 import { HEADER_MENU, MENU_ITEM } from "./dropdown";
 import { ReloadMenu } from "./ReloadMenu";
-
-const FLAGS: Record<string, typeof GB> = {
-  en: GB,
-  da: DK,
-  de: DE,
-};
-
-function Flag({ code }: { code: string }) {
-  const Icon = FLAGS[code];
-
-  return Icon ? (
-    <Icon aria-hidden="true" className="h-4 w-6 shrink-0 rounded-sm" />
-  ) : null;
-}
 
 const item = `${MENU_ITEM} gap-3 px-2 py-2`;
 
@@ -60,22 +40,12 @@ export interface MenuProfile {
 // the burger. Then what the room's log shows and the language.
 export function MainMenu({
   profile,
-  movements,
-  notifications,
+  onSettings,
 }: {
   profile?: MenuProfile;
-  // Only in a room's own chat, where there is a log that can show who came and went.
-  movements?: { checked: boolean; onChange: (checked: boolean) => void };
-  notifications?: {
-    enabled: boolean;
-    onChange: (enabled: boolean) => void;
-    onOpen: () => void;
-  };
+  onSettings: () => void;
 }) {
-  const { t, i18n } = useTranslation();
-  const current = i18n.resolvedLanguage;
-  const Door = movements?.checked ? DoorOpen : DoorClosed;
-  const Sound = notifications?.enabled ? Volume2 : VolumeX;
+  const { t } = useTranslation();
 
   return (
     <div className="relative">
@@ -135,6 +105,15 @@ export function MainMenu({
                       {t("profile.title")}
                     </button>
                   </MenuItem>
+                  <MenuItem>
+                    <button type="button" onClick={onSettings} className={item}>
+                      <Settings
+                        aria-hidden="true"
+                        className="h-5 w-5 shrink-0"
+                      />
+                      {t("settings.title")}
+                    </button>
+                  </MenuItem>
                   {profile.guest && profile.onCreateAccount && (
                     <MenuItem>
                       <button
@@ -169,78 +148,14 @@ export function MainMenu({
               </>
             )}
 
-            {movements && (
+            {!profile && (
               <MenuItem>
-                <button
-                  type="button"
-                  aria-checked={movements.checked}
-                  onClick={() => movements.onChange(!movements.checked)}
-                  className={item}
-                >
-                  <Door aria-hidden="true" className="h-5 w-5 shrink-0" />
-                  <span className="flex-1">{t("room.showMovements")}</span>
-                  {movements.checked && (
-                    <Check
-                      aria-hidden="true"
-                      className="h-4 w-4 text-indigo-300"
-                    />
-                  )}
+                <button type="button" onClick={onSettings} className={item}>
+                  <Settings aria-hidden="true" className="h-5 w-5 shrink-0" />
+                  {t("settings.title")}
                 </button>
               </MenuItem>
             )}
-
-            {profile && notifications && (
-              <div className="flex items-center gap-1">
-                <MenuItem>
-                  <button
-                    type="button"
-                    onClick={notifications.onOpen}
-                    className={`${item} min-w-0 flex-1`}
-                  >
-                    <Sound aria-hidden="true" className="h-5 w-5 shrink-0" />
-                    <span className="min-w-0 flex-1">
-                      {t("notifications.title")}
-                    </span>
-                  </button>
-                </MenuItem>
-                <MenuItem>
-                  <button
-                    type="button"
-                    aria-label={t("notifications.enabled")}
-                    aria-checked={notifications.enabled}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      notifications.onChange(!notifications.enabled);
-                    }}
-                    className={`mr-2 inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 outline-none data-focus:outline-2 data-focus:outline-offset-2 data-focus:outline-indigo-400 ${notifications.enabled ? "bg-indigo-500" : "bg-neutral-600"}`}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`size-4 rounded-full bg-white transition-transform ${notifications.enabled ? "translate-x-4" : "translate-x-0"}`}
-                    />
-                  </button>
-                </MenuItem>
-              </div>
-            )}
-
-            <MenuSection className="grid grid-cols-3 gap-1 border-t border-neutral-800 pt-1">
-              <MenuHeading className="col-span-3 px-2 py-1 text-xs font-semibold uppercase text-neutral-500">
-                {t("language.label")}
-              </MenuHeading>
-              {LANGUAGES.map((language) => (
-                <MenuItem key={language.code}>
-                  <button
-                    type="button"
-                    aria-checked={language.code === current}
-                    onClick={() => setLanguage(language.code)}
-                    className={`${MENU_ITEM} flex-col gap-1 px-1 py-2 text-xs ${language.code === current ? "bg-neutral-800" : ""}`}
-                  >
-                    <Flag code={language.code} />
-                    {language.label}
-                  </button>
-                </MenuItem>
-              ))}
-            </MenuSection>
 
             {profile && (
               <MenuSection className="border-t border-neutral-800 pt-1">

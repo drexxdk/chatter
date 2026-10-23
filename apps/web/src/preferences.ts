@@ -1,3 +1,7 @@
+import { parseNotificationPreferences } from "../../../shared/notificationPreferences.mjs";
+import type { NotificationSoundPreferences } from "../../../shared/notificationPreferences.mjs";
+export type { NotificationSoundPreferences } from "../../../shared/notificationPreferences.mjs";
+
 // Choices the guest made about how the chat looks. Unlike the session they belong to the browser, not the tab.
 const SHOW_MOVEMENTS_KEY = "chatter.showMovements";
 const NOTIFICATION_SOUND_KEY = "chatter.notificationSound";
@@ -25,12 +29,11 @@ export function saveTermsAccepted(version: string | null): void {
   }
 }
 
-// On unless the guest switched it off.
 export function loadShowMovements(): boolean {
   try {
-    return localStorage.getItem(SHOW_MOVEMENTS_KEY) !== "false";
+    return localStorage.getItem(SHOW_MOVEMENTS_KEY) === "true";
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -42,30 +45,13 @@ export function saveShowMovements(show: boolean): void {
   }
 }
 
-export interface NotificationSoundPreferences {
-  enabled: boolean;
-  volume: number;
-}
-
 export function loadNotificationSound(): NotificationSoundPreferences {
   try {
     const value: unknown = JSON.parse(
       localStorage.getItem(NOTIFICATION_SOUND_KEY) ?? "null",
     );
-    if (
-      value &&
-      typeof value === "object" &&
-      "enabled" in value &&
-      typeof value.enabled === "boolean" &&
-      "volume" in value &&
-      typeof value.volume === "number" &&
-      Number.isFinite(value.volume)
-    ) {
-      return {
-        enabled: value.enabled,
-        volume: Math.max(0, Math.min(1, value.volume)),
-      };
-    }
+    const parsed = parseNotificationPreferences(value);
+    if (parsed) return parsed;
   } catch {
     return { enabled: false, volume: 0.5 };
   }

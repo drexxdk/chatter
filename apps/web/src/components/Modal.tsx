@@ -65,6 +65,7 @@ export function Modal({
   closable = false,
   actions,
   children,
+  size = "default",
 }: {
   open?: boolean;
   onClose: () => void;
@@ -72,6 +73,7 @@ export function Modal({
   closable?: boolean;
   actions?: ReactNode;
   children: ReactNode;
+  size?: "default" | "wide";
 }) {
   // Headless UI only fades in what goes from closed to open, so one that is mounted open is opened a moment later.
   const [entered, setEntered] = useState(false);
@@ -90,7 +92,7 @@ export function Modal({
         <div className="flex min-h-full items-center justify-center">
           <DialogPanel
             transition
-            className="glass-surface w-full max-w-sm space-y-4 rounded-lg p-5 transition duration-200 data-closed:scale-95 data-closed:opacity-0"
+            className={`glass-surface w-full ${size === "wide" ? "max-w-xl" : "max-w-sm"} space-y-4 rounded-lg p-5 transition duration-200 data-closed:scale-95 data-closed:opacity-0`}
           >
             {closable ? (
               <PanelHeader title={title} onClose={onClose} actions={actions} />

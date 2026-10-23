@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { parseNotificationPreferences } from '../../../../shared/notificationPreferences.mjs'
 
 // The people who made an account by connecting Google, Facebook or Discord. Not a Payload login: they never sign in to
 // this admin, and the chat-server (service API key) is the only one that creates and updates them. Super-admins can read
@@ -55,6 +56,20 @@ export const Users: CollectionConfig = {
     ],
   },
   fields: [
+    {
+      name: 'notificationPreferences',
+      type: 'json',
+      admin: { hidden: true },
+      access: {
+        read: ({ req }) => req.user?.role === 'service',
+        create: ({ req }) => req.user?.role === 'service',
+        update: ({ req }) => req.user?.role === 'service',
+      },
+      validate: (value: unknown) =>
+        value == null ||
+        parseNotificationPreferences(value) !== undefined ||
+        'Invalid notification preferences.',
+    },
     {
       name: 'provider',
       type: 'text',

@@ -35,19 +35,32 @@ describe("private-message notification sounds", () => {
     await user.click(
       screen.getByRole("button", { name: "Account menu: Alice" }),
     );
-    await user.click(
-      await screen.findByRole("menuitem", { name: /Notification sounds/ }),
-    );
+    await user.click(await screen.findByRole("menuitem", { name: "Settings" }));
     return screen.findByRole("checkbox", { name: "Private message sounds" });
   }
 
-  it("does not offer sound settings before joining or signing in", async () => {
+  it("offers sectioned settings before joining or signing in", async () => {
     const { user } = setup();
     await user.click(await screen.findByRole("button", { name: "Menu" }));
     expect(screen.getByRole("menu")).toBeVisible();
     expect(
       screen.queryByRole("menuitem", { name: /Notification sounds/ }),
     ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("menuitem", { name: "Settings" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Settings" }),
+    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "General" })).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Chat activity" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Notification sounds" }),
+    ).toBeVisible();
+    expect(screen.getByRole("radio", { name: "English" })).toBeChecked();
+    expect(
+      screen.getByRole("switch", { name: "Joins and leaves" }),
+    ).toHaveAttribute("aria-checked", "false");
   });
 
   it("offers sound settings that start disabled", async () => {
@@ -63,22 +76,38 @@ describe("private-message notification sounds", () => {
     expect(loadNotificationSound().enabled).toBe(false);
   });
 
-  it("toggles sound directly in the menu without opening settings", async () => {
+  it("opens category settings instead of a private-only menu toggle", async () => {
     const { user } = await enter();
     await user.click(
       screen.getByRole("button", { name: "Account menu: Alice" }),
     );
-    const toggle = await screen.findByRole("menuitem", {
-      name: "Private message sounds",
-    });
-    expect(toggle).toHaveAttribute("aria-checked", "false");
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-checked", "true");
-    expect(loadNotificationSound().enabled).toBe(true);
-    expect(screen.getByRole("menu")).toBeVisible();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    await user.click(toggle);
-    expect(loadNotificationSound().enabled).toBe(false);
+    expect(
+      screen.queryByRole("menuitem", {
+        name: "Private message sounds",
+      }),
+    ).not.toBeInTheDocument();
+    const items = screen.getAllByRole("menuitem");
+    expect(
+      items.indexOf(screen.getByRole("menuitem", { name: "Settings" })),
+    ).toBe(
+      items.indexOf(screen.getByRole("menuitem", { name: "Your profile" })) + 1,
+    );
+    expect(
+      screen.queryByRole("menuitem", { name: "Joins and leaves" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: "English" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("menuitem", { name: "Settings" }));
+    expect(
+      screen.getByRole("checkbox", { name: "Private message sounds" }),
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Warnings" }),
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "People joining" }),
+    ).not.toBeChecked();
   });
 
   it("enables sound, remembers volume and offers a preview", async () => {
@@ -87,7 +116,11 @@ describe("private-message notification sounds", () => {
     const volume = screen.getByRole("slider", { name: "Volume" });
     expect(volume).toBeEnabled();
     fireEvent.change(volume, { target: { value: "25" } });
-    expect(loadNotificationSound()).toEqual({ enabled: true, volume: 0.25 });
+    expect(loadNotificationSound()).toEqual({
+      enabled: true,
+      volume: 0.25,
+      sound: "chime",
+    });
     expect(volume).toHaveAttribute("aria-valuetext", "25%");
     await user.click(screen.getByRole("button", { name: "Preview sound" }));
     expect(notificationSound.playNotificationSound).toHaveBeenCalledTimes(1);
@@ -101,7 +134,89 @@ describe("private-message notification sounds", () => {
     await user.click(
       screen.getByRole("checkbox", { name: "Private message sounds" }),
     );
-    expect(loadNotificationSound()).toEqual({ enabled: false, volume: 0 });
+    expect(loadNotificationSound()).toEqual({
+      enabled: false,
+      volume: 0,
+      sound: "chime",
+    });
+  });
+
+  it("enables warnings and joins independently and saves their chosen sounds", async () => {
+    const { user } = await enter();
+    await openSettings(user);
+    await user.click(screen.getByRole("checkbox", { name: "Warnings" }));
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Sound for Warnings" }),
+      "bell",
+    );
+    await user.click(screen.getByRole("checkbox", { name: "People joining" }));
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Sound for People joining" }),
+      "wood",
+    );
+    fireEvent.change(screen.getByRole("slider", { name: "Volume" }), {
+      target: { value: "30" },
+    });
+    expect(loadNotificationSound()).toEqual({
+      enabled: false,
+      volume: 0.3,
+      warnings: { enabled: true, sound: "bell" },
+      joins: { enabled: true, sound: "wood" },
+    });
+    await user.click(screen.getByRole("button", { name: "Preview Warnings" }));
+    expect(notificationSound.playNotificationSound).toHaveBeenLastCalledWith({
+      preview: true,
+      kind: "warnings",
+    });
+    await user.click(screen.getByRole("checkbox", { name: "Warnings" }));
+    expect(screen.getByRole("slider", { name: "Volume" })).toBeEnabled();
+    expect(
+      screen.getByRole("checkbox", { name: "People joining" }),
+    ).toBeChecked();
+  });
+
+  it("notifies only for new live joins and valid warnings without duplicate alerts", async () => {
+    const { server } = await enter();
+    vi.mocked(notificationSound.playNotificationSound).mockClear();
+    const joined = {
+      id: "bob-arrives",
+      roomSlug: "general",
+      event: "joined",
+      guestId: bob.guestId,
+      nickname: "Bob",
+      sentAt: new Date().toISOString(),
+    };
+    act(() => {
+      server.latest.serverEmit("room:event", joined);
+      server.latest.serverEmit("room:event", joined);
+      server.latest.serverEmit("room:event", {
+        ...joined,
+        id: "self",
+        guestId: "guest-me",
+      });
+      server.latest.serverEmit("room:event", {
+        ...joined,
+        id: "elsewhere",
+        roomSlug: "music",
+      });
+      server.latest.serverEmit("room:event", {
+        ...joined,
+        id: "left",
+        event: "left",
+      });
+      server.latest.serverEmit("idle:warning", { remainingMs: 60_000 });
+      server.latest.serverEmit("idle:warning", { remainingMs: 59_000 });
+      server.latest.serverEmit("idle:warning", { remainingMs: 0 });
+    });
+    expect(
+      vi.mocked(notificationSound.playNotificationSound).mock.calls,
+    ).toEqual([[{ kind: "joins" }], [{ kind: "warnings" }]]);
+    act(() => {
+      server.latest.serverEmit("idle:cleared", undefined);
+      server.latest.serverEmit("idle:warning", { remainingMs: 60_000 });
+      server.latest.serverEmit("kicked", { reason: "banned" });
+    });
+    expect(notificationSound.playNotificationSound).toHaveBeenCalledTimes(4);
   });
 
   it("notifies once for new incoming messages, not duplicates, own messages or malformed events", async () => {

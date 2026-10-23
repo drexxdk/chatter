@@ -604,7 +604,9 @@ describe("language", () => {
     await screen.findByRole("heading", { name: "Public rooms" });
 
     await user.click(screen.getByRole("button", { name: "Menu" }));
-    await user.click(await screen.findByRole("menuitem", { name: /Dansk/ }));
+    await user.click(await screen.findByRole("menuitem", { name: "Settings" }));
+    await user.click(await screen.findByRole("radio", { name: /Dansk/ }));
+    await user.keyboard("{Escape}");
 
     expect(
       await screen.findByRole("heading", { name: "Offentlige rum" }),

@@ -8,9 +8,30 @@
   },
   "language": { "label": "Language" },
   "menu": { "open": "Menu" },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "activity": "Chat activity"
+  },
   "notifications": {
     "title": "Notification sounds",
     "enabled": "Private message sounds",
+    "warnings": "Warnings",
+    "joins": "People joining",
+    "soundFor": "Sound for {category}",
+    "previewCategory": "Preview {category}",
+    "sounds": {
+      "chime": "Chime",
+      "bell": "Bell",
+      "pulse": "Pulse",
+      "wood": "Wood"
+    },
+    "loading": "Loading settings...",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "load-error": "Could not load sound settings.",
+    "save-error": "Could not save sound settings.",
+    "retry": "Retry",
     "volume": "Volume",
     "preview": "Preview sound",
     "on": "On",

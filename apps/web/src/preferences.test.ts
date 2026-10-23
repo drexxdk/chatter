@@ -8,8 +8,8 @@ import {
 } from "./preferences";
 
 describe("showing who joins and leaves", () => {
-  it("is on until the guest switches it off", () => {
-    expect(loadShowMovements()).toBe(true);
+  it("is off until the guest switches it on and remembers either choice", () => {
+    expect(loadShowMovements()).toBe(false);
 
     saveShowMovements(false);
     expect(loadShowMovements()).toBe(false);
@@ -18,13 +18,13 @@ describe("showing who joins and leaves", () => {
     expect(loadShowMovements()).toBe(true);
   });
 
-  it("is on when what the browser holds is not what was saved", () => {
+  it("is off when what the browser holds is not what was saved", () => {
     localStorage.setItem("chatter.showMovements", "no");
 
-    expect(loadShowMovements()).toBe(true);
+    expect(loadShowMovements()).toBe(false);
   });
 
-  it("is on when storage cannot be read, and saving does not fail", () => {
+  it("is off when storage cannot be read, and saving does not fail", () => {
     vi.stubGlobal("localStorage", {
       getItem: () => {
         throw new Error("denied");
@@ -34,12 +34,38 @@ describe("showing who joins and leaves", () => {
       },
     });
 
-    expect(loadShowMovements()).toBe(true);
+    expect(loadShowMovements()).toBe(false);
     expect(() => saveShowMovements(false)).not.toThrow();
   });
 });
 
 describe("private-message notification sound", () => {
+  it("remembers independent categories and their sounds with a shared volume", () => {
+    const value = {
+      enabled: false,
+      volume: 0.3,
+      sound: "bell" as const,
+      warnings: { enabled: true, sound: "pulse" as const },
+      joins: { enabled: false, sound: "wood" as const },
+    };
+    saveNotificationSound(value);
+    expect(loadNotificationSound()).toEqual(value);
+  });
+
+  it("rejects unknown sounds and malformed category settings", () => {
+    for (const extra of [
+      { sound: "unknown" },
+      { warnings: { enabled: "yes", sound: "bell" } },
+      { joins: { enabled: true, sound: "unknown" } },
+    ]) {
+      localStorage.setItem(
+        "chatter.notificationSound",
+        JSON.stringify({ enabled: true, volume: 0.5, ...extra }),
+      );
+      expect(loadNotificationSound()).toEqual({ enabled: false, volume: 0.5 });
+    }
+  });
+
   it("is disabled by default with half volume", () => {
     expect(loadNotificationSound()).toEqual({ enabled: false, volume: 0.5 });
   });

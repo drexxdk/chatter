@@ -15,6 +15,7 @@ const DIALOGS = [
   "profile-edit",
   "create-account",
   "sound",
+  "settings",
 ] as const;
 const MENUS = [
   "main",

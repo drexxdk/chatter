@@ -213,7 +213,9 @@ describe("a page of the documents", () => {
     await screen.findByRole("heading", { level: 1, name: "Terms of use" });
 
     await user.click(screen.getByRole("button", { name: "Menu" }));
-    await user.click(await screen.findByRole("menuitem", { name: /Dansk/ }));
+    await user.click(await screen.findByRole("menuitem", { name: "Settings" }));
+    await user.click(await screen.findByRole("radio", { name: /Dansk/ }));
+    await user.keyboard("{Escape}");
 
     expect(
       await screen.findByRole("heading", { level: 1, name: "Brugsvilkår" }),
@@ -233,7 +235,7 @@ describe("a page of the documents", () => {
 
     await user.click(header.getByRole("button", { name: "Menu" }));
     expect(
-      await screen.findByRole("menuitem", { name: /Dansk/ }),
+      await screen.findByRole("menuitem", { name: "Settings" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("menuitem", { name: "How the chat works" }),

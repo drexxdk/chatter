@@ -8,9 +8,30 @@
   },
   "language": { "label": "Sprache" },
   "menu": { "open": "Menü" },
+  "settings": {
+    "title": "Einstellungen",
+    "general": "Allgemein",
+    "activity": "Chataktivität"
+  },
   "notifications": {
     "title": "Benachrichtigungstöne",
     "enabled": "Töne bei privaten Nachrichten",
+    "warnings": "Warnungen",
+    "joins": "Beitritte",
+    "soundFor": "Ton für {category}",
+    "previewCategory": "{category} vorhören",
+    "sounds": {
+      "chime": "Glockenspiel",
+      "bell": "Glocke",
+      "pulse": "Puls",
+      "wood": "Holz"
+    },
+    "loading": "Einstellungen werden geladen...",
+    "saving": "Wird gespeichert...",
+    "saved": "Gespeichert",
+    "load-error": "Toneinstellungen konnten nicht geladen werden.",
+    "save-error": "Toneinstellungen konnten nicht gespeichert werden.",
+    "retry": "Erneut versuchen",
     "volume": "Lautstärke",
     "preview": "Ton abspielen",
     "on": "Ein",
