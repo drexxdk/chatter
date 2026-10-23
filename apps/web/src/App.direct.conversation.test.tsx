@@ -59,15 +59,21 @@ describe("private-message notification sounds", () => {
     ).toBeVisible();
     expect(screen.getByRole("radio", { name: "English" })).toBeChecked();
     expect(
-      screen.getByRole("switch", { name: "Joins and leaves" }),
-    ).toHaveAttribute("aria-checked", "false");
+      screen.getByRole("checkbox", {
+        name: "Show a message in the chat when someone joins or leaves the room.",
+      }),
+    ).not.toBeChecked();
   });
 
-  it("offers sound settings that start disabled", async () => {
+  it("allows volume adjustment and previews while notification sounds are off", async () => {
     const { user } = await enter();
     expect(await openSettings(user)).not.toBeChecked();
-    expect(screen.getByRole("slider", { name: "Volume" })).toBeDisabled();
-    expect(screen.getByRole("slider", { name: "Volume" })).toHaveValue("50");
+    const volume = screen.getByRole("slider", { name: "Volume" });
+    expect(volume).toBeEnabled();
+    expect(volume).toHaveValue("50");
+    fireEvent.change(volume, { target: { value: "25" } });
+    expect(loadNotificationSound().volume).toBe(0.25);
+    expect(volume).toHaveAttribute("aria-valuetext", "25%");
     expect(screen.getByRole("button", { name: "Preview sound" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Preview sound" }));
     expect(notificationSound.playNotificationSound).toHaveBeenCalledWith({
@@ -145,15 +151,15 @@ describe("private-message notification sounds", () => {
     const { user } = await enter();
     await openSettings(user);
     await user.click(screen.getByRole("checkbox", { name: "Warnings" }));
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Sound for Warnings" }),
-      "bell",
+    await user.click(
+      screen.getByRole("button", { name: "Sound for Warnings" }),
     );
+    await user.click(await screen.findByRole("option", { name: "Bell" }));
     await user.click(screen.getByRole("checkbox", { name: "People joining" }));
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Sound for People joining" }),
-      "wood",
+    await user.click(
+      screen.getByRole("button", { name: "Sound for People joining" }),
     );
+    await user.click(await screen.findByRole("option", { name: "Wood" }));
     fireEvent.change(screen.getByRole("slider", { name: "Volume" }), {
       target: { value: "30" },
     });

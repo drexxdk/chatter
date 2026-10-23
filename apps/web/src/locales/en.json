@@ -409,7 +409,7 @@
     "left": "{name} left the room.",
     "idleWarning": "You will be disconnected from the room unless you write something.",
     "idleTimeLeft": "Time left",
-    "showMovements": "Joins and leaves"
+    "showMovements": "Show a message in the chat when someone joins or leaves the room."
   },
   "announcement": {
     "title": "Announcement",

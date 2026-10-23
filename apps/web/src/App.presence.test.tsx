@@ -38,8 +38,8 @@ describe("who comes and goes", () => {
         await screen.findByRole("menuitem", { name: "Settings" }),
       );
     }
-    return screen.findByRole("switch", {
-      name: "Joins and leaves",
+    return screen.findByRole("checkbox", {
+      name: "Show a message in the chat when someone joins or leaves the room.",
     });
   };
   const toggleMovements = async (user: ReturnType<typeof userEvent.setup>) => {

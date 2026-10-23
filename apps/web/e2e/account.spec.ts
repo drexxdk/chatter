@@ -155,12 +155,12 @@ test("notification choices follow the account into a different browser", async (
   const settings = await openSettings(page);
   await settings.getByRole("checkbox", { name: "Warnings" }).check();
   await settings.getByRole("checkbox", { name: "People joining" }).check();
+  await settings.getByRole("button", { name: "Sound for Warnings" }).click();
+  await page.getByRole("option", { name: "Bell", exact: true }).click();
   await settings
-    .getByRole("combobox", { name: "Sound for Warnings" })
-    .selectOption("bell");
-  await settings
-    .getByRole("combobox", { name: "Sound for People joining" })
-    .selectOption("wood");
+    .getByRole("button", { name: "Sound for People joining" })
+    .click();
+  await page.getByRole("option", { name: "Wood", exact: true }).click();
   const volume = settings.getByRole("slider", { name: "Volume" });
   await volume.focus();
   await volume.press("Home");
@@ -192,11 +192,11 @@ test("notification choices follow the account into a different browser", async (
     restored.getByRole("checkbox", { name: "People joining" }),
   ).toBeChecked();
   await expect(
-    restored.getByRole("combobox", { name: "Sound for Warnings" }),
-  ).toHaveValue("bell");
+    restored.getByRole("button", { name: "Sound for Warnings" }),
+  ).toHaveText("Bell");
   await expect(
-    restored.getByRole("combobox", { name: "Sound for People joining" }),
-  ).toHaveValue("wood");
+    restored.getByRole("button", { name: "Sound for People joining" }),
+  ).toHaveText("Wood");
   await expect(restored.getByRole("slider", { name: "Volume" })).toHaveValue(
     "37",
   );

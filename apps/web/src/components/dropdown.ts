@@ -15,7 +15,7 @@ export const PANEL_MAX_HEIGHT = "max-h-[26rem]";
 
 // The base of a row in a menu; each menu adds its own spacing.
 export const MENU_ITEM =
-  "flex w-full items-center rounded text-left text-sm data-focus:bg-neutral-800 data-disabled:opacity-50";
+  "glass-item flex w-full items-center rounded text-left text-sm data-disabled:opacity-50";
 
 // The header's dropdowns stay fixed, with an 8px gap from both the header and the message box.
 export const HEADER_DROPDOWN =

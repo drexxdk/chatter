@@ -74,7 +74,7 @@ html:has([data-room-search] input:focus) {
   border: 1px solid transparent;
   background-color: var(--color-neutral-900);
   background:
-    linear-gradient(#202226fa, #202226fa) padding-box,
+    linear-gradient(#191b20eb, #191b20eb) padding-box,
     radial-gradient(
         circle var(--glass-radius, 16rem) at 100% 0,
         color-mix(
@@ -114,10 +114,13 @@ html:has([data-room-search] input:focus) {
       border-box,
     linear-gradient(#ffffff18, #ffffff18) border-box;
   box-shadow:
-    0 16px 48px #00000066,
-    inset 0 1px 0 #ffffff08;
-  backdrop-filter: blur(18px) saturate(1.15);
-  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+    0 20px 56px #00000080,
+    6px -6px 16px -12px color-mix(in srgb, var(--glass-accent) 32%, transparent),
+    -6px 6px 16px -12px
+      color-mix(in srgb, var(--glass-secondary) 32%, transparent),
+    inset 0 1px 0 #ffffff14;
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
 }
 
 .glass-surface::before {
@@ -132,7 +135,7 @@ html:has([data-room-search] input:focus) {
       circle var(--glass-radius, 16rem) at 100% 0,
       color-mix(
         in srgb,
-        var(--glass-accent) var(--glass-fill, 14%),
+        var(--glass-accent) var(--glass-fill, 12%),
         transparent
       ),
       transparent 75%
@@ -141,26 +144,89 @@ html:has([data-room-search] input:focus) {
       circle var(--glass-radius, 16rem) at 0 100%,
       color-mix(
         in srgb,
-        var(--glass-secondary) var(--glass-fill, 14%),
+        var(--glass-secondary) var(--glass-fill, 12%),
         transparent
       ),
       transparent 75%
     );
   mask-image:
-    linear-gradient(to bottom, #0009, #0004 3px, #0001 8px, transparent 14px),
-    linear-gradient(to top, #0009, #0004 3px, #0001 8px, transparent 14px),
-    linear-gradient(to left, #0009, #0004 3px, #0001 8px, transparent 14px),
-    linear-gradient(to right, #0009, #0004 3px, #0001 8px, transparent 14px);
+    linear-gradient(to bottom, #0009, #0003 6px, transparent 24px),
+    linear-gradient(to top, #0009, #0003 6px, transparent 24px),
+    linear-gradient(to left, #0009, #0003 6px, transparent 24px),
+    linear-gradient(to right, #0009, #0003 6px, transparent 24px);
+}
+
+.glass-surface::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 9rem 7rem at 100% 0,
+      white,
+      color-mix(in srgb, var(--glass-accent) 50%, white) 8%,
+      color-mix(in srgb, var(--glass-accent) 70%, transparent) 25%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 9rem 7rem at 0 100%,
+      white,
+      color-mix(in srgb, var(--glass-secondary) 50%, white) 8%,
+      color-mix(in srgb, var(--glass-secondary) 70%, transparent) 25%,
+      transparent 70%
+    );
+  mask:
+    linear-gradient(white, white) content-box,
+    linear-gradient(white, white);
+  mask-composite: exclude;
 }
 
 .glass-menu {
-  --glass-radius: 6rem;
+  --glass-radius: 12rem;
   --glass-fill: 10%;
-  --glass-peak: 55%;
+  --glass-peak: 100%;
+}
+
+.glass-item {
+  transition:
+    background-color 120ms ease-out,
+    box-shadow 120ms ease-out;
+}
+
+.glass-item:is(:hover, :focus-visible, [data-focus]):not(
+    :where([data-disabled], :disabled, [aria-disabled="true"])
+  ) {
+  background:
+    linear-gradient(
+      105deg,
+      color-mix(in srgb, var(--glass-accent) 10%, transparent),
+      color-mix(in srgb, var(--glass-secondary) 4%, transparent)
+    ),
+    #ffffff04;
+  box-shadow: inset 0 0 0 1px #ffffff0a;
+}
+
+.glass-surface
+  :where(
+    button:not(.glass-item),
+    select,
+    input:not([type="radio"], [type="checkbox"], [type="range"])
+  ):enabled:is(:hover, :focus-visible),
+.glass-surface
+  label:has(> input[type="radio"]:enabled):is(:hover, :focus-within)
+  > span {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--glass-accent) 45%, transparent),
+    0 0 12px color-mix(in srgb, var(--glass-accent) 15%, transparent);
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .glass-surface::before {
+  .glass-surface::before,
+  .glass-surface::after {
     content: none;
   }
 
@@ -170,10 +236,15 @@ html:has([data-room-search] input:focus) {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
+
+  .glass-item:is(:hover, :focus-visible, [data-focus]) {
+    background: var(--color-neutral-700);
+  }
 }
 
 @media (forced-colors: active) {
-  .glass-surface::before {
+  .glass-surface::before,
+  .glass-surface::after {
     content: none;
   }
 
@@ -183,6 +254,30 @@ html:has([data-room-search] input:focus) {
     box-shadow: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+
+  .glass-item:is(:hover, :focus-visible, [data-focus]) {
+    background: Highlight;
+    color: HighlightText;
+    box-shadow: none;
+  }
+
+  .glass-surface
+    :where(
+      button:not(.glass-item),
+      select,
+      input:not([type="radio"], [type="checkbox"], [type="range"])
+    ):enabled:is(:hover, :focus-visible),
+  .glass-surface
+    label:has(> input[type="radio"]:enabled):is(:hover, :focus-within)
+    > span {
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-item {
+    transition: none;
   }
 }
 

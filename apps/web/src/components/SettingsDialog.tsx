@@ -5,6 +5,7 @@ import { LANGUAGES, setLanguage } from "../i18n";
 import type { NotificationSoundPreferences } from "../preferences";
 import { Modal } from "./Modal";
 import { NotificationSoundSettings } from "./NotificationSoundDialog";
+import { SettingsCheckbox } from "./SettingsCheckbox";
 
 const FLAGS = { en: GB, da: DK, de: DE };
 
@@ -76,23 +77,11 @@ export function SettingsDialog({
             />
             {t("settings.activity")}
           </h3>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={movements.checked}
-            onClick={() => movements.onChange(!movements.checked)}
-            className="flex min-h-10 w-full items-center justify-between gap-4 rounded text-left text-sm outline-none focus-visible:outline-2 focus-visible:outline-indigo-400"
-          >
-            <span>{t("room.showMovements")}</span>
-            <span
-              aria-hidden="true"
-              className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 ${movements.checked ? "bg-indigo-500" : "bg-neutral-600"}`}
-            >
-              <span
-                className={`size-4 rounded-full bg-white transition-transform ${movements.checked ? "translate-x-4" : "translate-x-0"}`}
-              />
-            </span>
-          </button>
+          <SettingsCheckbox
+            label={t("room.showMovements")}
+            checked={movements.checked}
+            onChange={movements.onChange}
+          />
         </section>
         <section className="space-y-4 pt-5" aria-labelledby="settings-sounds">
           <h3 id="settings-sounds" className={heading}>

@@ -96,7 +96,7 @@ export function RoomSwitcher({
                           style={roomVars(room.slug)}
                           // The room you are in is tinted and ringed in its accent, which shows on the plain rooms too. The ring
                           // is inside the box, or the next room's hover would paint over its lower edge.
-                          className="flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left data-focus:bg-neutral-800 data-disabled:cursor-default data-disabled:opacity-50 data-selected:bg-(--room-accent)/15 data-selected:font-medium data-selected:text-(--room-accent) data-selected:ring-1 data-selected:ring-inset data-selected:ring-(--room-accent)/40"
+                          className="glass-item flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left data-disabled:cursor-default data-disabled:opacity-50 data-selected:bg-(--room-accent)/15 data-selected:font-medium data-selected:text-(--room-accent) data-selected:ring-1 data-selected:ring-inset data-selected:ring-(--room-accent)/40"
                         >
                           <RoomIcon slug={room.slug} className="h-4 w-4" />
                           <span className="flex-1">{room.name}</span>
@@ -120,7 +120,7 @@ export function RoomSwitcher({
                     <button
                       type="button"
                       onClick={onLeave}
-                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-red-300 data-focus:bg-neutral-800"
+                      className="glass-item flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-red-300"
                     >
                       <LogOut aria-hidden="true" className="h-4 w-4 shrink-0" />
                       {t("room.leave")}

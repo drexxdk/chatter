@@ -409,7 +409,7 @@
     "left": "{name} forlod rummet.",
     "idleWarning": "Du bliver koblet fra rummet, medmindre du skriver noget.",
     "idleTimeLeft": "Tid tilbage",
-    "showMovements": "Vis, når folk kommer og går"
+    "showMovements": "Vis en besked i chatten, når nogen kommer ind i eller forlader rummet."
   },
   "announcement": {
     "title": "Meddelelse",

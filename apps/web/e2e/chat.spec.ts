@@ -959,8 +959,7 @@ test("private-message sounds are opt-in with adjustable volume", async ({
   });
   const volume = dialog.getByRole("slider", { name: "Volume" });
   await expect(enabled).not.toBeChecked();
-  await expect(volume).toBeDisabled();
-  await enabled.check();
+  await expect(volume).toBeEnabled();
   await volume.focus();
   await volume.press("Home");
   for (let step = 0; step < 25; step += 1) await volume.press("ArrowRight");
@@ -968,6 +967,8 @@ test("private-message sounds are opt-in with adjustable volume", async ({
   await dialog.getByRole("button", { name: "Preview sound" }).click();
   await expect.poll(async () => (await audio()).notes).toBe(2);
   expect((await audio()).levels).toEqual([0.04, 0.04]);
+  await expect(enabled).not.toBeChecked();
+  await enabled.check();
 
   for (const viewport of [
     { width: 1280, height: 800 },
@@ -1017,12 +1018,12 @@ test("private-message sounds are opt-in with adjustable volume", async ({
   const joins = dialog.getByRole("checkbox", { name: "People joining" });
   await warnings.check();
   await joins.check();
+  await dialog.getByRole("button", { name: "Sound for Warnings" }).click();
+  await recipient.getByRole("option", { name: "Bell", exact: true }).click();
   await dialog
-    .getByRole("combobox", { name: "Sound for Warnings" })
-    .selectOption("bell");
-  await dialog
-    .getByRole("combobox", { name: "Sound for People joining" })
-    .selectOption("wood");
+    .getByRole("button", { name: "Sound for People joining" })
+    .click();
+  await recipient.getByRole("option", { name: "Wood", exact: true }).click();
   await dialog.getByRole("button", { name: "Preview Warnings" }).click();
   expect((await audio()).notes).toBe(4);
   await volume.focus();
@@ -1048,11 +1049,11 @@ test("private-message sounds are opt-in with adjustable volume", async ({
   await expect(joins).toBeChecked();
   await expect(volume).toHaveValue("25");
   await expect(
-    dialog.getByRole("combobox", { name: "Sound for Warnings" }),
-  ).toHaveValue("bell");
+    dialog.getByRole("button", { name: "Sound for Warnings" }),
+  ).toHaveText("Bell");
   await expect(
-    dialog.getByRole("combobox", { name: "Sound for People joining" }),
-  ).toHaveValue("wood");
+    dialog.getByRole("button", { name: "Sound for People joining" }),
+  ).toHaveText("Wood");
 });
 
 test("typing indicators keep private drafts private and follow the current conversation", async ({
@@ -1917,6 +1918,189 @@ test("the composer highlights keyboard focus but not pointer focus", async ({
   await expect(input).toBeFocused();
   await expect(box).toHaveCSS("border-top-color", neutral);
   await expect(box).toHaveCSS("outline-style", "none");
+});
+
+test("neon glass menus and modals preserve focus and accessibility fallbacks", async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(60_000);
+  const guest = await newGuest(browser);
+  await enterRoom(guest, LOUNGE.name, "Glass Guest");
+  for (const width of [1280, 375, 320]) {
+    await guest.setViewportSize({ width, height: 800 });
+    await guest
+      .getByRole("button", { name: "Account menu: Glass Guest" })
+      .click();
+    const menu = guest.getByRole("menu");
+    const settings = menu.getByRole("menuitem", {
+      name: "Settings",
+      exact: true,
+    });
+    await expect(menu).toBeVisible();
+    const rim = await menu.evaluate((element) => {
+      const style = getComputedStyle(element, "::after");
+      return {
+        content: style.content,
+        mask: style.maskComposite,
+        pointer: style.pointerEvents,
+      };
+    });
+    expect(rim.content).not.toBe("none");
+    expect(rim.mask).toContain("exclude");
+    expect(rim.pointer).toBe("none");
+    await settings.hover();
+    await expect
+      .poll(() =>
+        settings.evaluate((element) => getComputedStyle(element).boxShadow),
+      )
+      .not.toBe("none");
+    await guest.screenshot({
+      path: testInfo.outputPath(`glass-menu-${width}.png`),
+      animations: "disabled",
+    });
+    await guest.keyboard.press("Home");
+    await expect(menu.getByRole("menuitem").first()).toHaveAttribute(
+      "data-focus",
+      "",
+    );
+    await guest.emulateMedia({
+      forcedColors: "active",
+      reducedMotion: "reduce",
+    });
+    await expect
+      .poll(() =>
+        menu.evaluate(
+          (element) => getComputedStyle(element, "::after").content,
+        ),
+      )
+      .toBe("none");
+    await expect
+      .poll(() =>
+        settings.evaluate((element) => getComputedStyle(element).boxShadow),
+      )
+      .toBe("none");
+    expect(
+      await settings.evaluate(
+        (element) => getComputedStyle(element).transitionDuration,
+      ),
+    ).toBe("0s");
+    await guest.emulateMedia({
+      forcedColors: "none",
+      reducedMotion: "no-preference",
+    });
+    await settings.click();
+    const dialog = guest.getByRole("dialog", { name: "Settings", exact: true });
+    await expect(dialog).toBeVisible();
+    const panel = dialog.locator(".glass-surface");
+    await panel.evaluate(async (element) => {
+      await Promise.allSettled(
+        element.getAnimations().map((animation) => animation.finished),
+      );
+    });
+    const activity = dialog.getByRole("checkbox", {
+      name: "Show a message in the chat when someone joins or leaves the room.",
+    });
+    await expect(activity).toHaveCSS("padding-left", "8px");
+    await expect(activity).toHaveCSS("padding-right", "8px");
+    const bounds = await panel.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    for (const label of [
+      "Show a message in the chat when someone joins or leaves the room.",
+      "Private message sounds",
+      "Warnings",
+      "People joining",
+    ]) {
+      const checkbox = dialog.getByRole("checkbox", {
+        name: label,
+        exact: true,
+      });
+      await expect(checkbox).toHaveCSS("min-height", "44px");
+      await checkbox.scrollIntoViewIfNeeded();
+      const target = await checkbox.boundingBox();
+      expect(target).not.toBeNull();
+      const position = { x: target!.width - 6, y: target!.height / 2 };
+      await expect(checkbox).not.toBeChecked();
+      await checkbox.click({ position });
+      await expect(checkbox).toBeChecked();
+      await checkbox.click({ position });
+      await expect(checkbox).not.toBeChecked();
+    }
+    const sound = dialog.getByRole("button", {
+      name: "Sound for Private message sounds",
+    });
+    await sound.click();
+    const listbox = guest.getByRole("listbox");
+    await expect(listbox).toBeVisible();
+    await expect(listbox).toBeFocused();
+    const optionsBounds = await listbox.boundingBox();
+    expect(optionsBounds).not.toBeNull();
+    expect(optionsBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(optionsBounds!.x + optionsBounds!.width).toBeLessThanOrEqual(width);
+    await guest.screenshot({
+      path: testInfo.outputPath(`glass-sound-options-${width}.png`),
+      animations: "disabled",
+    });
+    await guest.keyboard.press("Home");
+    await guest.keyboard.press("ArrowDown");
+    await guest.keyboard.press("Enter");
+    await expect(sound).toHaveText("Bell");
+    await expect(sound).toBeFocused();
+    await sound.click();
+    await expect(listbox).toBeFocused();
+    await guest.keyboard.press("Escape");
+    await expect(listbox).toHaveCount(0);
+    await expect(dialog).toBeVisible();
+    const warnings = dialog.getByRole("checkbox", {
+      name: "Warnings",
+      exact: true,
+    });
+    await warnings.focus();
+    await warnings.press("Space");
+    await expect(warnings).toBeChecked();
+    await dialog.getByText("Warnings", { exact: true }).click();
+    await expect(warnings).not.toBeChecked();
+    const preview = dialog.getByRole("button", {
+      name: "Preview sound",
+      exact: true,
+    });
+    await preview.hover();
+    await expect
+      .poll(() =>
+        preview.evaluate((element) => getComputedStyle(element).boxShadow),
+      )
+      .not.toBe("none");
+    await activity.hover();
+    await guest.screenshot({
+      path: testInfo.outputPath(`glass-settings-${width}.png`),
+      animations: "disabled",
+    });
+    const session = await guest.context().newCDPSession(guest);
+    await session.send("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-reduced-transparency", value: "reduce" }],
+    });
+    await expect
+      .poll(() =>
+        panel.evaluate((element) => getComputedStyle(element).backdropFilter),
+      )
+      .toBe("none");
+    expect(
+      await panel.evaluate(
+        (element) => getComputedStyle(element, "::before").content,
+      ),
+    ).toBe("none");
+    expect(
+      await panel.evaluate(
+        (element) => getComputedStyle(element, "::after").content,
+      ),
+    ).toBe("none");
+    await session.send("Emulation.setEmulatedMedia", { features: [] });
+    await session.detach();
+    await guest.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+  }
+  await guest.context().close();
 });
 
 test("header dropdowns stay within the composer and viewport bounds", async ({
@@ -3756,8 +3940,8 @@ test("the room only says who comes and goes when a guest switches that on", asyn
         await trigger.click();
       await alice.getByRole("menuitem", { name: "Settings" }).click();
     }
-    return alice.getByRole("switch", {
-      name: "Joins and leaves",
+    return alice.getByRole("checkbox", {
+      name: "Show a message in the chat when someone joins or leaves the room.",
     });
   };
   await expect(await openSetting()).toHaveAttribute("aria-checked", "false");
@@ -3779,6 +3963,8 @@ test("the room only says who comes and goes when a guest switches that on", asyn
 
   await (await openSetting()).click();
   await alice.keyboard.press("Escape");
+  await expect(alice.getByRole("dialog", { name: "Settings" })).toHaveCount(0);
+  await expect(alice).not.toHaveURL(/dialog=settings/);
   await expect(room).not.toContainText("Bob left the room.");
 
   // The choice belongs to the browser, so a reload keeps it.

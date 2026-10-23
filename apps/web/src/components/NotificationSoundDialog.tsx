@@ -1,4 +1,17 @@
-import { Play, RotateCw, Volume1, Volume2 } from "lucide-react";
+import {
+  Listbox,
+  ListboxButton,
+  ListboxOption,
+  ListboxOptions,
+} from "@headlessui/react";
+import {
+  Check,
+  ChevronDown,
+  Play,
+  RotateCw,
+  Volume1,
+  Volume2,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   NOTIFICATION_KINDS,
@@ -11,6 +24,8 @@ import {
 
 import { playNotificationSound } from "../notificationSound";
 import type { NotificationSoundPreferences } from "../preferences";
+import { MENU_ITEM, MENU_SURFACE } from "./dropdown";
+import { SettingsCheckbox } from "./SettingsCheckbox";
 
 export function NotificationSoundSettings({
   value,
@@ -57,41 +72,62 @@ export function NotificationSoundSettings({
                 key={kind}
                 className="grid grid-cols-1 items-center gap-2 py-3 first:pt-0 sm:grid-cols-[minmax(0,1fr)_minmax(0,10rem)] sm:gap-3"
               >
-                <label className="flex items-center gap-3 text-sm">
-                  <input
-                    type="checkbox"
-                    data-autofocus={kind === "private" ? true : undefined}
-                    checked={channel.enabled}
-                    onChange={(event) =>
-                      changeChannel(kind, {
-                        ...channel,
-                        enabled: event.target.checked,
-                      })
-                    }
-                    className="size-4 shrink-0 accent-indigo-500"
-                  />
-                  <span className="min-w-0 wrap-break-word">{label}</span>
-                </label>
+                <SettingsCheckbox
+                  label={label}
+                  disabled={status === "loading" || status === "load-error"}
+                  autoFocus={kind === "private"}
+                  checked={channel.enabled}
+                  onChange={(enabled) =>
+                    changeChannel(kind, { ...channel, enabled })
+                  }
+                />
                 <div className="flex min-w-0 items-center gap-2">
-                  <select
-                    aria-label={t("notifications.soundFor", {
-                      category: label,
-                    })}
+                  <Listbox
                     value={channel.sound}
-                    onChange={(event) =>
+                    disabled={status === "loading" || status === "load-error"}
+                    onChange={(sound: NotificationSoundId) =>
                       changeChannel(kind, {
                         ...channel,
-                        sound: event.target.value as NotificationSoundId,
+                        sound,
                       })
                     }
-                    className="h-9 min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-900 px-2 text-sm outline-none focus-visible:outline-2 focus-visible:outline-indigo-400"
                   >
-                    {NOTIFICATION_SOUNDS.map((sound) => (
-                      <option key={sound} value={sound}>
-                        {t(`notifications.sounds.${sound}`)}
-                      </option>
-                    ))}
-                  </select>
+                    <ListboxButton
+                      aria-label={t("notifications.soundFor", {
+                        category: label,
+                      })}
+                      className="flex h-9 min-w-0 flex-1 items-center justify-between gap-2 rounded border border-neutral-700 bg-neutral-900 px-2 text-left text-sm outline-none focus-visible:outline-2 focus-visible:outline-indigo-400 data-disabled:cursor-default"
+                    >
+                      <span className="truncate">
+                        {t(`notifications.sounds.${channel.sound}`)}
+                      </span>
+                      <ChevronDown
+                        aria-hidden="true"
+                        className="size-4 shrink-0 text-neutral-400"
+                      />
+                    </ListboxButton>
+                    <ListboxOptions
+                      anchor={{ to: "bottom start", gap: 4, padding: 8 }}
+                      modal={false}
+                      className={`${MENU_SURFACE} z-70 max-h-64 w-(--button-width) min-w-28`}
+                    >
+                      {NOTIFICATION_SOUNDS.map((sound) => (
+                        <ListboxOption
+                          key={sound}
+                          value={sound}
+                          className={`${MENU_ITEM} group gap-2 px-2 py-1.5`}
+                        >
+                          <span className="flex-1">
+                            {t(`notifications.sounds.${sound}`)}
+                          </span>
+                          <Check
+                            aria-hidden="true"
+                            className="invisible size-4 shrink-0 group-data-selected:visible"
+                          />
+                        </ListboxOption>
+                      ))}
+                    </ListboxOptions>
+                  </Listbox>
                   <button
                     type="button"
                     aria-label={previewLabel}
@@ -137,11 +173,6 @@ export function NotificationSoundSettings({
               step={1}
               value={percent}
               aria-valuetext={`${percent}%`}
-              disabled={
-                !NOTIFICATION_KINDS.some(
-                  (kind) => notificationChannel(value, kind).enabled,
-                )
-              }
               onChange={(event) =>
                 onChange({ ...value, volume: Number(event.target.value) / 100 })
               }

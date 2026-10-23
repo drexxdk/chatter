@@ -409,7 +409,7 @@
     "left": "{name} hat den Raum verlassen.",
     "idleWarning": "Du wirst aus dem Raum getrennt, wenn du nichts schreibst.",
     "idleTimeLeft": "Verbleibende Zeit",
-    "showMovements": "Kommen und gehen"
+    "showMovements": "Eine Nachricht im Chat anzeigen, wenn jemand den Raum betritt oder verlässt."
   },
   "announcement": {
     "title": "Ankündigung",
