@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
+import { saveShowMovements } from "./preferences";
 
 const ROOMS = [{ id: 1, name: "General", slug: "general", maxMembers: 100 }];
 const BOB = { guestId: "guest-bob", nickname: "Bob" };
@@ -100,6 +101,7 @@ describe("messages by the same person", () => {
   });
 
   it("start a new group when something happened in between, such as somebody coming in", async () => {
+    saveShowMovements(true);
     const { server } = await enter();
     emit(server, said(BOB, "before", 1));
 
@@ -110,7 +112,7 @@ describe("messages by the same person", () => {
         event: "joined",
         guestId: "guest-dan",
         nickname: "Dan",
-        sentAt: new Date().toISOString(),
+        sentAt: new Date(Date.UTC(2026, 9, 3, 12, 0, 3)).toISOString(),
       }),
     );
     emit(server, said(BOB, "after", 5));
@@ -189,12 +191,14 @@ describe("choosing the person to write to", () => {
   it("is done from their name and from their avatar, but not from what they said", async () => {
     const { user, server } = await enter();
     emit(server, said(BOB, "one", 1));
-    const row = within(rows()[0]);
+    const element = rows()[0];
+    const row = within(element);
     const writingTo = () =>
       screen.queryByRole("textbox", { name: "Message to Bob" });
 
     await user.click(row.getByText("one"));
     expect(writingTo()).toBeNull();
+    expect(element).toBeInTheDocument();
 
     await user.click(row.getByText("Bob"));
     await waitFor(() => expect(writingTo()).toBeInTheDocument());

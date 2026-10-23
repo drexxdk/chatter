@@ -40,6 +40,7 @@ export default defineConfig({
         AUTH_TOKEN_SECRET: E2E.authTokenSecret,
         SYNC_INTERVAL_MS: String(E2E.syncIntervalMs),
         DEFAULT_SLOW_MODE_SECONDS: String(E2E.defaultSlowModeSeconds),
+        ROOM_HISTORY_SIZE: "200",
         // Lets a test give a guest its own address through X-Forwarded-For, so a ban can hit one guest of several.
         TRUST_PROXY_HOPS: "1",
         // Every test opens the lobby from the same address, which would pass the production limit.

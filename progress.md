@@ -37,6 +37,18 @@ Status legend: `[ ]` to do, `[~]` in progress.
 
 ## Later
 
+- [x] Trial TanStack Query for room-list HTTP data while retaining socket-driven updates. Kept the current implementation:
+      the prototype added 9.93 kB gzipped without reducing measured request counts or removing update coordination.
+      See [Frontend technology evaluation](frontend-evaluation.md).
+- [x] Trial TanStack Virtual independently of Query. The bounded-log prototype showed substantial rendering potential,
+      but failed keyboard reachability; removed the runtime prototype and retained the regression/profiling workload.
+- [x] Adopt TanStack Virtual for all active logs, with full-order keyboard navigation, off-screen search reveal,
+      focused-row retention, bottom-follow/scroll anchoring, measured row resizing, selection/copy fallback, and separate
+      live announcements. The integrated development workload retains about 85% lower median mount time on desktop and
+      mobile. A subsequent threshold comparison favors one ordinary render path despite small-log overhead; the
+      arbitrary 80-group cutoff is removed. See the evaluation for measurements, verification, and scope/cost.
+- [ ] Verify the virtualized log with NVDA/VoiceOver and profile real production grouping, input responsiveness, and heap
+      behavior on a slower mobile device; a large same-author group is not virtualized internally.
 - [ ] Accounts and saved history (Postgres), password reset email (Resend or Postmark free tier).
 - [ ] Image uploads to R2 with resize on upload, hash-scan and classifier first, trusted or paying accounts only.
 - [ ] Move the per-process limits (connection cap, room capacity lock, rate limits) into Redis; then a second

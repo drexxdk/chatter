@@ -15,6 +15,7 @@ import {
 } from "./chatServer";
 import { E2E } from "./constants";
 import { PayloadApi } from "./payload";
+import { Redis } from "ioredis";
 
 const LOUNGE = {
   name: "E2E Lounge",
@@ -388,6 +389,7 @@ test("joining as a guest opens long room history at the bottom", async ({
         guest.getByRole("heading", { name: LOUNGE.name, level: 2 }),
       ).toBeVisible();
       await expect(guest.getByRole("dialog")).toHaveCount(0);
+      await expect(guest.getByRole("log")).toBeVisible({ timeout: 15_000 });
       await expect(
         guest.getByRole("log").getByText("History line 28", { exact: false }),
       ).toBeVisible();
@@ -418,6 +420,478 @@ test("joining as a guest opens long room history at the bottom", async ({
   } finally {
     seeder.close();
   }
+});
+
+test("virtual room history follows new messages only while reading the bottom", async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  const room = await isolatedRoom("Virtual history");
+  const redis = new Redis(E2E.redisUrl);
+  const sender = await connectRawGuest("Virtual Sender", "198.51.100.43");
+  const secondSender = await connectRawGuest(
+    "Virtual Second Sender",
+    "198.51.100.44",
+  );
+  try {
+    const history = Array.from({ length: 200 }, (_, index) =>
+      JSON.stringify({
+        id: `virtual-history-${index}`,
+        roomSlug: room.slug,
+        guestId: `virtual-author-${index % 2}`,
+        nickname: `History Person ${index % 2}`,
+        text: `Virtual history message ${index}`,
+        avatar: "other",
+        ipHash: "fixture",
+        sentAt: new Date(Date.now() - (200 - index) * 1000).toISOString(),
+      }),
+    );
+    await redis.rpush(`chatter:history:${room.slug}`, ...history);
+    expect((await sender.join(room.slug)).ok).toBe(true);
+    expect((await secondSender.join(room.slug)).ok).toBe(true);
+    for (const width of [1280, 390]) {
+      const guest = await newGuest(browser);
+      await guest.setViewportSize({ width, height: 720 });
+      await enterRoom(guest, room.name, `Virtual Reader ${width}`);
+      const log = guest.getByRole("log");
+      await expect(log).toBeVisible({ timeout: 15_000 });
+      await expect(
+        log.getByText("Virtual history message 199", { exact: true }),
+      ).toBeInViewport();
+      const distance = () =>
+        guest.evaluate(
+          () =>
+            document.documentElement.scrollHeight -
+            window.scrollY -
+            window.innerHeight,
+        );
+      await expect.poll(distance).toBeLessThan(3);
+      expect((await sender.send(`Live bottom ${width}`)).ok).toBe(true);
+      await expect(
+        log.getByText(`Live bottom ${width}`, { exact: true }),
+      ).toBeInViewport();
+      await expect.poll(distance).toBeLessThan(3);
+      const search = guest.getByRole("combobox", { name: "Search messages" });
+      await search.fill("Virtual history message 150");
+      await expect(guest.getByRole("option")).toHaveCount(1);
+      await search.press("Enter");
+      const anchor = guest.locator('[data-nav-id="virtual-history-150"]');
+      await expect(anchor).toBeFocused();
+      await expect(anchor).toBeInViewport();
+      const top = await anchor.evaluate(
+        (element) => element.getBoundingClientRect().top,
+      );
+      expect((await secondSender.send(`Do not follow ${width}`)).ok).toBe(true);
+      await expect(
+        log.locator("..").getByText(`Do not follow ${width}`, { exact: false }),
+      ).toHaveCount(1);
+      await expect
+        .poll(async () =>
+          Math.abs(
+            (await anchor.evaluate(
+              (element) => element.getBoundingClientRect().top,
+            )) - top,
+          ),
+        )
+        .toBeLessThan(3);
+      await expect(anchor).toBeFocused();
+      await guest.context().close();
+    }
+  } finally {
+    sender.close();
+    secondSender.close();
+    redis.disconnect();
+  }
+});
+
+test("empty and short virtual logs stay bottom aligned", async ({
+  browser,
+}) => {
+  for (const width of [1280, 390]) {
+    const guest = await newGuest(browser);
+    await guest.setViewportSize({ width, height: 720 });
+    await guest.goto("/");
+    await expect(
+      guest.getByRole("heading", { name: "Chatter", exact: true }),
+    ).toBeVisible();
+    const results = await guest.evaluate(async () => {
+      const paths = [
+        "/node_modules/.vite/deps/react.js",
+        "/node_modules/.vite/deps/react-dom_client.js",
+        "/node_modules/.vite/deps/react-dom.js",
+        "/src/components/MessageLog.tsx",
+        "/src/components/MessageRow.tsx",
+        "/src/chat/avatar.ts",
+      ];
+      const [
+        { default: React },
+        {
+          default: { createRoot },
+        },
+        {
+          default: { flushSync },
+        },
+        { MessageLog },
+        { MessageGroup },
+        { PLAIN_AVATAR },
+      ] = await Promise.all(paths.map((path) => import(path)));
+      document.getElementById("root")!.style.display = "none";
+      const container = document.createElement("main");
+      container.style.cssText =
+        "max-width:900px;margin:0 auto;padding:16px;min-height:600px;display:flex;flex-direction:column";
+      document.body.append(container);
+      const root = createRoot(container);
+      const measured = [];
+      for (const count of [0, 1, 5]) {
+        flushSync(() =>
+          root.render(
+            React.createElement(
+              MessageLog,
+              { label: "Short log" },
+              count
+                ? Array.from({ length: count }, (_, index) =>
+                    React.createElement(MessageGroup, {
+                      key: `short-${index}`,
+                      mine: false,
+                      nickname: `Person ${index}`,
+                      role: "guest",
+                      avatar: PLAIN_AVATAR,
+                      messages: [
+                        {
+                          id: `short-${index}`,
+                          text: `Short message ${index}`,
+                          sentAt: "2026-10-23T12:00:00Z",
+                        },
+                      ],
+                      nav: { stopId: `short-${count - 1}` },
+                    }),
+                  )
+                : React.createElement(
+                    "li",
+                    { key: "empty" },
+                    "No messages yet.",
+                  ),
+            ),
+          ),
+        );
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        );
+        const log = container.querySelector('[role="log"]')!;
+        const last = log.lastElementChild!;
+        measured.push({
+          count,
+          rows: log.children.length,
+          bottomGap:
+            log.getBoundingClientRect().bottom -
+            last.getBoundingClientRect().bottom,
+          fillsParent:
+            container.getBoundingClientRect().bottom -
+            log.getBoundingClientRect().bottom,
+          position: getComputedStyle(last).position,
+          overflow: document.documentElement.scrollWidth > window.innerWidth,
+        });
+      }
+      return measured;
+    });
+    for (const result of results) {
+      expect(result.rows).toBe(Math.max(1, result.count));
+      expect(Math.abs(result.bottomGap - 12)).toBeLessThan(1);
+      expect(Math.abs(result.fillsParent - 16)).toBeLessThan(1);
+      expect(result.position).toBe("absolute");
+      expect(result.overflow).toBe(false);
+    }
+    await guest.context().close();
+  }
+});
+
+test("bounded message log keeps every keyboard destination reachable", async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(120_000);
+  const profiling = process.env.MESSAGE_LOG_PROFILE === "true";
+  const cpuThrottle = profiling ? 4 : 1;
+  const samples = [];
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 390, height: 700 },
+  ]) {
+    const guest = await newGuest(browser);
+    await guest.setViewportSize(viewport);
+    await guest.goto("/");
+    await expect(
+      guest.getByRole("heading", { name: "Chatter", exact: true }),
+    ).toBeVisible();
+    const cdp = await guest.context().newCDPSession(guest);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: cpuThrottle });
+    const metrics = await guest.evaluate(
+      async (sampleCount) => {
+        const reactPath = "/node_modules/.vite/deps/react.js";
+        const clientPath = "/node_modules/.vite/deps/react-dom_client.js";
+        const domPath = "/node_modules/.vite/deps/react-dom.js";
+        const logPath = "/src/components/MessageLog.tsx";
+        const rowPath = "/src/components/MessageRow.tsx";
+        const avatarPath = "/src/chat/avatar.ts";
+        const navigationPath = "/src/rowNavigation.ts";
+        const [
+          { default: React },
+          {
+            default: { createRoot },
+          },
+          {
+            default: { flushSync },
+          },
+          { MessageLog },
+          { MessageGroup },
+          { PLAIN_AVATAR },
+          { useRowNavigation },
+        ] = await Promise.all([
+          import(reactPath),
+          import(clientPath),
+          import(domPath),
+          import(logPath),
+          import(rowPath),
+          import(avatarPath),
+          import(navigationPath),
+        ]);
+        document.getElementById("root")!.style.display = "none";
+        document.documentElement.style.scrollBehavior = "auto";
+        const ids = Array.from({ length: 200 }, (_, index) => `trial-${index}`);
+        const entries = ids.map((id, index) => ({
+          id,
+          text:
+            index % 10 === 0
+              ? Array.from(
+                  { length: 8 },
+                  () => "A longer message with several lines to measure.",
+                ).join("\n")
+              : `Message ${index + 1}: a representative chat message.`,
+          sentAt: "2026-10-23T12:00:00Z",
+        }));
+        let nextMessage = 200;
+        function Harness() {
+          const rows = useRowNavigation(ids);
+          return React.createElement(
+            MessageLog,
+            {
+              label: "Trial log",
+              onFocus: rows.onFocus,
+              onBlur: rows.onBlur,
+              onKeyDownCapture: rows.onKeyDownCapture,
+            },
+            entries.map((message, index) =>
+              React.createElement(MessageGroup, {
+                key: message.id,
+                mine: false,
+                nickname: `Person ${index + 1}`,
+                role: "guest",
+                avatar: PLAIN_AVATAR,
+                messages: [message],
+                nav: { stopId: rows.stopId },
+              }),
+            ),
+          );
+        }
+        const results = [];
+        for (let sample = 0; sample < sampleCount; sample += 1) {
+          window.scrollTo(0, 0);
+          const container = document.createElement("main");
+          container.style.cssText =
+            "max-width:900px;margin:0 auto;padding:16px";
+          document.body.append(container);
+          const root = createRoot(container);
+          const started = performance.now();
+          flushSync(() => root.render(React.createElement(Harness)));
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          );
+          const log = container.querySelector('[role="log"]')!;
+          results.push({
+            mountToTwoFramesMs: Math.round(performance.now() - started),
+            nodes: log.querySelectorAll("*").length,
+            messages: log.querySelectorAll("[data-nav-id]").length,
+          });
+          if (sample < sampleCount - 1) {
+            flushSync(() => root.unmount());
+            container.remove();
+          } else {
+            Object.assign(window, {
+              updateVirtualLog: (trim: boolean) => {
+                if (trim) {
+                  entries.splice(0, 10);
+                  ids.splice(0, 10);
+                }
+                for (let index = 0; index < 10; index += 1) {
+                  const id = `append-${nextMessage++}`;
+                  ids.push(id);
+                  entries.push({
+                    id,
+                    text: `New message ${id}`,
+                    sentAt: "2026-10-23T12:01:00Z",
+                  });
+                }
+                flushSync(() => root.render(React.createElement(Harness)));
+              },
+              showVirtualSearch: async () => {
+                const searchPath = "/src/components/RoomSearch.tsx";
+                const { RoomSearch } = await import(searchPath);
+                const header = document.createElement("header");
+                header.style.cssText =
+                  "position:fixed;top:0;left:0;right:0;height:56px;z-index:50;background:#171717";
+                document.body.append(header);
+                flushSync(() =>
+                  createRoot(header).render(
+                    React.createElement(RoomSearch, {
+                      roomSlug: "trial",
+                      roomName: "Trial log",
+                      threads: [],
+                      ownGuestIds: [],
+                      messages: entries.map((message, index) => ({
+                        ...message,
+                        roomSlug: "trial",
+                        guestId: `person-${index}`,
+                        nickname: `Person ${index + 1}`,
+                      })),
+                    }),
+                  ),
+                );
+              },
+            });
+          }
+        }
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        return results;
+      },
+      profiling ? 3 : 1,
+    );
+    samples.push({ viewport, cpuThrottle, metrics });
+    if (profiling) {
+      await testInfo.attach(`bounded-log-${viewport.width}.png`, {
+        body: await guest.screenshot(),
+        contentType: "image/png",
+      });
+      console.info("MESSAGE_LOG_TRIAL", JSON.stringify(samples.at(-1)));
+    }
+    const newest = guest.locator('[data-nav-id="trial-199"]');
+    await newest.focus();
+    await newest.press("Home");
+    await expect.soft(guest.locator('[data-nav-id="trial-0"]')).toBeFocused();
+    await guest.keyboard.press("End");
+    await expect.soft(guest.locator('[data-nav-id="trial-199"]')).toBeFocused();
+    await expect
+      .poll(() => guest.locator('[role="log"] [data-nav-id]').count())
+      .toBeLessThan(60);
+    await guest.evaluate(async () => {
+      await (
+        window as unknown as { showVirtualSearch: () => Promise<void> }
+      ).showVirtualSearch();
+    });
+    const search = guest.getByRole("combobox", { name: "Search messages" });
+    await search.fill("Message 82:");
+    await expect(guest.getByRole("option")).toHaveCount(1);
+    await search.press("Enter");
+    const result = guest.locator('[data-nav-id="trial-81"]');
+    await expect(result).toBeFocused();
+    await expect(result).toHaveAttribute("data-search-match");
+    await expect(result).toBeInViewport();
+    const beforeAppend = await result.evaluate(
+      (element) => element.getBoundingClientRect().top,
+    );
+    await guest.evaluate(() =>
+      (
+        window as unknown as { updateVirtualLog: (trim: boolean) => void }
+      ).updateVirtualLog(false),
+    );
+    await expect(guest.locator('[aria-live="polite"].sr-only')).toContainText(
+      "New message append-200",
+    );
+    await expect(
+      guest.locator('[aria-live="polite"].sr-only'),
+    ).not.toContainText("Message 82:");
+    await expect(result).toBeFocused();
+    await expect
+      .poll(async () =>
+        Math.abs(
+          (await result.evaluate(
+            (element) => element.getBoundingClientRect().top,
+          )) - beforeAppend,
+        ),
+      )
+      .toBeLessThan(3);
+    await guest.evaluate(() =>
+      (
+        window as unknown as { updateVirtualLog: (trim: boolean) => void }
+      ).updateVirtualLog(true),
+    );
+    await expect(result).toBeFocused();
+    await expect
+      .poll(async () =>
+        Math.abs(
+          (await result.evaluate(
+            (element) => element.getBoundingClientRect().top,
+          )) - beforeAppend,
+        ),
+      )
+      .toBeLessThan(3);
+    await result.evaluate((element) => {
+      const row = element.closest("li")!;
+      const previous = row.previousElementSibling as HTMLElement;
+      previous.style.minHeight = `${previous.getBoundingClientRect().height + 150}px`;
+    });
+    await expect
+      .poll(async () =>
+        Math.abs(
+          (await result.evaluate(
+            (element) => element.getBoundingClientRect().top,
+          )) - beforeAppend,
+        ),
+      )
+      .toBeLessThan(3);
+    await guest.evaluate(() => window.scrollTo(0, 0));
+    await expect(result).toBeFocused();
+    await expect
+      .poll(() => guest.locator('[role="log"] [data-nav-id]').count())
+      .toBeLessThan(60);
+    await result.evaluate((element) =>
+      element.scrollIntoView({ block: "center" }),
+    );
+    const text = result.locator("p").first();
+    const bounds = await text.boundingBox();
+    expect(bounds).not.toBeNull();
+    await guest.mouse.move(bounds!.x + 10, bounds!.y + 10);
+    await guest.mouse.down();
+    await guest.mouse.move(
+      bounds!.x + Math.min(bounds!.width - 5, 150),
+      bounds!.y + 10,
+      { steps: 8 },
+    );
+    await guest.mouse.up();
+    await expect
+      .poll(() =>
+        guest.evaluate(() => document.getSelection()?.toString().length ?? 0),
+      )
+      .toBeGreaterThan(0);
+    await guest.evaluate(() => document.getSelection()?.removeAllRanges());
+    await expect
+      .poll(() => guest.locator('[role="log"] [data-nav-id]').count())
+      .toBeLessThan(60);
+    await result.focus();
+    await result.press("Control+a");
+    await expect
+      .poll(() =>
+        guest.evaluate(() => document.getSelection()?.toString() ?? ""),
+      )
+      .toContain("New message append-219");
+    await guest.evaluate(() => document.getSelection()?.removeAllRanges());
+    await expect
+      .poll(() => guest.locator('[role="log"] [data-nav-id]').count())
+      .toBeLessThan(60);
+    await guest.context().close();
+  }
+  await testInfo.attach("bounded-log-metrics.json", {
+    body: JSON.stringify(samples, null, 2),
+    contentType: "application/json",
+  });
 });
 
 test("private-message sounds are opt-in with adjustable volume", async ({

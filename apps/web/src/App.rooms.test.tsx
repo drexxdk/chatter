@@ -390,6 +390,90 @@ describe("lobby", () => {
       vi.useRealTimers();
     });
 
+    it("makes one initial request and does not refetch just because the window gains focus", async () => {
+      const fetchMock = stubRooms();
+      setup();
+      await screen.findByRole("heading", { name: "General" });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        window.dispatchEvent(new Event("focus"));
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("coalesces changes during an in-flight request and fetches the latest snapshot afterward", async () => {
+      const fetchMock = stubRooms();
+      const { server } = setup();
+      await screen.findByRole("heading", { name: "General" });
+      let finish: (response: unknown) => void = () => {};
+      fetchMock.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      );
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => [{ ...ROOMS[0], memberCount: 11 }],
+      });
+      act(() => {
+        server.lobby.serverEmit("rooms:changed", { kind: "presence" });
+        server.lobby.serverEmit("rooms:changed", { kind: "presence" });
+        server.lobby.serverEmit("rooms:changed", { kind: "metadata" });
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByText("3 people here now")).toBeVisible();
+      await act(async () =>
+        finish({
+          ok: true,
+          json: async () => [{ ...ROOMS[0], memberCount: 8 }],
+        }),
+      );
+      expect(await screen.findByText("11 people here now")).toBeVisible();
+      expect(screen.queryByText("8 people here now")).not.toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    it("still fetches a queued change when the in-flight request fails", async () => {
+      const fetchMock = stubRooms();
+      const { server } = setup();
+      await screen.findByRole("heading", { name: "General" });
+      let fail: (error: Error) => void = () => {};
+      fetchMock.mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            fail = reject;
+          }),
+      );
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => [{ ...ROOMS[0], memberCount: 12 }],
+      });
+      act(() => {
+        server.lobby.serverEmit("rooms:changed", { kind: "presence" });
+        server.lobby.serverEmit("rooms:changed", { kind: "metadata" });
+      });
+      await act(async () => fail(new Error("Temporary failure")));
+      expect(await screen.findByText("12 people here now")).toBeVisible();
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    it("aborts an unfinished room request when its owner unmounts", async () => {
+      stubRooms(() => new Promise(() => {}));
+      const originalFetch = globalThis.fetch;
+      let signal: AbortSignal | null | undefined;
+      vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith("/rooms")) signal = init?.signal;
+        return originalFetch(input, init);
+      });
+      const { unmount } = setup();
+      await waitFor(() => expect(signal).toBeDefined());
+      expect(signal!.aborted).toBe(false);
+      unmount();
+      expect(signal!.aborted).toBe(true);
+    });
+
     it("refreshes the numbers when the server reports a change, without polling", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const fetchMock = stubRooms();

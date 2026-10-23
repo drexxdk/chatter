@@ -27,6 +27,7 @@ import { Timestamp } from "./Timestamp";
 import { messagePresentation } from "./messagePresentation";
 import { useTabText } from "../tabDraft";
 import { useReloadUiContext } from "../reloadUi";
+import { revealMessage } from "../messageNavigation";
 
 type SearchMessage = Pick<
   ChatMessage,
@@ -219,20 +220,18 @@ export function RoomSearch({
     setOpen(false);
     if (frame.current !== null) cancelAnimationFrame(frame.current);
     frame.current = requestAnimationFrame(() => {
-      const target = Array.from(
-        document.querySelectorAll<HTMLElement>('[role="log"] [data-nav-id]'),
-      ).find((element) => element.dataset.navId === message.id);
-      if (!target) return;
-      found.current?.removeAttribute("data-search-match");
-      if (timer.current !== null) clearTimeout(timer.current);
-      found.current = target;
-      target.setAttribute("data-search-match", "");
-      target.focus({ preventScroll: true });
-      target.scrollIntoView({ block: "center", behavior: "instant" });
-      timer.current = setTimeout(
-        () => target.removeAttribute("data-search-match"),
-        2500,
-      );
+      revealMessage(document, message.id, (target) => {
+        found.current?.removeAttribute("data-search-match");
+        if (timer.current !== null) clearTimeout(timer.current);
+        found.current = target;
+        target.setAttribute("data-search-match", "");
+        target.focus({ preventScroll: true });
+        target.scrollIntoView({ block: "center", behavior: "instant" });
+        timer.current = setTimeout(
+          () => target.removeAttribute("data-search-match"),
+          2500,
+        );
+      });
     });
   }
 

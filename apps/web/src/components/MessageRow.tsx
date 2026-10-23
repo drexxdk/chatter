@@ -1,6 +1,6 @@
 import { LogOut } from "lucide-react";
 import clsx from "clsx";
-import { memo, useContext, useEffect, useRef } from "react";
+import { memo, useContext, useEffect, useRef, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Avatar } from "../chat/avatar";
@@ -50,6 +50,10 @@ function MessageGroupView({
   reactions,
   menu,
   onReport,
+  virtualIndex,
+  virtualCount,
+  virtualMeasure,
+  virtualStyle,
 }: {
   mine: boolean;
   // Who the click chooses; in a private message that is the other person, not the author.
@@ -77,6 +81,10 @@ function MessageGroupView({
   menu?: PersonMenuOptions;
   // Reports one of the messages, from the same menu. Absent where they cannot be reported.
   onReport?: (messageId: string) => void;
+  virtualIndex?: number;
+  virtualCount?: number;
+  virtualMeasure?: (element: HTMLLIElement | null) => void;
+  virtualStyle?: CSSProperties;
 }) {
   const { t } = useTranslation();
   const effects = useContext(MessageEffectsContext);
@@ -188,7 +196,14 @@ function MessageGroupView({
   };
   return (
     <li
-      ref={groupRef}
+      ref={(element) => {
+        groupRef.current = element;
+        virtualMeasure?.(element);
+      }}
+      data-index={virtualIndex}
+      aria-posinset={virtualIndex === undefined ? undefined : virtualIndex + 1}
+      aria-setsize={virtualCount}
+      style={virtualStyle}
       data-side={appearance.side}
       data-message-variant={appearance.variant}
       {...(direct ? { "data-kind": "direct" } : {})}
@@ -322,9 +337,28 @@ function sameLook(a: unknown, b: unknown): boolean {
 export const MessageGroup = memo(MessageGroupView, sameLook);
 
 // Something that happened rather than something said, so it looks different from a message.
-export function StatusRow({ text, sentAt }: { text: string; sentAt: string }) {
+export function StatusRow({
+  text,
+  sentAt,
+  virtualIndex,
+  virtualCount,
+  virtualMeasure,
+  virtualStyle,
+}: {
+  text: string;
+  sentAt: string;
+  virtualIndex?: number;
+  virtualCount?: number;
+  virtualMeasure?: (element: HTMLLIElement | null) => void;
+  virtualStyle?: CSSProperties;
+}) {
   return (
     <li
+      ref={virtualMeasure}
+      data-index={virtualIndex}
+      aria-posinset={virtualIndex === undefined ? undefined : virtualIndex + 1}
+      aria-setsize={virtualCount}
+      style={virtualStyle}
       data-kind="status"
       className="flex items-center justify-center gap-2 text-xs"
     >

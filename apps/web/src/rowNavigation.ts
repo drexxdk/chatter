@@ -1,5 +1,7 @@
 import { useState, type FocusEvent, type KeyboardEvent } from "react";
 
+import { revealMessage } from "./messageNavigation";
+
 const PAGE = 5;
 
 // What a row with nothing to do needs to be a stop like the others: focusable (only when it is the tab stop), found by
@@ -43,17 +45,14 @@ export function useRowNavigation(ids: string[]) {
           ?.querySelector<HTMLElement>("[data-nav-id]");
     if (!row) return;
 
-    const rows = Array.from(
-      event.currentTarget.querySelectorAll<HTMLElement>("[data-nav-id]"),
-    );
-    const at = rows.indexOf(row);
+    const at = ids.indexOf(row.dataset.navId ?? "");
     const moves: Record<string, number> = {
       ArrowUp: at - 1,
       ArrowDown: at + 1,
       PageUp: at - PAGE,
       PageDown: at + PAGE,
       Home: 0,
-      End: rows.length - 1,
+      End: ids.length - 1,
     };
 
     const to = moves[event.key];
@@ -62,7 +61,9 @@ export function useRowNavigation(ids: string[]) {
     // The menu button would otherwise open its menu on the arrow keys.
     event.preventDefault();
     event.stopPropagation();
-    rows[Math.min(Math.max(to, 0), rows.length - 1)]?.focus();
+    const id = ids[Math.min(Math.max(to, 0), ids.length - 1)];
+    if (id)
+      revealMessage(event.currentTarget, id, (element) => element.focus());
   };
 
   return { stopId, onFocus, onBlur, onKeyDownCapture };

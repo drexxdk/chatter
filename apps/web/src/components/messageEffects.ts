@@ -5,6 +5,9 @@ export function createMessageEffects() {
   let ready = false;
 
   return {
+    remember(ids: string[]) {
+      for (const id of ids) seen.add(id);
+    },
     ready() {
       ready = true;
     },

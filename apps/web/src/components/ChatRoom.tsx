@@ -42,6 +42,7 @@ import {
   type TimelineItem,
 } from "../chat/roomEvents";
 import { focusMessageBox } from "../focusMessageBox";
+import { MESSAGE_READING_EVENT } from "../messageNavigation";
 import { NAV_STOP_CLASS, navStop, useRowNavigation } from "../rowNavigation";
 import { useKept } from "../useKept";
 import { DirectChat } from "./DirectChat";
@@ -207,6 +208,15 @@ export function ChatRoom({
   const root = useRef<HTMLElement>(null);
   // Whether it is exactly at its end, which only then follows the page getting longer.
   const pinned = useRef(true);
+  useEffect(() => {
+    const element = root.current;
+    const reading = () => {
+      atBottom.current = false;
+      pinned.current = false;
+    };
+    element?.addEventListener(MESSAGE_READING_EVENT, reading);
+    return () => element?.removeEventListener(MESSAGE_READING_EVENT, reading);
+  }, []);
   useEffect(() => {
     const page = document.documentElement;
     let viewportHeight = page.clientHeight;
@@ -549,6 +559,7 @@ export function ChatRoom({
           <div hidden={direct.active !== null} className="flex flex-1 flex-col">
             <MessageLog
               label={roomName}
+              active={direct.active === null}
               onFocus={rows.onFocus}
               onBlur={rows.onBlur}
               onKeyDownCapture={rows.onKeyDownCapture}
@@ -563,6 +574,7 @@ export function ChatRoom({
                     <li
                       key={id}
                       data-kind="announcement"
+                      data-live-message={`${t("announcement.from", { name: announcement.name })}: ${announcement.text}`}
                       {...navStop(id, id === rows.stopId)}
                       className={`rounded-md border border-green-500/50 bg-green-500/10 px-4 py-3 ${NAV_STOP_CLASS}`}
                     >
