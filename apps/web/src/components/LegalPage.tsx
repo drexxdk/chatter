@@ -52,6 +52,10 @@ export function LegalPage({
   retry: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  if (state.status === "loading") {
+    return <Loading>{t("legal.loading")}</Loading>;
+  }
+
   const doc = legalDocOf(state, i18n.resolvedLanguage, page);
   const contactEmail =
     state.status === "ready" ? state.legal.contactEmail : CONTACT_EMAIL;
@@ -62,8 +66,6 @@ export function LegalPage({
 
       <article className="space-y-6 text-neutral-200">
         <h1 className="text-2xl font-bold">{title}</h1>
-
-        {state.status === "loading" && <Loading>{t("legal.loading")}</Loading>}
 
         {state.status === "error" && (
           <LoadError

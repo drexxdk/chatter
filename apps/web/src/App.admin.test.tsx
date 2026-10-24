@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { saveModerator, saveSession } from "./session";
 import { ROOMS, setup, stubRooms } from "./test/app";
-import { makeFakeServer } from "./test/fakeSocket";
+import { FakeSocket, makeFakeServer } from "./test/fakeSocket";
 
 beforeEach(() => {
   stubRooms();
@@ -103,6 +103,43 @@ describe("the admin's rooms", () => {
 });
 
 describe("a new tab", () => {
+  it("waits for the restored session before revealing the complete lobby", async () => {
+    const rooms = stubRooms();
+    saveSession({ nickname: "Ada Admin", token: "admin-token" });
+    const emit = FakeSocket.prototype.serverEmit;
+    let restoreSession: (() => void) | undefined;
+    const paused = vi
+      .spyOn(FakeSocket.prototype, "serverEmit")
+      .mockImplementation(function (this: FakeSocket, event, ...args) {
+        if (event === "session") {
+          restoreSession = () => emit.call(this, event, ...args);
+        } else emit.call(this, event, ...args);
+      });
+
+    try {
+      setup();
+      await waitFor(() => {
+        expect(rooms).toHaveBeenCalled();
+        expect(restoreSession).toBeDefined();
+      });
+      expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
+      expect(screen.queryByRole("region", { name: "Public rooms" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Join General" })).toBeNull();
+
+      await act(async () => restoreSession!());
+
+      expect(
+        await screen.findByRole("button", { name: "Join Test lab" }),
+      ).toBeVisible();
+      expect(
+        screen.getByRole("button", { name: "Join General" }),
+      ).toBeVisible();
+      expect(screen.queryByRole("status")).toBeNull();
+    } finally {
+      paused.mockRestore();
+    }
+  });
+
   it("is signed in as the admin who is signed in in the browser", async () => {
     stubLogin("admin-token", "Ada Admin");
     saveModerator({ nickname: "Ada Admin", token: "admin-token" });

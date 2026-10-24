@@ -139,6 +139,10 @@ interface LobbyProps {
 export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
   const { t, i18n } = useTranslation();
 
+  if (state.status === "loading") {
+    return <Loading>{t("lobby.loading")}</Loading>;
+  }
+
   return (
     <section aria-labelledby="lobby-heading" className="space-y-4">
       <div>
@@ -147,8 +151,6 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
         </h2>
         <p className="text-neutral-400">{t("lobby.intro")}</p>
       </div>
-
-      {state.status === "loading" && <Loading>{t("lobby.loading")}</Loading>}
 
       {state.status === "error" && (
         <LoadError

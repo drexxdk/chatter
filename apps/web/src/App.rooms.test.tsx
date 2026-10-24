@@ -306,9 +306,19 @@ describe("lobby", () => {
     setup();
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading rooms");
+    expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status").querySelector("svg")).toHaveClass(
+      "animate-spin",
+    );
+    expect(screen.getByText(/Loading rooms/)).toHaveClass("sr-only");
+    expect(screen.queryByRole("heading", { name: "Public rooms" })).toBeNull();
     expect(
       await screen.findByRole("heading", { name: "General" }),
     ).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(
+      screen.getByRole("region", { name: "Public rooms" }).parentElement,
+    ).toHaveClass("justify-center");
     expect(screen.getByRole("heading", { name: "Music" })).toBeInTheDocument();
     expect(screen.getByText("Open chat")).toBeInTheDocument();
     expect(screen.getByText("Up to 30 people")).toBeInTheDocument();

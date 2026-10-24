@@ -1177,15 +1177,17 @@ export function App({
               <AboutPage />
             ) : (
               <div className="flex flex-1 flex-col gap-6">
-                <div className="flex flex-1 flex-col gap-4 py-6">
+                <div className="flex flex-1 flex-col justify-center gap-4 py-6">
                   {!pendingRoom && !moderatorOpen && (
                     <ErrorAlert code={chat.error} onDismiss={chat.clearError} />
                   )}
                   <Lobby
                     state={
-                      roomsState.status === "ready" && adminRooms.length > 0
-                        ? { status: "ready", rooms: knownRooms }
-                        : roomsState
+                      !settled
+                        ? { status: "loading" }
+                        : roomsState.status === "ready" && adminRooms.length > 0
+                          ? { status: "ready", rooms: knownRooms }
+                          : roomsState
                     }
                     onRetry={retry}
                     onSelect={(room) => void handleSelect(room)}

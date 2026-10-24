@@ -201,11 +201,21 @@ describe("a page of the documents", () => {
     ).toHaveAttribute("href", "/terms");
   });
 
-  it("says that it is loading", () => {
-    renderAt("/terms");
+  it.each(["/terms", "/privacy"])(
+    "shows only a centered spinner while %s is loading",
+    (path) => {
+      renderAt(path);
 
-    expect(screen.getByRole("status")).toHaveTextContent("Loading");
-  });
+      const loading = screen.getByRole("status");
+      expect(loading).toHaveTextContent("Loading");
+      expect(loading).toHaveAttribute("aria-busy", "true");
+      expect(loading).toHaveClass("flex-1", "place-items-center");
+      expect(loading.querySelector("svg")).toHaveClass("animate-spin");
+      expect(within(loading).getByText(/Loading/)).toHaveClass("sr-only");
+      expect(screen.queryByRole("article")).toBeNull();
+      expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+    },
+  );
 
   it("is shown in the language the guest picks in settings", async () => {
     const user = userEvent.setup();
