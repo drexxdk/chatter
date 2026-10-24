@@ -32,12 +32,22 @@ export interface MenuProfile {
 // The profile opens the account menu; without a profile, the header opens Settings directly.
 export function MainMenu({
   profile,
+  pending = false,
   onSettings,
 }: {
   profile?: MenuProfile;
+  pending?: boolean;
   onSettings: () => void;
 }) {
   const { t } = useTranslation();
+
+  if (!profile && pending)
+    return (
+      <span
+        aria-hidden="true"
+        className="size-10 animate-pulse rounded-full bg-neutral-800 motion-reduce:animate-none"
+      />
+    );
 
   if (!profile)
     return (

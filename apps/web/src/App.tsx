@@ -1084,40 +1084,39 @@ export function App({
                 {!chat.queue && adminTools}
                 <MainMenu
                   onSettings={() => setSettingsOpen(true)}
+                  pending={!settled}
                   profile={
-                    !settled
-                      ? undefined
-                      : chat.session
+                    chat.session
+                      ? {
+                          nickname: chat.session.nickname,
+                          detail:
+                            chat.session.role === "member"
+                              ? account?.username
+                              : chat.session.role === "guest"
+                                ? t("account.guest")
+                                : undefined,
+                          avatar: chat.session.avatar,
+                          picture: chat.session.picture,
+                          moderator: chat.session.role === "moderator",
+                          guest: chat.session.role === "guest",
+                          onCreateAccount: openAccountCreation,
+                          onSignIn: () => {
+                            clearDialogErrors();
+                            setModeratorOpen(true);
+                          },
+                          onProfile: () => setProfileOpen(true),
+                          onSignOut: signOut,
+                        }
+                      : account
                         ? {
-                            nickname: chat.session.nickname,
-                            detail:
-                              chat.session.role === "member"
-                                ? account?.username
-                                : chat.session.role === "guest"
-                                  ? t("account.guest")
-                                  : undefined,
-                            avatar: chat.session.avatar,
-                            picture: chat.session.picture,
-                            moderator: chat.session.role === "moderator",
-                            guest: chat.session.role === "guest",
-                            onCreateAccount: openAccountCreation,
-                            onSignIn: () => {
-                              clearDialogErrors();
-                              setModeratorOpen(true);
-                            },
-                            onProfile: () => setProfileOpen(true),
+                            nickname: account.nickname,
+                            detail: account.username,
+                            avatar: account.avatar,
+                            picture: account.picture,
+                            onProfile: () => setAccountOpen(true),
                             onSignOut: signOut,
                           }
-                        : account
-                          ? {
-                              nickname: account.nickname,
-                              detail: account.username,
-                              avatar: account.avatar,
-                              picture: account.picture,
-                              onProfile: () => setAccountOpen(true),
-                              onSignOut: signOut,
-                            }
-                          : undefined
+                        : undefined
                   }
                 />
               </div>
@@ -1182,7 +1181,7 @@ export function App({
               <WebsitePage page={page} />
             ) : (
               <div className="flex flex-1 flex-col gap-6">
-                <div className="flex flex-1 flex-col justify-center gap-4 py-6">
+                <div className="flex flex-1 flex-col gap-4 py-6">
                   {!pendingRoom && !moderatorOpen && (
                     <ErrorAlert code={chat.error} onDismiss={chat.clearError} />
                   )}

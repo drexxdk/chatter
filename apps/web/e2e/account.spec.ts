@@ -113,6 +113,104 @@ const inRoom = (page: Page) =>
     page.getByRole("heading", { name: ROOM.name, level: 2 }),
   ).toBeVisible();
 
+test("lobby loading keeps the room heading and saved account menu stable", async ({
+  browser,
+}) => {
+  const page = await newPage(browser);
+  const chatName = displayName("Load");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.getByRole("button", { name: `Join ${ROOM.name}` }).click();
+  await signInWithProvider(page, "load");
+  await page.getByLabel("Username").fill(username("Load"));
+  await page.getByLabel("Display name").fill(chatName);
+  await page.getByRole("checkbox", { name: /18 or older/ }).check();
+  await page.getByRole("button", { name: "Create account" }).click();
+  await inRoom(page);
+
+  await page.addInitScript(() => {
+    Reflect.set(window, "settingsFlashed", false);
+    new MutationObserver(() => {
+      if (document.querySelector('header button[aria-label="Settings"]'))
+        Reflect.set(window, "settingsFlashed", true);
+    }).observe(document, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["aria-label"],
+    });
+  });
+
+  for (const width of [1280, 375, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    let release!: () => void;
+    const responsesReady = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Set<string>();
+    await page.route(/\/(?:rooms|me)$/, async (route) => {
+      waiting.add(new URL(route.request().url()).pathname);
+      await responsesReady;
+      await route.continue();
+    });
+    try {
+      await page.goto("/", { waitUntil: "domcontentloaded" });
+      const lobby = page.getByRole("region", { name: "Public rooms" });
+      const heading = lobby.getByRole("heading", { name: "Public rooms" });
+      const intro = lobby.locator("p").first();
+      const menu = page.getByRole("button", {
+        name: `Account menu: ${chatName}`,
+      });
+      await expect(lobby.getByRole("status")).toContainText("Loading rooms");
+      await expect(menu).toBeVisible();
+      await expect
+        .poll(() => waiting.has("/rooms") && waiting.has("/me"))
+        .toBe(true);
+      const before = {
+        heading: (await heading.boundingBox())!,
+        intro: (await intro.boundingBox())!,
+        menu: (await menu.boundingBox())!,
+      };
+      expect(
+        await page.evaluate(() => Reflect.get(window, "settingsFlashed")),
+      ).toBe(false);
+      await page.screenshot({
+        path: test.info().outputPath(`lobby-loading-${width}.png`),
+      });
+
+      release();
+      await expect(
+        lobby.getByRole("button", { name: `Join ${ROOM.name}` }),
+      ).toBeVisible();
+      for (const [element, position] of [
+        [heading, before.heading],
+        [intro, before.intro],
+        [menu, before.menu],
+      ] as const) {
+        await expect
+          .poll(async () =>
+            Math.abs((await element.boundingBox())!.y - position.y),
+          )
+          .toBeLessThanOrEqual(1);
+      }
+      expect(
+        await page.evaluate(() => Reflect.get(window, "settingsFlashed")),
+      ).toBe(false);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: test.info().outputPath(`lobby-loaded-${width}.png`),
+      });
+    } finally {
+      release();
+      await page.unrouteAll({ behavior: "wait" });
+    }
+  }
+});
+
 test("accounts share display names with distinct public identities and private recipients", async ({
   browser,
 }) => {

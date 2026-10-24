@@ -102,6 +102,38 @@ afterEach(() => {
 });
 
 describe("signing in from the lobby", () => {
+  it("shows the saved member menu before session restoration finishes", () => {
+    stubBackend();
+    saveAccount(ACCOUNT);
+    saveSession({
+      nickname: ACCOUNT.nickname,
+      avatar: ACCOUNT.avatar,
+      picture: ACCOUNT.picture,
+    });
+    setup();
+
+    expect(
+      screen.getByRole("button", { name: "Account menu: Alice" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+  });
+
+  it.each([
+    { nickname: "Returning guest", avatar: "female" as const },
+    { nickname: "Returning staff", token: "moderator-token" },
+  ])(
+    "does not expose guest header controls while restoring $nickname",
+    (saved) => {
+      stubBackend();
+      saveSession(saved);
+      setup();
+
+      const header = within(screen.getByRole("banner"));
+      expect(header.queryByRole("button", { name: "Settings" })).toBeNull();
+      expect(header.queryByRole("button", { name: "Sign in" })).toBeNull();
+    },
+  );
+
   it.each([true, false])(
     "offers local account sign-in from joining with providers enabled: %s",
     async (enabled) => {
