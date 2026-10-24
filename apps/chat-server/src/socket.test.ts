@@ -231,6 +231,7 @@ async function startServer(options?: {
   inactivityTimeoutMs?: number;
   idleWarningBeforeMs?: number;
   leaveGraceMs?: number;
+  disconnectGraceMs?: number;
   maxConnectionsPerIp?: number;
   trustedProxyHops?: number;
   authTokenSecret?: string;
@@ -2702,6 +2703,127 @@ describe("who comes into a room and who goes out of it", () => {
     await io.close();
   });
 
+  it("gives transport drops a separate recovery grace before announcing a departure", async () => {
+    const { io, port } = await startServer({
+      leaveGraceMs: 30,
+      disconnectGraceMs: 300,
+    });
+    const watcher = await connectGuest("Watcher", port);
+    await emit(watcher, "room:join", { slug: "general" });
+    const leaver = await connectGuest("Leaver", port);
+    await emit(leaver, "room:join", { slug: "general" });
+    const seen = heard(watcher);
+    takeAway.mockResolvedValue(true);
+
+    leaver.io.engine.close();
+
+    await vi.waitFor(() =>
+      expect(markAway).toHaveBeenCalledWith(
+        "general",
+        expect.any(String),
+        600,
+        expect.any(String),
+      ),
+    );
+    expect(seen.filter((event) => event.nickname === "Leaver")).toHaveLength(0);
+    await vi.waitFor(() =>
+      expect(seen.filter((event) => event.nickname === "Leaver")).toEqual([
+        expect.objectContaining({ event: "left" }),
+      ]),
+    );
+    await io.close();
+  });
+
+  it("keeps explicit departures on their existing shorter grace", async () => {
+    const { io, port } = await startServer({
+      leaveGraceMs: 30,
+      disconnectGraceMs: 300,
+    });
+    const leaver = await connectGuest("Leaver", port);
+    await emit(leaver, "room:join", { slug: "general" });
+    await emit(leaver, "room:leave");
+    expect(markAway).toHaveBeenCalledWith(
+      "general",
+      expect.any(String),
+      60,
+      expect.any(String),
+    );
+    await io.close();
+  });
+
+  it("keeps server-directed disconnects on the shorter grace", async () => {
+    const { io, port } = await startServer({
+      leaveGraceMs: 30,
+      disconnectGraceMs: 300,
+    });
+    const leaver = await connectGuest("Leaver", port);
+    await emit(leaver, "room:join", { slug: "general" });
+    const socket = (await io.fetchSockets()).find(
+      (member) => member.data.nickname === "Leaver",
+    )!;
+    socket.disconnect(true);
+    await vi.waitFor(() =>
+      expect(markAway).toHaveBeenCalledWith(
+        "general",
+        expect.any(String),
+        60,
+        expect.any(String),
+      ),
+    );
+    await io.close();
+  });
+
+  it("suppresses both movements when the same identity resumes within transport grace", async () => {
+    const away = new Map<string, string>();
+    markAway.mockImplementation(async (slug, guestId, _forMs, marker = "1") => {
+      away.set(`${slug}:${guestId}`, marker);
+    });
+    takeAway.mockImplementation(async (slug, guestId, marker) => {
+      const key = `${slug}:${guestId}`;
+      if (!away.has(key) || (marker !== undefined && away.get(key) !== marker))
+        return false;
+      return away.delete(key);
+    });
+    const { io, port } = await startServer({
+      leaveGraceMs: 30,
+      disconnectGraceMs: 500,
+    });
+    const watcher = await connectGuest("Watcher", port);
+    await emit(watcher, "room:join", { slug: "general" });
+    const initial = await connect({ nickname: "Leaver" }, port);
+    const session = (await initial.session)!;
+    await emit(initial.socket!, "room:join", { slug: "general" });
+    const seen = heard(watcher);
+    initial.socket!.io.engine.close();
+    await vi.waitFor(() =>
+      expect(markAway).toHaveBeenCalledWith(
+        "general",
+        session.guestId,
+        1000,
+        expect.any(String),
+      ),
+    );
+    expect(
+      (await io.fetchSockets()).filter(
+        (member) => member.data.roomSlug === "general",
+      ),
+    ).toHaveLength(1);
+    verifyResume.mockResolvedValue(true);
+    const returned = await connect(
+      {
+        nickname: "Leaver",
+        guestId: session.guestId,
+        resumeSecret: session.resumeSecret,
+      },
+      port,
+    );
+    expect((await returned.session)?.guestId).toBe(session.guestId);
+    await emit(returned.socket!, "room:join", { slug: "general" });
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(seen.filter((event) => event.nickname === "Leaver")).toHaveLength(0);
+    await io.close();
+  });
+
   it("waits to say it, marking the guest as away meanwhile", async () => {
     const { io, port } = await startServer({ leaveGraceMs: 100 });
     const watcher = await connectGuest("Watcher", port);
@@ -2714,11 +2836,18 @@ describe("who comes into a room and who goes out of it", () => {
     await emit(leaver, "room:leave");
 
     await vi.waitFor(() =>
-      expect(markAway).toHaveBeenCalledWith("general", expect.any(String), 200),
+      expect(markAway).toHaveBeenCalledWith(
+        "general",
+        expect.any(String),
+        200,
+        expect.any(String),
+      ),
     );
     expect(seen).toHaveLength(0);
     await vi.waitFor(() => expect(seen).toHaveLength(1));
     expect(seen[0]).toMatchObject({ event: "left" });
+    const [slug, guestId, , marker] = markAway.mock.calls[0];
+    expect(takeAway).toHaveBeenCalledWith(slug, guestId, marker);
     await io.close();
   });
 

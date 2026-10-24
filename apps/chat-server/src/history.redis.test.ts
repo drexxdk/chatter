@@ -250,6 +250,24 @@ describe.skipIf(!URL)("history against a real Redis", () => {
   });
 
   describe("who is away", () => {
+    it("does not let an old departure timer consume a newer away interval", async () => {
+      await markAway(slug, "g-1", 5_000, "first-departure");
+      expect(await takeAway(slug, "g-1")).toBe(true);
+      await markAway(slug, "g-1", 5_000, "second-departure");
+      expect(await takeAway(slug, "g-1", "first-departure")).toBe(false);
+      expect(await takeAway(slug, "g-1", "second-departure")).toBe(true);
+      expect(await takeAway(slug, "g-1", "second-departure")).toBe(false);
+    });
+
+    it("lets only one timer consume the same away interval atomically", async () => {
+      await markAway(slug, "g-1", 5_000, "departure");
+      const taken = await Promise.all([
+        takeAway(slug, "g-1", "departure"),
+        takeAway(slug, "g-1", "departure"),
+      ]);
+      expect(taken.filter(Boolean)).toHaveLength(1);
+    });
+
     it("is taken once: by the first to ask, and not at all after the time is up", async () => {
       await markAway(slug, "g-1", 5_000);
 

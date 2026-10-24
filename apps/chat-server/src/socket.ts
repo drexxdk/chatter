@@ -82,9 +82,10 @@ const MAX_ANNOUNCEMENT_LENGTH = 500;
 const KICK_REASONS = ["inactivity", "banned", "replaced", "invalid_token"];
 // A guest who has done nothing is warned this long before they are disconnected for it (when the timeout is longer).
 const IDLE_WARNING_BEFORE_MS = 2 * 60_000;
-// Somebody who goes out of a room and is back within this long (a reload, a dropped connection) is not announced as
-// having gone.
+// An intentional departure is not announced if the guest returns within this long. Unexpected transport drops
+// have their own longer recovery window.
 const LEAVE_GRACE_MS = 15_000;
+const DISCONNECT_GRACE_MS = 2 * 60_000;
 const RATE_LIMIT_MAX_MESSAGES = 5;
 const RATE_LIMIT_WINDOW_MS = 5_000;
 // Starting a conversation reaches somebody new, so it is limited more tightly than messages in one already going.
@@ -256,6 +257,7 @@ export function createSocketServer(
     idleWarningBeforeMs?: number;
     // How long somebody can be out of a room before the room is told they went.
     leaveGraceMs?: number;
+    disconnectGraceMs?: number;
     maxConnectionsPerIp?: number;
     trustedProxyHops?: number;
     // An empty string means no moderator can sign in, like leaving AUTH_TOKEN_SECRET unset.
@@ -270,6 +272,8 @@ export function createSocketServer(
   const idleWarningBeforeMs =
     options.idleWarningBeforeMs ?? IDLE_WARNING_BEFORE_MS;
   const leaveGraceMs = options.leaveGraceMs ?? LEAVE_GRACE_MS;
+  const disconnectGraceMs =
+    options.disconnectGraceMs ?? options.leaveGraceMs ?? DISCONNECT_GRACE_MS;
   // Undefined means no cap.
   const maxConnectionsPerIp =
     options.maxConnectionsPerIp ?? env.MAX_CONNECTIONS_PER_IP;
@@ -595,25 +599,30 @@ export function createSocketServer(
 
   // Announced once the guest has stayed away for the grace period; whichever of that and their return comes first
   // takes the mark, so only one of them says anything.
-  function announceLeave(slug: string, data: SocketData): void {
+  function announceLeave(
+    slug: string,
+    data: SocketData,
+    graceMs = leaveGraceMs,
+  ): void {
     if (data.banned) return;
     const who = { ...data };
+    const marker = crypto.randomUUID();
 
     const settle = async () => {
-      if (leaveGraceMs > 0 && !(await takeAway(slug, who.guestId))) return;
+      if (graceMs > 0 && !(await takeAway(slug, who.guestId, marker))) return;
       await announce(slug, "left", who);
     };
     const failed = (error: unknown) =>
       log.error("Failed to announce that somebody left", error);
 
-    if (leaveGraceMs <= 0) {
+    if (graceMs <= 0) {
       settle().catch(failed);
       return;
     }
 
-    markAway(slug, who.guestId, leaveGraceMs * 2)
+    markAway(slug, who.guestId, graceMs * 2, marker)
       .then(() => {
-        setTimeout(() => settle().catch(failed), leaveGraceMs).unref();
+        setTimeout(() => settle().catch(failed), graceMs).unref();
       })
       .catch(failed);
   }
@@ -2222,7 +2231,7 @@ export function createSocketServer(
       reply({ ok: true, hidden: report.hidden });
     });
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", (reason) => {
       stopTyping();
       stopFakeReplies();
       for (const [slug, preview] of crowdTyping) {
@@ -2236,7 +2245,14 @@ export function createSocketServer(
 
       // Socket.IO has already removed the socket from its rooms; just refresh presence for the others.
       if (data.roomSlug) {
-        announceLeave(data.roomSlug, data);
+        const graceMs = [
+          "transport close",
+          "transport error",
+          "ping timeout",
+        ].includes(reason)
+          ? disconnectGraceMs
+          : leaveGraceMs;
+        announceLeave(data.roomSlug, data, graceMs);
         emitPresence(data.roomSlug).catch((error) =>
           log.error("Presence update failed", error),
         );

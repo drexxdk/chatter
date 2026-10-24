@@ -418,6 +418,28 @@ describe("who came and went, in the history", () => {
 
     expect(await takeAway("general", "guest-1")).toBe(false);
   });
+
+  it("marks an away interval with its own token and consumes only that token", async () => {
+    await markAway("general", "guest-1", 30_000, "current-departure");
+    expect(redis.set).toHaveBeenCalledWith(
+      "chatter:away:general:guest-1",
+      "current-departure",
+      "PX",
+      30_000,
+    );
+    redis.eval.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+    expect(await takeAway("general", "guest-1", "current-departure")).toBe(
+      true,
+    );
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.any(String),
+      1,
+      "chatter:away:general:guest-1",
+      "current-departure",
+    );
+    expect(await takeAway("general", "guest-1", "old-departure")).toBe(false);
+    expect(redis.del).not.toHaveBeenCalled();
+  });
 });
 
 describe("toggleReaction", () => {

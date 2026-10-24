@@ -87,16 +87,33 @@ export async function markAway(
   slug: string,
   guestId: string,
   forMs: number,
+  marker = "1",
 ): Promise<void> {
-  await redis.set(awayKey(slug, guestId), "1", "PX", forMs);
+  await redis.set(awayKey(slug, guestId), marker, "PX", forMs);
 }
+
+const TAKE_AWAY_SCRIPT = `
+if redis.call("GET", KEYS[1]) ~= ARGV[1] then return 0 end
+return redis.call("DEL", KEYS[1])
+`;
 
 // Whether the guest was marked away and is now not: true for the one who comes first, so either their return or the
 // end of the wait decides what is announced, never both.
 export async function takeAway(
   slug: string,
   guestId: string,
+  marker?: string,
 ): Promise<boolean> {
+  if (marker !== undefined) {
+    return (
+      (await redis.eval(
+        TAKE_AWAY_SCRIPT,
+        1,
+        awayKey(slug, guestId),
+        marker,
+      )) === 1
+    );
+  }
   return (await redis.del(awayKey(slug, guestId))) === 1;
 }
 
