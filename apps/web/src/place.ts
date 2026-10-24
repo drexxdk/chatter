@@ -9,17 +9,21 @@ export const PRIVACY_PATH = "/privacy";
 
 // How the site is built and where the data goes.
 export const ABOUT_PATH = "/about";
+export const ROADMAP_PATH = "/roadmap";
+export const VERSIONS_PATH = "/versions";
 
 // Where a provider sends the browser back to, through the chat-server (see accounts.ts there).
 export const AUTH_CALLBACK_PATH = "/auth/callback";
 
 // The pages of the site that are not the chat, by the address they have.
-export type SitePage = "terms" | "privacy" | "about";
+export type SitePage = "terms" | "privacy" | "about" | "roadmap" | "versions";
 
 const PAGE_PATHS: Record<SitePage, string> = {
   terms: TERMS_PATH,
   privacy: PRIVACY_PATH,
   about: ABOUT_PATH,
+  roadmap: ROADMAP_PATH,
+  versions: VERSIONS_PATH,
 };
 
 // The page an address is, or null for the lobby, a room and anything else.

@@ -72,6 +72,8 @@ export interface Config {
     bans: Ban;
     reports: Report;
     users: User;
+    releases: Release;
+    'roadmap-items': RoadmapItem;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -84,6 +86,8 @@ export interface Config {
     bans: BansSelect<false> | BansSelect<true>;
     reports: ReportsSelect<false> | ReportsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    releases: ReleasesSelect<false> | ReleasesSelect<true>;
+    'roadmap-items': RoadmapItemsSelect<false> | RoadmapItemsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -302,6 +306,51 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "releases".
+ */
+export interface Release {
+  id: number;
+  version: string;
+  title: string;
+  summary: string;
+  /**
+   * One change per line. Only describe work included in this release.
+   */
+  changes: string;
+  releasedAt: string;
+  /**
+   * Publish after deployment. Future-dated releases stay hidden until their release date.
+   */
+  published?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "roadmap-items".
+ */
+export interface RoadmapItem {
+  id: number;
+  /**
+   * Stable identifier used by links and the seed. Do not change it after publication.
+   */
+  key: string;
+  title: string;
+  description: string;
+  status: 'planned' | 'exploring' | 'in-progress' | 'done';
+  priority: 'high' | 'medium' | 'low';
+  category: 'reliability' | 'chat' | 'experience' | 'documentation' | 'engineering';
+  order: number;
+  /**
+   * Optional target or shipped release. Unpublished releases are not shown publicly.
+   */
+  release?: (number | null) | Release;
+  published?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -343,6 +392,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: number | User;
+      } | null)
+    | ({
+        relationTo: 'releases';
+        value: number | Release;
+      } | null)
+    | ({
+        relationTo: 'roadmap-items';
+        value: number | RoadmapItem;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -484,6 +541,37 @@ export interface UsersSelect<T extends boolean = true> {
   birthDate?: T;
   age?: T;
   lastLoginAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "releases_select".
+ */
+export interface ReleasesSelect<T extends boolean = true> {
+  version?: T;
+  title?: T;
+  summary?: T;
+  changes?: T;
+  releasedAt?: T;
+  published?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "roadmap-items_select".
+ */
+export interface RoadmapItemsSelect<T extends boolean = true> {
+  key?: T;
+  title?: T;
+  description?: T;
+  status?: T;
+  priority?: T;
+  category?: T;
+  order?: T;
+  release?: T;
+  published?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -1,5 +1,46 @@
 {
   "app": { "title": "Chatter" },
+  "development": {
+    "roadmap": "Roadmap",
+    "versions": "Versions",
+    "navigation": "Website development",
+    "completed": "{count} of {total} completed",
+    "loading": "Loading updates...",
+    "error": "Updates could not be loaded.",
+    "retry": "Try again",
+    "search": "Search roadmap",
+    "filterStatus": "Filter by status",
+    "filterPriority": "Filter by priority",
+    "filterCategory": "Filter by category",
+    "results": "{count, plural, one {# item} other {# items}}",
+    "noMatches": "No items match these filters.",
+    "emptyRoadmap": "No roadmap items have been published yet.",
+    "emptyReleases": "No releases have been published yet.",
+    "latest": "Latest release",
+    "all": {
+      "status": "All statuses",
+      "priority": "All priorities",
+      "category": "All categories"
+    },
+    "status": {
+      "planned": "Planned",
+      "exploring": "Exploring",
+      "in-progress": "In progress",
+      "done": "Done"
+    },
+    "priority": {
+      "high": "High priority",
+      "medium": "Medium priority",
+      "low": "Low priority"
+    },
+    "category": {
+      "reliability": "Reliability",
+      "chat": "Chat",
+      "experience": "Experience",
+      "documentation": "Documentation",
+      "engineering": "Engineering"
+    }
+  },
   "typing": {
     "label": "Typing activity",
     "summary": "{names} {count, plural, one {is} other {are}} typing",

@@ -5,6 +5,7 @@ import {
 } from "../../../shared/notificationPreferences.mjs";
 import { parsePicture } from "./chat/picture";
 import { CHAT_SERVER_URL } from "./config";
+import type { WebsiteContent } from "../../../shared/websiteContent.mjs";
 import { parseLegal, type LegalContent } from "./legal";
 import { ageFromBirthDate, parseAge, type ProfileChanges } from "./profile";
 
@@ -45,6 +46,15 @@ export async function fetchRooms(signal?: AbortSignal): Promise<Room[]> {
   }
 
   return (await response.json()) as Room[];
+}
+
+export async function fetchWebsiteContent(
+  signal?: AbortSignal,
+): Promise<WebsiteContent> {
+  const response = await fetch(`${CHAT_SERVER_URL}/website`, { signal });
+  if (!response.ok)
+    throw new Error(`Failed to load website content: ${response.status}`);
+  return (await response.json()) as WebsiteContent;
 }
 
 // The terms of use and the privacy policy; nothing when the admin has not published them yet or the server has no copy.

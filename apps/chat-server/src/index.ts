@@ -16,6 +16,7 @@ import {
 import { startPublicRoomsSync } from "./rooms.js";
 import { startBansSync } from "./bans.js";
 import { startLegalSync } from "./legal.js";
+import { startWebsiteSync } from "./website.js";
 import { startMemberNamesSync } from "./members.js";
 import { startModeratorsSync } from "./names.js";
 import { startReportsPrune } from "./reports.js";
@@ -36,6 +37,7 @@ const timers = [
   startBansSync((hashes) => enforceBans(io, hashes)),
   startReportsPrune(),
   startLegalSync(),
+  startWebsiteSync(),
   startMemberNamesSync((ids) => enforceMembers(io, ids)),
 ];
 

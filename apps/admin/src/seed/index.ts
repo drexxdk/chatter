@@ -5,6 +5,7 @@ import { getPayload } from 'payload'
 import config from '../payload.config'
 import { parseSeedEnv } from '../envSchema'
 import { seedLegal } from './legal'
+import { seedRoadmap } from './roadmap'
 
 // English is the default language; `da` and `de` hold each room's name and description in those languages.
 const SAMPLE_ROOMS = [
@@ -137,6 +138,7 @@ async function seed() {
   }
 
   await seedLegal(payload)
+  await seedRoadmap(payload)
 
   process.exit(0)
 }

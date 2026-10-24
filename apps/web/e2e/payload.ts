@@ -105,8 +105,26 @@ export class PayloadApi {
     return ids;
   }
 
+  async createWebsiteEntry(
+    collection: "roadmap-items" | "releases",
+    data: Record<string, unknown>,
+  ) {
+    const { doc } = await this.request(collection, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return doc!.id;
+  }
+
   async remove(
-    collection: "public-rooms" | "bans" | "admins" | "reports" | "users",
+    collection:
+      | "public-rooms"
+      | "bans"
+      | "admins"
+      | "reports"
+      | "users"
+      | "roadmap-items"
+      | "releases",
     id: number,
   ) {
     await this.request(`${collection}/${id}`, { method: "DELETE" });

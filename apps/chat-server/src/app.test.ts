@@ -5,9 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getCachedPublicRooms = vi.hoisted(() => vi.fn());
 const getCachedLegal = vi.hoisted(() => vi.fn());
+const getCachedWebsite = vi.hoisted(() => vi.fn());
 
 vi.mock("./rooms.js", () => ({ getCachedPublicRooms }));
 vi.mock("./legal.js", () => ({ getCachedLegal }));
+vi.mock("./website.js", () => ({ getCachedWebsite }));
 
 import { createApp } from "./app.js";
 
@@ -41,6 +43,23 @@ afterEach(async () => {
 });
 
 describe("routes", () => {
+  it("serves cached roadmap and releases with cache headers", async () => {
+    getCachedWebsite.mockResolvedValue({ roadmap: [], releases: [] });
+    const get = await start();
+    const response = await get("/website");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("public, max-age=60");
+    expect(await response.json()).toEqual({ roadmap: [], releases: [] });
+  });
+
+  it("distinguishes unavailable website content from an empty published history", async () => {
+    getCachedWebsite.mockResolvedValue(undefined);
+    const get = await start();
+    const response = await get("/website");
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "not_available" });
+  });
+
   it("answers the health check", async () => {
     const get = await start();
     const res = await get("/health");
