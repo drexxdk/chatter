@@ -92,6 +92,37 @@ test("public website excludes drafts, future releases, and their relationship li
 });
 
 for (const width of [1280, 375, 320]) {
+  test(`short website pages keep their footer at the bottom at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.route("**/website", (route) =>
+      route.fulfill({ json: { roadmap: [], releases: [] } }),
+    );
+    for (const path of ["versions", "roadmap"]) {
+      await page.goto(`/${path}`);
+      await expect(
+        page.getByText(
+          path === "versions"
+            ? "No releases have been published yet."
+            : "No roadmap items have been published yet.",
+        ),
+      ).toBeVisible();
+      const layout = await page.locator("main footer").evaluate((element) => ({
+        bottom: element.getBoundingClientRect().bottom,
+        expected:
+          innerHeight -
+          parseFloat(getComputedStyle(element.closest("main")!).paddingBottom),
+        documentHeight: document.documentElement.scrollHeight,
+        viewportHeight: innerHeight,
+      }));
+      expect(layout.bottom).toBeCloseTo(layout.expected, 0);
+      expect(layout.documentHeight).toBeLessThanOrEqual(
+        layout.viewportHeight + 1,
+      );
+    }
+  });
+
   test(`roadmap search, keyboard filters, release links and layout at ${width}px`, async ({
     page,
   }) => {
@@ -100,6 +131,13 @@ for (const width of [1280, 375, 320]) {
     await expect(
       page.getByRole("heading", { name: title, exact: true }),
     ).toBeVisible();
+    const footer = await page.locator("main footer").boundingBox();
+    const lastItem = await page
+      .locator("main ol.divide-y > li")
+      .last()
+      .boundingBox();
+    expect(footer!.y).toBeGreaterThanOrEqual(lastItem!.y + lastItem!.height);
+    await expect(page.locator("main footer")).toHaveCSS("position", "static");
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,

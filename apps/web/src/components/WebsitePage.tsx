@@ -182,7 +182,7 @@ export function WebsitePage({ page }: { page: "roadmap" | "versions" }) {
     );
 
   return (
-    <div ref={root} className="flex flex-col gap-6">
+    <div ref={root} className="flex flex-1 flex-col gap-6">
       <Breadcrumb title={title} />
       <header className="space-y-4">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -411,7 +411,7 @@ export function WebsitePage({ page }: { page: "roadmap" | "versions" }) {
           ))}
         </div>
       )}
-      <footer className="border-t border-neutral-800 pt-5">
+      <footer className="mt-auto border-t border-neutral-800 pt-5">
         <LegalLinks />
       </footer>
     </div>
