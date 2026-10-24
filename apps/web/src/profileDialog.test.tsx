@@ -557,14 +557,21 @@ describe("a member's display-name cooldown", () => {
     const name = screen.getByLabelText("Display name");
     await user.clear(name);
     await user.type(name, "Alicia");
-    await user.click(screen.getByRole("button", { name: "Save" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("1h 1m 1s");
-    expect(name).toHaveFocus();
-    expect(name).toHaveAttribute("aria-invalid", "true");
-    await waitFor(
-      () => expect(screen.getByRole("alert")).toHaveTextContent("1h 1m 0s"),
-      { timeout: 2000 },
-    );
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    try {
+      await act(async () => {
+        fireEvent.submit(name.closest("form")!);
+      });
+      expect(screen.getByRole("alert")).toHaveTextContent("1h 1m 1s");
+      expect(name).toHaveFocus();
+      expect(name).toHaveAttribute("aria-invalid", "true");
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(screen.getByRole("alert")).toHaveTextContent("1h 1m 0s");
+    } finally {
+      vi.useRealTimers();
+    }
     await user.clear(name);
     await user.type(name, "Alice");
     expect(screen.queryByRole("alert")).toBeNull();

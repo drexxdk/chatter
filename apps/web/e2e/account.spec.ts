@@ -48,7 +48,12 @@ test.afterEach(async () => {
 });
 
 async function newPage(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ locale: "en-US" });
+  const context = await browser.newContext({
+    locale: "en-US",
+    extraHTTPHeaders: {
+      "X-Forwarded-For": `10.${crypto.getRandomValues(new Uint8Array(3)).join(".")}`,
+    },
+  });
   contexts.push(context);
   return context.newPage();
 }
@@ -722,7 +727,7 @@ test("a guest claims their profile with a password and can sign in again from th
   expect(errors).toEqual([]);
 });
 
-test("a guest connects a provider and stays who they are, the names are theirs, and they can sign in again elsewhere", async ({
+test("a guest connects a provider, keeps their identity, shares public names, and can sign in elsewhere", async ({
   browser,
 }) => {
   const chatName = displayName("Anna");
@@ -764,13 +769,13 @@ test("a guest connects a provider and stays who they are, the names are theirs, 
     /^(lorelei|pixel-art|critters|thumbs):[a-z0-9]{10}$/,
   );
 
-  // Nobody else can have the name now, not even a guest who types it, or the username.
   for (const taken of [chatName, handle]) {
     const other = await newPage(browser);
     await joinAsGuest(other, taken);
-    await expect(other.getByRole("alert")).toContainText(
-      "That nickname is reserved",
-    );
+    await inRoom(other);
+    await expect(
+      other.getByRole("button", { name: `Account menu: ${taken}` }),
+    ).toBeVisible();
   }
 
   // Another browser: the same provider account is the same account, and comes back into the room without being asked who it is.
@@ -807,8 +812,12 @@ test("somebody makes an account from the lobby, chooses who they are, and can de
   await expect(usernameBox).toHaveValue(`${handle}x`);
   await usernameBox.fill(handle);
   await page.getByLabel("Display name").fill(`E2EAcc  Bea  ${RUN}`);
-  await page.getByRole("radio", { name: "Female" }).check({ force: true });
-  await page.getByRole("radio", { name: "Avatar 2" }).check({ force: true });
+  const gender = page.getByRole("radio", { name: "Female", exact: true });
+  await gender.locator("..").click();
+  await expect(gender).toBeChecked();
+  const picture = page.getByRole("radio", { name: "Avatar 2", exact: true });
+  await picture.locator("..").click();
+  await expect(picture).toBeChecked();
   const chosenPicture = await page
     .getByRole("radio", { name: "Avatar 2" })
     .inputValue();

@@ -71,7 +71,12 @@ test.afterEach(async () => {
 });
 
 async function newGuest(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ locale: "en-US" });
+  const context = await browser.newContext({
+    locale: "en-US",
+    extraHTTPHeaders: {
+      "X-Forwarded-For": `10.${crypto.getRandomValues(new Uint8Array(3)).join(".")}`,
+    },
+  });
   guestContexts.push(context);
   return context.newPage();
 }
@@ -1222,7 +1227,7 @@ test("typing indicators keep private drafts private and follow the current conve
     );
     const indicator = await activity(bob).boundingBox();
     const recipient = await bob
-      .getByText("Room", { exact: true })
+      .getByRole("textbox", { name: "Message", exact: true })
       .boundingBox();
     expect(indicator!.y + indicator!.height).toBeLessThanOrEqual(recipient!.y);
     expect(
@@ -1917,7 +1922,7 @@ test("room search finds public and private text without image URLs on mobile and
   }
 });
 
-test("messages align with the composer without a divider", async ({
+test("messages align with the composer and its divider", async ({
   browser,
 }, testInfo) => {
   const alice = await newGuest(browser);
@@ -1966,7 +1971,7 @@ test("messages align with the composer without a divider", async ({
       await bar.evaluate(
         (element) => getComputedStyle(element, "::before").borderTopWidth,
       ),
-    ).toBe("0px");
+    ).toBe("1px");
     const barBounds = (await bar.boundingBox())!;
     expect(barBounds.y + barBounds.height).toBeLessThanOrEqual(844);
     await alice.mouse.wheel(0, -300);
@@ -3573,7 +3578,7 @@ test("a moderator signs in, and guests see their messages stand out", async ({
     await expect(message).toBeVisible();
     await expect(message).toHaveClass(/font-bold/);
     await expect(
-      alice.getByRole("log").getByText(name, { exact: true }),
+      alice.getByRole("log").getByText(name, { exact: true }).locator("../.."),
     ).toHaveClass(/text-green-400/);
     await expect(
       alice
@@ -3582,9 +3587,9 @@ test("a moderator signs in, and guests see their messages stand out", async ({
         .filter({ hasText: words })
         .getByText("Moderator"),
     ).toBeVisible();
-    await expect(alice.getByRole("complementary").getByText(name)).toHaveClass(
-      /text-green-400/,
-    );
+    await expect(
+      alice.getByRole("complementary").getByText(name).locator("../.."),
+    ).toHaveClass(/text-green-400/);
   } finally {
     await payload.remove("admins", accountId);
   }
@@ -3941,10 +3946,11 @@ test("a moderator whose account is removed is signed out", async ({
 test("two guests write to each other privately, and a blocked guest is not heard", async ({
   browser,
 }) => {
+  const room = await isolatedRoom("E2E Private");
   const alice = await newGuest(browser);
   const bob = await newGuest(browser);
-  await enterRoom(alice, LOUNGE.name, "Alice");
-  await enterRoom(bob, LOUNGE.name, "Bob");
+  await enterRoom(alice, room.name, "Alice");
+  await enterRoom(bob, room.name, "Bob");
 
   const people = (page: Page) =>
     page.getByRole("list", { name: "People in this room" });
@@ -3967,7 +3973,7 @@ test("two guests write to each other privately, and a blocked guest is not heard
   const fromAlice = conversations(bob).getByRole("button", { name: /^Alice/ });
   await expect(fromAlice).toHaveAccessibleName(/1 unread message/);
   await expect(fromAlice).toHaveClass(/animate-pulse/);
-  await expect(bob.getByRole("log", { name: LOUNGE.name })).toContainText(
+  await expect(bob.getByRole("log", { name: room.name })).toContainText(
     "Direct message from Alice",
   );
 
@@ -4123,10 +4129,11 @@ test("a private message can be reacted to, and the sender sees it", async ({
 test("a private conversation carries on when one of the two reloads the page", async ({
   browser,
 }) => {
+  const room = await isolatedRoom("E2E Private Reload");
   const alice = await newGuest(browser);
   const bob = await newGuest(browser);
-  await enterRoom(alice, LOUNGE.name, "Alice");
-  await enterRoom(bob, LOUNGE.name, "Bob");
+  await enterRoom(alice, room.name, "Alice");
+  await enterRoom(bob, room.name, "Bob");
 
   const people = (page: Page) =>
     page.getByRole("list", { name: "People in this room" });
@@ -4168,10 +4175,11 @@ test("a private conversation carries on when one of the two reloads the page", a
 test("a reload restores a conversation outside the room but closes it when the other person is offline", async ({
   browser,
 }) => {
+  const room = await isolatedRoom("E2E Private Offline");
   const alice = await newGuest(browser);
   const bob = await newGuest(browser);
-  await enterRoom(alice, LOUNGE.name, "Alice");
-  await enterRoom(bob, LOUNGE.name, "Bob");
+  await enterRoom(alice, room.name, "Alice");
+  await enterRoom(bob, room.name, "Bob");
 
   await alice
     .getByRole("list", { name: "People in this room" })
@@ -4200,7 +4208,7 @@ test("a reload restores a conversation outside the room but closes it when the o
   await bob.reload();
 
   // The room is shown, not the conversation, which is still in the list.
-  await expect(bob.getByRole("log", { name: LOUNGE.name })).toBeVisible();
+  await expect(bob.getByRole("log", { name: room.name })).toBeVisible();
   await expect(
     bob
       .getByRole("list", { name: "Direct messages" })
@@ -4212,9 +4220,10 @@ test("the room only says who comes and goes when a guest switches that on", asyn
   browser,
 }) => {
   test.setTimeout(45_000);
+  const fixture = await isolatedRoom("E2E Movements");
   const alice = await newGuest(browser);
-  await enterRoom(alice, LOUNGE.name, "Alice");
-  const room = alice.getByRole("log", { name: LOUNGE.name });
+  await enterRoom(alice, fixture.name, "Alice");
+  const room = alice.getByRole("log", { name: fixture.name });
   const openSetting = async () => {
     if (!(await alice.getByRole("dialog", { name: "Settings" }).isVisible())) {
       const trigger = alice.getByRole("button", {
@@ -4232,7 +4241,7 @@ test("the room only says who comes and goes when a guest switches that on", asyn
   await alice.keyboard.press("Escape");
 
   const bob = await newGuest(browser);
-  await enterRoom(bob, LOUNGE.name, "Bob");
+  await enterRoom(bob, fixture.name, "Bob");
   await expect(room).not.toContainText("Bob joined the room.");
   const toggle = await openSetting();
   await toggle.click();
@@ -4259,24 +4268,26 @@ test("the room only says who comes and goes when a guest switches that on", asyn
   await expect(await openSetting()).toHaveAttribute("aria-checked", "false");
 });
 
-test("a nickname somebody in the room has is refused, and free again once they leave", async ({
+test("two guests can share a public name while keeping separate identities", async ({
   browser,
 }) => {
+  const room = await isolatedRoom("E2E Shared Names");
   const alice = await newGuest(browser);
   const other = await newGuest(browser);
-  await enterRoom(alice, LOUNGE.name, "Alice");
-
-  await startJoin(other, LOUNGE.name, "alice");
-  await expect(other.getByRole("alert")).toContainText(
-    "Somebody in this room already has that nickname.",
-  );
-  await expect(
-    other.getByRole("button", { name: /^Account menu:/ }),
-  ).toHaveCount(0);
-
-  await leaveRoom(alice);
-  await other.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(
-    other.getByRole("button", { name: "Account menu: alice" }),
-  ).toBeVisible();
+  await enterRoom(alice, room.name, "Alice");
+  await enterRoom(other, room.name, "Alice");
+  await send(alice, "From the first Alice");
+  await send(other, "From the second Alice");
+  for (const [page, own, incoming] of [
+    [alice, "From the first Alice", "From the second Alice"],
+    [other, "From the second Alice", "From the first Alice"],
+  ] as const) {
+    const log = page.getByRole("log", { name: room.name });
+    await expect(
+      log.getByText(own).locator("xpath=ancestor::li"),
+    ).toHaveAttribute("data-side", "right");
+    await expect(
+      log.getByText(incoming).locator("xpath=ancestor::li"),
+    ).toHaveAttribute("data-side", "left");
+  }
 });

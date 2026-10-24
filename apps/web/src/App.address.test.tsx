@@ -371,7 +371,7 @@ describe("keeping your place", () => {
         const server = makeFakeServer();
         server.acks["room:join"] = () => ({ ok: true, history });
         setup(server);
-        await screen.findByRole("button", { name: "Account menu: Alice" });
+        await screen.findByRole("log", { name: "General" });
       }
 
       // The server gives a guest a new id on every connection, so a reload is a new connection.

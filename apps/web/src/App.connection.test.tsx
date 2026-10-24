@@ -42,14 +42,22 @@ describe("losing the connection", () => {
       ),
     );
 
-    dropConnection(server);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      dropConnection(server);
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Connection lost. Reconnecting…",
-    );
-    expect(screen.getByLabelText("Message")).toBeLocked();
-    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
-    expect(screen.getByText("before the drop")).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Connection lost. Reconnecting…",
+      );
+      expect(screen.getByLabelText("Message")).toBeLocked();
+      expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+      expect(screen.getByText("before the drop")).toBeInTheDocument();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(150);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
 
     await waitFor(() => expect(server.createSocket).toHaveBeenCalledTimes(2));
     await waitFor(() =>
