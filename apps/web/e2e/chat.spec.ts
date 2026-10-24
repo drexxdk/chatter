@@ -1525,10 +1525,9 @@ test("viewport resizing keeps a pinned chat at the bottom without moving a reade
     expect(
       (
         await seeder.send(
-          Array.from(
-            { length: 35 },
-            (_, index) => `Key line ${index + 1}`,
-          ).join("\n"),
+          Array.from({ length: 75 }, (_, index) => `Row${index + 1}`).join(
+            "\n",
+          ),
         )
       ).ok,
     ).toBe(true);
@@ -1542,7 +1541,7 @@ test("viewport resizing keeps a pinned chat at the bottom without moving a reade
     const guest = await context.newPage();
     await enterRoom(guest, room.name, "Keyboard Guest");
     await expect(
-      guest.getByRole("log").getByText("Key line 35", { exact: false }),
+      guest.getByRole("log").getByText("Row75", { exact: false }),
     ).toBeVisible();
     await guest.evaluate(() =>
       Promise.allSettled(
@@ -1554,6 +1553,21 @@ test("viewport resizing keeps a pinned chat at the bottom without moving a reade
         const page = document.documentElement;
         return page.scrollHeight - page.scrollTop - page.clientHeight;
       });
+    const settleLayout = () =>
+      guest.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+    await expect
+      .poll(() =>
+        guest.evaluate(() => {
+          const page = document.documentElement;
+          return page.scrollHeight - page.clientHeight;
+        }),
+      )
+      .toBeGreaterThan(500);
     await expect.poll(distanceFromBottom).toBeLessThan(2);
     const box = guest.getByRole("textbox", { name: "Message", exact: true });
     await box.tap();
@@ -1565,6 +1579,7 @@ test("viewport resizing keeps a pinned chat at the bottom without moving a reade
     await expect.poll(distanceFromBottom).toBeLessThan(2);
     for (const height of [480, 844, 480, 844]) {
       await guest.setViewportSize({ width: 390, height });
+      await settleLayout();
       await expect.poll(distanceFromBottom).toBeLessThan(2);
     }
     await guest.evaluate(() => window.scrollTo(0, 100));
@@ -1572,6 +1587,7 @@ test("viewport resizing keeps a pinned chat at the bottom without moving a reade
     expect(await distanceFromBottom()).toBeGreaterThan(120);
     for (const height of [480, 844]) {
       await guest.setViewportSize({ width: 390, height });
+      await settleLayout();
       await expect.poll(() => guest.evaluate(() => window.scrollY)).toBe(100);
     }
   } finally {

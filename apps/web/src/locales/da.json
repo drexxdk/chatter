@@ -1,46 +1,5 @@
 {
   "app": { "title": "Chatter" },
-  "development": {
-    "roadmap": "Udviklingsplan",
-    "versions": "Versioner",
-    "navigation": "Hjemmesidens udvikling",
-    "completed": "{count} af {total} afsluttet",
-    "loading": "Indlæser opdateringer...",
-    "error": "Opdateringer kunne ikke indlæses.",
-    "retry": "Prøv igen",
-    "search": "Søg i udviklingsplanen",
-    "filterStatus": "Filtrer efter status",
-    "filterPriority": "Filtrer efter prioritet",
-    "filterCategory": "Filtrer efter kategori",
-    "results": "{count, plural, one {# punkt} other {# punkter}}",
-    "noMatches": "Ingen punkter matcher disse filtre.",
-    "emptyRoadmap": "Ingen punkter er offentliggjort endnu.",
-    "emptyReleases": "Ingen versioner er offentliggjort endnu.",
-    "latest": "Seneste version",
-    "all": {
-      "status": "Alle statusser",
-      "priority": "Alle prioriteter",
-      "category": "Alle kategorier"
-    },
-    "status": {
-      "planned": "Planlagt",
-      "exploring": "Undersøges",
-      "in-progress": "I gang",
-      "done": "Afsluttet"
-    },
-    "priority": {
-      "high": "Høj prioritet",
-      "medium": "Mellem prioritet",
-      "low": "Lav prioritet"
-    },
-    "category": {
-      "reliability": "Driftsikkerhed",
-      "chat": "Chat",
-      "experience": "Brugeroplevelse",
-      "documentation": "Dokumentation",
-      "engineering": "Teknik"
-    }
-  },
   "typing": {
     "label": "Skriveaktivitet",
     "summary": "{names} {count, plural, one {skriver} other {skriver}}",

@@ -54,31 +54,19 @@ Things to know:
   changes by itself, so do not run the seed in dev mode against it.
 - Seeding a new, empty database: put the first super-admin's email and password in `deploy/seed.env` (see
   `seed.env.example`), then `bash deploy/seed.sh`. It also makes the chat-server's API key and writes it to
-  `chat-server.env`. Existing accounts are not replaced; reruns can add missing roadmap entries. Only the one-off
+  `chat-server.env`. Existing accounts are not replaced. Only the one-off
   `admin-tools` service reads it.
 - Postgres 16 is pinned. A newer major version needs a dump and restore ([deploy/restore.md](deploy/restore.md)).
 - Dependabot opens monthly update PRs and skips major versions; those are done by hand.
 
-### Roadmap and releases
+### Development progress
 
-The public pages are `/roadmap` and `/versions`, linked from the site footer. Super-admins manage both under
-**Website** in Payload. Only the chat-server service and super-admins can read unpublished CMS data; the public
-`/website` API projects published entries and keeps the last successful snapshot in Redis when Payload is unavailable.
-Changes normally appear within 30 seconds, with up to another minute of browser caching.
+[progress.md](progress.md) is the development checklist; git contains the change history. There are no public
+roadmap/version pages or CMS publishing workflow for development updates.
 
-The seed adds the 18 initial roadmap entries, including the four completed items, without overwriting existing
-entries. Priorities and expanded descriptions are suggestions, not delivery commitments. Edit the status,
-priority, category and order as plans develop. Keep each item's key stable so existing links continue to work.
-Use Payload's locale selector for Danish and German; untranslated content falls back to English.
-
-For each actual release, create a **Release** with a version such as `1.0.0`, a title, summary, date and changelog
-(one change per line). Publish it only after deployment; unpublished and future-dated releases stay hidden,
-including their links from roadmap entries. Associate completed items with the shipped release. The versions
-page deliberately starts empty: package versions and old completion marks do not establish release history.
-
-For an existing local database, apply migrations and run `npm run seed --workspace apps/admin` with the admin
-dev server stopped. In production, startup applies the included migration; rerun the existing production seed
-workflow to add missing roadmap items, or enter them in Payload. Never run the development seed against production.
+The retirement migration preserves existing CMS roadmap and release data in the `retired_website` database schema,
+outside the active Payload collections. Its rollback restores the content tables. Historical migrations are retained
+so existing and new databases can follow the same migration sequence.
 
 ### Decisions
 

@@ -13,6 +13,7 @@ import * as migration_20261023_144212_add_notification_preferences from './20261
 import * as migration_20261024_131639_add_roadmap_releases from './20261024_131639_add_roadmap_releases'
 import * as migration_20261024_155419_allow_duplicate_display_names from './20261024_155419_allow_duplicate_display_names'
 import * as migration_20261024_162032_add_display_name_cooldown from './20261024_162032_add_display_name_cooldown'
+import * as migration_20261024_202458_retire_website_collections from './20261024_202458_retire_website_collections'
 
 export const migrations = [
   {
@@ -89,5 +90,10 @@ export const migrations = [
     up: migration_20261024_162032_add_display_name_cooldown.up,
     down: migration_20261024_162032_add_display_name_cooldown.down,
     name: '20261024_162032_add_display_name_cooldown',
+  },
+  {
+    up: migration_20261024_202458_retire_website_collections.up,
+    down: migration_20261024_202458_retire_website_collections.down,
+    name: '20261024_202458_retire_website_collections',
   },
 ]

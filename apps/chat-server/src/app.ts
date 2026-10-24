@@ -8,7 +8,6 @@ import { env } from "./env.js";
 import { createAccountsRouter } from "./accounts.js";
 import { createDevOAuthRouter } from "./devOAuth.js";
 import { getCachedLegal } from "./legal.js";
-import { getCachedWebsite } from "./website.js";
 import { rememberModerator } from "./names.js";
 import { loginAccount } from "./payloadClient.js";
 import { chatRoleFor, isAdminRole } from "./roles.js";
@@ -68,21 +67,6 @@ export function createApp(
   app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
   });
-
-  app.get(
-    "/website",
-    limiter(
-      options.roomsRateLimit ?? {
-        max: env.ROOMS_RATE_LIMIT_PER_MINUTE,
-        windowMs: ROOMS_RATE_LIMIT_WINDOW_MS,
-      },
-    ),
-    async (_req, res) => {
-      const content = await getCachedWebsite();
-      if (!content) return res.status(503).json({ error: "not_available" });
-      res.set("Cache-Control", "public, max-age=60").json(content);
-    },
-  );
 
   app.get(
     "/rooms",

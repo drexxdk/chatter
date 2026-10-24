@@ -1,9 +1,9 @@
 # Progress
 
-What is left. The finished work (features, the hosting setup, backups, monitoring) is described in the READMEs and in
-`deploy/`; its history is in git.
+The single development checklist, replacing the public roadmap and versions pages. The finished work (features,
+the hosting setup, backups, monitoring) is described in the READMEs and in `deploy/`; its history is in git.
 
-Status legend: `[ ]` to do, `[~]` in progress.
+Status legend: `[ ]` to do, `[~]` in progress, `[x]` done. Priorities are suggestions, not delivery commitments.
 
 ## Small loose ends (owner)
 
@@ -34,6 +34,44 @@ Status legend: `[ ]` to do, `[~]` in progress.
 - [x] Load check: `npm run loadtest` (chat-server README, "Load check"). On a laptop, 270 guests with no per-address cap
       were all in within seconds and a message came back in 4 ms (95th percentile). Still to do: run it once against the
       Oracle machine (raise `MAX_CONNECTIONS_PER_IP` for the run) to see where that machine stands.
+
+## Development backlog
+
+- [ ] High: keep mobile sessions connected. Investigate phone locks and app switching on iOS/Android; restore the same
+      guest without weakening inactivity or single-session rules.
+- [~] High: header and lobby loading. Stable identity/room loading and retry states are implemented; review remaining
+  flashes and layout shifts on slow or failed connections before considering this complete.
+- [ ] High: review operational logging. Add useful request/connection correlation, retention and alerting; redact
+      credentials and personal data, and never log private-message contents.
+- [ ] Medium: open person actions from avatars. Provide accessible profile, private-chat, mute, block and report actions
+      where permitted, with keyboard, touch, outside-click and Escape support.
+- [ ] Medium: write the chat guide for guest/account sign-in, rooms, private messages, notifications, moderation and
+      privacy, keeping supported languages aligned with the running site.
+- [ ] Medium: document HTTP and socket contracts, authentication, payloads, errors, limits and compatibility; distinguish
+      public contracts from internal admin APIs and never publish credentials.
+- [ ] Medium: design user-owned rooms with visibility, invitations, capacity and owner moderation; settle persistence,
+      lifetime, permissions and abuse prevention before enabling creation.
+- [ ] Medium: organize rooms into discoverable subcategories without hiding rooms or occupancy; account for mobile,
+      empty categories and user-owned rooms.
+- [ ] Medium: voice messages, with explicit microphone permission, recording/preview/delete controls, accessible playback,
+      duration/upload limits, storage retention and reporting before enabling them.
+- [ ] Explore: dictate into an editable draft without automatically sending. Check language/browser support, show microphone
+      state and explain whether audio leaves the device.
+- [ ] Explore: evaluate WebRTC only for a concrete chat need; compare signaling, TURN costs, privacy, moderation, mobile
+      support and reconnect behavior before committing.
+- [ ] Low: evaluate Storybook for shared controls and chat states, including loading/errors, localization, narrow screens,
+      keyboard focus, forced colors and visual regressions without duplicating app logic.
+- [ ] Low: audit shared hover, pressed, selected, disabled and focus feedback, respecting touch, reduced motion and forced colors.
+- [ ] Explore: evaluate a lightweight startup screen only if it improves perceived loading without delaying usable content
+      or adding an artificial timer; prioritize ordinary loading-state improvements first.
+
+## Completed development work
+
+- [x] HTTP-client evaluation: retain fetch rather than add Axios without a concrete requirement.
+- [x] Frontend framework evaluation: retain React and Vite rather than migrate without a demonstrated benefit.
+- [x] Notification sounds: selectable private-message, warning and join sounds, shared volume, previews and saved preferences.
+- [x] Typing activity: public rooms and private conversations; private drafts announce only to the intended recipient.
+- [x] Replace CMS-backed roadmap/releases with this checklist and git history; remove unused lobby image and generator.
 
 ## Later
 

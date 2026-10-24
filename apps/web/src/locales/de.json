@@ -1,46 +1,5 @@
 {
   "app": { "title": "Chatter" },
-  "development": {
-    "roadmap": "Roadmap",
-    "versions": "Versionen",
-    "navigation": "Website-Entwicklung",
-    "completed": "{count} von {total} abgeschlossen",
-    "loading": "Aktualisierungen werden geladen...",
-    "error": "Aktualisierungen konnten nicht geladen werden.",
-    "retry": "Erneut versuchen",
-    "search": "Roadmap durchsuchen",
-    "filterStatus": "Nach Status filtern",
-    "filterPriority": "Nach Priorität filtern",
-    "filterCategory": "Nach Kategorie filtern",
-    "results": "{count, plural, one {# Eintrag} other {# Einträge}}",
-    "noMatches": "Keine Einträge entsprechen diesen Filtern.",
-    "emptyRoadmap": "Es wurden noch keine Einträge veröffentlicht.",
-    "emptyReleases": "Es wurden noch keine Versionen veröffentlicht.",
-    "latest": "Neueste Version",
-    "all": {
-      "status": "Alle Status",
-      "priority": "Alle Prioritäten",
-      "category": "Alle Kategorien"
-    },
-    "status": {
-      "planned": "Geplant",
-      "exploring": "In Prüfung",
-      "in-progress": "In Arbeit",
-      "done": "Abgeschlossen"
-    },
-    "priority": {
-      "high": "Hohe Priorität",
-      "medium": "Mittlere Priorität",
-      "low": "Niedrige Priorität"
-    },
-    "category": {
-      "reliability": "Zuverlässigkeit",
-      "chat": "Chat",
-      "experience": "Benutzererlebnis",
-      "documentation": "Dokumentation",
-      "engineering": "Technik"
-    }
-  },
   "typing": {
     "label": "Schreibaktivität",
     "summary": "{names} {count, plural, one {schreibt} other {schreiben}}",

@@ -54,7 +54,7 @@ jobs:
           TEST_REDIS_URL: redis://localhost:6379/9
 
       # These specs do not initialize Payload or need a running database.
-      - run: npx vitest run --config ./vitest.config.mts tests/int/env.int.spec.ts tests/int/website.int.spec.ts
+      - run: npx vitest run --config ./vitest.config.mts tests/int/env.int.spec.ts
         working-directory: apps/admin
 
   # The longest of the checks, so it runs beside the others instead of after them.
@@ -107,13 +107,13 @@ jobs:
       - run: docker build -f apps/web/Dockerfile -t chatter-web .
 
   e2e:
-    name: End-to-end (${{ matrix.shard }}/2)
+    name: End-to-end (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4]
     services:
       postgres:
         image: postgres:16-alpine
@@ -227,7 +227,7 @@ jobs:
 
       - name: Run the end-to-end tests
         timeout-minutes: 15
-        run: npm run test:e2e --workspace apps/web -- --fully-parallel --shard=${{ matrix.shard }}/2
+        run: npm run test:e2e --workspace apps/web -- --fully-parallel --shard=${{ matrix.shard }}/4
 
       - name: Summarize browser timings and reliability
         if: always()

@@ -1,11 +1,5 @@
 import { z } from "zod";
 import type { NotificationSoundPreferences } from "../../../shared/notificationPreferences.mjs";
-import {
-  ROADMAP_STATUSES,
-  ROADMAP_PRIORITIES,
-  ROADMAP_CATEGORIES,
-  type WebsiteContent,
-} from "../../../shared/websiteContent.mjs";
 
 import { ageFromBirthDate, parseAge } from "./age.js";
 import { parseAvatar, parsePicture, type Avatar } from "./avatars.js";
@@ -163,88 +157,6 @@ export async function fetchPublicRooms(): Promise<PublicRoom[]> {
     z.object({ docs: z.array(publicRoomSchema) }),
   );
   return data.docs;
-}
-
-const websiteTextSchema = localizedText.transform((value) =>
-  Object.fromEntries(
-    Object.entries(textsByLanguage(value)).filter(
-      (entry): entry is [string, string] =>
-        typeof entry[1] === "string" && entry[1].trim().length > 0,
-    ),
-  ),
-);
-const releaseSchema = z.object({
-  id: z.number(),
-  version: z.string().min(1),
-  title: websiteTextSchema,
-  summary: websiteTextSchema,
-  changes: websiteTextSchema,
-  releasedAt: z.iso.datetime({ offset: true }),
-  published: z.boolean(),
-});
-const roadmapSchema = z.object({
-  key: z.string().min(1),
-  title: websiteTextSchema,
-  description: websiteTextSchema,
-  status: z.enum(ROADMAP_STATUSES),
-  priority: z.enum(ROADMAP_PRIORITIES),
-  category: z.enum(ROADMAP_CATEGORIES),
-  order: z.number(),
-  release: z.number().nullish(),
-  published: z.boolean(),
-});
-
-export async function fetchWebsiteContent(): Promise<WebsiteContent> {
-  const [roadmap, releases] = await Promise.all([
-    payloadFetch(
-      "/api/roadmap-items?pagination=false&locale=all&depth=0&where[published][equals]=true",
-      z.object({ docs: z.array(roadmapSchema) }),
-    ),
-    payloadFetch(
-      "/api/releases?pagination=false&locale=all&depth=0&where[published][equals]=true",
-      z.object({ docs: z.array(releaseSchema) }),
-    ),
-  ]);
-  const published = releases.docs.filter(
-    (release) =>
-      release.published && Date.parse(release.releasedAt) <= Date.now(),
-  );
-  const versions = new Map(
-    published.map((release) => [release.id, release.version]),
-  );
-  return {
-    roadmap: roadmap.docs
-      .filter((item) => item.published)
-      .map((item) => ({
-        key: item.key,
-        title: item.title,
-        description: item.description,
-        status: item.status,
-        priority: item.priority,
-        category: item.category,
-        order: item.order,
-        ...(item.release != null && versions.has(item.release)
-          ? { release: versions.get(item.release)! }
-          : {}),
-      }))
-      .sort(
-        (first, second) =>
-          first.order - second.order || first.key.localeCompare(second.key),
-      ),
-    releases: published
-      .map((release) => ({
-        version: release.version,
-        title: release.title,
-        summary: release.summary,
-        changes: release.changes,
-        releasedAt: release.releasedAt,
-      }))
-      .sort(
-        (first, second) =>
-          Date.parse(second.releasedAt) - Date.parse(first.releasedAt) ||
-          second.version.localeCompare(first.version, "en", { numeric: true }),
-      ),
-  };
 }
 
 export async function fetchBans(): Promise<Ban[]> {

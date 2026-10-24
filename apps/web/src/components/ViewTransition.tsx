@@ -115,12 +115,14 @@ export function ViewTransition({
   viewKey,
   depth,
   hold = false,
+  resetScroll = true,
   children,
 }: {
   // What the view is; a new one is a new view.
   viewKey: string;
   depth: number;
   hold?: boolean;
+  resetScroll?: boolean;
   children: ReactNode;
 }) {
   const [last, setLast] = useState({
@@ -135,14 +137,20 @@ export function ViewTransition({
     setLast({ viewKey, depth, direction });
   }
 
-  // Going back up (out of a room to the lobby) shows the page from its top, not wherever the room was scrolled to.
   const shown = useRef(viewKey);
+  useLayoutEffect(() => {
+    const previous = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+    return () => {
+      window.history.scrollRestoration = previous;
+    };
+  }, []);
   useLayoutEffect(() => {
     if (shown.current === viewKey) return;
 
     shown.current = viewKey;
-    if (direction === -1) window.scrollTo({ top: 0, behavior: "instant" });
-  }, [viewKey, direction]);
+    if (resetScroll) window.scrollTo({ top: 0, behavior: "instant" });
+  }, [viewKey, resetScroll]);
 
   if (hold) return <div className="flex flex-1 flex-col" />;
 

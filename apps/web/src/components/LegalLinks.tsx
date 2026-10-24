@@ -2,13 +2,7 @@ import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
-import {
-  ABOUT_PATH,
-  PRIVACY_PATH,
-  TERMS_PATH,
-  ROADMAP_PATH,
-  VERSIONS_PATH,
-} from "../place";
+import { ABOUT_PATH, PRIVACY_PATH, TERMS_PATH } from "../place";
 
 export const LINK =
   "text-indigo-300 underline hover:text-indigo-200 focus-visible:outline-2 focus-visible:outline-indigo-400";
@@ -65,12 +59,6 @@ export function LegalLinks() {
       </Link>
       <Link to={ABOUT_PATH} className={LINK}>
         {t("about.link")}
-      </Link>
-      <Link to={ROADMAP_PATH} className={LINK}>
-        {t("development.roadmap")}
-      </Link>
-      <Link to={VERSIONS_PATH} className={LINK}>
-        {t("development.versions")}
       </Link>
     </nav>
   );

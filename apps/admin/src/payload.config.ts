@@ -9,8 +9,6 @@ import { PublicRooms } from './collections/PublicRooms'
 import { Bans } from './collections/Bans'
 import { Reports } from './collections/Reports'
 import { Users } from './collections/Users'
-import { Releases } from './collections/Releases'
-import { RoadmapItems } from './collections/RoadmapItems'
 import { Legal } from './globals/Legal'
 import { env } from './env'
 import { migrations } from './migrations'
@@ -25,7 +23,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Admins, PublicRooms, Bans, Reports, Users, Releases, RoadmapItems],
+  collections: [Admins, PublicRooms, Bans, Reports, Users],
   globals: [Legal],
   // The languages of the web client; only fields marked `localized` differ between them.
   localization: {

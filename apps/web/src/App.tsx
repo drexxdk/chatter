@@ -41,7 +41,6 @@ import type { CreateLobbySocket, CreateSocket } from "./chat/socket";
 import type { ActionResult } from "./chat/types";
 import { useChat } from "./chat/useChat";
 import { AboutPage } from "./components/AboutPage";
-import { WebsitePage } from "./components/WebsitePage";
 import { createTabCoordinator, type TabCoordinator } from "./activeTab";
 import { CreateAccountDialog } from "./components/AccountSection";
 import { AnnouncementBanner } from "./components/AnnouncementBanner";
@@ -296,14 +295,12 @@ export function App({
   usePageTitle(
     inRoom
       ? (currentRoom?.name ?? chat.roomSlug ?? undefined)
-      : page === "roadmap" || page === "versions"
-        ? t(`development.${page}`)
-        : page === "about"
-          ? t("about.title")
-          : page
-            ? (legalDocOf(legalState, i18n.resolvedLanguage, page)?.title ??
-              t(`legal.${page}`))
-            : undefined,
+      : page === "about"
+        ? t("about.title")
+        : page
+          ? (legalDocOf(legalState, i18n.resolvedLanguage, page)?.title ??
+            t(`legal.${page}`))
+          : undefined,
     chat.direct.threads.reduce((sum, thread) => sum + thread.unread, 0),
   );
 
@@ -1133,6 +1130,7 @@ export function App({
             viewKey={inRoom ? `room:${chat.roomSlug}` : (page ?? "lobby")}
             depth={inRoom || page ? 1 : 0}
             hold={!settled && startedInRoom.current}
+            resetScroll={!inRoom}
           >
             {chat.roomSlug && chat.session ? (
               <Suspense
@@ -1177,8 +1175,6 @@ export function App({
               <LegalPage page={page} state={legalState} retry={retryLegal} />
             ) : page === "about" ? (
               <AboutPage />
-            ) : page === "roadmap" || page === "versions" ? (
-              <WebsitePage page={page} />
             ) : (
               <div className="flex flex-1 flex-col gap-6">
                 <div className="flex flex-1 flex-col gap-4 py-6">
