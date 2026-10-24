@@ -582,6 +582,8 @@
     "invalid_nickname": "Det kaldenavn er ikke tilladt. Brug 2–24 bogstaver, tal, mellemrum eller _ . -",
     "banned": "Du er udelukket fra denne chat.",
     "reserved_nickname": "Det kaldenavn er reserveret. Vælg et andet.",
+    "reserved_display_name": "Det visningsnavn er optaget eller reserveret. Vælg et andet.",
+    "invalid_display_name": "Det visningsnavn er ikke tilladt. Brug 2–24 bogstaver, tal, mellemrum eller _ . -",
     "invalid_username": "Det brugernavn er ikke tilladt. Brug 2–24 bogstaver, tal eller _ . - uden mellemrum.",
     "reserved_username": "Det brugernavn er optaget eller reserveret. Vælg et andet.",
     "nickname_taken": "Der er allerede en i dette rum med det kaldenavn. Vælg et andet.",

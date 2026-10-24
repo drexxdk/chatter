@@ -220,9 +220,14 @@ function RegisterForm({
   const usernameOk = normalizeUsername(username);
   const nickname = normalizeNickname(displayName);
   const birthDate = readBirthDate(birthDateText);
+  const usernameError =
+    error === "reserved_username" || error === "invalid_username";
+  const displayNameError =
+    error === "reserved_display_name" || error === "invalid_display_name";
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
+    const form = event.currentTarget;
     setTouched(true);
     setError(null);
 
@@ -243,8 +248,22 @@ function RegisterForm({
       if (!rememberedTerms) saveTermsAccepted(termsVersion);
       finish(session, returnPath, navigate);
     } catch (cause) {
-      setError(codeOf(cause));
+      const code = codeOf(cause);
+      const field =
+        code === "reserved_nickname" || code === "invalid_nickname"
+          ? "register-nickname"
+          : code === "reserved_username" || code === "invalid_username"
+            ? "register-username"
+            : null;
+      setError(
+        code === "reserved_nickname"
+          ? "reserved_display_name"
+          : code === "invalid_nickname"
+            ? "invalid_display_name"
+            : code,
+      );
       setBusy(false);
+      if (field) form.querySelector<HTMLInputElement>(`#${field}`)?.focus();
     }
   }
 
@@ -260,24 +279,38 @@ function RegisterForm({
       <Field
         id="register-username"
         label={t("account.register.username")}
-        hint={t("account.register.usernameHint")}
+        hint={
+          usernameError
+            ? t(`errors.${error}`)
+            : t("account.register.usernameHint")
+        }
         required
         autoFocus
         autoComplete="username"
         maxLength={24}
         value={username}
         // A username has no spaces, so they are not let in.
-        onChange={(event) => setUsername(event.target.value.replace(/\s/g, ""))}
-        invalid={touched && !usernameOk}
+        onChange={(event) => {
+          setUsername(event.target.value.replace(/\s/g, ""));
+          if (usernameError) setError(null);
+        }}
+        invalid={usernameError || (touched && !usernameOk)}
       />
       <NameAndBirthDate
         nicknameId="register-nickname"
         ageId="register-age"
         nickname={displayName}
-        onNicknameChange={setDisplayName}
-        invalidNickname={touched && !nickname}
+        onNicknameChange={(value) => {
+          setDisplayName(value);
+          if (displayNameError) setError(null);
+        }}
+        invalidNickname={displayNameError || (touched && !nickname)}
         nicknameLabel={t("account.register.displayName")}
-        nicknameHint={t("account.register.displayNameHint")}
+        nicknameHint={
+          displayNameError
+            ? t(`errors.${error}`)
+            : t("account.register.displayNameHint")
+        }
         birthDate={birthDateText}
         onBirthDateChange={setBirthDateText}
         invalidAge={touched && !birthDate.ok}

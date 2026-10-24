@@ -426,8 +426,9 @@ describe("the page the providers send the browser back to", () => {
 
     it.each([
       ["reserved_username", "That username is taken or reserved"],
-      ["reserved_nickname", "That nickname is reserved"],
+      ["reserved_nickname", "That display name is taken or reserved"],
       ["invalid_username", "That username isn't allowed"],
+      ["invalid_nickname", "That display name isn't allowed"],
     ])(
       "is told when the server says %s, and can choose another",
       async (code, text) => {
@@ -449,12 +450,67 @@ describe("the page the providers send the browser back to", () => {
         );
 
         expect(await screen.findByRole("alert")).toHaveTextContent(text);
+        const rejected = screen.getByLabelText(
+          code.endsWith("_nickname") ? /Display name/ : /Username/,
+        );
+        expect(rejected).toBeInvalid();
+        expect(rejected).toHaveFocus();
+        expect(rejected).toHaveAccessibleDescription(
+          expect.stringContaining(text),
+        );
         expect(
           screen.getByRole("button", { name: "Create account" }),
         ).toBeEnabled();
         expect(navigate).not.toHaveBeenCalled();
+        await user.type(rejected, "2");
+        expect(screen.queryByRole("alert")).toBeNull();
+        expect(rejected).toBeValid();
       },
     );
+
+    it("keeps a display-name conflict when only username changes, then clears it when the display name is corrected", async () => {
+      const navigate = vi.fn();
+      let corrected = false;
+      const fetchMock = stubServer({
+        "POST /auth/register": () =>
+          corrected
+            ? registered()
+            : { status: 409, body: { error: "reserved_nickname" } },
+      });
+      render(
+        <AuthCallback
+          hash="#provider=google&ticket=t1&name=Alice&return=%2F"
+          navigate={navigate}
+        />,
+      );
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole("checkbox"));
+      await user.click(screen.getByRole("button", { name: "Create account" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "That display name is taken or reserved",
+      );
+      const username = screen.getByLabelText(/Username/);
+      await user.clear(username);
+      await user.type(username, "alice123");
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "That display name is taken or reserved",
+      );
+      const displayName = screen.getByLabelText(/Display name/);
+      await user.clear(displayName);
+      await user.type(displayName, "Alice New");
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(displayName).toBeValid();
+      corrected = true;
+      await user.click(screen.getByRole("button", { name: "Create account" }));
+      await waitFor(() => expect(navigate).toHaveBeenCalledWith("/"));
+      const requests = fetchMock.mock.calls.filter(
+        ([url]) => new URL(url).pathname === "/auth/register",
+      );
+      expect(JSON.parse(String(requests.at(-1)?.[1]?.body))).toMatchObject({
+        username: "alice123",
+        nickname: "Alice New",
+      });
+    });
 
     it("shows the terms box ticked for somebody who has accepted them already", async () => {
       localStorage.setItem("chatter.terms", "unknown");

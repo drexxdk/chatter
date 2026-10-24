@@ -585,6 +585,8 @@
     "invalid_nickname": "That nickname isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",
     "banned": "You are banned from this chat.",
     "reserved_nickname": "That nickname is reserved. Pick another one.",
+    "reserved_display_name": "That display name is taken or reserved. Pick another one.",
+    "invalid_display_name": "That display name isn't allowed. Use 2–24 letters, numbers, spaces, or _ . -",
     "invalid_username": "That username isn't allowed. Use 2–24 letters, numbers, or _ . - without spaces.",
     "reserved_username": "That username is taken or reserved. Pick another one.",
     "nickname_taken": "Somebody in this room already has that nickname. Pick another one.",

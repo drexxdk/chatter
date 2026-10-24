@@ -585,6 +585,8 @@
     "invalid_nickname": "Dieser Spitzname ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern, Leerzeichen oder _ . -",
     "banned": "Du wurdest aus diesem Chat gesperrt.",
     "reserved_nickname": "Dieser Spitzname ist reserviert. Wähle einen anderen.",
+    "reserved_display_name": "Dieser Anzeigename ist vergeben oder reserviert. Wähle einen anderen.",
+    "invalid_display_name": "Dieser Anzeigename ist nicht erlaubt. Verwende 2–24 Buchstaben, Zahlen, Leerzeichen oder _ . -",
     "invalid_username": "Dieser Benutzername ist nicht erlaubt. Verwende 2–24 Buchstaben, Ziffern oder _ . - ohne Leerzeichen.",
     "reserved_username": "Dieser Benutzername ist vergeben oder reserviert. Wähle einen anderen.",
     "nickname_taken": "Jemand in diesem Raum hat diesen Spitznamen schon. Wähle einen anderen.",
