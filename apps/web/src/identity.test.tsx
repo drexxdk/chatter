@@ -77,7 +77,9 @@ describe("public chat identities", () => {
     ]);
     render(
       <IdentityProvider value={names}>
-        <IdentityProfile person={{ ...person, avatar: "other" }} />
+        <IdentityProfile
+          person={{ ...person, avatar: "other", role: "guest" }}
+        />
         <IdentityName person={person} />
       </IdentityProvider>,
     );

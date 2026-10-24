@@ -301,7 +301,10 @@ test("accounts share display names with distinct public identities and private r
         .getByRole("list", { name: "People in this room" })
         .locator("li")
         .filter({ hasText: "(you)" })
-        .getByRole("button", { name: /\u00b7 M[A-Z0-9]+$/ }),
+        .getByRole("button", {
+          name: index === 0 ? `Profile: ${chatName}` : /\u00b7 [A-Z0-9]{8,}$/,
+          exact: true,
+        }),
     ).toBeVisible();
     await page
       .getByRole("textbox", { name: "Message", exact: true })
@@ -338,7 +341,7 @@ test("accounts share display names with distinct public identities and private r
   await observer.keyboard.press("Escape");
   await people
     .getByRole("button", {
-      name: `Open private chat with ${chatName} \u00b7 ${tag.slice(-8)}`,
+      name: `Open private chat with ${chatName} \u00b7 ${tag}`,
       exact: true,
     })
     .click();

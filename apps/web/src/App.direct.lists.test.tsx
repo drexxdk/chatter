@@ -40,7 +40,7 @@ describe("direct messages", () => {
         }),
       );
       expect(profile.getByText("Bob")).toBeVisible();
-      expect(profile.getByText("Male")).toBeVisible();
+      expect(profile.getByLabelText("Gender")).toHaveTextContent("Male");
       expect(profile.getByText("Online")).toBeVisible();
       expect(profile.queryByRole("textbox")).toBeNull();
       expect(screen.queryByRole("menu")).toBeNull();
