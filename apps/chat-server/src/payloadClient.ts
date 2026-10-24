@@ -567,6 +567,8 @@ export interface NewUser {
 }
 
 export interface UserChanges {
+  nickname?: string;
+  nicknameKey?: string;
   displayNameChangedAt?: string;
   passwordHash?: string;
   birthDate?: string | null;

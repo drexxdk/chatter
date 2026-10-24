@@ -151,6 +151,15 @@ vi.mock("./payloadClient.js", async (importOriginal) => {
     },
     updateUser: async (id: number, changes: Record<string, unknown>) => {
       await beforeUpdateUser();
+      if (
+        changes.nicknameKey &&
+        [...accounts.users.entries()].some(
+          ([owner, user]) =>
+            owner !== id && user.nicknameKey === changes.nicknameKey,
+        )
+      ) {
+        throw new original.PayloadError("taken", 400, "nicknameKey");
+      }
       const user = { ...accounts.users.get(id), ...changes };
       accounts.users.set(id, user as Record<string, unknown>);
       return user;
@@ -618,6 +627,35 @@ describe("password accounts", () => {
     expect(await response.json()).toMatchObject({
       profile: { username: "alicia" },
     });
+  });
+
+  it("signs in with a self-edited username and rejects the old username", async () => {
+    const session = await claim();
+    await start();
+    const saved = await fetch(`${base}/me`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.token}`,
+      },
+      body: JSON.stringify({ username: "alice_new" }),
+    });
+    expect(saved.status).toBe(200);
+    expect(
+      (await post("/auth/password/login", { username: "alice", password }))
+        .status,
+    ).toBe(401);
+    const signedIn = await post("/auth/password/login", {
+      username: "ALICE_NEW",
+      password,
+    });
+    expect(signedIn.status).toBe(200);
+    expect(await signedIn.json()).toMatchObject({
+      profile: { username: "alice_new", nickname: "Alice Guest" },
+    });
+    expect(
+      (await get("/me", { Authorization: `Bearer ${session.token}` })).status,
+    ).toBe(200);
   });
 
   it("rate limits password attempts", async () => {
@@ -1220,6 +1258,122 @@ describe("the account's own data", () => {
         profile: { avatar: "male", age: 41 },
       });
       expect(accounts.users.get(1)).toMatchObject({ avatar: "male", age: 41 });
+    });
+
+    it("changes private usernames repeatedly without a display-name cooldown", async () => {
+      await start();
+      const token = await signedIn();
+      for (const username of ["alice_new", "alice_again", "alice"]) {
+        const response = await patch(token, { username });
+        expect(response.status).toBe(200);
+        expect(await response.json()).toMatchObject({
+          profile: { username, nickname: "Alice" },
+        });
+        expect(accounts.users.get(1)).toMatchObject({
+          nickname: username,
+          nicknameKey: username.replace(/_/g, ""),
+        });
+      }
+      expect(accounts.users.get(1)?.displayNameChangedAt).toBeUndefined();
+      expect(accounts.names.has("alicenew")).toBe(false);
+      expect(accounts.names.has("aliceagain")).toBe(false);
+      expect(accounts.names.has("alice")).toBe(true);
+    });
+
+    it("allows username-only changes during the public display-name cooldown", async () => {
+      await start();
+      const token = await signedIn();
+      expect((await patch(token, { nickname: "Alicia" })).status).toBe(200);
+      const changedAt = accounts.users.get(1)?.displayNameChangedAt;
+      expect((await patch(token, { username: "alice_new" })).status).toBe(200);
+      expect(accounts.users.get(1)).toMatchObject({
+        nickname: "alice_new",
+        displayName: "Alicia",
+        displayNameChangedAt: changedAt,
+      });
+      expect(
+        (
+          await patch(token, {
+            username: "alice_again",
+            nickname: "Alice Again",
+          })
+        ).status,
+      ).toBe(429);
+      expect(accounts.users.get(1)?.nickname).toBe("alice_new");
+    });
+
+    it.each(["a", "alice smith", "a".repeat(25), null, 123])(
+      "rejects invalid username %j without changing the profile",
+      async (username) => {
+        await start();
+        const token = await signedIn();
+        const before = accounts.users.get(1);
+        const response = await patch(token, { username, avatar: "male" });
+        expect(response.status).toBe(400);
+        expect(await response.json()).toEqual({ error: "invalid_username" });
+        expect(accounts.users.get(1)).toEqual(before);
+        expect(accounts.names.get("alice")).toBe(1);
+      },
+    );
+
+    it("refuses an occupied normalized username or a protected staff username atomically", async () => {
+      await start();
+      const token = await signedIn();
+      const ticket = (await signInAs("bob")).get("ticket");
+      expect(
+        (await post("/auth/register", { ticket, ...details("bob", "Bobby") }))
+          .status,
+      ).toBe(200);
+      const before = accounts.users.get(1);
+      for (const username of ["B_o.b", "admin"]) {
+        const response = await patch(token, { username, avatar: "male" });
+        expect(response.status).toBe(409);
+        expect(await response.json()).toEqual({ error: "reserved_username" });
+        expect(accounts.users.get(1)).toEqual(before);
+      }
+      expect(accounts.names.get("alice")).toBe(1);
+      expect(accounts.names.get("bob")).toBe(2);
+    });
+
+    it("maps a database uniqueness conflict without releasing the current username", async () => {
+      await start();
+      const token = await signedIn();
+      accounts.users.set(2, { id: 2, nickname: "bob", nicknameKey: "bob" });
+      const before = accounts.users.get(1);
+      const response = await patch(token, { username: "bob", avatar: "male" });
+      expect(response.status).toBe(409);
+      expect(await response.json()).toEqual({ error: "reserved_username" });
+      expect(accounts.users.get(1)).toEqual(before);
+      expect(accounts.names.get("alice")).toBe(1);
+    });
+
+    it("grants a concurrently requested username to just one account", async () => {
+      await start();
+      const alice = await signedIn();
+      const ticket = (await signInAs("bob")).get("ticket");
+      const registered = await post("/auth/register", {
+        ticket,
+        ...details("bob", "Bobby"),
+      });
+      const bob = ((await registered.json()) as { token: string }).token;
+      const responses = await Promise.all([
+        patch(alice, { username: "shared_name" }),
+        patch(bob, { username: "SHARED.NAME" }),
+      ]);
+      expect(responses.map((response) => response.status).sort()).toEqual([
+        200, 409,
+      ]);
+      expect(
+        [...accounts.users.values()].filter(
+          (user) => user.nicknameKey === "sharedname",
+        ),
+      ).toHaveLength(1);
+      const owner = accounts.names.get("sharedname");
+      expect(owner).toBeDefined();
+      expect(accounts.names.has(owner === 1 ? "alice" : "bob")).toBe(false);
+      expect(accounts.names.get(owner === 1 ? "bob" : "alice")).toBe(
+        owner === 1 ? 2 : 1,
+      );
     });
 
     it("changes what is in the body and keeps the rest", async () => {

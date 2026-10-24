@@ -100,6 +100,8 @@ export async function handleProfileUpdate(
 
       const slug = data.roomSlug;
       const apply = () => {
+        if (result.profile.username !== undefined)
+          data.username = result.profile.username;
         data.nickname = nickname;
         data.avatar = avatar;
         data.picture = picture;
@@ -135,6 +137,9 @@ export async function handleProfileUpdate(
       reply({
         ok: true,
         profile: {
+          ...(result.profile.username === undefined
+            ? {}
+            : { username: result.profile.username }),
           nickname,
           avatar,
           ...(picture === undefined ? {} : { picture }),

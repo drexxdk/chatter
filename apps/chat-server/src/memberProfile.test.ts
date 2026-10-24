@@ -107,7 +107,7 @@ describe("shared profile validation", () => {
     expect(isMemberName).not.toHaveBeenCalled();
   });
 
-  it.each([undefined, null, "ignored", 42, [], {}, { username: "other" }])(
+  it.each([undefined, null, "ignored", 42, [], {}])(
     "preserves omitted profile fields for %j",
     async (payload) => {
       expect(await validateProfileUpdate(current, payload, 5)).toEqual({
@@ -118,6 +118,16 @@ describe("shared profile validation", () => {
       expect(isMemberName).not.toHaveBeenCalled();
     },
   );
+
+  it("accepts private username changes only for members", async () => {
+    expect(
+      await validateProfileUpdate(current, { username: " other " }, 5),
+    ).toEqual({ ok: true, profile: { ...current, username: "other" } });
+    expect(await validateProfileUpdate(current, { username: "other" })).toEqual(
+      { ok: false, error: "forbidden" },
+    );
+    expect(current).not.toHaveProperty("username");
+  });
 
   it.each([
     [{ nickname: "a" }, "invalid_nickname"],

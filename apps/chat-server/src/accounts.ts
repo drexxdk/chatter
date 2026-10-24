@@ -600,13 +600,21 @@ export function createAccountsRouter(options: {
                 .json({ error: failure.error, retryAfterSeconds });
             }
             return res
-              .status(failure === "reserved_nickname" ? 409 : 503)
+              .status(
+                failure === "reserved_nickname" ||
+                  failure === "reserved_username"
+                  ? 409
+                  : failure === "invalid_token"
+                    ? 401
+                    : 503,
+              )
               .json({ error: failure });
           }
 
           res.json({
             profile: profileOf({
               ...user,
+              nickname: result.profile.username ?? user.nickname,
               displayName: nickname,
               avatar,
               picture,

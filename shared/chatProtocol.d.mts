@@ -29,6 +29,7 @@ export function passwordChecks(password: string): {
 export type Avatar = "male" | "female" | "trans" | "other";
 
 export interface ProfileChanges {
+  username?: string;
   nickname?: string;
   avatar?: Avatar;
   picture?: string;
@@ -40,6 +41,7 @@ export type ProfileUpdateAck =
   | {
       ok: true;
       profile: {
+        username?: string;
         nickname: string;
         avatar: Avatar;
         picture?: string;

@@ -7,7 +7,7 @@ import { AVATARS, PLAIN_AVATAR } from "../chat/avatar";
 import { randomPicture } from "../chat/picture";
 import type { ActionResult, Session } from "../chat/types";
 import { useRetryCountdown } from "../chat/useRetryCountdown";
-import { normalizeNickname } from "../nickname";
+import { normalizeNickname, normalizeUsername } from "../nickname";
 import {
   MAX_AGE,
   MIN_AGE,
@@ -214,6 +214,10 @@ function ProfileForm({
   // An account's name is a display name; a guest's is a nickname.
   const account = profile.role === "member";
   const draftKey = `profile:${profile.role}:${profile.nickname}`;
+  const [usernameText, setUsernameText] = useTabText(
+    `${draftKey}:username`,
+    username ?? "",
+  );
   const [name, setName] = useTabText(`${draftKey}:name`, profile.nickname);
   const [initialPicture] = useState(() => profile.picture ?? randomPicture());
   const [picture, setPicture] = useTabText(
@@ -235,10 +239,18 @@ function ProfileForm({
   useRetryCountdown(failure, setFailure);
 
   const nickname = normalizeNickname(name);
+  const nextUsername = normalizeUsername(usernameText);
   const birthDate = readBirthDate(birthDateText);
 
   function finish() {
-    for (const field of ["name", "picture", "avatar", "age", "birthDate"])
+    for (const field of [
+      "username",
+      "name",
+      "picture",
+      "avatar",
+      "age",
+      "birthDate",
+    ])
       writeTabDraft(`${draftKey}:${field}`, undefined);
     onDone();
   }
@@ -248,9 +260,16 @@ function ProfileForm({
     const form = event.currentTarget;
     setTouched(true);
 
+    if (username && !nextUsername) {
+      form.querySelector<HTMLInputElement>("#profile-username")?.focus();
+      return;
+    }
     if (!nickname || !birthDate.ok) return;
 
     const changes: ProfileChanges = {
+      ...(username && nextUsername && nextUsername !== username
+        ? { username: nextUsername }
+        : {}),
       ...(nickname === profile.nickname ? {} : { nickname }),
       ...(picture !== profile.picture ? { picture } : {}),
       ...(avatar === (profile.avatar ?? PLAIN_AVATAR) ? {} : { avatar }),
@@ -270,6 +289,11 @@ function ProfileForm({
       setFailure(result);
       if (result.error === "display_name_cooldown")
         form.querySelector<HTMLInputElement>("#profile-nickname")?.focus();
+      else if (
+        result.error === "reserved_username" ||
+        result.error === "invalid_username"
+      )
+        form.querySelector<HTMLInputElement>("#profile-username")?.focus();
     }
   }
 
@@ -279,9 +303,24 @@ function ProfileForm({
         <Field
           id="profile-username"
           label={t("account.register.username")}
-          value={username}
+          value={usernameText}
           autoComplete="username"
-          readOnly
+          maxLength={24}
+          required
+          hint={t("account.register.usernameHint")}
+          invalid={
+            (touched && !nextUsername) ||
+            failure?.error === "reserved_username" ||
+            failure?.error === "invalid_username"
+          }
+          onChange={(event) => {
+            setUsernameText(event.target.value.replace(/\s/g, ""));
+            if (
+              failure?.error === "reserved_username" ||
+              failure?.error === "invalid_username"
+            )
+              setFailure(undefined);
+          }}
         />
       )}
       <NameAndBirthDate

@@ -70,6 +70,7 @@ describe("what the client mirrors from the chat-server", () => {
     expect(PROFILE_UPDATE_EVENT).toBe("profile:update");
     expectTypeOf<ProfileChanges>().toEqualTypeOf<SharedProfileChanges>();
     expectTypeOf<ProfileChanges>().toEqualTypeOf<{
+      username?: string;
       nickname?: string;
       avatar?: SharedAvatar;
       picture?: string;

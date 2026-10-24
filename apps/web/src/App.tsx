@@ -482,6 +482,7 @@ export function App({
       } = account;
       const next: Account = {
         ...rest,
+        username: saved.username ?? account.username,
         nickname: saved.nickname,
         ...(saved.picture ? { picture: saved.picture } : {}),
         avatar: saved.avatar,
@@ -799,7 +800,9 @@ export function App({
     setAccount((current) => {
       if (
         !current ||
-        (current.nickname === session.nickname &&
+        ((session.username === undefined ||
+          current.username === session.username) &&
+          current.nickname === session.nickname &&
           current.avatar === session.avatar &&
           current.picture === session.picture &&
           current.age === session.age &&
@@ -816,6 +819,7 @@ export function App({
       } = current;
       const next: Account = {
         ...rest,
+        username: session.username ?? current.username,
         nickname: session.nickname,
         ...(session.picture ? { picture: session.picture } : {}),
         ...(session.avatar ? { avatar: session.avatar } : {}),

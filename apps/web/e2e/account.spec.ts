@@ -502,7 +502,11 @@ test("a guest claims their profile with a password and can sign in again from th
     }),
   ).toBeVisible();
   await expect(profile).toBeVisible();
-  await profile.getByRole("button", { name: "Edit profile" }).click();
+  const editProfile = profile.getByRole("button", { name: "Edit profile" });
+  await expect(
+    editProfile.or(profile.getByRole("button", { name: "Save", exact: true })),
+  ).toBeVisible();
+  if (await editProfile.isVisible()) await editProfile.click();
   await expect(day).toHaveValue("01");
   await expect(month).toHaveText("January");
   await expect(year).toHaveValue(birthDate.slice(0, 4));
@@ -545,13 +549,59 @@ test("a guest claims their profile with a password and can sign in again from th
   ).not.toContain(password);
 
   await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
+  await page
+    .getByRole("menuitem", { name: "Your profile", exact: true })
+    .click();
+  const renamedHandle = username("Pass3");
+  for (const nextUsername of [username("Pass2"), renamedHandle]) {
+    await profile.getByRole("button", { name: "Edit profile" }).click();
+    await expect(profile.getByLabel("Username", { exact: true })).toHaveValue(
+      nextUsername === renamedHandle ? username("Pass2") : handle,
+    );
+    await profile.getByLabel("Username", { exact: true }).fill(nextUsername);
+    for (const width of [1280, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(
+        await profile.evaluate(
+          (dialog) => dialog.scrollWidth <= dialog.clientWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: test.info().outputPath(`username-${nextUsername}-${width}.png`),
+      });
+    }
+    await profile.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(
+      profile.getByRole("button", { name: "Edit profile" }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            JSON.parse(localStorage.getItem("chatter.account") ?? "null")
+              ?.username,
+        ),
+      )
+      .toBe(nextUsername);
+  }
+  expect(await accountsNamed(handle)).toEqual([]);
+  expect((await accountsNamed(renamedHandle))[0]?.id).toBe(account.id);
+  expect(
+    presenceFrames.every(
+      (frame) =>
+        !frame.includes('"username"') && !frame.includes(renamedHandle),
+    ),
+  ).toBe(true);
+  await profile.getByRole("button", { name: "Close", exact: true }).click();
+
+  await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
   await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   const login = page.getByRole("dialog", { name: "Sign in" });
   await expect(
     login.getByRole("link", { name: "Continue with Dev sign-in" }),
   ).toBeVisible();
-  await login.getByLabel("Username or email").fill(handle.toUpperCase());
+  await login.getByLabel("Username or email").fill(renamedHandle.toUpperCase());
   await login.getByLabel("Password", { exact: true }).fill(password);
   await login.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
@@ -564,6 +614,9 @@ test("a guest claims their profile with a password and can sign in again from th
     .getByRole("menuitem", { name: "Your profile", exact: true })
     .click();
   await profile.getByRole("button", { name: "Edit profile" }).click();
+  await expect(profile.getByLabel("Username", { exact: true })).toHaveValue(
+    renamedHandle,
+  );
   await expect(day).toHaveValue("01");
   await expect(month).toHaveText("January");
   await expect(year).toHaveValue(birthDate.slice(0, 4));
@@ -700,6 +753,8 @@ test("an account is edited from the lobby, where it is only shown until it is as
   const chatName = displayName("Cleo");
   const renamed = displayName("Cleo2");
   const handle = username("Cleo");
+  const renamedHandle = username("Cleo2");
+  const finalHandle = username("Cleo3");
   const page = await newPage(browser);
   await page.goto("/");
 
@@ -723,6 +778,7 @@ test("an account is edited from the lobby, where it is only shown until it is as
   await expect(dialog.getByLabel("Display name")).toHaveCount(0);
 
   await dialog.getByRole("button", { name: "Edit profile" }).click();
+  await dialog.getByLabel("Username", { exact: true }).fill(renamedHandle);
   await dialog.getByLabel("Display name").fill(renamed);
   const birthYear = String(new Date().getUTCFullYear() - 33);
   await dialog.getByLabel("Day", { exact: true }).fill("1");
@@ -741,7 +797,7 @@ test("an account is edited from the lobby, where it is only shown until it is as
   await expect(dialog.getByText("33 years old")).toBeVisible();
   await expect(dialog.getByText("Male", { exact: true })).toBeVisible();
   await expect
-    .poll(() => accountsNamed(handle))
+    .poll(() => accountsNamed(renamedHandle))
     .toEqual([
       expect.objectContaining({ displayName: renamed, avatar: "male" }),
     ]);
@@ -754,6 +810,9 @@ test("an account is edited from the lobby, where it is only shown until it is as
   await expect(dialog.getByText(renamed, { exact: true })).toBeVisible();
 
   await dialog.getByRole("button", { name: "Edit profile" }).click();
+  await expect(dialog.getByLabel("Username", { exact: true })).toHaveValue(
+    renamedHandle,
+  );
   await expect(dialog.getByText(/must wait 24 hours/)).toBeVisible();
   await dialog.getByLabel("Display name").fill(displayName("Cleo3"));
   await dialog.getByRole("button", { name: "Save" }).click();
@@ -769,6 +828,7 @@ test("an account is edited from the lobby, where it is only shown until it is as
     path: test.info().outputPath("display-name-cooldown.png"),
   });
   await dialog.getByLabel("Display name").fill(renamed);
+  await dialog.getByLabel("Username", { exact: true }).fill(finalHandle);
   await dialog
     .getByRole("radio", { name: "Female", exact: true })
     .check({ force: true });
@@ -777,6 +837,16 @@ test("an account is edited from the lobby, where it is only shown until it is as
   await expect(
     dialog.getByRole("button", { name: "Edit profile", exact: true }),
   ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem("chatter.account") ?? "null")
+            ?.username,
+      ),
+    )
+    .toBe(finalHandle);
+  expect(await accountsNamed(renamedHandle)).toEqual([]);
 
   // Joining a room afterwards is as the new name.
   await dialog.getByRole("button", { name: "Close" }).click();

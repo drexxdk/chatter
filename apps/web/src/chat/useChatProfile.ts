@@ -1,6 +1,7 @@
 import { useCallback, useRef, type Dispatch, type SetStateAction } from "react";
 import { PROFILE_UPDATE_EVENT } from "../../../../shared/chatProtocol.mjs";
 import { isRecord } from "../isRecord";
+import { normalizeUsername } from "../nickname";
 import { ageFromBirthDate, parseAge, type ProfileChanges } from "../profile";
 import { parseAvatar, PLAIN_AVATAR, type Avatar } from "./avatar";
 import { parsePicture } from "./picture";
@@ -59,6 +60,10 @@ export function useChatProfile({
       if (!ack.ok) return toResult(ack);
 
       const profile = isRecord(ack.profile) ? ack.profile : {};
+      const username =
+        typeof profile.username === "string"
+          ? normalizeUsername(profile.username)
+          : null;
       const nickname =
         typeof profile.nickname === "string" && profile.nickname
           ? profile.nickname
@@ -80,7 +85,15 @@ export function useChatProfile({
       };
       setSession((current) =>
         current
-          ? { ...current, nickname, avatar, picture, age, birthDate }
+          ? {
+              ...current,
+              ...(username ? { username } : {}),
+              nickname,
+              avatar,
+              picture,
+              age,
+              birthDate,
+            }
           : current,
       );
       return { ok: true };

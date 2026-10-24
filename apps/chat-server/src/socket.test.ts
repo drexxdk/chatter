@@ -4360,6 +4360,17 @@ describe("profiles", () => {
     ).toMatchObject({ avatar: "female", age: 31 });
   });
 
+  it("does not let a guest assign a private username", async () => {
+    const alice = await inGeneral({ nickname: "Alice" });
+    expect(
+      await emit(alice.socket, "profile:update", {
+        username: "alice_private",
+        avatar: "male",
+      }),
+    ).toEqual({ ok: false, error: "forbidden" });
+    expect(updateUser).not.toHaveBeenCalled();
+  });
+
   it("uses the new name and avatar for what the guest writes afterwards", async () => {
     const alice = await inGeneral({ nickname: "Alice" });
     const bob = await inGeneral({ nickname: "Bob" });
@@ -5378,6 +5389,35 @@ describe("members", () => {
       expect(claimMemberName).toHaveBeenCalledWith(5, "alicea");
       expect(claimMemberName).not.toHaveBeenCalledWith(5, "alicia");
       expect(releaseMemberName).not.toHaveBeenCalled();
+    });
+
+    it("acknowledges repeated username changes privately without changing the public identity", async () => {
+      const { socket, session, io } = await member();
+      for (const username of ["alice_new", "alice_again"]) {
+        const ack = await emit(socket, "profile:update", { username });
+        expect(ack).toMatchObject({
+          ok: true,
+          profile: { username, nickname: "Alice" },
+        });
+        const connection = io.sockets.sockets.get(socket.id!);
+        expect(connection?.data).toMatchObject({
+          username,
+          nickname: "Alice",
+          guestId: session.guestId,
+        });
+        expect(updateUser).toHaveBeenLastCalledWith(
+          5,
+          expect.objectContaining({
+            nickname: username,
+            nicknameKey: username.replace(/_/g, ""),
+          }),
+        );
+        expect(updateUser.mock.lastCall?.[1]).not.toHaveProperty(
+          "displayNameChangedAt",
+        );
+      }
+      expect(releaseMemberName).toHaveBeenCalledWith(5, "alicea");
+      expect(releaseMemberName).toHaveBeenCalledWith(5, "alice_new");
     });
 
     it("returns the remaining display-name cooldown without changing the socket profile", async () => {

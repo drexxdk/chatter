@@ -453,13 +453,14 @@ describe("others' ages", () => {
 });
 
 describe("a member's display-name cooldown", () => {
-  it("keeps the private username visible but read-only while editing the profile", async () => {
+  it("edits the private username alongside the profile and preserves radio selection", async () => {
     const user = userEvent.setup();
+    const save = vi.fn(async () => ({ ok: true as const }));
     render(
       <ProfileDialog
         open
         onClose={() => {}}
-        onSave={async () => ({ ok: true })}
+        onSave={save}
         account={{
           token: "member-token",
           provider: "password",
@@ -473,7 +474,7 @@ describe("a member's display-name cooldown", () => {
     );
     await user.click(screen.getByRole("button", { name: "Edit profile" }));
     expect(screen.getByLabelText("Username")).toHaveValue("alice_private");
-    expect(screen.getByLabelText("Username")).toHaveAttribute("readonly");
+    expect(screen.getByLabelText("Username")).not.toHaveAttribute("readonly");
     expect(screen.getByLabelText("Display name")).not.toHaveAttribute(
       "readonly",
     );
@@ -485,6 +486,54 @@ describe("a member's display-name cooldown", () => {
     expect(picture).toBeChecked();
     await user.keyboard("{ArrowRight}");
     expect(screen.getByRole("radio", { name: "Avatar 3" })).toBeChecked();
+    await user.clear(screen.getByLabelText("Username"));
+    await user.type(screen.getByLabelText("Username"), "alice_new");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ username: "alice_new" }),
+    );
+  });
+
+  it("marks a taken username, clears its error on editing and rejects invalid replacements", async () => {
+    const user = userEvent.setup();
+    const save = vi
+      .fn()
+      .mockResolvedValue({ ok: false, error: "reserved_username" });
+    render(
+      <ProfileDialog
+        open
+        onClose={() => {}}
+        onSave={save}
+        account={{
+          token: "member-token",
+          provider: "password",
+          nickname: "Alice",
+          username: "alice",
+          expiresAt: Date.now() + 60_000,
+        }}
+        onDelete={async () => {}}
+        profile={{ nickname: "Alice", role: "member", avatar: "other" }}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Edit profile" }));
+    const username = screen.getByLabelText("Username");
+    await user.clear(username);
+    await user.type(username, "alice_taken");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/username/i);
+    expect(username).toHaveFocus();
+    expect(username).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Display name")).not.toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await user.clear(username);
+    await user.type(username, "!");
+    expect(screen.queryByRole("alert")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(username).toHaveFocus();
+    expect(username).toHaveAttribute("aria-invalid", "true");
   });
 
   it("states the rule and shows the remaining wait on the display-name field", async () => {

@@ -12,6 +12,7 @@ export interface QueueTestSettings {
 }
 
 export interface Session {
+  username?: string;
   guestId: string;
   nickname: string;
   role?: Role;
