@@ -16,7 +16,7 @@ export function IdentityName({ person }: { person: PublicPerson }) {
   const tagged = names.label(person) !== person.nickname;
   return (
     <span
-      title={names.label(person, true)}
+      title={names.label(person)}
       className="inline-flex min-w-0 max-w-full items-baseline gap-1"
     >
       <span className="truncate">{person.nickname}</span>
@@ -36,21 +36,16 @@ export function IdentityDetails({
 }) {
   const { t } = useTranslation();
   const names = useIdentityNames();
+  const profile = { ...person, ...names.person(person.guestId) };
   const role =
     person.role ?? (person.guestId.startsWith("m-") ? "member" : "guest");
   return (
-    <span className="block min-w-0 space-y-1 text-sm">
+    <span className="block min-w-0 flex-1 text-sm">
       <span className="block wrap-anywhere font-semibold">
-        {person.nickname}
+        {profile.nickname}
       </span>
       <span
-        aria-label={t("identity.publicTag")}
-        className="block select-text wrap-anywhere font-mono text-xs text-neutral-400"
-      >
-        #{names.tag(person.guestId)}
-      </span>
-      <span
-        className={`block ${role === "moderator" ? "font-semibold text-green-400" : "text-xs text-neutral-400"}`}
+        className={`mt-0.5 block text-xs ${role === "moderator" ? "font-semibold text-green-400" : "text-neutral-400"}`}
       >
         {t(
           role === "moderator"
@@ -59,6 +54,35 @@ export function IdentityDetails({
               ? "identity.member"
               : "identity.guest",
         )}
+      </span>
+      <span className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2 border-t border-white/10 pt-3 text-xs">
+        <span className="wrap-anywhere text-neutral-400">
+          {t("identity.publicTag")}
+        </span>
+        <span
+          aria-label={t("identity.publicTag")}
+          className="select-text text-right wrap-anywhere font-mono text-neutral-300"
+        >
+          #{names.shortTag(person.guestId)}
+        </span>
+        <span className="wrap-anywhere text-neutral-400">
+          {t("avatar.legend")}
+        </span>
+        <span
+          aria-label={t("avatar.legend")}
+          className="text-right wrap-anywhere"
+        >
+          {t(`avatar.${profile.avatar ?? "other"}`)}
+        </span>
+        <span className="wrap-anywhere text-neutral-400">
+          {t("profile.age")}
+        </span>
+        <span
+          aria-label={t("profile.age")}
+          className="text-right wrap-anywhere"
+        >
+          {profile.age ?? t("avatar.other")}
+        </span>
       </span>
     </span>
   );
@@ -75,7 +99,7 @@ export function IdentityProfile({
 }) {
   const { t } = useTranslation();
   const names = useIdentityNames();
-  const label = t("person.profile", { name: names.label(person, true) });
+  const label = t("person.profile", { name: names.label(person) });
   return (
     <Popover className="inline-flex shrink-0">
       <PopoverButton
@@ -93,9 +117,9 @@ export function IdentityProfile({
         role="dialog"
         aria-label={label}
         anchor={{ to: "bottom start", gap: 6, padding: 8 }}
-        className={`z-50 w-64 max-w-[calc(100vw-1rem)] p-3 ${MENU_SURFACE}`}
+        className={`z-50 w-72 max-w-[calc(100vw-1rem)] p-3 ${MENU_SURFACE}`}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-start gap-3">
           <AvatarIcon avatar={person.avatar} picture={person.picture} large />
           <IdentityDetails person={person} />
         </div>

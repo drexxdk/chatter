@@ -1809,6 +1809,7 @@ export function createSocketServer(
     async function addFake(
       slug: string,
       count: number,
+      role: FakeMember["role"] = "guest",
     ): Promise<string | void> {
       const seats = Math.min(count, await freeSeats(slug));
 
@@ -1819,7 +1820,7 @@ export function createSocketServer(
         const real = (await io.in(roomKey(slug)).fetchSockets()).map(
           (member) => (member.data as SocketData).nickname,
         );
-        const who = fakeMember([...made.map((m) => m.nickname), ...real]);
+        const who = fakeMember([...made.map((m) => m.nickname), ...real], role);
 
         fakeMembers.set(slug, [...made, who]);
         announceFake(slug, "joined", who);
@@ -1828,7 +1829,11 @@ export function createSocketServer(
       await emitPresence(slug);
     }
 
-    adminTool("admin:fake:add", (slug) => addFake(slug, 1));
+    adminTool("admin:fake:add", (slug, payload) => {
+      const role = (payload as { role?: unknown } | null)?.role ?? "guest";
+      if (role !== "guest" && role !== "member") return "invalid_role";
+      return addFake(slug, 1, role);
+    });
 
     adminTool("admin:fake:fill", async (slug) => {
       const seats = await freeSeats(slug);

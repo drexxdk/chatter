@@ -24,7 +24,7 @@ export const adminRoomOf = (slug: string) =>
 export interface FakeMember {
   guestId: string;
   nickname: string;
-  role: "guest";
+  role: "guest" | "member";
   avatar: Avatar;
   picture: string;
   age?: number;
@@ -49,7 +49,10 @@ const pick = <T>(items: readonly T[]): T =>
   items[crypto.randomInt(items.length)] as T;
 
 // Somebody who is not there: only a name in the room's list of people, which nobody can write to.
-export function fakeMember(taken: string[]): FakeMember {
+export function fakeMember(
+  taken: string[],
+  role: FakeMember["role"] = "guest",
+): FakeMember {
   const free = NAMES.filter((name) => !taken.includes(name));
   const nickname =
     free.length > 0 ? pick(free) : `Guest ${crypto.randomInt(1000)}`;
@@ -57,7 +60,7 @@ export function fakeMember(taken: string[]): FakeMember {
   return {
     guestId: `fake-${crypto.randomUUID()}`,
     nickname,
-    role: "guest",
+    role,
     avatar: pick(AVATARS),
     picture: `${pick(PICTURE_STYLES)}:${crypto.randomBytes(5).toString("hex")}`,
   };

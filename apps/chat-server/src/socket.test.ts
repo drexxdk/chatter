@@ -5774,6 +5774,35 @@ describe("admin tools", () => {
     ).toBe(true);
   });
 
+  it("adds simulated members alongside guests and rejects unsupported roles", async () => {
+    const { socket } = await signIn(7, "Ada Admin");
+    await emit(socket, "room:join", { slug: "admin-lab" });
+    expect(await emit(socket, "admin:fake:add", { role: "moderator" })).toEqual(
+      {
+        ok: false,
+        error: "invalid_role",
+      },
+    );
+    await emit(socket, "admin:fake:add");
+    const present = waitFor<Presence>(
+      socket,
+      "room:presence",
+      (presence) => presence.members.length === 3,
+    );
+    expect(await emit(socket, "admin:fake:add", { role: "member" })).toEqual({
+      ok: true,
+    });
+    expect((await present).members).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ role: "guest" }),
+        expect.objectContaining({
+          role: "member",
+          guestId: expect.stringMatching(/^fake-/),
+        }),
+      ]),
+    );
+  });
+
   it("takes one of them away, and then all of them", async () => {
     const { socket } = await signIn(7, "Ada Admin");
     await emit(socket, "room:join", { slug: "admin-lab" });

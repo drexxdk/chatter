@@ -14,6 +14,7 @@ import {
   Save,
   SkipForward,
   Square,
+  UserRoundPlus,
   UserX,
   UsersRound,
 } from "lucide-react";
@@ -521,66 +522,80 @@ export function AdminMenu({
               />
             </MenuSection>
 
-            <MenuSection className="flex items-center gap-1 border-t border-neutral-800 pt-1">
-              <MenuHeading className={`${heading} min-w-0 flex-1`}>
-                {t("admin.people")}
-              </MenuHeading>
-              <MenuItem disabled={!inTestRoom}>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    use("admin:fake:add");
-                  }}
-                  className={iconAction}
-                  aria-label={t("admin.addPerson")}
-                  title={t("admin.addPerson")}
-                >
-                  <Plus aria-hidden="true" className="h-4 w-4" />
-                </button>
-              </MenuItem>
-              <MenuItem disabled={!inTestRoom}>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    use("admin:fake:remove");
-                  }}
-                  className={iconAction}
-                  aria-label={t("admin.removePerson")}
-                  title={t("admin.removePerson")}
-                >
-                  <Minus aria-hidden="true" className="h-4 w-4" />
-                </button>
-              </MenuItem>
-              <MenuItem disabled={!inTestRoom}>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    use("admin:fake:fill");
-                  }}
-                  className={iconAction}
-                  aria-label={t("admin.fillRoom")}
-                  title={t("admin.fillRoom")}
-                >
-                  <UsersRound aria-hidden="true" className="h-4 w-4" />
-                </button>
-              </MenuItem>
-              <MenuItem disabled={!inTestRoom}>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    use("admin:fake:clear");
-                  }}
-                  className={iconAction}
-                  aria-label={t("admin.clearPeople")}
-                  title={t("admin.clearPeople")}
-                >
-                  <UserX aria-hidden="true" className="h-5 w-5 shrink-0" />
-                </button>
-              </MenuItem>
+            <MenuSection className="border-t border-neutral-800 pt-1">
+              <MenuHeading className={heading}>{t("admin.people")}</MenuHeading>
+              <div className="flex items-center justify-between gap-1 px-2 pb-1">
+                <MenuItem disabled={!inTestRoom}>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      use("admin:fake:add");
+                    }}
+                    className={iconAction}
+                    aria-label={t("admin.addPerson")}
+                    title={t("admin.addPerson")}
+                  >
+                    <Plus aria-hidden="true" className="h-4 w-4" />
+                  </button>
+                </MenuItem>
+                <MenuItem disabled={!inTestRoom}>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      use("admin:fake:add", { role: "member" });
+                    }}
+                    className={iconAction}
+                    aria-label={t("admin.addMember")}
+                    title={t("admin.addMember")}
+                  >
+                    <UserRoundPlus aria-hidden="true" className="h-4 w-4" />
+                  </button>
+                </MenuItem>
+                <MenuItem disabled={!inTestRoom}>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      use("admin:fake:remove");
+                    }}
+                    className={iconAction}
+                    aria-label={t("admin.removePerson")}
+                    title={t("admin.removePerson")}
+                  >
+                    <Minus aria-hidden="true" className="h-4 w-4" />
+                  </button>
+                </MenuItem>
+                <MenuItem disabled={!inTestRoom}>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      use("admin:fake:fill");
+                    }}
+                    className={iconAction}
+                    aria-label={t("admin.fillRoom")}
+                    title={t("admin.fillRoom")}
+                  >
+                    <UsersRound aria-hidden="true" className="h-4 w-4" />
+                  </button>
+                </MenuItem>
+                <MenuItem disabled={!inTestRoom}>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      use("admin:fake:clear");
+                    }}
+                    className={iconAction}
+                    aria-label={t("admin.clearPeople")}
+                    title={t("admin.clearPeople")}
+                  >
+                    <UserX aria-hidden="true" className="h-5 w-5 shrink-0" />
+                  </button>
+                </MenuItem>
+              </div>
             </MenuSection>
 
             <MenuSection className="border-t border-neutral-800 pt-1">

@@ -28,7 +28,7 @@ describe("public chat identities", () => {
     );
   });
 
-  it("shows compact collision labels and opens the selected person's full public profile", async () => {
+  it("shows compact collision labels and opens the selected person's compact public profile", async () => {
     const user = userEvent.setup();
     const names = createIdentityDirectory([first, second]);
     render(
@@ -55,18 +55,69 @@ describe("public chat identities", () => {
     ).toBeVisible();
     await user.click(
       screen.getByRole("button", {
-        name: `Profile: ${names.label(second, true)}`,
+        name: `Profile: ${names.label(second)}`,
       }),
     );
     const profile = await screen.findByRole("dialog");
     expect(
-      within(profile).getByText(`#${names.tag(second.guestId)}`),
+      within(profile).getByText(`#${names.shortTag(second.guestId)}`),
     ).toBeVisible();
     expect(
-      within(profile).queryByText(`#${names.tag(first.guestId)}`),
+      within(profile).queryByText(`#${names.shortTag(first.guestId)}`),
     ).toBeNull();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("keeps unique names plain but shows a compact key and public profile fields", async () => {
+    const user = userEvent.setup();
+    const person = { ...first, guestId: "test-lab-guest-with-a-long-identity" };
+    const names = createIdentityDirectory([
+      { ...person, avatar: "female", age: 32 },
+    ]);
+    render(
+      <IdentityProvider value={names}>
+        <IdentityProfile person={{ ...person, avatar: "other" }} />
+        <IdentityName person={person} />
+      </IdentityProvider>,
+    );
+    expect(screen.getByTitle("Simon")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Profile: Simon" }));
+    const profile = await screen.findByRole("dialog");
+    expect(within(profile).getByText("Simon")).toBeVisible();
+    expect(within(profile).getByLabelText("Public tag")).toHaveTextContent(
+      `#${names.shortTag(person.guestId)}`,
+    );
+    expect(within(profile).getByLabelText("Gender")).toHaveTextContent(
+      "Female",
+    );
+    expect(within(profile).getByLabelText("Age")).toHaveTextContent("32");
+    expect(profile).not.toHaveTextContent(names.tag(person.guestId));
+  });
+
+  it("does not invent missing age or gender details or expose a username", async () => {
+    const user = userEvent.setup();
+    const person = {
+      ...first,
+      role: "member" as const,
+      avatar: "other" as const,
+      username: "private_login",
+    };
+    render(
+      <IdentityProvider value={createIdentityDirectory([person])}>
+        <IdentityProfile person={person} />
+      </IdentityProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: "Profile: Simon" }));
+    const profile = await screen.findByRole("dialog");
+    expect(within(profile).getByLabelText("Age")).toHaveTextContent(
+      "Not specified",
+    );
+    expect(within(profile).getByLabelText("Gender")).toHaveTextContent(
+      "Not specified",
+    );
+    expect(within(profile).getByText("Member")).toBeVisible();
+    expect(profile).not.toHaveTextContent(person.username);
   });
 
   it("keeps ordinary names uncluttered and reveals tags on demand", () => {

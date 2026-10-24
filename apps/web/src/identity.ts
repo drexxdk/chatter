@@ -1,6 +1,10 @@
+import type { Avatar } from "./chat/avatar";
+
 export interface PublicPerson {
   guestId: string;
   nickname: string;
+  avatar?: Avatar;
+  age?: number;
 }
 
 const nameKey = (name: string) =>
@@ -28,11 +32,13 @@ export function publicIdentityTag(guestId: string): string {
 }
 
 export function createIdentityDirectory(people: readonly PublicPerson[]) {
+  const profiles = new Map<string, PublicPerson>();
   const owners = new Map<string, Set<string>>();
   const tokens = new Map<string, string>();
   const candidates = new Map<string, string[]>();
   for (const person of people) {
     if (!person.guestId) continue;
+    if (!profiles.has(person.guestId)) profiles.set(person.guestId, person);
     const key = nameKey(person.nickname);
     const names = owners.get(key) ?? new Set<string>();
     names.add(person.guestId);
@@ -59,6 +65,7 @@ export function createIdentityDirectory(people: readonly PublicPerson[]) {
     }
   }
   return {
+    person: (guestId: string) => profiles.get(guestId),
     tag: publicIdentityTag,
     shortTag: (guestId: string) =>
       tags.get(guestId) ?? publicIdentityTag(guestId).slice(-8),

@@ -91,6 +91,7 @@
     },
     "people": "People",
     "addPerson": "Add a person",
+    "addMember": "Add a member",
     "fillRoom": "Fill the room",
     "removePerson": "Remove a person",
     "clearPeople": "Remove everybody",

@@ -191,6 +191,7 @@ describe("the admin's tools", () => {
     for (const name of [
       "Add a person",
       "Add a person",
+      "Add a member",
       "Fill the room",
       "Remove a person",
       "Remove everybody",
@@ -198,7 +199,11 @@ describe("the admin's tools", () => {
       await user.click(screen.getByRole("menuitem", { name }));
       expect(screen.getByRole("menu")).toBeVisible();
     }
-    expect(server.latest.emittedEvents("admin:fake:add")).toHaveLength(2);
+    expect(server.latest.emittedEvents("admin:fake:add")).toEqual([
+      { slug: "admin-lab" },
+      { slug: "admin-lab" },
+      { slug: "admin-lab", role: "member" },
+    ]);
     expect(server.latest.emittedEvents("admin:fake:fill")).toHaveLength(1);
     expect(server.latest.emittedEvents("admin:fake:remove")).toHaveLength(1);
     expect(server.latest.emittedEvents("admin:fake:clear")).toHaveLength(1);
