@@ -63,7 +63,20 @@ The Vite dev server sends no such policy; if you add a source the page loads fro
 
 `npm run test:web` (Vitest + Testing Library). The tests run the real components, hook and i18n against a fake Socket.IO server (`src/test/fakeSocket.ts`) that replays the real protocol, including the server's event ordering. No network or running backend is needed. If the chat-server protocol changes, update the fake to match.
 
-Vitest uses at most two workers and does not retry failed tests. Wait for the intended input to receive focus before typing in a newly opened dialog; a visible dialog alone does not mean its focus transition is complete.
+Vitest uses at most two workers and does not retry failed tests. The `unit` project runs browser-independent utilities in Node without UI setup; the `ui` project retains jsdom, the real components and per-test cleanup. New pure utility suites belong in the explicit `nodeTests` list in `vite.config.ts`; unclassified tests keep the browser environment by default. Wait for the intended input to receive focus before typing in a newly opened dialog; a visible dialog alone does not mean its focus transition is complete.
+
+From the repository root:
+
+| Command                                                             | Scope                                              |
+| ------------------------------------------------------------------- | -------------------------------------------------- |
+| `npm run test:web:unit`                                             | Fast, browser-independent unit tests               |
+| `npm run test:web:ui`                                               | All DOM and application integration tests          |
+| `npm run test:web:watch`                                            | Watch mode; filter to the files being edited       |
+| `npm run test:web -- App.connection.test.tsx`                       | One file, or pass `-t "test name"` to filter cases |
+| `npm run test:related --workspace apps/web -- src/chat/mentions.ts` | Tests related to a changed source file             |
+| `npm run test:web`                                                  | The complete suite, required in CI                 |
+
+CI distributes the complete suite across two runners, keeping the two-worker limit on each. Successful and failed runs upload `test-results/vitest.json` with per-case results and timings. Compare repeated runs on the same runner class; worker timing totals overlap and must not be added to derive elapsed time.
 
 `npm run lint --workspace apps/web` runs ESLint (`eslint.config.mjs`): the recommended TypeScript rules plus `react-hooks/rules-of-hooks` and `exhaustive-deps`, both as errors, and `no-deprecated` (type-aware, so it also flags React and DOM APIs marked deprecated, such as `FormEvent`), and CI runs it. Where an effect deliberately leaves out a dependency (two places in `App.tsx`), the line above says why.
 
@@ -74,9 +87,19 @@ Vitest uses at most two workers and does not retry failed tests. Wait for the in
 - Requires `apps/admin` running on http://localhost:3000 with its database seeded, plus Postgres and Redis (`docker compose up -d`). Everything else is started by the tests.
 - It runs its own chat-server (port 4100) and web client (port 5174), so a dev session can stay open. The e2e chat-server uses Redis database 1, its own Socket.IO channel (`SOCKET_ADAPTER_KEY`), its own ban salt and a 500ms cache sync.
 - It creates rooms prefixed `e2e-` and bans through the admin API and removes them afterwards; leftovers from an interrupted run are swept at the start of the next one. It reads the admin credentials from `apps/admin/.env`.
-- The ban test blocks loopback addresses for the e2e chat-server, so tests run one at a time.
+- Tests share mutable server state, so each stack runs one worker. CI splits individual tests across two independent runners with their own PostgreSQL, Redis and application instances. Do not run these shards concurrently against the same local admin database: setup and cleanup sweep shared E2E data.
 - Scroll and layout regressions use fresh rooms per attempt so existing history, late-loading media and retries cannot alter their fixtures. Click visible controls instead of forcing clicks on hidden inputs.
 - Failure screenshots and traces are retained from the first attempt, including when a CI retry passes. To check stability without retries, use `npm run test:web:e2e -- --retries 0`; repeat a targeted test with `--repeat-each 3 -g "test name"`.
+
+For a short development check, run `npm run test:web:e2e:smoke`. This selects the existing public-message, private-message/block, guest-reload, password-account and moderator-sign-in scenarios; it does not replace the full CI suite. Filter further with `npm run test:web:e2e -- -g "test name"`. The tests still start isolated web/chat servers and use the already-running admin, PostgreSQL and Redis services.
+
+For repeated local checks, `npm run test:web:e2e:ui` opens Playwright UI mode. Run selected tests there while Playwright owns and reuses its web/chat servers; closing the runner ends that session. Do not start another E2E command against the same admin database at the same time. This avoids unsafe reuse of an unrelated development server.
+
+Shared room fixtures have worker-attempt-specific names and slugs, and account teardown removes only its run-owned users. Identity-sensitive private-message cases use fresh rooms so earlier history cannot change their recipient labels. The notification persistence test creates an account through the service API and authenticates through the real password endpoint instead of repeating signup UI; dedicated account flows still cover the UI. With `E2E_TURNSTILE=true`, login stays in the browser so the challenge is not bypassed.
+
+CI uses `--fully-parallel --shard=1/2` and `--fully-parallel --shard=2/2` to distribute cases rather than the three uneven specification files; `workers: 1` still prevents concurrent cases within a shared stack. Both shards must pass the unchanged `End-to-end` required check. Reports are uploaded on success as well as failure, including `test-results/playwright.json` for first-attempt durations, retries and fixture timing analysis. No timeouts, retries or behavioral assertions are relaxed by sharding.
+
+CI job summaries include wall time, median/p95 first-attempt case duration, the slowest cases, first-attempt failures and retries. Run `npm run test:timings -- <report.json>` locally for the same summary. Save comparison reports outside `apps/web/test-results` before another browser run: Playwright clears that directory. Benchmark on the same machine and runner class, including startup/build cost; a balanced test count is not necessarily balanced elapsed time. Preserve real own-service integration and first-failure artifacts rather than making a slow or flaky run appear green.
 
 ### Physical mobile recovery checks
 

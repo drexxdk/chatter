@@ -10,7 +10,14 @@
     "build:pages": "npm run build && node scripts/pagesHeaders.mjs",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:ui": "vitest run --project ui",
+    "test:watch": "vitest",
+    "test:related": "vitest related --run",
     "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test --grep @smoke",
+    "test:e2e:ui": "playwright test --ui",
+    "test:timings": "node scripts/testTimings.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json"
   },
   "dependencies": {

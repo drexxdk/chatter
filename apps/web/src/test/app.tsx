@@ -101,7 +101,8 @@ export async function joinRoom(
   await user.click(
     await screen.findByRole("button", { name: `Join ${roomName}` }),
   );
-  await user.type(await screen.findByLabelText("Nickname"), nickname);
+  await user.click(await screen.findByLabelText("Nickname"));
+  await user.paste(nickname);
   await user.click(screen.getByRole("button", { name: "Continue" }));
 }
 

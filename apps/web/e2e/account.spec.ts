@@ -3,16 +3,20 @@ import {
   test,
   type Browser,
   type BrowserContext,
+  type APIRequestContext,
   type Page,
 } from "@playwright/test";
 
+import { accountOf, KEY, type Account } from "../src/account";
+import type { AccountSession } from "../src/api";
 import { waitForRooms } from "./chatServer";
-import { CHAT_SERVER_URL, E2E } from "./constants";
+import { CHAT_SERVER_URL, E2E, WEB_URL } from "./constants";
 import { PayloadApi } from "./payload";
 
+const RUN = Date.now().toString(36);
 const ROOM = {
-  name: "E2E Accounts",
-  slug: `${E2E.slugPrefix}accounts`,
+  name: `E2E Accounts ${RUN}`,
+  slug: `${E2E.slugPrefix}accounts-${RUN}`,
   maxMembers: 10,
 };
 const payload = new PayloadApi();
@@ -23,7 +27,6 @@ test.setTimeout(60_000);
 
 // Names and provider users that are only these tests': unique for each run, and swept (see payload.ts) if a run is cut
 // short. The username has no spaces and starts with what the sweep looks for; the display name is what the chat shows.
-const RUN = Date.now().toString(36);
 const displayName = (who: string) => `E2EAcc ${who} ${RUN}`;
 const username = (who: string) => `E2EAcc${who}${RUN}`;
 const providerUser = (who: string) => `e2eacc-${who}-${RUN}`;
@@ -36,9 +39,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await payload.remove("public-rooms", roomId);
-  for (const user of await payload.findUsers(E2E.nicknamePrefix)) {
-    await payload.remove("users", user.id);
-  }
+  await payload.removeRunUsers(RUN);
 });
 
 const contexts: BrowserContext[] = [];
@@ -47,15 +48,62 @@ test.afterEach(async () => {
   await Promise.all(contexts.splice(0).map((context) => context.close()));
 });
 
-async function newPage(browser: Browser): Promise<Page> {
+async function newPage(browser: Browser, account?: Account): Promise<Page> {
   const context = await browser.newContext({
     locale: "en-US",
     extraHTTPHeaders: {
       "X-Forwarded-For": `10.${crypto.getRandomValues(new Uint8Array(3)).join(".")}`,
     },
+    ...(account
+      ? {
+          storageState: {
+            cookies: [],
+            origins: [
+              {
+                origin: WEB_URL,
+                localStorage: [{ name: KEY, value: JSON.stringify(account) }],
+              },
+            ],
+          },
+        }
+      : {}),
   });
   contexts.push(context);
   return context.newPage();
+}
+
+async function signedInPage(
+  browser: Browser,
+  request: APIRequestContext,
+  username: string,
+  password: string,
+) {
+  if (process.env.E2E_TURNSTILE === "true") {
+    const page = await newPage(browser);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    const login = page.getByRole("dialog", { name: "Sign in", exact: true });
+    await login.getByLabel("Username or email").fill(username);
+    await login.getByLabel("Password", { exact: true }).fill(password);
+    await login.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(login).not.toBeVisible();
+    return page;
+  }
+  const response = await request.post(
+    `${CHAT_SERVER_URL}/auth/password/login`,
+    {
+      data: { username, password },
+      headers: {
+        "X-Forwarded-For": `10.${crypto.getRandomValues(new Uint8Array(3)).join(".")}`,
+      },
+    },
+  );
+  expect(response.ok()).toBe(true);
+  const session = (await response.json()) as AccountSession;
+  expect(session.profile.username).toBe(username);
+  const page = await newPage(browser, accountOf(session));
+  await page.goto("/");
+  return page;
 }
 
 // Goes through the stand-in provider, which asks only who is signing in.
@@ -326,29 +374,15 @@ test("accounts share display names with distinct public identities and private r
 
 test("notification choices follow the account into a different browser", async ({
   browser,
+  request,
 }) => {
-  const page = await newPage(browser);
   const chatName = displayName("Sounds");
   const handle = username("Sounds");
   const password = "SoundSettings123";
-  await joinAsGuest(page, chatName);
+  await payload.createPasswordUser(handle, chatName, password);
+  const page = await signedInPage(browser, request, handle, password);
+  await page.getByRole("button", { name: `Join ${ROOM.name}` }).click();
   await inRoom(page);
-  await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
-  await page
-    .getByRole("menuitem", { name: "Claim account", exact: true })
-    .click();
-  const registration = page.getByRole("dialog", { name: "Claim account" });
-  await registration.getByLabel("Username", { exact: true }).fill(handle);
-  await registration.getByLabel("Password", { exact: true }).fill(password);
-  await registration.getByLabel("Confirm password").fill(password);
-  await registration
-    .getByRole("button", { name: "Claim account", exact: true })
-    .click();
-  const profile = page.getByRole("dialog", { name: "Your profile" });
-  await expect(
-    profile.getByText("Signed in with", { exact: true }),
-  ).toBeVisible();
-  await profile.getByRole("button", { name: "Close", exact: true }).click();
   const openSettings = async (target: Page) => {
     await target
       .getByRole("button", { name: `Account menu: ${chatName}` })
@@ -377,18 +411,7 @@ test("notification choices follow the account into a different browser", async (
   await volume.press("Home");
   for (let step = 0; step < 37; step += 1) await volume.press("ArrowRight");
   await expect(settings.getByText("Saved", { exact: true })).toBeVisible();
-  const otherBrowser = await newPage(browser);
-  await otherBrowser.goto("/");
-  await otherBrowser
-    .getByRole("button", { name: "Sign in", exact: true })
-    .click();
-  const login = otherBrowser.getByRole("dialog", {
-    name: "Sign in",
-    exact: true,
-  });
-  await login.getByLabel("Username or email").fill(handle);
-  await login.getByLabel("Password", { exact: true }).fill(password);
-  await login.getByRole("button", { name: "Sign in", exact: true }).click();
+  const otherBrowser = await signedInPage(browser, request, handle, password);
   await expect(
     otherBrowser.getByRole("button", { name: `Account menu: ${chatName}` }),
   ).toBeVisible();
@@ -508,224 +531,242 @@ for (const width of [375, 1280]) {
   });
 }
 
-test("a guest claims their profile with a password and can sign in again from the header", async ({
-  browser,
-}) => {
-  const page = await newPage(browser);
-  const chatName = displayName("Pass");
-  const handle = username("Pass");
-  const password = "A private password for this test 1";
-  if (process.env.E2E_TURNSTILE === "true") {
-    const missing = await page.request.post(
-      `${CHAT_SERVER_URL}/auth/password/login`,
-      { data: { username: handle, password } },
-    );
-    expect(missing.status()).toBe(400);
-    expect(await missing.json()).toEqual({ error: "human_check_required" });
-  }
-  const birthDate = `${new Date().getUTCFullYear() - 35}-01-01`;
-  const presenceFrames: string[] = [];
-  page.on("websocket", (socket) =>
-    socket.on("framereceived", ({ payload }) => {
-      if (typeof payload === "string" && payload.includes('"room:presence"'))
-        presenceFrames.push(payload);
-    }),
-  );
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text());
-  });
-  await joinAsGuest(page, chatName);
-  await inRoom(page);
-  await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
-  await page.getByRole("menuitem", { name: "Your profile" }).click();
-  const profile = page.getByRole("dialog", { name: "Your profile" });
-  await profile.getByRole("button", { name: "Edit profile" }).click();
-  const dateField = profile.getByRole("group", { name: "Date of birth" });
-  const day = dateField.getByLabel("Day", { exact: true });
-  const month = dateField.getByRole("button", { name: "Month", exact: true });
-  const year = dateField.getByLabel("Year", { exact: true });
-  await day.fill("1");
-  await month.click();
-  await page.getByRole("option", { name: "January", exact: true }).click();
-  await year.fill(birthDate.slice(0, 4));
-  await expect(profile.getByText("35 years old")).toBeVisible();
-  for (const width of [1280, 375]) {
-    await page.setViewportSize({ width, height: 900 });
-    await expect(dateField).toBeVisible();
-    const fits = await dateField.evaluate((field) => {
-      const box = field.getBoundingClientRect();
-      const dialog = field.closest('[role="dialog"]')!.getBoundingClientRect();
-      return (
-        box.left >= dialog.left &&
-        box.right <= dialog.right &&
-        Array.from(field.querySelectorAll("input, button")).every((control) => {
-          const bounds = control.getBoundingClientRect();
-          return (
-            bounds.left >= box.left &&
-            bounds.right <= box.right &&
-            bounds.width > 0
-          );
-        })
+test(
+  "a guest claims their profile with a password and can sign in again from the header",
+  { tag: "@smoke" },
+  async ({ browser }) => {
+    const page = await newPage(browser);
+    const chatName = displayName("Pass");
+    const handle = username("Pass");
+    const password = "A private password for this test 1";
+    if (process.env.E2E_TURNSTILE === "true") {
+      const missing = await page.request.post(
+        `${CHAT_SERVER_URL}/auth/password/login`,
+        { data: { username: handle, password } },
       );
-    });
-    expect(fits).toBe(true);
-    await month.click();
-    const months = page.getByRole("listbox");
-    await expect(months).toBeVisible();
-    const popup = await months.boundingBox();
-    expect(popup!.x).toBeGreaterThanOrEqual(0);
-    expect(popup!.x + popup!.width).toBeLessThanOrEqual(width);
-    await page.screenshot({
-      path: test.info().outputPath(`birth-date-${width}.png`),
-    });
-    await page.keyboard.press("Escape");
-    await expect(months).not.toBeVisible();
-  }
-  await profile.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(
-    profile.getByRole("button", { name: "Edit profile" }),
-  ).toBeVisible();
-  await expect(profile.getByText("35 years old")).toBeVisible();
-  await expect
-    .poll(() => presenceFrames.some((frame) => frame.includes('"age":35')))
-    .toBe(true);
-  expect(
-    presenceFrames.every(
-      (frame) => !frame.includes("birthDate") && !frame.includes(birthDate),
-    ),
-  ).toBe(true);
-  await page.reload();
-  await expect(
-    page.getByRole("heading", {
-      name: ROOM.name,
-      level: 2,
-      includeHidden: true,
-    }),
-  ).toBeVisible();
-  await expect(profile).toBeVisible();
-  const editProfile = profile.getByRole("button", { name: "Edit profile" });
-  await expect(
-    editProfile.or(profile.getByRole("button", { name: "Save", exact: true })),
-  ).toBeVisible();
-  if (await editProfile.isVisible()) await editProfile.click();
-  await expect(day).toHaveValue("01");
-  await expect(month).toHaveText("January");
-  await expect(year).toHaveValue(birthDate.slice(0, 4));
-  await profile.getByRole("button", { name: "Cancel", exact: true }).click();
-  await profile
-    .getByRole("button", { name: "Claim account", exact: true })
-    .click();
-  const registration = page.getByRole("dialog", { name: "Claim account" });
-  await registration.getByLabel("Username", { exact: true }).fill(handle);
-  await registration.getByLabel("Password", { exact: true }).fill(password);
-  await registration
-    .getByLabel("Confirm password")
-    .fill("a different password");
-  await registration
-    .getByRole("button", { name: "Claim account", exact: true })
-    .click();
-  await expect(registration.getByRole("alert")).toContainText(
-    "The passwords do not match",
-  );
-  await registration.getByLabel("Confirm password").fill(password);
-  await registration
-    .getByRole("button", { name: "Claim account", exact: true })
-    .click();
-  await expect(
-    profile.getByText("Signed in with", { exact: true }),
-  ).toBeVisible();
-  await expect(profile.getByText("Password", { exact: true })).toBeVisible();
-  await profile.getByRole("button", { name: "Close" }).click();
-  await inRoom(page);
-  const [account] = await accountsNamed(handle);
-  expect(account).toMatchObject({
-    provider: "password",
-    nickname: handle,
-    displayName: chatName,
-  });
-  expect(account).not.toHaveProperty("passwordHash");
-  expect(account).not.toHaveProperty("birthDate");
-  expect(
-    await page.evaluate(() => localStorage.getItem("chatter.account")),
-  ).not.toContain(password);
-
-  await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
-  await page
-    .getByRole("menuitem", { name: "Your profile", exact: true })
-    .click();
-  const renamedHandle = username("Pass3");
-  for (const nextUsername of [username("Pass2"), renamedHandle]) {
-    await profile.getByRole("button", { name: "Edit profile" }).click();
-    await expect(profile.getByLabel("Username", { exact: true })).toHaveValue(
-      nextUsername === renamedHandle ? username("Pass2") : handle,
+      expect(missing.status()).toBe(400);
+      expect(await missing.json()).toEqual({ error: "human_check_required" });
+    }
+    const birthDate = `${new Date().getUTCFullYear() - 35}-01-01`;
+    const presenceFrames: string[] = [];
+    page.on("websocket", (socket) =>
+      socket.on("framereceived", ({ payload }) => {
+        if (typeof payload === "string" && payload.includes('"room:presence"'))
+          presenceFrames.push(payload);
+      }),
     );
-    await profile.getByLabel("Username", { exact: true }).fill(nextUsername);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") errors.push(message.text());
+    });
+    await joinAsGuest(page, chatName);
+    await inRoom(page);
+    await page
+      .getByRole("button", { name: `Account menu: ${chatName}` })
+      .click();
+    await page.getByRole("menuitem", { name: "Your profile" }).click();
+    const profile = page.getByRole("dialog", { name: "Your profile" });
+    await profile.getByRole("button", { name: "Edit profile" }).click();
+    const dateField = profile.getByRole("group", { name: "Date of birth" });
+    const day = dateField.getByLabel("Day", { exact: true });
+    const month = dateField.getByRole("button", { name: "Month", exact: true });
+    const year = dateField.getByLabel("Year", { exact: true });
+    await day.fill("1");
+    await month.click();
+    await page.getByRole("option", { name: "January", exact: true }).click();
+    await year.fill(birthDate.slice(0, 4));
+    await expect(profile.getByText("35 years old")).toBeVisible();
     for (const width of [1280, 375]) {
       await page.setViewportSize({ width, height: 900 });
-      expect(
-        await profile.evaluate(
-          (dialog) => dialog.scrollWidth <= dialog.clientWidth,
-        ),
-      ).toBe(true);
-      await page.screenshot({
-        path: test.info().outputPath(`username-${nextUsername}-${width}.png`),
+      await expect(dateField).toBeVisible();
+      const fits = await dateField.evaluate((field) => {
+        const box = field.getBoundingClientRect();
+        const dialog = field
+          .closest('[role="dialog"]')!
+          .getBoundingClientRect();
+        return (
+          box.left >= dialog.left &&
+          box.right <= dialog.right &&
+          Array.from(field.querySelectorAll("input, button")).every(
+            (control) => {
+              const bounds = control.getBoundingClientRect();
+              return (
+                bounds.left >= box.left &&
+                bounds.right <= box.right &&
+                bounds.width > 0
+              );
+            },
+          )
+        );
       });
+      expect(fits).toBe(true);
+      await month.click();
+      const months = page.getByRole("listbox");
+      await expect(months).toBeVisible();
+      const popup = await months.boundingBox();
+      expect(popup!.x).toBeGreaterThanOrEqual(0);
+      expect(popup!.x + popup!.width).toBeLessThanOrEqual(width);
+      await page.screenshot({
+        path: test.info().outputPath(`birth-date-${width}.png`),
+      });
+      await page.keyboard.press("Escape");
+      await expect(months).not.toBeVisible();
     }
     await profile.getByRole("button", { name: "Save", exact: true }).click();
     await expect(
       profile.getByRole("button", { name: "Edit profile" }),
     ).toBeVisible();
+    await expect(profile.getByText("35 years old")).toBeVisible();
     await expect
-      .poll(() =>
-        page.evaluate(
-          () =>
-            JSON.parse(localStorage.getItem("chatter.account") ?? "null")
-              ?.username,
-        ),
-      )
-      .toBe(nextUsername);
-  }
-  expect(await accountsNamed(handle)).toEqual([]);
-  expect((await accountsNamed(renamedHandle))[0]?.id).toBe(account.id);
-  expect(
-    presenceFrames.every(
-      (frame) =>
-        !frame.includes('"username"') && !frame.includes(renamedHandle),
-    ),
-  ).toBe(true);
-  await profile.getByRole("button", { name: "Close", exact: true }).click();
+      .poll(() => presenceFrames.some((frame) => frame.includes('"age":35')))
+      .toBe(true);
+    expect(
+      presenceFrames.every(
+        (frame) => !frame.includes("birthDate") && !frame.includes(birthDate),
+      ),
+    ).toBe(true);
+    await page.reload();
+    await expect(
+      page.getByRole("heading", {
+        name: ROOM.name,
+        level: 2,
+        includeHidden: true,
+      }),
+    ).toBeVisible();
+    await expect(profile).toBeVisible();
+    const editProfile = profile.getByRole("button", { name: "Edit profile" });
+    await expect(
+      editProfile.or(
+        profile.getByRole("button", { name: "Save", exact: true }),
+      ),
+    ).toBeVisible();
+    if (await editProfile.isVisible()) await editProfile.click();
+    await expect(day).toHaveValue("01");
+    await expect(month).toHaveText("January");
+    await expect(year).toHaveValue(birthDate.slice(0, 4));
+    await profile.getByRole("button", { name: "Cancel", exact: true }).click();
+    await profile
+      .getByRole("button", { name: "Claim account", exact: true })
+      .click();
+    const registration = page.getByRole("dialog", { name: "Claim account" });
+    await registration.getByLabel("Username", { exact: true }).fill(handle);
+    await registration.getByLabel("Password", { exact: true }).fill(password);
+    await registration
+      .getByLabel("Confirm password")
+      .fill("a different password");
+    await registration
+      .getByRole("button", { name: "Claim account", exact: true })
+      .click();
+    await expect(registration.getByRole("alert")).toContainText(
+      "The passwords do not match",
+    );
+    await registration.getByLabel("Confirm password").fill(password);
+    await registration
+      .getByRole("button", { name: "Claim account", exact: true })
+      .click();
+    await expect(
+      profile.getByText("Signed in with", { exact: true }),
+    ).toBeVisible();
+    await expect(profile.getByText("Password", { exact: true })).toBeVisible();
+    await profile.getByRole("button", { name: "Close" }).click();
+    await inRoom(page);
+    const [account] = await accountsNamed(handle);
+    expect(account).toMatchObject({
+      provider: "password",
+      nickname: handle,
+      displayName: chatName,
+    });
+    expect(account).not.toHaveProperty("passwordHash");
+    expect(account).not.toHaveProperty("birthDate");
+    expect(
+      await page.evaluate(() => localStorage.getItem("chatter.account")),
+    ).not.toContain(password);
 
-  await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
-  await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  const login = page.getByRole("dialog", { name: "Sign in" });
-  await expect(
-    login.getByRole("link", { name: "Continue with Dev sign-in" }),
-  ).toBeVisible();
-  await login.getByLabel("Username or email").fill(renamedHandle.toUpperCase());
-  await login.getByLabel("Password", { exact: true }).fill(password);
-  await login.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: `Account menu: ${chatName}` }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: `Join ${ROOM.name}` }).click();
-  await inRoom(page);
-  await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
-  await page
-    .getByRole("menuitem", { name: "Your profile", exact: true })
-    .click();
-  await profile.getByRole("button", { name: "Edit profile" }).click();
-  await expect(profile.getByLabel("Username", { exact: true })).toHaveValue(
-    renamedHandle,
-  );
-  await expect(day).toHaveValue("01");
-  await expect(month).toHaveText("January");
-  await expect(year).toHaveValue(birthDate.slice(0, 4));
-  await expect(profile.getByText("35 years old")).toBeVisible();
-  expect(errors).toEqual([]);
-});
+    await page
+      .getByRole("button", { name: `Account menu: ${chatName}` })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Your profile", exact: true })
+      .click();
+    const renamedHandle = username("Pass3");
+    for (const nextUsername of [username("Pass2"), renamedHandle]) {
+      await profile.getByRole("button", { name: "Edit profile" }).click();
+      await expect(profile.getByLabel("Username", { exact: true })).toHaveValue(
+        nextUsername === renamedHandle ? username("Pass2") : handle,
+      );
+      await profile.getByLabel("Username", { exact: true }).fill(nextUsername);
+      for (const width of [1280, 375]) {
+        await page.setViewportSize({ width, height: 900 });
+        expect(
+          await profile.evaluate(
+            (dialog) => dialog.scrollWidth <= dialog.clientWidth,
+          ),
+        ).toBe(true);
+        await page.screenshot({
+          path: test.info().outputPath(`username-${nextUsername}-${width}.png`),
+        });
+      }
+      await profile.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(
+        profile.getByRole("button", { name: "Edit profile" }),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              JSON.parse(localStorage.getItem("chatter.account") ?? "null")
+                ?.username,
+          ),
+        )
+        .toBe(nextUsername);
+    }
+    expect(await accountsNamed(handle)).toEqual([]);
+    expect((await accountsNamed(renamedHandle))[0]?.id).toBe(account.id);
+    expect(
+      presenceFrames.every(
+        (frame) =>
+          !frame.includes('"username"') && !frame.includes(renamedHandle),
+      ),
+    ).toBe(true);
+    await profile.getByRole("button", { name: "Close", exact: true }).click();
+
+    await page
+      .getByRole("button", { name: `Account menu: ${chatName}` })
+      .click();
+    await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    const login = page.getByRole("dialog", { name: "Sign in" });
+    await expect(
+      login.getByRole("link", { name: "Continue with Dev sign-in" }),
+    ).toBeVisible();
+    await login
+      .getByLabel("Username or email")
+      .fill(renamedHandle.toUpperCase());
+    await login.getByLabel("Password", { exact: true }).fill(password);
+    await login.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: `Account menu: ${chatName}` }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: `Join ${ROOM.name}` }).click();
+    await inRoom(page);
+    await page
+      .getByRole("button", { name: `Account menu: ${chatName}` })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Your profile", exact: true })
+      .click();
+    await profile.getByRole("button", { name: "Edit profile" }).click();
+    await expect(profile.getByLabel("Username", { exact: true })).toHaveValue(
+      renamedHandle,
+    );
+    await expect(day).toHaveValue("01");
+    await expect(month).toHaveText("January");
+    await expect(year).toHaveValue(birthDate.slice(0, 4));
+    await expect(profile.getByText("35 years old")).toBeVisible();
+    expect(errors).toEqual([]);
+  },
+);
 
 test("a guest connects a provider, keeps their identity, shares public names, and can sign in elsewhere", async ({
   browser,

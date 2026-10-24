@@ -47,13 +47,17 @@ export class PayloadApi {
     this.token = ((await response.json()) as { token: string }).token;
   }
 
-  private async request(path: string, init: RequestInit = {}) {
+  private async request(
+    path: string,
+    init: RequestInit = {},
+    authorization = `JWT ${this.token}`,
+  ) {
     const response = await fetch(`${E2E.payloadUrl}/api/${path}`, {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       ...init,
       headers: {
         "Content-Type": "application/json",
-        Authorization: `JWT ${this.token}`,
+        Authorization: authorization,
       },
     });
 
@@ -145,6 +149,60 @@ export class PayloadApi {
       email?: string;
       avatar: string;
     }[];
+  }
+
+  async removeRunUsers(run: string) {
+    if (!/^[a-z0-9]{6,16}$/i.test(run)) {
+      throw new Error("Invalid E2E account run identifier");
+    }
+    const suffix = run.toLowerCase();
+    const users = await this.findUsers(suffix);
+    await Promise.all(
+      users
+        .filter((user) => {
+          const nickname = user.nickname.toLowerCase();
+          return (
+            nickname.startsWith(E2E.nicknamePrefix) && nickname.endsWith(suffix)
+          );
+        })
+        .map((user) => this.remove("users", user.id)),
+    );
+  }
+
+  async createPasswordUser(
+    username: string,
+    displayName: string,
+    password: string,
+  ) {
+    const environment = parseEnv(
+      fs.readFileSync(
+        new URL("../../chat-server/.env", import.meta.url),
+        "utf8",
+      ),
+    );
+    const key = environment.PAYLOAD_SERVICE_API_KEY;
+    if (!key)
+      throw new Error("The E2E account fixture needs PAYLOAD_SERVICE_API_KEY");
+    const { hashPassword } = await import("../../chat-server/src/passwords");
+    const providerUserId = crypto.randomUUID();
+    const { doc } = await this.request(
+      "users",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          provider: "password",
+          providerUserId,
+          identity: `password:${providerUserId}`,
+          nickname: username,
+          displayName,
+          passwordHash: await hashPassword(password),
+          avatar: "other",
+          picture: "lorelei:abcdefghij",
+        }),
+      },
+      `admins API-Key ${key}`,
+    );
+    return doc!.id;
   }
 
   // What the admin kept of a reported message, found by the words in it.

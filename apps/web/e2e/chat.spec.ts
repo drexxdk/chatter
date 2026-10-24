@@ -17,15 +17,20 @@ import { E2E } from "./constants";
 import { PayloadApi } from "./payload";
 import { Redis } from "ioredis";
 
+const RUN = crypto.randomUUID().slice(0, 8);
 const LOUNGE = {
-  name: "E2E Lounge",
-  slug: `${E2E.slugPrefix}lounge`,
+  name: `E2E Lounge ${RUN}`,
+  slug: `${E2E.slugPrefix}lounge-${RUN}`,
   maxMembers: 5,
 };
-const TINY = { name: "E2E Tiny", slug: `${E2E.slugPrefix}tiny`, maxMembers: 1 };
+const TINY = {
+  name: `E2E Tiny ${RUN}`,
+  slug: `${E2E.slugPrefix}tiny-${RUN}`,
+  maxMembers: 1,
+};
 const SLOW = {
-  name: "E2E Slow",
-  slug: `${E2E.slugPrefix}slow`,
+  name: `E2E Slow ${RUN}`,
+  slug: `${E2E.slugPrefix}slow-${RUN}`,
   maxMembers: 5,
   slowModeSeconds: 3,
 };
@@ -2683,41 +2688,43 @@ for (const width of [390, 1280]) {
   });
 }
 
-test("two guests chat in real time and see each other come and go", async ({
-  browser,
-}) => {
-  const alice = await newGuest(browser);
-  const bob = await newGuest(browser);
+test(
+  "two guests chat in real time and see each other come and go",
+  { tag: "@smoke" },
+  async ({ browser }) => {
+    const alice = await newGuest(browser);
+    const bob = await newGuest(browser);
 
-  await enterRoom(alice, LOUNGE.name, "Alice");
-  await expect(
-    alice.getByRole("heading", { name: "In this room (1 of 5)" }),
-  ).toBeVisible();
+    await enterRoom(alice, LOUNGE.name, "Alice");
+    await expect(
+      alice.getByRole("heading", { name: "In this room (1 of 5)" }),
+    ).toBeVisible();
 
-  await enterRoom(bob, LOUNGE.name, "Bob");
-  await expect(
-    alice.getByRole("heading", { name: "In this room (2 of 5)" }),
-  ).toBeVisible();
-  await expect(
-    bob.getByRole("heading", { name: "In this room (2 of 5)" }),
-  ).toBeVisible();
+    await enterRoom(bob, LOUNGE.name, "Bob");
+    await expect(
+      alice.getByRole("heading", { name: "In this room (2 of 5)" }),
+    ).toBeVisible();
+    await expect(
+      bob.getByRole("heading", { name: "In this room (2 of 5)" }),
+    ).toBeVisible();
 
-  // Message text must be shown literally, never interpreted as HTML.
-  const markup = `<img src=x onerror="document.title='pwned'">`;
-  await send(bob, markup);
-  await expect(alice.getByRole("log")).toContainText(markup);
-  // The guests' own pictures are images, so it is the one in the message that must not be there.
-  await expect(alice.locator('img[src="x"]')).toHaveCount(0);
-  await expect(alice).not.toHaveTitle(/pwned/);
+    // Message text must be shown literally, never interpreted as HTML.
+    const markup = `<img src=x onerror="document.title='pwned'">`;
+    await send(bob, markup);
+    await expect(alice.getByRole("log")).toContainText(markup);
+    // The guests' own pictures are images, so it is the one in the message that must not be there.
+    await expect(alice.locator('img[src="x"]')).toHaveCount(0);
+    await expect(alice).not.toHaveTitle(/pwned/);
 
-  await send(alice, "Hi Bob!");
-  await expect(bob.getByRole("log")).toContainText("Hi Bob!");
+    await send(alice, "Hi Bob!");
+    await expect(bob.getByRole("log")).toContainText("Hi Bob!");
 
-  await leaveRoom(bob);
-  await expect(
-    alice.getByRole("heading", { name: "In this room (1 of 5)" }),
-  ).toBeVisible();
-});
+    await leaveRoom(bob);
+    await expect(
+      alice.getByRole("heading", { name: "In this room (1 of 5)" }),
+    ).toBeVisible();
+  },
+);
 
 test("a guest whose connection drops is reconnected to the same room", async ({
   browser,
@@ -3527,73 +3534,78 @@ test("the Test lab crowd previews private and room typing counts", async ({
   }
 });
 
-test("a moderator signs in, and guests see their messages stand out", async ({
-  browser,
-}) => {
-  // Room history outlives a run, so a name and words reused by an earlier run would match twice.
-  const unique = String(Date.now()).slice(-6);
-  const name = `E2E Mod ${unique}`;
-  const words = `Please keep it friendly ${unique}`;
-  const email = `${E2E.moderatorEmailPrefix}${Date.now()}@chatter.test`;
-  const password = crypto.randomUUID();
-  const accountId = await payload.createModerator(email, password, name);
+test(
+  "a moderator signs in, and guests see their messages stand out",
+  { tag: "@smoke" },
+  async ({ browser }) => {
+    // Room history outlives a run, so a name and words reused by an earlier run would match twice.
+    const unique = String(Date.now()).slice(-6);
+    const name = `E2E Mod ${unique}`;
+    const words = `Please keep it friendly ${unique}`;
+    const email = `${E2E.moderatorEmailPrefix}${Date.now()}@chatter.test`;
+    const password = crypto.randomUUID();
+    const accountId = await payload.createModerator(email, password, name);
 
-  try {
-    await waitForReservedNickname(name);
+    try {
+      await waitForReservedNickname(name);
 
-    const alice = await newGuest(browser);
-    await enterRoom(alice, LOUNGE.name, "Alice");
+      const alice = await newGuest(browser);
+      await enterRoom(alice, LOUNGE.name, "Alice");
 
-    const moderator = await newGuest(browser);
-    await moderator.goto("/");
-    await moderator
-      .getByRole("button", { name: "Sign in", exact: true })
-      .click();
+      const moderator = await newGuest(browser);
+      await moderator.goto("/");
+      await moderator
+        .getByRole("button", { name: "Sign in", exact: true })
+        .click();
 
-    // A wrong password is explained and nothing is joined.
-    await moderator
-      .getByRole("textbox", { name: "Username or email" })
-      .fill(email);
-    await moderator
-      .getByLabel("Password", { exact: true })
-      .fill("not the password");
-    await moderator.getByRole("button", { name: "Sign in" }).click();
-    await expect(moderator.getByRole("dialog").getByRole("alert")).toHaveText(
-      "Wrong username, email or password.",
-    );
+      // A wrong password is explained and nothing is joined.
+      await moderator
+        .getByRole("textbox", { name: "Username or email" })
+        .fill(email);
+      await moderator
+        .getByLabel("Password", { exact: true })
+        .fill("not the password");
+      await moderator.getByRole("button", { name: "Sign in" }).click();
+      await expect(moderator.getByRole("dialog").getByRole("alert")).toHaveText(
+        "Wrong username, email or password.",
+      );
 
-    await moderator.getByLabel("Password", { exact: true }).fill(password);
-    await moderator.getByRole("button", { name: "Sign in" }).click();
-    // Signing in leaves the moderator in the lobby; the room is joined from there.
-    await moderator
-      .getByRole("button", { name: `Join ${LOUNGE.name}` })
-      .click();
-    await expect(
-      moderator.getByRole("button", { name: `Account menu: ${name}` }),
-    ).toBeVisible();
+      await moderator.getByLabel("Password", { exact: true }).fill(password);
+      await moderator.getByRole("button", { name: "Sign in" }).click();
+      // Signing in leaves the moderator in the lobby; the room is joined from there.
+      await moderator
+        .getByRole("button", { name: `Join ${LOUNGE.name}` })
+        .click();
+      await expect(
+        moderator.getByRole("button", { name: `Account menu: ${name}` }),
+      ).toBeVisible();
 
-    await send(moderator, words);
+      await send(moderator, words);
 
-    const message = alice.getByRole("log").getByText(words);
-    await expect(message).toBeVisible();
-    await expect(message).toHaveClass(/font-bold/);
-    await expect(
-      alice.getByRole("log").getByText(name, { exact: true }).locator("../.."),
-    ).toHaveClass(/text-green-400/);
-    await expect(
-      alice
-        .getByRole("log")
-        .getByRole("listitem")
-        .filter({ hasText: words })
-        .getByText("Moderator"),
-    ).toBeVisible();
-    await expect(
-      alice.getByRole("complementary").getByText(name).locator("../.."),
-    ).toHaveClass(/text-green-400/);
-  } finally {
-    await payload.remove("admins", accountId);
-  }
-});
+      const message = alice.getByRole("log").getByText(words);
+      await expect(message).toBeVisible();
+      await expect(message).toHaveClass(/font-bold/);
+      await expect(
+        alice
+          .getByRole("log")
+          .getByText(name, { exact: true })
+          .locator("../.."),
+      ).toHaveClass(/text-green-400/);
+      await expect(
+        alice
+          .getByRole("log")
+          .getByRole("listitem")
+          .filter({ hasText: words })
+          .getByText("Moderator"),
+      ).toBeVisible();
+      await expect(
+        alice.getByRole("complementary").getByText(name).locator("../.."),
+      ).toHaveClass(/text-green-400/);
+    } finally {
+      await payload.remove("admins", accountId);
+    }
+  },
+);
 
 test("a guest cannot take a name that sounds like staff", async ({ page }) => {
   await startJoin(page, LOUNGE.name, "Admin");
@@ -3943,97 +3955,105 @@ test("a moderator whose account is removed is signed out", async ({
   }
 });
 
-test("two guests write to each other privately, and a blocked guest is not heard", async ({
-  browser,
-}) => {
-  const room = await isolatedRoom("E2E Private");
-  const alice = await newGuest(browser);
-  const bob = await newGuest(browser);
-  await enterRoom(alice, room.name, "Alice");
-  await enterRoom(bob, room.name, "Bob");
+test(
+  "two guests write to each other privately, and a blocked guest is not heard",
+  { tag: "@smoke" },
+  async ({ browser }) => {
+    const room = await isolatedRoom("E2E Private");
+    const alice = await newGuest(browser);
+    const bob = await newGuest(browser);
+    await enterRoom(alice, room.name, "Alice");
+    await enterRoom(bob, room.name, "Bob");
 
-  const people = (page: Page) =>
-    page.getByRole("list", { name: "People in this room" });
-  const conversations = (page: Page) =>
-    page.getByRole("list", { name: "Direct messages" });
-  const conversation = (page: Page, name: string) =>
-    page.getByRole("log", { name: `Direct message with ${name}` });
+    const people = (page: Page) =>
+      page.getByRole("list", { name: "People in this room" });
+    const conversations = (page: Page) =>
+      page.getByRole("list", { name: "Direct messages" });
+    const conversation = (page: Page, name: string) =>
+      page.getByRole("log", { name: `Direct message with ${name}` });
 
-  // Alice finds Bob in the room and writes to him; the room itself hears nothing.
-  await expect(
-    people(alice).getByRole("button", { name: /^Bob/ }),
-  ).toBeVisible();
-  await people(alice)
-    .getByRole("button", { name: "Open private chat with Bob" })
-    .click();
-  await send(alice, "psst, Bob", "Bob");
-  await expect(conversation(alice, "Bob")).toContainText("psst, Bob");
+    // Alice finds Bob in the room and writes to him; the room itself hears nothing.
+    await expect(
+      people(alice).getByRole("button", { name: /^Bob/ }),
+    ).toBeVisible();
+    await people(alice)
+      .getByRole("button", { name: "Open private chat with Bob" })
+      .click();
+    await send(alice, "psst, Bob", "Bob");
+    await expect(conversation(alice, "Bob")).toContainText("psst, Bob");
 
-  // Bob is told there is something new. The room's log shows it too, marked as private (and nobody else's does).
-  const fromAlice = conversations(bob).getByRole("button", { name: /^Alice/ });
-  await expect(fromAlice).toHaveAccessibleName(/1 unread message/);
-  await expect(fromAlice).toHaveClass(/animate-pulse/);
-  await expect(bob.getByRole("log", { name: room.name })).toContainText(
-    "Direct message from Alice",
-  );
+    // Bob is told there is something new. The room's log shows it too, marked as private (and nobody else's does).
+    const fromAlice = conversations(bob).getByRole("button", {
+      name: /^Alice/,
+    });
+    await expect(fromAlice).toHaveAccessibleName(/1 unread message/);
+    await expect(fromAlice).toHaveClass(/animate-pulse/);
+    await expect(bob.getByRole("log", { name: room.name })).toContainText(
+      "Direct message from Alice",
+    );
 
-  await fromAlice.click();
-  await expect(conversation(bob, "Alice")).toContainText("psst, Bob");
-  await expect(fromAlice).not.toHaveAccessibleName(/unread/);
-  await send(bob, "hi Alice", "Alice");
-  await expect(conversation(alice, "Bob")).toContainText("hi Alice");
+    await fromAlice.click();
+    await expect(conversation(bob, "Alice")).toContainText("psst, Bob");
+    await expect(fromAlice).not.toHaveAccessibleName(/unread/);
+    await send(bob, "hi Alice", "Alice");
+    await expect(conversation(alice, "Bob")).toContainText("hi Alice");
 
-  // Bob has had enough. Alice is told, and can no longer write to him.
-  await bob.getByRole("button", { name: "Block Alice" }).click();
-  await expect(
-    bob.getByRole("button", { name: "Unblock Alice" }).first(),
-  ).toBeVisible();
-  await expect(conversation(alice, "Bob")).toContainText("Bob has blocked you");
-  await expect(
-    alice.getByRole("textbox", { name: "Message to Bob" }),
-  ).toBeDisabled();
-  await expect(conversation(bob, "Alice")).not.toContainText(
-    "Bob has blocked you",
-  );
-});
+    // Bob has had enough. Alice is told, and can no longer write to him.
+    await bob.getByRole("button", { name: "Block Alice" }).click();
+    await expect(
+      bob.getByRole("button", { name: "Unblock Alice" }).first(),
+    ).toBeVisible();
+    await expect(conversation(alice, "Bob")).toContainText(
+      "Bob has blocked you",
+    );
+    await expect(
+      alice.getByRole("textbox", { name: "Message to Bob" }),
+    ).toBeDisabled();
+    await expect(conversation(bob, "Alice")).not.toContainText(
+      "Bob has blocked you",
+    );
+  },
+);
 
-test("reloading the page, or opening its address, brings a guest back to their room", async ({
-  browser,
-}) => {
-  const alice = await newGuest(browser);
-  await enterRoom(alice, LOUNGE.name, "Alice");
-  await expect(alice).toHaveURL(new RegExp(`/rooms/${LOUNGE.slug}$`));
-  await send(alice, "before the reload");
-  await expect(alice.getByRole("log")).toContainText("before the reload");
+test(
+  "reloading the page, or opening its address, brings a guest back to their room",
+  { tag: "@smoke" },
+  async ({ browser }) => {
+    const alice = await newGuest(browser);
+    await enterRoom(alice, LOUNGE.name, "Alice");
+    await expect(alice).toHaveURL(new RegExp(`/rooms/${LOUNGE.slug}$`));
+    await send(alice, "before the reload");
+    await expect(alice.getByRole("log")).toContainText("before the reload");
 
-  await alice.reload();
+    await alice.reload();
 
-  await expect(
-    alice.getByRole("heading", { name: LOUNGE.name, level: 2 }),
-  ).toBeVisible();
-  await expect(
-    alice.getByRole("button", { name: "Account menu: Alice" }),
-  ).toBeVisible();
-  // It is a new connection, but what she wrote before is still hers: on her side.
-  await expect(
-    alice.getByText("before the reload").locator("xpath=ancestor::li"),
-  ).toHaveAttribute("data-side", "right");
+    await expect(
+      alice.getByRole("heading", { name: LOUNGE.name, level: 2 }),
+    ).toBeVisible();
+    await expect(
+      alice.getByRole("button", { name: "Account menu: Alice" }),
+    ).toBeVisible();
+    // It is a new connection, but what she wrote before is still hers: on her side.
+    await expect(
+      alice.getByText("before the reload").locator("xpath=ancestor::li"),
+    ).toHaveAttribute("data-side", "right");
 
-  // The browser's back button leaves the room, and forward goes in again.
-  await alice.goBack();
-  await expect(
-    alice.getByRole("heading", { name: "Public rooms" }),
-  ).toBeVisible();
-  await alice.goForward();
-  await expect(
-    alice.getByRole("button", { name: "Account menu: Alice" }),
-  ).toBeVisible();
+    // The browser's back button leaves the room, and forward goes in again.
+    await alice.goBack();
+    await expect(
+      alice.getByRole("heading", { name: "Public rooms" }),
+    ).toBeVisible();
+    await alice.goForward();
+    await expect(
+      alice.getByRole("button", { name: "Account menu: Alice" }),
+    ).toBeVisible();
 
-  // Somebody who opens the address with nothing saved is asked who they are.
-  const bob = await newGuest(browser);
-  await bob.goto(`/rooms/${LOUNGE.slug}`);
-  await expect(bob.getByRole("textbox", { name: "Nickname" })).toBeVisible();
-});
+    // Somebody who opens the address with nothing saved is asked who they are.
+    const bob = await newGuest(browser);
+    await bob.goto(`/rooms/${LOUNGE.slug}`);
+    await expect(bob.getByRole("textbox", { name: "Nickname" })).toBeVisible();
+  },
+);
 
 test("a guest's chosen avatar is shown to others, and a conversation says when the other person goes offline and returns", async ({
   browser,
@@ -4099,10 +4119,11 @@ test("a guest's chosen avatar is shown to others, and a conversation says when t
 test("a private message can be reacted to, and the sender sees it", async ({
   browser,
 }) => {
+  const room = await isolatedRoom("E2E Private Reactions");
   const alice = await newGuest(browser);
   const bob = await newGuest(browser);
-  await enterRoom(alice, LOUNGE.name, "Alice");
-  await enterRoom(bob, LOUNGE.name, "Bob");
+  await enterRoom(alice, room.name, "Alice");
+  await enterRoom(bob, room.name, "Bob");
   await alice
     .getByRole("list", { name: "People in this room" })
     .getByRole("button", { name: "Open private chat with Bob" })
@@ -4110,7 +4131,7 @@ test("a private message can be reacted to, and the sender sees it", async ({
   await send(alice, "a secret", "Bob");
 
   const line = bob
-    .getByRole("log", { name: LOUNGE.name })
+    .getByRole("log", { name: room.name })
     .getByRole("listitem")
     .filter({ hasText: "a secret" });
   await line.locator("[data-nav-id]").press("ArrowRight");

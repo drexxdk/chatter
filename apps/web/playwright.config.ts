@@ -4,12 +4,16 @@ import { CHAT_SERVER_URL, E2E, WEB_URL } from "./e2e/constants";
 
 export default defineConfig({
   testDir: "./e2e",
-  // The tests share one chat-server (and one loopback IP, which the ban test blocks), so they run one at a time.
+  // Each stack shares mutable server state; CI shards use independent stacks with one worker each.
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: [["list"], ["html", { open: "never" }]],
+  reporter: [
+    ["list"],
+    ["html", { open: "never" }],
+    ["json", { outputFile: "test-results/playwright.json" }],
+  ],
   globalSetup: "./e2e/globalSetup.ts",
   use: {
     baseURL: WEB_URL,
