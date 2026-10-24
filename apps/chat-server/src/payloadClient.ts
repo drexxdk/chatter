@@ -530,6 +530,7 @@ const userSchema = z
     nickname: z.string().min(1),
     nicknameKey: z.string().min(1),
     displayName: z.string().nullish(),
+    displayNameChangedAt: z.string().nullish(),
     displayNameKey: z.string().nullish(),
     picture: z.string().nullish().transform(parsePicture),
     avatar: z.string().nullish().transform(parseAvatar),
@@ -566,6 +567,7 @@ export interface NewUser {
 }
 
 export interface UserChanges {
+  displayNameChangedAt?: string;
   passwordHash?: string;
   birthDate?: string | null;
   displayName?: string;
@@ -693,16 +695,7 @@ export async function createUser(user: NewUser): Promise<UserRecord> {
   } catch (error) {
     if (!isNameClaimTaken(error)) throw error;
 
-    const key = encodeURIComponent(user.nicknameKey);
-    const owners = await payloadFetch(
-      `/api/users?where[or][0][nicknameKey][equals]=${key}&where[or][1][displayNameKey][equals]=${key}&limit=1&depth=0&select[id]=true`,
-      z.object({ docs: z.array(z.object({ id: z.number() })) }),
-    );
-    throw new PayloadError(
-      "Account name is already taken",
-      400,
-      owners.docs.length > 0 ? "nicknameKey" : "displayNameKey",
-    );
+    throw new PayloadError("Account name is already taken", 400, "nicknameKey");
   }
 }
 
@@ -717,11 +710,7 @@ export async function updateUser(
     );
   } catch (error) {
     if (!isNameClaimTaken(error)) throw error;
-    throw new PayloadError(
-      "Account name is already taken",
-      400,
-      "displayNameKey",
-    );
+    throw new PayloadError("Account name is already taken", 400, "nicknameKey");
   }
 }
 

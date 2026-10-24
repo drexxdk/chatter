@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { Partner } from "../chat/direct";
 import { MENU_ITEM, MENU_SURFACE } from "./dropdown";
 import { ReturnFocus, useSharedRef } from "./ReturnFocus";
+import { IdentityDetails, useIdentityNames } from "./Identity";
 
 const item = `${MENU_ITEM} gap-2 px-3 py-2`;
 
@@ -41,7 +42,8 @@ export function PersonMenu({
   const { t } = useTranslation();
   const [button, setButton] = useSharedRef(buttonRef);
   const { partner, present, blocked, blockedBy } = menu;
-  const label = t("person.actions", { name: partner.nickname });
+  const names = useIdentityNames();
+  const label = t("person.actions", { name: names.label(partner) });
 
   return (
     <Menu>
@@ -60,6 +62,9 @@ export function PersonMenu({
         className={`z-50 min-w-52 ${MENU_SURFACE}`}
       >
         <ReturnFocus to={button} />
+        <div className="border-b border-neutral-700 px-3 py-2">
+          <IdentityDetails person={partner} />
+        </div>
         <MenuItem disabled={!present || blocked || blockedBy}>
           <button
             type="button"
@@ -70,7 +75,7 @@ export function PersonMenu({
             className={item}
           >
             <MessageSquare aria-hidden="true" className="h-4 w-4" />
-            {t("person.message", { name: partner.nickname })}
+            {t("person.message", { name: names.label(partner) })}
           </button>
         </MenuItem>
         <MenuItem disabled={!present && !menu.hasConversation}>
@@ -98,8 +103,8 @@ export function PersonMenu({
             >
               <Ban aria-hidden="true" className="h-4 w-4" />
               {blocked
-                ? t("dm.unblock", { name: partner.nickname })
-                : t("dm.block", { name: partner.nickname })}
+                ? t("dm.unblock", { name: names.label(partner) })
+                : t("dm.block", { name: names.label(partner) })}
             </button>
           </MenuItem>
         )}

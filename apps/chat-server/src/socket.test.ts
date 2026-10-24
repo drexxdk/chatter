@@ -955,7 +955,7 @@ describe("rooms", () => {
     ).toEqual(["Bob"]);
   });
 
-  it("skips a queued guest whose nickname is already in the destination", async () => {
+  it("admits queued guests in order even when a name is already in the destination", async () => {
     getCachedPublicRooms.mockResolvedValue(
       ROOMS.map((room) =>
         room.slug === "tiny" ? { ...room, maxMembers: 2 } : room,
@@ -970,16 +970,19 @@ describe("rooms", () => {
     await emit(bob, "room:join", { slug: "general" });
     await emit(bob, "room:queue:join", { slug: "tiny" });
     await emit(carol, "room:queue:join", { slug: "tiny" });
-    const failure = waitFor<Ack>(bob, "room:queue:error");
-    const joined = waitFor<Ack>(carol, "room:joined");
+    const joined = waitFor<Ack>(bob, "room:joined");
     await emit(alice, "room:leave");
-    expect(await failure).toMatchObject({ error: "nickname_taken" });
     await joined;
     expect(
       (await ioServer.in("room:general").fetchSockets()).map(
         (socket) => socket.data.nickname,
       ),
-    ).toEqual(["Bob"]);
+    ).toEqual([]);
+    expect(
+      (await ioServer.in("room:tiny").fetchSockets()).map(
+        (socket) => socket.data.nickname,
+      ),
+    ).toEqual(["Bob", "Bob"]);
   });
 
   it("replaces an old queue place when another full room is requested", async () => {
@@ -4461,40 +4464,44 @@ describe("nicknames in a room", () => {
     return { socket: socket!, session: await session!, ack };
   }
 
-  it("refuses a name somebody else in the room already has", async () => {
-    await guestIn("Alice");
+  it("allows a shared name while keeping guest identities distinct", async () => {
+    const first = await guestIn("Alice");
     const second = await connect({ nickname: "Alice" });
 
     expect(
       await emit(second.socket!, "room:join", { slug: "general" }),
-    ).toEqual({ ok: false, error: "nickname_taken" });
+    ).toMatchObject({ ok: true });
+    expect((await second.session!).guestId).not.toBe(first.session.guestId);
   });
 
   it.each(["alice", "ALICE", "a l i c e", "Al.ice", "A_l-i_c-e"])(
-    "does not tell %s from Alice",
+    "allows %s alongside Alice",
     async (name) => {
       await guestIn("Alice");
       const second = await connect({ nickname: name });
 
       expect(
-        (await emit(second.socket!, "room:join", { slug: "general" })).error,
-      ).toBe("nickname_taken");
+        (await emit(second.socket!, "room:join", { slug: "general" })).ok,
+      ).toBe(true);
     },
   );
 
-  it("does not put the refused guest in the room", async () => {
+  it("routes messages from same-name guests by their distinct identity", async () => {
     const first = await guestIn("Alice");
     const second = await connect({ nickname: "Alice" });
     await emit(second.socket!, "room:join", { slug: "general" });
-    const heard = vi.fn();
-    first.socket.on("message:new", heard);
-
-    await emit(second.socket!, "message:send", { text: "hi" });
+    const heard = waitFor<{ guestId: string; nickname: string }>(
+      first.socket,
+      "message:new",
+    );
 
     expect(
       await emit(second.socket!, "message:send", { text: "hi" }),
-    ).toMatchObject({ ok: false, error: "not_in_room" });
-    expect(heard).not.toHaveBeenCalled();
+    ).toMatchObject({ ok: true });
+    expect(await heard).toMatchObject({
+      guestId: (await second.session!).guestId,
+      nickname: "Alice",
+    });
   });
 
   it("lets the same name be used in another room", async () => {
@@ -4532,16 +4539,16 @@ describe("nicknames in a room", () => {
     ).toBe(true);
   });
 
-  it("refuses a rename to a name in the room, and changes nothing", async () => {
+  it("allows a rename to a name already in the room", async () => {
     const alice = await guestIn("Alice");
     await guestIn("Bob");
 
     expect(
       await emit(alice.socket, "profile:update", { nickname: "bob" }),
-    ).toEqual({ ok: false, error: "nickname_taken" });
+    ).toMatchObject({ ok: true, profile: { nickname: "bob" } });
     expect(await emit(alice.socket, "profile:update", {})).toMatchObject({
       ok: true,
-      profile: { nickname: "Alice" },
+      profile: { nickname: "bob" },
     });
   });
 
@@ -4567,7 +4574,7 @@ describe("nicknames in a room", () => {
     ).toBe(true);
   });
 
-  it("lets only one of two guests who choose the same name at once have it", async () => {
+  it("allows two guests to choose the same name concurrently", async () => {
     const alice = await guestIn("Alice");
     const bob = await guestIn("Bob");
 
@@ -4576,10 +4583,7 @@ describe("nicknames in a room", () => {
       emit(bob.socket, "profile:update", { nickname: "carol" }),
     ]);
 
-    expect(results.filter((result) => result.ok)).toHaveLength(1);
-    expect(
-      results.filter((result) => result.error === "nickname_taken"),
-    ).toHaveLength(1);
+    expect(results.every((result) => result.ok)).toBe(true);
   });
 
   it("replaces the older connection when the same moderator signs in again", async () => {
@@ -4878,8 +4882,6 @@ describe("resuming an identity", () => {
 const { hashMember, memberGuestId } = await import("./identity.js");
 const { enforceMembers, removeAccountConnections } =
   await import("./socket.js");
-const { PayloadError } = await import("./payloadClient.js");
-
 describe("members", () => {
   const SECRET = "a-secret-that-is-long-enough-for-tests";
   const account = {
@@ -5189,31 +5191,27 @@ describe("members", () => {
   });
 
   describe("a guest and the names of the accounts", () => {
-    it("cannot take a nickname that an account has", async () => {
+    it("can use an account's public display name without checking private usernames", async () => {
       isMemberName.mockResolvedValue(true);
 
-      expect((await connect({ nickname: "Alice" })).error).toBe(
-        "reserved_nickname",
-      );
-      expect(isMemberName).toHaveBeenCalledWith("Alice");
+      expect((await connect({ nickname: "Alice" })).error).toBeUndefined();
+      expect(isMemberName).not.toHaveBeenCalled();
     });
 
-    it("cannot rename themselves to one", async () => {
+    it("can rename themselves to the same public name as an account", async () => {
       const { socket } = await connect({ nickname: "Bob" });
       isMemberName.mockResolvedValue(true);
 
       expect(
         await emit(socket!, "profile:update", { nickname: "Alice" }),
-      ).toEqual({
-        ok: false,
-        error: "reserved_nickname",
-      });
+      ).toMatchObject({ ok: true, profile: { nickname: "Alice" } });
     });
 
-    it("can still be unreachable, and then nobody gets in, so a name is never given by mistake", async () => {
+    it("does not depend on the private username cache for guest admission", async () => {
       isMemberName.mockRejectedValue(new Error("redis down"));
 
-      expect((await connect({ nickname: "Bob" })).error).toBe("unavailable");
+      expect((await connect({ nickname: "Bob" })).error).toBeUndefined();
+      expect(isMemberName).not.toHaveBeenCalled();
     });
   });
 
@@ -5355,13 +5353,15 @@ describe("members", () => {
       });
       expect(updateUser).toHaveBeenCalledWith(5, {
         displayName: "Alicia",
+        displayNameChangedAt: expect.any(String),
         displayNameKey: "alicia",
         picture: "lorelei:abc12345",
         avatar: "trans",
         age: null,
         birthDate: null,
       });
-      expect(claimMemberName).toHaveBeenCalledWith(5, "Alicia");
+      expect(claimMemberName).toHaveBeenCalledWith(5, "alicea");
+      expect(claimMemberName).not.toHaveBeenCalledWith(5, "alicia");
       expect(releaseMemberName).toHaveBeenCalledWith(5, "Alice");
     });
 
@@ -5375,8 +5375,33 @@ describe("members", () => {
 
       await emit(socket, "profile:update", { nickname: "Alicia" });
 
-      expect(claimMemberName).toHaveBeenCalledWith(5, "Alicia");
+      expect(claimMemberName).toHaveBeenCalledWith(5, "alicea");
+      expect(claimMemberName).not.toHaveBeenCalledWith(5, "alicia");
       expect(releaseMemberName).not.toHaveBeenCalled();
+    });
+
+    it("returns the remaining display-name cooldown without changing the socket profile", async () => {
+      const { socket } = await member();
+      fetchUser.mockResolvedValue({
+        ...account,
+        displayNameChangedAt: new Date().toISOString(),
+      });
+      const result = await emit(socket, "profile:update", {
+        nickname: "Alicia",
+      });
+      expect(result).toMatchObject({
+        ok: false,
+        error: "display_name_cooldown",
+      });
+      expect(result.retryAfterMs).toBeGreaterThan(86_390_000);
+      expect(result.retryAfterMs).toBeLessThanOrEqual(86_400_000);
+      expect(updateUser).not.toHaveBeenCalled();
+      expect(
+        await emit(socket, "profile:update", { avatar: "male" }),
+      ).toMatchObject({
+        ok: true,
+        profile: { nickname: "Alice", avatar: "male" },
+      });
     });
 
     it("changes the picture, which the others are told", async () => {
@@ -5459,19 +5484,6 @@ describe("members", () => {
     });
 
     it.each([
-      [
-        "a nickname another account has",
-        () => isMemberName.mockResolvedValue(true),
-        "reserved_nickname",
-      ],
-      [
-        "a nickname that was taken just now",
-        () =>
-          updateUser.mockRejectedValue(
-            new PayloadError("x", 400, "displayNameKey"),
-          ),
-        "reserved_nickname",
-      ],
       [
         "an account that cannot be saved",
         () => updateUser.mockRejectedValue(new Error("down")),

@@ -17,6 +17,7 @@ import { PLAIN_AVATAR } from "../chat/avatar";
 import { splitMentions } from "../chat/mentions";
 import type { Member } from "../chat/types";
 import { AvatarIcon } from "./Avatar";
+import { IdentityDetails, useIdentityNames } from "./Identity";
 
 export interface MentionsValue {
   // Who is in the room: only they are known well enough to be shown as mentioned.
@@ -50,7 +51,7 @@ function Card({ person }: { person: Member }) {
             person.role === "moderator" && "text-green-400",
           )}
         >
-          {person.nickname}
+          <IdentityDetails person={person} />
         </span>
         <span className="block text-xs text-neutral-400">
           {t(`avatar.${avatar}`)}
@@ -78,6 +79,7 @@ function Mention({
   value: MentionsValue;
 }) {
   const [open, setOpen] = useState(false);
+  const names = useIdentityNames();
   // Below the name, where the message's own hover bar is not; above it, or to the side, when there is no room.
   const { refs, floatingStyles, context } = useFloating({
     open,
@@ -95,7 +97,7 @@ function Mention({
     person.guestId !== value.selfGuestId && value.canWriteTo(person.guestId);
   const className = onDark ? "text-indigo-300" : "text-indigo-400";
   // The "@" is how it was typed; what is read is the name.
-  const name = text.slice(1);
+  const name = text.includes("#") ? names.label(person) : text.slice(1);
 
   return (
     <>

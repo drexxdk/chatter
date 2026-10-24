@@ -19,6 +19,7 @@ import { AccountSection } from "./AccountSection";
 import { AvatarIcon, GenderLabel } from "./Avatar";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
+import { Field } from "./Field";
 import { Modal } from "./Modal";
 import { AvatarPicker, NameAndBirthDate, PicturePicker } from "./ProfileFields";
 import { useReloadUiContext } from "../reloadUi";
@@ -94,6 +95,7 @@ function ProfileBody({
     return (
       <ProfileForm
         profile={profile}
+        username={profile.role === "member" ? account?.username : undefined}
         onSave={onSave}
         onDone={() => setEditing(false)}
       />
@@ -199,10 +201,12 @@ function ProfileSummary({
 
 function ProfileForm({
   profile,
+  username,
   onSave,
   onDone,
 }: {
   profile: ProfileSubject;
+  username?: string;
   onSave: (changes: ProfileChanges) => Promise<ActionResult>;
   onDone: () => void;
 }) {
@@ -241,6 +245,7 @@ function ProfileForm({
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
+    const form = event.currentTarget;
     setTouched(true);
 
     if (!nickname || !birthDate.ok) return;
@@ -261,20 +266,43 @@ function ProfileForm({
     setSaving(false);
 
     if (result.ok) finish();
-    else setFailure(result);
+    else {
+      setFailure(result);
+      if (result.error === "display_name_cooldown")
+        form.querySelector<HTMLInputElement>("#profile-nickname")?.focus();
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {username && (
+        <Field
+          id="profile-username"
+          label={t("account.register.username")}
+          value={username}
+          autoComplete="username"
+          readOnly
+        />
+      )}
       <NameAndBirthDate
         nicknameId="profile-nickname"
         ageId="profile-age"
         nickname={name}
-        onNicknameChange={setName}
-        invalidNickname={touched && !nickname}
+        onNicknameChange={(value) => {
+          setName(value);
+          if (normalizeNickname(value) === profile.nickname)
+            setFailure(undefined);
+        }}
+        invalidNickname={
+          (touched && !nickname) ||
+          (failure?.error === "display_name_cooldown" &&
+            nickname !== profile.nickname)
+        }
         nicknameLabel={account ? t("account.register.displayName") : undefined}
         nicknameHint={
-          account ? t("account.register.displayNameHint") : undefined
+          account
+            ? `${t("account.register.displayNameHint")} ${t("profile.displayNameCooldown")}`
+            : undefined
         }
         birthDate={birthDateText}
         onBirthDateChange={setBirthDateText}
@@ -298,7 +326,12 @@ function ProfileForm({
             : null
         }
         values={{
-          seconds: failure?.retryAfterSeconds,
+          seconds:
+            failure?.error === "display_name_cooldown"
+              ? (failure.retryAfterSeconds ?? 0) % 60
+              : failure?.retryAfterSeconds,
+          hours: Math.floor((failure?.retryAfterSeconds ?? 0) / 3600),
+          minutes: Math.floor(((failure?.retryAfterSeconds ?? 0) % 3600) / 60),
           min: MIN_AGE,
           max: MAX_AGE,
         }}

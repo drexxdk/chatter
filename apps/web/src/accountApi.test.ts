@@ -49,6 +49,17 @@ afterEach(() => {
 });
 
 describe("human verification API", () => {
+  it("preserves the remaining display-name cooldown instead of generic rate limiting", async () => {
+    respondWith(
+      { error: "display_name_cooldown", retryAfterSeconds: 3661 },
+      { status: 429 },
+    );
+    await expect(fetchAccount("member-token")).rejects.toMatchObject({
+      code: "display_name_cooldown",
+      retryAfterSeconds: 3661,
+    });
+  });
+
   it("shares public widget configuration with the provider request", async () => {
     const request = respondWith({
       providers: ["google"],

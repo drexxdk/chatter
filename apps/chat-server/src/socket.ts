@@ -46,7 +46,6 @@ import {
   validateNickname,
 } from "./identity.js";
 import { MAX_MESSAGE_LENGTH, slidingWindow } from "./limits.js";
-import { isMemberName } from "./members.js";
 import { handleProfileUpdate } from "./socketProfile.js";
 import { claimGuestAccount, PasswordAccountError } from "./passwordAccounts.js";
 import { withProfileLock } from "./profileLock.js";
@@ -54,7 +53,6 @@ import {
   getModerators,
   getModeratorNames,
   isReservedNickname,
-  normalizeName,
 } from "./names.js";
 import { isReactionEmoji } from "./reactions.js";
 import {
@@ -651,29 +649,6 @@ export function createSocketServer(
     });
   }
 
-  // Whether somebody else in the room already has this name, so two people are never mistaken for each other. Case,
-  // spaces and punctuation do not make a name different. A moderator signed in on two connections is one person.
-  async function nameInUse(
-    slug: string,
-    data: SocketData,
-    nickname: string,
-  ): Promise<boolean> {
-    const name = normalizeName(nickname);
-
-    return (await io.in(roomKey(slug)).fetchSockets()).some((member) => {
-      const other = member.data as SocketData;
-
-      return (
-        other.guestId !== data.guestId &&
-        normalizeName(other.nickname) === name &&
-        !(
-          other.accountId !== undefined && other.accountId === data.accountId
-        ) &&
-        !(other.memberId !== undefined && other.memberId === data.memberId)
-      );
-    });
-  }
-
   // Sign-in, reserved-name and ban checks run before the connection is accepted; they fail closed when a cache is
   // unreachable. A moderator arrives with a signed token and gets the name from their account; a guest picks a
   // nickname, which must not look like a moderator's.
@@ -750,10 +725,7 @@ export function createSocketServer(
       }
 
       try {
-        if (
-          isReservedNickname(nickname, await getModeratorNames()) ||
-          (await isMemberName(nickname))
-        ) {
+        if (isReservedNickname(nickname, await getModeratorNames())) {
           return next(new Error("reserved_nickname"));
         }
       } catch (error) {
@@ -1591,7 +1563,6 @@ export function createSocketServer(
         socket,
         data,
         withRoomLock,
-        nameInUse: (slug, nickname) => nameInUse(slug, data, nickname),
         emitPresence,
       }),
     );
@@ -1621,10 +1592,6 @@ export function createSocketServer(
           (member) => (member.data as SocketData).role !== "moderator",
         ).length;
         if (participants + made >= limit) return "room_full" as const;
-      }
-
-      if (await nameInUse(slug, data, data.nickname)) {
-        return "nickname_taken" as const;
       }
 
       if (socket.disconnected) return "disconnected" as const;
@@ -1687,11 +1654,6 @@ export function createSocketServer(
                 socket.emit("room:joined", await joinedRoom(slug, true));
               } else {
                 removeFromQueue(socket.id);
-                if (result === "nickname_taken")
-                  socket.emit("room:queue:error", {
-                    roomSlug: slug,
-                    error: result,
-                  });
               }
               return true;
             },
@@ -1713,10 +1675,6 @@ export function createSocketServer(
 
       if (outcome === "room_full") {
         return reply({ ok: false, error: "room_full" });
-      }
-
-      if (outcome === "nickname_taken") {
-        return reply({ ok: false, error: "nickname_taken" });
       }
 
       if (outcome === "disconnected" || outcome === "cancelled")

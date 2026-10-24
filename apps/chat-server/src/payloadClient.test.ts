@@ -644,37 +644,23 @@ describe("accounts", () => {
     });
   });
 
-  it.each([
-    [true, "nicknameKey"],
-    [false, "displayNameKey"],
-  ])(
-    "maps a shared-name registration conflict to the correct field (username taken: %s)",
-    async (usernameTaken, field) => {
-      const fetchMock = vi
-        .fn()
-        .mockResolvedValueOnce(Response.json(claimConflict, { status: 400 }))
-        .mockResolvedValueOnce(
-          Response.json({ docs: usernameTaken ? [{ id: 7 }] : [] }),
-        );
-      vi.stubGlobal("fetch", fetchMock);
+  it("maps a username-claim registration conflict without looking up display names", async () => {
+    const fetchMock = respondWith(claimConflict, { status: 400 });
+    const error = await createUser({ ...user, avatar: "female" }).catch(
+      (caught: unknown) => caught,
+    );
+    expect(isTaken(error, "nicknameKey")).toBe(true);
+    expect(isTaken(error, "displayNameKey")).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 
-      const error = await createUser({ ...user, avatar: "female" }).catch(
-        (caught: unknown) => caught,
-      );
-      expect(isTaken(error, field)).toBe(true);
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
-        "where[or][0][nicknameKey][equals]=alice&where[or][1][displayNameKey][equals]=alice",
-      );
-    },
-  );
-
-  it("maps a shared-name profile conflict to the display name", async () => {
+  it("never classifies a username-claim conflict as display-name uniqueness", async () => {
     respondWith(claimConflict, { status: 400 });
     const error = await updateUser(5, { displayName: "Taken" }).catch(
       (caught: unknown) => caught,
     );
-    expect(isTaken(error, "displayNameKey")).toBe(true);
+    expect(isTaken(error, "nicknameKey")).toBe(true);
+    expect(isTaken(error, "displayNameKey")).toBe(false);
   });
 
   it("deletes an account", async () => {

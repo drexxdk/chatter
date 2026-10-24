@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
+import { publicIdentityTag } from "./identity";
 
 const ROOMS = [{ id: 1, name: "General", slug: "general", maxMembers: 100 }];
 const ME = { guestId: "guest-me", nickname: "Alice" };
@@ -103,7 +104,9 @@ describe("reporting a message", () => {
     const { user, server } = await enter([message("m1", BOB, "rude words")]);
 
     const dialog = await openReport(user, "rude words");
-    expect(dialog).toHaveTextContent("Bob wrote this");
+    expect(dialog).toHaveTextContent(
+      `Bob \u00b7 ${publicIdentityTag(BOB.guestId)} wrote this`,
+    );
     expect(
       within(dialog).getByRole("radio", { name: "Something else" }),
     ).toBeChecked();

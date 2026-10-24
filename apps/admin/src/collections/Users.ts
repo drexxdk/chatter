@@ -45,7 +45,7 @@ export const Users: CollectionConfig = {
           ...data,
           nicknameKey,
           displayNameKey,
-          nameClaims: [...new Set([nicknameKey, displayNameKey])].sort().map((key) => {
+          nameClaims: [nicknameKey].map((key) => {
             const existing = originalDoc?.nameClaims?.find(
               (claim: { key: string; id?: string }) => claim.key === key,
             )
@@ -132,9 +132,19 @@ export const Users: CollectionConfig = {
       },
     },
     {
+      name: 'displayNameChangedAt',
+      type: 'date',
+      admin: { hidden: true },
+      access: {
+        read: ({ req }) => req.user?.role === 'service',
+        create: ({ req }) => req.user?.role === 'service',
+        update: ({ req }) => req.user?.role === 'service',
+      },
+    },
+    {
       name: 'displayNameKey',
       type: 'text',
-      unique: true,
+      index: true,
       admin: {
         readOnly: true,
         description:

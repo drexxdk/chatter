@@ -52,7 +52,10 @@ export async function claimGuestAccount(
       [username, "username"],
       [profile.nickname, "nickname"],
     ] as const) {
-      if (isReservedNickname(name, moderators) || (await isMemberName(name))) {
+      if (
+        isReservedNickname(name, moderators) ||
+        (field === "username" && (await isMemberName(name)))
+      ) {
         throw new PasswordAccountError(`reserved_${field}`);
       }
     }
@@ -70,7 +73,7 @@ export async function claimGuestAccount(
         age: profile.age,
         birthDate: profile.birthDate,
       });
-      await cacheMemberNames(user.id, [user.nickname, user.displayName]);
+      await cacheMemberNames(user.id, [user.nickname]);
       return memberSession(user, secret);
     } catch (error) {
       if (isTaken(error, "nicknameKey") || isTaken(error, "identity")) {
@@ -103,9 +106,7 @@ export async function signInPassword(input: unknown, secret: string) {
       : undefined,
   );
   if (!user || !matches) throw new PasswordAccountError("invalid_credentials");
-  await withMemberNamesLock(() =>
-    cacheMemberNames(user.id, [user.nickname, user.displayName]),
-  );
+  await withMemberNamesLock(() => cacheMemberNames(user.id, [user.nickname]));
   await updateUser(user.id, { lastLoginAt: new Date().toISOString() });
   return memberSession(user, secret);
 }

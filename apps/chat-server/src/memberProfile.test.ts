@@ -104,7 +104,7 @@ describe("shared profile validation", () => {
       picture: "lorelei:abc12345",
       age: 30,
     });
-    expect(isMemberName).toHaveBeenCalledWith("Alicia", 5);
+    expect(isMemberName).not.toHaveBeenCalled();
   });
 
   it.each([undefined, null, "ignored", 42, [], {}, { username: "other" }])(
@@ -177,13 +177,13 @@ describe("shared profile validation", () => {
   );
 
   it.each([undefined, 5])(
-    "checks name ownership for member %j",
+    "does not reserve display names for member %j",
     async (memberId) => {
       vi.mocked(isMemberName).mockResolvedValueOnce(true);
       expect(
         await validateProfileUpdate(current, { nickname: "Bobby" }, memberId),
-      ).toEqual({ ok: false, error: "reserved_nickname" });
-      expect(isMemberName).toHaveBeenCalledWith("Bobby", memberId);
+      ).toEqual({ ok: true, profile: { ...current, nickname: "Bobby" } });
+      expect(isMemberName).not.toHaveBeenCalled();
     },
   );
 
@@ -195,7 +195,7 @@ describe("shared profile validation", () => {
     expect(isMemberName).not.toHaveBeenCalled();
   });
 
-  it.each(["moderators", "members"])(
+  it.each(["moderators"])(
     "fails closed when %s cannot be checked",
     async (lookup) => {
       if (lookup === "moderators") {

@@ -283,6 +283,7 @@ export interface User {
    * The name the chat shows. Empty for an account made before display names, which then shows the username.
    */
   displayName?: string | null;
+  displayNameChangedAt?: string | null;
   /**
    * The display name without case, spaces and punctuation. Derived automatically when the account is saved.
    */
@@ -529,6 +530,7 @@ export interface UsersSelect<T extends boolean = true> {
   nickname?: T;
   nicknameKey?: T;
   displayName?: T;
+  displayNameChangedAt?: T;
   displayNameKey?: T;
   nameClaims?:
     | T

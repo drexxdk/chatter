@@ -28,6 +28,7 @@ import { messagePresentation } from "./messagePresentation";
 import { useTabText } from "../tabDraft";
 import { useReloadUiContext } from "../reloadUi";
 import { revealMessage } from "../messageNavigation";
+import { useIdentityNames } from "./Identity";
 
 type SearchMessage = Pick<
   ChatMessage,
@@ -39,7 +40,7 @@ type SearchMessage = Pick<
   | "sentAt"
   | "avatar"
   | "picture"
-> & { private: boolean; toNickname?: string };
+> & { private: boolean; toNickname?: string; toGuestId?: string };
 
 function searchableText(text: string) {
   return messageParts(text)
@@ -90,6 +91,7 @@ export function RoomSearch({
   ownGuestIds: string[];
 }) {
   const { t } = useTranslation();
+  const names = useIdentityNames();
   const ui = useReloadUiContext();
   const [localOpen, setLocalOpen] = useState(false);
   const open = ui ? ui.menu === "search" && !ui.dialog : localOpen;
@@ -155,6 +157,7 @@ export function RoomSearch({
           guestId: entry.fromGuestId,
           nickname: mine ? entry.fromNickname : partner.nickname,
           toNickname: mine ? partner.nickname : entry.toNickname,
+          toGuestId: entry.toGuestId,
           role: mine ? entry.fromRole : partner.role,
           avatar: mine ? entry.fromAvatar : partner.avatar,
           picture: mine ? entry.fromPicture : partner.picture,
@@ -172,7 +175,7 @@ export function RoomSearch({
         .filter(
           (message) =>
             message.text.toLocaleLowerCase().includes(needle) ||
-            message.nickname.toLocaleLowerCase().includes(needle) ||
+            names.label(message, true).toLocaleLowerCase().includes(needle) ||
             (message.private &&
               message.toNickname?.toLocaleLowerCase().includes(needle)),
         )
@@ -395,10 +398,13 @@ export function RoomSearch({
                               message.private
                                 ? t(mine ? "dm.to" : "dm.from", {
                                     name: mine
-                                      ? message.toNickname
-                                      : message.nickname,
+                                      ? names.label({
+                                          guestId: message.toGuestId ?? "",
+                                          nickname: message.toNickname ?? "",
+                                        })
+                                      : names.label(message),
                                   })
-                                : message.nickname,
+                                : names.label(message),
                               needle,
                             )}
                           </span>

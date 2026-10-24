@@ -113,6 +113,114 @@ const inRoom = (page: Page) =>
     page.getByRole("heading", { name: ROOM.name, level: 2 }),
   ).toBeVisible();
 
+test("accounts share display names with distinct public identities and private recipients", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const chatName = displayName("Shared");
+  const first = await newPage(browser);
+  const second = await newPage(browser);
+  for (const [index, page] of [first, second].entries()) {
+    await joinAsGuest(page, chatName);
+    await inRoom(page);
+    await page
+      .getByRole("button", { name: `Account menu: ${chatName}` })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Claim account", exact: true })
+      .click();
+    const form = page.getByRole("dialog", { name: "Claim account" });
+    await form
+      .getByLabel("Username", { exact: true })
+      .fill(username(`Shared${index}`));
+    await form
+      .getByLabel("Password", { exact: true })
+      .fill("SharedIdentity123");
+    await form.getByLabel("Confirm password").fill("SharedIdentity123");
+    await form
+      .getByRole("button", { name: "Claim account", exact: true })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Your profile" })
+      .getByRole("button", { name: "Close", exact: true })
+      .click();
+    await inRoom(page);
+    await expect(
+      page
+        .getByRole("list", { name: "People in this room" })
+        .locator("li")
+        .filter({ hasText: "(you)" })
+        .getByRole("button", { name: /\u00b7 M[A-Z0-9]+$/ }),
+    ).toBeVisible();
+    await page
+      .getByRole("textbox", { name: "Message", exact: true })
+      .fill(`Shared author ${index}`);
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(
+      page.getByText(`Shared author ${index}`, { exact: true }),
+    ).toBeVisible();
+  }
+  const observer = await newPage(browser);
+  await observer.setViewportSize({ width: 1280, height: 900 });
+  await joinAsGuest(observer, displayName("Watch"));
+  await inRoom(observer);
+  const people = observer.getByRole("list", { name: "People in this room" });
+  const recipients = people.getByRole("button", {
+    name: new RegExp(`^Open private chat with ${chatName}`),
+  });
+  await expect(recipients).toHaveCount(2);
+  expect(await recipients.nth(0).getAttribute("aria-label")).not.toBe(
+    await recipients.nth(1).getAttribute("aria-label"),
+  );
+  const own = first
+    .getByRole("list", { name: "People in this room" })
+    .locator("li")
+    .filter({ hasText: "(you)" });
+  const profileLabel = (await own
+    .getByRole("button", { name: /^Profile:/ })
+    .getAttribute("aria-label"))!;
+  const tag = profileLabel.split(" \u00b7 ")[1]!;
+  await people.getByRole("button", { name: profileLabel, exact: true }).click();
+  await expect(
+    observer.getByRole("dialog").getByText(`#${tag}`, { exact: true }),
+  ).toBeVisible();
+  await observer.keyboard.press("Escape");
+  await people
+    .getByRole("button", {
+      name: `Open private chat with ${chatName} \u00b7 ${tag.slice(-8)}`,
+      exact: true,
+    })
+    .click();
+  const privateText = `Private target ${RUN}`;
+  const composer = observer.getByRole("textbox", { name: /^Message to / });
+  await composer.fill(privateText);
+  await composer.press("Enter");
+  await expect(first.getByText(privateText, { exact: true })).toBeVisible();
+  await expect(second.getByText(privateText, { exact: true })).toHaveCount(0);
+  await observer
+    .getByRole("button", { name: "Back to the room", exact: true })
+    .click();
+  for (const width of [1280, 375, 320]) {
+    await observer.setViewportSize({ width, height: 900 });
+    await expect(
+      observer.getByText("Shared author 0", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      observer.getByText("Shared author 1", { exact: true }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        observer.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      )
+      .toBe(true);
+    await observer.screenshot({
+      path: test.info().outputPath(`shared-identities-${width}.png`),
+    });
+  }
+});
+
 test("notification choices follow the account into a different browser", async ({
   browser,
 }) => {
@@ -644,6 +752,31 @@ test("an account is edited from the lobby, where it is only shown until it is as
   await page.reload();
   await expect(dialog.getByText("33 years old")).toBeVisible();
   await expect(dialog.getByText(renamed, { exact: true })).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Edit profile" }).click();
+  await expect(dialog.getByText(/must wait 24 hours/)).toBeVisible();
+  await dialog.getByLabel("Display name").fill(displayName("Cleo3"));
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(dialog.getByRole("alert")).toContainText(
+    /display name again in \d+h \d+m \d+s/,
+  );
+  await expect(dialog.getByLabel("Display name")).toBeFocused();
+  await expect(dialog.getByLabel("Display name")).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+  await page.screenshot({
+    path: test.info().outputPath("display-name-cooldown.png"),
+  });
+  await dialog.getByLabel("Display name").fill(renamed);
+  await dialog
+    .getByRole("radio", { name: "Female", exact: true })
+    .check({ force: true });
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(dialog.getByText("Female", { exact: true })).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "Edit profile", exact: true }),
+  ).toBeVisible();
 
   // Joining a room afterwards is as the new name.
   await dialog.getByRole("button", { name: "Close" }).click();

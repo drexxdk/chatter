@@ -452,6 +452,76 @@ describe("others' ages", () => {
   });
 });
 
+describe("a member's display-name cooldown", () => {
+  it("keeps the private username visible but read-only while editing the profile", async () => {
+    const user = userEvent.setup();
+    render(
+      <ProfileDialog
+        open
+        onClose={() => {}}
+        onSave={async () => ({ ok: true })}
+        account={{
+          token: "member-token",
+          provider: "password",
+          nickname: "Alice",
+          username: "alice_private",
+          expiresAt: Date.now() + 60_000,
+        }}
+        onDelete={async () => {}}
+        profile={{ nickname: "Alice", role: "member", avatar: "other" }}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Edit profile" }));
+    expect(screen.getByLabelText("Username")).toHaveValue("alice_private");
+    expect(screen.getByLabelText("Username")).toHaveAttribute("readonly");
+    expect(screen.getByLabelText("Display name")).not.toHaveAttribute(
+      "readonly",
+    );
+    const male = screen.getByRole("radio", { name: "Male" });
+    await user.click(male.closest("label")!);
+    expect(male).toBeChecked();
+    const picture = screen.getByRole("radio", { name: "Avatar 2" });
+    await user.click(picture.closest("label")!);
+    expect(picture).toBeChecked();
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("radio", { name: "Avatar 3" })).toBeChecked();
+  });
+
+  it("states the rule and shows the remaining wait on the display-name field", async () => {
+    const user = userEvent.setup();
+    render(
+      <ProfileDialog
+        open
+        onClose={() => {}}
+        onSave={async () => ({
+          ok: false,
+          error: "display_name_cooldown",
+          retryAfterSeconds: 3661,
+        })}
+        account={null}
+        onDelete={async () => {}}
+        profile={{ nickname: "Alice", role: "member", avatar: "other" }}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Edit profile" }));
+    expect(screen.getByText(/must wait 24 hours/)).toBeVisible();
+    const name = screen.getByLabelText("Display name");
+    await user.clear(name);
+    await user.type(name, "Alicia");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("1h 1m 1s");
+    expect(name).toHaveFocus();
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    await waitFor(
+      () => expect(screen.getByRole("alert")).toHaveTextContent("1h 1m 0s"),
+      { timeout: 2000 },
+    );
+    await user.clear(name);
+    await user.type(name, "Alice");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
 describe("a moderator's profile", () => {
   it("is only shown, because the name belongs to the account", async () => {
     render(

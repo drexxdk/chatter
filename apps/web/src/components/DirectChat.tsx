@@ -17,6 +17,7 @@ import { MessageLog } from "./MessageLog";
 import { Notice } from "./Notice";
 import { ErrorAlert } from "./ErrorAlert";
 import { MessageGroup, StatusRow } from "./MessageRow";
+import { useIdentityNames } from "./Identity";
 
 // What somebody wrote one after another is shown together; a message whose author was banned is on its own.
 const entryAuthor = (entry: DirectEntry) =>
@@ -56,10 +57,12 @@ export function DirectChat({
   typingBlockedIds,
 }: DirectChatProps) {
   const { t } = useTranslation();
+  const names = useIdentityNames();
+  const partnerName = names.label(partner);
   const composer = useComposer(draftKey);
   const [failure, setFailure] = useState<ActionResult & { ok: false }>();
   useRetryCountdown(failure, setFailure);
-  const label = t("dm.title", { name: partner.nickname });
+  const label = t("dm.title", { name: partnerName });
 
   async function deliver(value: string): Promise<boolean> {
     const result = await onSend(value);
@@ -101,7 +104,7 @@ export function DirectChat({
               <StatusRow
                 key={first.id}
                 text={t(`dm.${first.event}`, {
-                  name: first.self ? ownNickname : partner.nickname,
+                  name: first.self ? ownNickname : partnerName,
                 })}
                 sentAt={first.sentAt}
               />
@@ -116,6 +119,7 @@ export function DirectChat({
           return (
             <MessageGroup
               key={first.id}
+              guestId={first.fromGuestId}
               mine={ownGuestIds.includes(first.fromGuestId)}
               nickname={first.fromNickname}
               role={first.fromRole}
@@ -142,12 +146,12 @@ export function DirectChat({
             ? { update: typing.update, toGuestId: partner.guestId }
             : undefined
         }
-        label={t("dm.label", { name: partner.nickname })}
+        label={t("dm.label", { name: partnerName })}
         placeholder={
           blockedBy
-            ? t("dm.blockedByPlaceholder", { name: partner.nickname })
+            ? t("dm.blockedByPlaceholder", { name: partnerName })
             : blocked
-              ? t("dm.blockedPlaceholder", { name: partner.nickname })
+              ? t("dm.blockedPlaceholder", { name: partnerName })
               : t("room.messagePlaceholder")
         }
         disabled={!present || blocked || blockedBy}
@@ -160,7 +164,7 @@ export function DirectChat({
             }
             values={{
               seconds: failure?.retryAfterSeconds,
-              name: partner.nickname,
+              name: partnerName,
             }}
             onDismiss={() => setFailure(undefined)}
           />
@@ -173,19 +177,19 @@ export function DirectChat({
             />
             {blockedBy && (
               <Notice role="status" tone="neutral" icon={Ban}>
-                {t("dm.blockedByWrite", { name: partner.nickname })}
+                {t("dm.blockedByWrite", { name: partnerName })}
               </Notice>
             )}
 
             {blocked && (
               <Notice role="status" tone="error" icon={Ban}>
-                {t("dm.blocked", { name: partner.nickname })}
+                {t("dm.blocked", { name: partnerName })}
               </Notice>
             )}
 
             {!present && (
               <Notice role="status">
-                {t("dm.away", { name: partner.nickname })}
+                {t("dm.away", { name: partnerName })}
               </Notice>
             )}
           </>
@@ -197,7 +201,7 @@ export function DirectChat({
               type="button"
               id="unblock-direct"
               onClick={() => void unblock()}
-              aria-label={t("dm.unblock", { name: partner.nickname })}
+              aria-label={t("dm.unblock", { name: partnerName })}
               className={`${composerButton} gap-2 px-3 text-neutral-200`}
             >
               <UserCheck aria-hidden="true" className="h-5 w-5" />

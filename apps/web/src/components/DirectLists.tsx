@@ -7,6 +7,7 @@ import { PLAIN_AVATAR } from "../chat/avatar";
 import type { Member } from "../chat/useChat";
 import { AvatarIcon, GenderMark } from "./Avatar";
 import { ThreadActions } from "./ThreadActions";
+import { IdentityName, IdentityProfile, useIdentityNames } from "./Identity";
 
 const nameClass = (role: Partner["role"]) =>
   role === "moderator" ? "font-bold text-green-400" : undefined;
@@ -72,6 +73,7 @@ function PeopleListView({
   onOpen: (partner: Partner) => void;
 }) {
   const { t } = useTranslation();
+  const names = useIdentityNames();
 
   return (
     <ul aria-label={t("room.people")} className="space-y-1 text-sm">
@@ -92,10 +94,14 @@ function PeopleListView({
         return (
           <li key={member.guestId}>
             {member.guestId === selfGuestId ? (
-              <span className="flex items-center gap-2 px-2 py-1">
-                <AvatarIcon avatar={avatar} picture={member.picture} small />
-                <span>
-                  <span className={nameClass(role)}>{member.nickname}</span>
+              <span className="flex min-w-0 items-center gap-2 px-2 py-1">
+                <IdentityProfile person={partner} />
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={`inline-flex max-w-full align-middle ${nameClass(role) ?? ""}`}
+                  >
+                    <IdentityName person={member} />
+                  </span>
                   <GenderMark avatar={avatar} picture={member.picture} />
                   <span className="ml-1 text-neutral-500">
                     ({t("room.you")})
@@ -107,17 +113,19 @@ function PeopleListView({
               <div
                 className={`flex items-center gap-1 rounded ${selected ? "bg-neutral-700/50 ring-1 ring-neutral-500/50" : ""}`}
               >
+                <IdentityProfile person={partner} />
                 <button
                   type="button"
                   disabled={blocked || blockedBy}
                   aria-pressed={selected}
-                  title={t("person.message", { name: member.nickname })}
+                  title={t("person.message", {
+                    name: names.label(member, true),
+                  })}
                   onClick={() => onSelect(partner)}
                   className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1 text-left hover:bg-neutral-800 disabled:opacity-50 disabled:hover:bg-transparent"
                 >
-                  <AvatarIcon avatar={avatar} picture={member.picture} small />
-                  <span className={`truncate ${nameClass(role) ?? ""}`}>
-                    {member.nickname}
+                  <span className={`min-w-0 ${nameClass(role) ?? ""}`}>
+                    <IdentityName person={member} />
                   </span>
                   <GenderMark avatar={avatar} picture={member.picture} />
                   <AgeBadge age={member.age} />
@@ -128,8 +136,8 @@ function PeopleListView({
                   type="button"
                   disabled={blockedBy}
                   onClick={() => onOpen(partner)}
-                  aria-label={t("dm.openWith", { name: member.nickname })}
-                  title={t("dm.openWith", { name: member.nickname })}
+                  aria-label={t("dm.openWith", { name: names.label(member) })}
+                  title={t("dm.openWith", { name: names.label(member, true) })}
                   className="shrink-0 rounded p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-40 disabled:hover:bg-transparent"
                 >
                   <ArrowRight aria-hidden="true" className="h-4 w-4" />
@@ -211,8 +219,8 @@ export function ThreadList({
                 picture={thread.picture}
                 small
               />
-              <span className={`truncate ${nameClass(thread.role) ?? ""}`}>
-                {thread.nickname}
+              <span className={`min-w-0 ${nameClass(thread.role) ?? ""}`}>
+                <IdentityName person={thread} />
               </span>
               <GenderMark avatar={thread.avatar} picture={thread.picture} />
               {blockedIds.includes(thread.guestId) && <BlockedTag />}

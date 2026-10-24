@@ -2,14 +2,18 @@ import { ageFromBirthDate, parseAge } from "./age.js";
 import { avatarSchema, parsePicture, type Avatar } from "./avatars.js";
 import { validateNickname } from "./identity.js";
 import { log } from "./log.js";
-import { cacheMemberNames, isMemberName } from "./members.js";
+import { cacheMemberNames } from "./members.js";
 import { withMemberNamesLock } from "./memberNamesLock.js";
 import {
   getModeratorNames,
   isReservedNickname,
   normalizeName,
 } from "./names.js";
-import { isTaken, updateUser } from "./payloadClient.js";
+import { fetchUser, updateUser } from "./payloadClient.js";
+
+const DISPLAY_NAME_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+export type ProfileSaveFailure =
+  string | { error: "display_name_cooldown"; retryAfterMs: number };
 
 export type Profile = {
   nickname: string;
@@ -22,7 +26,7 @@ export type Profile = {
 export async function validateProfileUpdate(
   current: Profile,
   payload: unknown,
-  memberId?: number,
+  _memberId?: number,
 ): Promise<
   | { ok: true; profile: Profile }
   | {
@@ -46,10 +50,7 @@ export async function validateProfileUpdate(
 
     if (nickname !== current.nickname) {
       try {
-        if (
-          isReservedNickname(nickname, await getModeratorNames()) ||
-          (await isMemberName(nickname, memberId))
-        ) {
+        if (isReservedNickname(nickname, await getModeratorNames())) {
           return { ok: false, error: "reserved_nickname" };
         }
       } catch (error) {
@@ -92,23 +93,31 @@ export async function validateProfileUpdate(
   return { ok: true, profile };
 }
 
-// Keeps a member's profile in their account, and the name in the list of names that are taken. The name here is the
-// display name; the username stays what it was and keeps its own claim. Undefined when it worked, otherwise the error
-// to answer with.
+// Persists the profile and rename deadline under the account write lock; only the private username stays claimed.
 export async function saveMemberProfile(
   memberId: number,
   username: string,
   oldNickname: string,
   profile: Profile,
-): Promise<string | undefined> {
+): Promise<ProfileSaveFailure | undefined> {
   return withMemberNamesLock(async () => {
     try {
-      if (await isMemberName(profile.nickname, memberId)) {
-        return "reserved_nickname";
+      const current = await fetchUser(memberId);
+      if (!current) return "invalid_token";
+      const renamed = profile.nickname !== current.displayName;
+      const now = Date.now();
+      const previousChange = current.displayNameChangedAt
+        ? Date.parse(current.displayNameChangedAt)
+        : 0;
+      const remaining = previousChange + DISPLAY_NAME_COOLDOWN_MS - now;
+      if (renamed && previousChange && remaining > 0) {
+        return { error: "display_name_cooldown", retryAfterMs: remaining };
       }
-
       await updateUser(memberId, {
         displayName: profile.nickname,
+        ...(renamed
+          ? { displayNameChangedAt: new Date(now).toISOString() }
+          : {}),
         displayNameKey: normalizeName(profile.nickname),
         ...(profile.picture === undefined ? {} : { picture: profile.picture }),
         avatar: profile.avatar,
@@ -116,8 +125,6 @@ export async function saveMemberProfile(
         birthDate: profile.birthDate ?? null,
       });
     } catch (error) {
-      if (isTaken(error, "displayNameKey")) return "reserved_nickname";
-
       log.error(
         "Failed to save a profile",
         error instanceof Error ? error.message : "unknown error",
@@ -126,11 +133,7 @@ export async function saveMemberProfile(
     }
 
     if (normalizeName(profile.nickname) !== normalizeName(oldNickname)) {
-      await cacheMemberNames(
-        memberId,
-        [username, profile.nickname],
-        [oldNickname],
-      );
+      await cacheMemberNames(memberId, [username], [oldNickname]);
     }
 
     return undefined;

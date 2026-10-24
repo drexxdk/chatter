@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Partner } from "../chat/direct";
 import { AvatarIcon } from "./Avatar";
 import { MENU_SURFACE } from "./dropdown";
+import { IdentityName } from "./Identity";
 
 // The people who could be meant by an "@" being written, in a list above the message box. The box keeps the focus: the
 // highlighted one is what Enter or Tab chooses, and the arrow keys move it.
@@ -50,7 +51,7 @@ export function MentionList({
             small
             titled={false}
           />
-          <span className="truncate">{person.nickname}</span>
+          <IdentityName person={person} />
         </li>
       ))}
     </ul>

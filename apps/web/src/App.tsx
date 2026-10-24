@@ -4,6 +4,7 @@ import {
   Suspense,
   useEffect,
   useEffectEvent,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -58,6 +59,8 @@ import { ProfileDialog, type ProfileSubject } from "./components/ProfileDialog";
 import { RoomSwitcher } from "./components/RoomSwitcher";
 import { QueueDialog } from "./components/QueueDialog";
 import { RoomSearch } from "./components/RoomSearch";
+import { IdentityProvider } from "./components/Identity";
+import { createIdentityDirectory } from "./identity";
 import { TabNotice } from "./components/TabNotice";
 import { ViewTransition } from "./components/ViewTransition";
 import { LOBBY_PATH, pageFromPath, roomPath, slugFromPath } from "./place";
@@ -119,6 +122,26 @@ export function App({
   const navigate = useNavigate();
   const navigationType = useNavigationType();
   const chat = useChat(createSocket, { reconnectDelaysMs });
+  const identities = useMemo(
+    () =>
+      createIdentityDirectory([
+        ...chat.members,
+        ...chat.messages,
+        ...chat.direct.threads,
+        ...chat.direct.threads.flatMap((thread) =>
+          thread.entries.flatMap((entry) =>
+            "fromGuestId" in entry
+              ? [
+                  { guestId: entry.fromGuestId, nickname: entry.fromNickname },
+                  { guestId: entry.toGuestId, nickname: entry.toNickname },
+                ]
+              : [],
+          ),
+        ),
+        ...(chat.session ? [chat.session] : []),
+      ]),
+    [chat.members, chat.messages, chat.direct.threads, chat.session],
+  );
   const {
     state: roomsState,
     retry,
@@ -475,6 +498,10 @@ export function App({
       return {
         ok: false,
         error: cause instanceof AccountError ? cause.code : "connection",
+        ...(cause instanceof AccountError &&
+        cause.retryAfterSeconds !== undefined
+          ? { retryAfterSeconds: cause.retryAfterSeconds }
+          : {}),
       };
     }
   }
@@ -977,301 +1004,306 @@ export function App({
   ) : undefined;
 
   return (
-    <ReloadUiContext value={{ ...reloadUi, ready: settled }}>
-      <PageFrame
-        roomSlug={chat.roomSlug && chat.session ? chat.roomSlug : undefined}
-        surfaceRoomSlug={
-          pendingRoom?.slug ??
-          signInRoom.current?.slug ??
-          (chat.session ? (chat.roomSlug ?? undefined) : undefined)
-        }
-        flush={inRoom}
-        wide={inRoom}
-        header={
-          <>
-            {chat.roomSlug && chat.session ? (
-              <div className="flex min-w-0 max-w-[calc(100%-8rem)] items-center gap-1 sm:max-w-[35%]">
-                <h1 className="sr-only">{t("app.title")}</h1>
-                <RoomSwitcher
-                  // The room you are in is counted from who is in it now, which is newer than the list.
-                  rooms={knownRooms.map((room) =>
-                    room.slug === chat.roomSlug
-                      ? {
-                          ...room,
-                          memberCount: chat.members.filter(
-                            (member) => member.role !== "moderator",
-                          ).length,
-                        }
-                      : room,
-                  )}
-                  slug={chat.roomSlug}
-                  name={currentRoom?.name ?? chat.roomSlug}
-                  disabled={chat.status !== "connected"}
-                  onSelect={(room) => void handleSelect(room)}
-                  onLeave={() => void chat.leaveRoom()}
-                  onOpen={refreshRooms}
-                />
-              </div>
-            ) : page ? (
-              <Link to={LOBBY_PATH} className="text-2xl font-bold">
-                {t("app.title")}
-              </Link>
-            ) : (
-              <h1
-                className={
-                  settled || !startedInRoom.current
-                    ? "text-2xl font-bold"
-                    : "sr-only"
-                }
-              >
-                {t("app.title")}
-              </h1>
-            )}
-            {chat.roomSlug && chat.session && !chat.direct.active && (
-              <RoomSearch
-                key={chat.roomSlug}
-                roomSlug={chat.roomSlug}
-                roomName={currentRoom?.name ?? chat.roomSlug}
-                messages={chat.messages}
-                threads={chat.direct.threads}
-                ownGuestIds={chat.ownGuestIds}
-              />
-            )}
-            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-              {settled && !account && !chat.session && (
-                <Button
-                  icon={LogIn}
-                  onClick={() => {
-                    clearDialogErrors();
-                    setModeratorOpen(true);
-                  }}
-                >
-                  {t("nickname.signIn")}
-                </Button>
-              )}
-              {!chat.queue && adminTools}
-              <MainMenu
-                onSettings={() => setSettingsOpen(true)}
-                profile={
-                  !settled
-                    ? undefined
-                    : chat.session
-                      ? {
-                          nickname: chat.session.nickname,
-                          detail:
-                            chat.session.role === "member"
-                              ? account?.username
-                              : chat.session.role === "guest"
-                                ? t("account.guest")
-                                : undefined,
-                          avatar: chat.session.avatar,
-                          picture: chat.session.picture,
-                          moderator: chat.session.role === "moderator",
-                          guest: chat.session.role === "guest",
-                          onCreateAccount: openAccountCreation,
-                          onSignIn: () => {
-                            clearDialogErrors();
-                            setModeratorOpen(true);
-                          },
-                          onProfile: () => setProfileOpen(true),
-                          onSignOut: signOut,
-                        }
-                      : account
+    <IdentityProvider value={identities}>
+      <ReloadUiContext value={{ ...reloadUi, ready: settled }}>
+        <PageFrame
+          roomSlug={chat.roomSlug && chat.session ? chat.roomSlug : undefined}
+          surfaceRoomSlug={
+            pendingRoom?.slug ??
+            signInRoom.current?.slug ??
+            (chat.session ? (chat.roomSlug ?? undefined) : undefined)
+          }
+          flush={inRoom}
+          wide={inRoom}
+          header={
+            <>
+              {chat.roomSlug && chat.session ? (
+                <div className="flex min-w-0 max-w-[calc(100%-8rem)] items-center gap-1 sm:max-w-[35%]">
+                  <h1 className="sr-only">{t("app.title")}</h1>
+                  <RoomSwitcher
+                    // The room you are in is counted from who is in it now, which is newer than the list.
+                    rooms={knownRooms.map((room) =>
+                      room.slug === chat.roomSlug
                         ? {
-                            nickname: account.nickname,
-                            detail: account.username,
-                            avatar: account.avatar,
-                            picture: account.picture,
-                            onProfile: () => setAccountOpen(true),
-                            onSignOut: signOut,
+                            ...room,
+                            memberCount: chat.members.filter(
+                              (member) => member.role !== "moderator",
+                            ).length,
                           }
-                        : undefined
-                }
-              />
-            </div>
-          </>
-        }
-      >
-        {chat.announcement && (
-          <AnnouncementBanner
-            announcement={chat.announcement}
-            onDismiss={chat.dismissAnnouncement}
-          />
-        )}
-        <ViewTransition
-          viewKey={inRoom ? `room:${chat.roomSlug}` : (page ?? "lobby")}
-          depth={inRoom || page ? 1 : 0}
-          hold={!settled && startedInRoom.current}
-        >
-          {chat.roomSlug && chat.session ? (
-            <Suspense
-              fallback={
-                <div
-                  aria-busy="true"
-                  className="grid flex-1 place-items-center py-8"
-                >
-                  <LoaderCircle
-                    aria-hidden="true"
-                    className="size-6 animate-spin text-neutral-400"
+                        : room,
+                    )}
+                    slug={chat.roomSlug}
+                    name={currentRoom?.name ?? chat.roomSlug}
+                    disabled={chat.status !== "connected"}
+                    onSelect={(room) => void handleSelect(room)}
+                    onLeave={() => void chat.leaveRoom()}
+                    onOpen={refreshRooms}
                   />
                 </div>
-              }
-            >
-              <ChatRoom
-                key={chat.roomSlug}
-                roomSlug={chat.roomSlug}
-                roomName={currentRoom?.name ?? chat.roomSlug}
-                maxMembers={currentRoom?.maxMembers}
-                session={chat.session}
-                ownGuestIds={chat.ownGuestIds}
-                connected={chat.status === "connected"}
-                members={chat.members}
-                messages={chat.messages}
-                events={chat.roomEvents}
-                showMovements={showMovements}
-                error={chat.error}
-                retryAfterSeconds={chat.retryAfterSeconds}
-                onClearError={chat.clearError}
-                onSend={chat.sendMessage}
-                onReact={chat.react}
-                onReport={chat.reportMessage}
-                onAnnounce={chat.sendAnnouncement}
-                announcements={chat.announcements}
-                direct={chat.direct}
-                typing={chat.typing}
-                idleDeadline={chat.idleDeadline}
-              />
-            </Suspense>
-          ) : page === "terms" || page === "privacy" ? (
-            <LegalPage page={page} state={legalState} retry={retryLegal} />
-          ) : page === "about" ? (
-            <AboutPage />
-          ) : page === "roadmap" || page === "versions" ? (
-            <WebsitePage page={page} />
-          ) : (
-            <div className="flex flex-1 flex-col gap-6">
-              <div className="flex flex-1 flex-col justify-center gap-4 py-6">
-                {!pendingRoom && !moderatorOpen && (
-                  <ErrorAlert code={chat.error} onDismiss={chat.clearError} />
-                )}
-                <Lobby
-                  state={
-                    roomsState.status === "ready" && adminRooms.length > 0
-                      ? { status: "ready", rooms: knownRooms }
-                      : roomsState
+              ) : page ? (
+                <Link to={LOBBY_PATH} className="text-2xl font-bold">
+                  {t("app.title")}
+                </Link>
+              ) : (
+                <h1
+                  className={
+                    settled || !startedInRoom.current
+                      ? "text-2xl font-bold"
+                      : "sr-only"
                   }
-                  onRetry={retry}
-                  onSelect={(room) => void handleSelect(room)}
+                >
+                  {t("app.title")}
+                </h1>
+              )}
+              {chat.roomSlug && chat.session && !chat.direct.active && (
+                <RoomSearch
+                  key={chat.roomSlug}
+                  roomSlug={chat.roomSlug}
+                  roomName={currentRoom?.name ?? chat.roomSlug}
+                  messages={chat.messages}
+                  threads={chat.direct.threads}
+                  ownGuestIds={chat.ownGuestIds}
+                />
+              )}
+              <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                {settled && !account && !chat.session && (
+                  <Button
+                    icon={LogIn}
+                    onClick={() => {
+                      clearDialogErrors();
+                      setModeratorOpen(true);
+                    }}
+                  >
+                    {t("nickname.signIn")}
+                  </Button>
+                )}
+                {!chat.queue && adminTools}
+                <MainMenu
+                  onSettings={() => setSettingsOpen(true)}
+                  profile={
+                    !settled
+                      ? undefined
+                      : chat.session
+                        ? {
+                            nickname: chat.session.nickname,
+                            detail:
+                              chat.session.role === "member"
+                                ? account?.username
+                                : chat.session.role === "guest"
+                                  ? t("account.guest")
+                                  : undefined,
+                            avatar: chat.session.avatar,
+                            picture: chat.session.picture,
+                            moderator: chat.session.role === "moderator",
+                            guest: chat.session.role === "guest",
+                            onCreateAccount: openAccountCreation,
+                            onSignIn: () => {
+                              clearDialogErrors();
+                              setModeratorOpen(true);
+                            },
+                            onProfile: () => setProfileOpen(true),
+                            onSignOut: signOut,
+                          }
+                        : account
+                          ? {
+                              nickname: account.nickname,
+                              detail: account.username,
+                              avatar: account.avatar,
+                              picture: account.picture,
+                              onProfile: () => setAccountOpen(true),
+                              onSignOut: signOut,
+                            }
+                          : undefined
+                  }
                 />
               </div>
-              <footer>
-                <LegalLinks />
-              </footer>
-            </div>
+            </>
+          }
+        >
+          {chat.announcement && (
+            <AnnouncementBanner
+              announcement={chat.announcement}
+              onDismiss={chat.dismissAnnouncement}
+            />
           )}
-        </ViewTransition>
-      </PageFrame>
+          <ViewTransition
+            viewKey={inRoom ? `room:${chat.roomSlug}` : (page ?? "lobby")}
+            depth={inRoom || page ? 1 : 0}
+            hold={!settled && startedInRoom.current}
+          >
+            {chat.roomSlug && chat.session ? (
+              <Suspense
+                fallback={
+                  <div
+                    aria-busy="true"
+                    className="grid flex-1 place-items-center py-8"
+                  >
+                    <LoaderCircle
+                      aria-hidden="true"
+                      className="size-6 animate-spin text-neutral-400"
+                    />
+                  </div>
+                }
+              >
+                <ChatRoom
+                  key={chat.roomSlug}
+                  roomSlug={chat.roomSlug}
+                  roomName={currentRoom?.name ?? chat.roomSlug}
+                  maxMembers={currentRoom?.maxMembers}
+                  session={chat.session}
+                  ownGuestIds={chat.ownGuestIds}
+                  connected={chat.status === "connected"}
+                  members={chat.members}
+                  messages={chat.messages}
+                  events={chat.roomEvents}
+                  showMovements={showMovements}
+                  error={chat.error}
+                  retryAfterSeconds={chat.retryAfterSeconds}
+                  onClearError={chat.clearError}
+                  onSend={chat.sendMessage}
+                  onReact={chat.react}
+                  onReport={chat.reportMessage}
+                  onAnnounce={chat.sendAnnouncement}
+                  announcements={chat.announcements}
+                  direct={chat.direct}
+                  typing={chat.typing}
+                  idleDeadline={chat.idleDeadline}
+                />
+              </Suspense>
+            ) : page === "terms" || page === "privacy" ? (
+              <LegalPage page={page} state={legalState} retry={retryLegal} />
+            ) : page === "about" ? (
+              <AboutPage />
+            ) : page === "roadmap" || page === "versions" ? (
+              <WebsitePage page={page} />
+            ) : (
+              <div className="flex flex-1 flex-col gap-6">
+                <div className="flex flex-1 flex-col justify-center gap-4 py-6">
+                  {!pendingRoom && !moderatorOpen && (
+                    <ErrorAlert code={chat.error} onDismiss={chat.clearError} />
+                  )}
+                  <Lobby
+                    state={
+                      roomsState.status === "ready" && adminRooms.length > 0
+                        ? { status: "ready", rooms: knownRooms }
+                        : roomsState
+                    }
+                    onRetry={retry}
+                    onSelect={(room) => void handleSelect(room)}
+                  />
+                </div>
+                <footer>
+                  <LegalLinks />
+                </footer>
+              </div>
+            )}
+          </ViewTransition>
+        </PageFrame>
 
-      {settled && settingsOpen && (
-        <SettingsDialog
-          movements={{ checked: showMovements, onChange: changeShowMovements }}
-          notifications={{
-            value: notificationSound,
-            onChange: soundPreferences.change,
-            status: soundToken ? soundPreferences.status : undefined,
-            onRetry: soundPreferences.retry,
-          }}
-          onClose={() => {
-            soundPreferences.flush();
-            setSettingsOpen(false);
-          }}
-        />
-      )}
+        {settled && settingsOpen && (
+          <SettingsDialog
+            movements={{
+              checked: showMovements,
+              onChange: changeShowMovements,
+            }}
+            notifications={{
+              value: notificationSound,
+              onChange: soundPreferences.change,
+              status: soundToken ? soundPreferences.status : undefined,
+              onRetry: soundPreferences.retry,
+            }}
+            onClose={() => {
+              soundPreferences.flush();
+              setSettingsOpen(false);
+            }}
+          />
+        )}
 
-      {settled && profile && !createAccountOpen && (
-        <ProfileDialog
-          open={profileOpen || accountOpen}
-          onClose={closeProfile}
-          profile={profile}
-          onSave={saveProfile}
-          account={account}
-          onDelete={deleteMyAccount}
-          onCreateAccount={openAccountCreation}
-        />
-      )}
+        {settled && profile && !createAccountOpen && (
+          <ProfileDialog
+            open={profileOpen || accountOpen}
+            onClose={closeProfile}
+            profile={profile}
+            onSave={saveProfile}
+            account={account}
+            onDelete={deleteMyAccount}
+            onCreateAccount={openAccountCreation}
+          />
+        )}
 
-      {createAccountOpen && profile?.role === "guest" && (
-        <CreateAccountDialog
-          nickname={profile.nickname}
-          returnPath={location.pathname}
-          onClaim={claimAccount}
-          onClose={() => setCreateAccountOpen(false)}
-        />
-      )}
+        {createAccountOpen && profile?.role === "guest" && (
+          <CreateAccountDialog
+            nickname={profile.nickname}
+            returnPath={location.pathname}
+            onClaim={claimAccount}
+            onClose={() => setCreateAccountOpen(false)}
+          />
+        )}
 
-      {shownRoom && !moderatorOpen && (
-        <NicknameDialog
-          open={pendingRoom !== null}
-          connecting={chat.status === "connecting"}
-          error={chat.error}
-          onSubmit={(nickname, avatar, picture, humanToken) =>
-            void handleNickname(nickname, avatar, picture, humanToken)
-          }
-          onCancel={handleCancel}
-          onSignIn={() => {
-            signInRoom.current = pendingRoom;
-            clearDialogErrors();
-            setPendingRoom(null);
-            setModeratorOpen(true);
-          }}
-          termsVersion={termsVersion}
-          returnPath={roomPath(shownRoom.slug)}
-        />
-      )}
-
-      {chat.queue && !pendingRoom && (
-        <QueueDialog
-          room={
-            knownRooms.find((room) => room.slug === chat.queue?.roomSlug)
-              ?.name ?? chat.queue.roomSlug
-          }
-          position={chat.queue.position}
-          tools={adminTools}
-          onClose={() => {
-            void chat.cancelQueue();
-            if (!chat.roomSlug && slugFromPath(location.pathname))
-              navigate(LOBBY_PATH, { replace: true });
-          }}
-        />
-      )}
-
-      {shownElsewhere && !pendingRoom && (
-        <TabNotice
-          open={elsewhere !== null}
-          onUseHere={() => void takeOverRoom()}
-          onClose={() => setElsewhere(null)}
-        />
-      )}
-
-      {settled && moderatorOpen && (
-        <ModeratorDialog
-          returnPath={location.pathname}
-          showProviders={signInRoom.current === null}
-          signingIn={signingIn}
-          error={signInError ?? chat.error}
-          onSignIn={(email, password, humanToken) =>
-            void handleSignIn(email, password, humanToken)
-          }
-          onCancel={() => {
-            setModeratorOpen(false);
-            clearDialogErrors();
-            if (signInRoom.current) {
-              setPendingRoom(signInRoom.current);
-              signInRoom.current = null;
+        {shownRoom && !moderatorOpen && (
+          <NicknameDialog
+            open={pendingRoom !== null}
+            connecting={chat.status === "connecting"}
+            error={chat.error}
+            onSubmit={(nickname, avatar, picture, humanToken) =>
+              void handleNickname(nickname, avatar, picture, humanToken)
             }
-          }}
-        />
-      )}
-    </ReloadUiContext>
+            onCancel={handleCancel}
+            onSignIn={() => {
+              signInRoom.current = pendingRoom;
+              clearDialogErrors();
+              setPendingRoom(null);
+              setModeratorOpen(true);
+            }}
+            termsVersion={termsVersion}
+            returnPath={roomPath(shownRoom.slug)}
+          />
+        )}
+
+        {chat.queue && !pendingRoom && (
+          <QueueDialog
+            room={
+              knownRooms.find((room) => room.slug === chat.queue?.roomSlug)
+                ?.name ?? chat.queue.roomSlug
+            }
+            position={chat.queue.position}
+            tools={adminTools}
+            onClose={() => {
+              void chat.cancelQueue();
+              if (!chat.roomSlug && slugFromPath(location.pathname))
+                navigate(LOBBY_PATH, { replace: true });
+            }}
+          />
+        )}
+
+        {shownElsewhere && !pendingRoom && (
+          <TabNotice
+            open={elsewhere !== null}
+            onUseHere={() => void takeOverRoom()}
+            onClose={() => setElsewhere(null)}
+          />
+        )}
+
+        {settled && moderatorOpen && (
+          <ModeratorDialog
+            returnPath={location.pathname}
+            showProviders={signInRoom.current === null}
+            signingIn={signingIn}
+            error={signInError ?? chat.error}
+            onSignIn={(email, password, humanToken) =>
+              void handleSignIn(email, password, humanToken)
+            }
+            onCancel={() => {
+              setModeratorOpen(false);
+              clearDialogErrors();
+              if (signInRoom.current) {
+                setPendingRoom(signInRoom.current);
+                signInRoom.current = null;
+              }
+            }}
+          />
+        )}
+      </ReloadUiContext>
+    </IdentityProvider>
   );
 }

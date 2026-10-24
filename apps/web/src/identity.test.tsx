@@ -1,0 +1,116 @@
+import { describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { createIdentityDirectory, publicIdentityTag } from "./identity";
+import {
+  IdentityName,
+  IdentityProfile,
+  IdentityProvider,
+} from "./components/Identity";
+
+describe("public chat identities", () => {
+  const first = {
+    guestId: "m-11111111111111111111111111111111",
+    nickname: "Simon",
+  };
+  const second = {
+    guestId: "22222222-2222-4222-8222-222222222222",
+    nickname: "Simon",
+  };
+
+  it("uses stable opaque tags without including a login username or database id", () => {
+    expect(publicIdentityTag(first.guestId)).toMatch(/^M[A-Z0-9]{25}$/);
+    expect(publicIdentityTag(first.guestId)).toBe(
+      publicIdentityTag(first.guestId),
+    );
+    expect(publicIdentityTag(first.guestId)).not.toBe(
+      publicIdentityTag(second.guestId),
+    );
+  });
+
+  it("shows compact collision labels and opens the selected person's full public profile", async () => {
+    const user = userEvent.setup();
+    const names = createIdentityDirectory([first, second]);
+    render(
+      <IdentityProvider value={names}>
+        {[first, second].map((person) => (
+          <div key={person.guestId}>
+            <IdentityProfile
+              person={{
+                ...person,
+                avatar: "other",
+                role: person.guestId.startsWith("m-") ? "member" : "guest",
+              }}
+            />
+            <IdentityName person={person} />
+          </div>
+        ))}
+      </IdentityProvider>,
+    );
+    expect(
+      screen.getByText(`\u00b7 ${names.shortTag(first.guestId)}`),
+    ).toBeVisible();
+    expect(
+      screen.getByText(`\u00b7 ${names.shortTag(second.guestId)}`),
+    ).toBeVisible();
+    await user.click(
+      screen.getByRole("button", {
+        name: `Profile: ${names.label(second, true)}`,
+      }),
+    );
+    const profile = await screen.findByRole("dialog");
+    expect(
+      within(profile).getByText(`#${names.tag(second.guestId)}`),
+    ).toBeVisible();
+    expect(
+      within(profile).queryByText(`#${names.tag(first.guestId)}`),
+    ).toBeNull();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("keeps ordinary names uncluttered and reveals tags on demand", () => {
+    const names = createIdentityDirectory([first]);
+    expect(names.label(first)).toBe("Simon");
+    expect(names.label(first, true)).toBe(
+      `Simon \u00b7 ${publicIdentityTag(first.guestId)}`,
+    );
+  });
+
+  it("disambiguates both people, including departed authors still in history", () => {
+    const names = createIdentityDirectory([first, second]);
+    expect(names.label(first)).toContain(names.shortTag(first.guestId));
+    expect(names.label(second)).toContain(names.shortTag(second.guestId));
+    expect(names.label(first)).not.toBe(names.label(second));
+  });
+
+  it("does not mistake repeated messages or a rename for another person", () => {
+    const names = createIdentityDirectory([
+      first,
+      first,
+      { ...first, nickname: "Simon New" },
+    ]);
+    expect(names.label(first)).toBe("Simon");
+    expect(names.tag(first.guestId)).toBe(publicIdentityTag(first.guestId));
+  });
+
+  it("recognizes names that differ only in case, spacing, or Unicode width", () => {
+    const names = createIdentityDirectory([
+      first,
+      { ...second, nickname: " SIMON " },
+    ]);
+    expect(names.label(first)).not.toBe("Simon");
+  });
+
+  it("expands colliding compact tags without changing either public identity", () => {
+    const firstId = `m-${1n.toString(16).padStart(32, "0")}`;
+    const secondId = `m-${(36n ** 8n + 1n).toString(16).padStart(32, "0")}`;
+    const names = createIdentityDirectory([
+      { guestId: firstId, nickname: "Simon" },
+      { guestId: secondId, nickname: "Simon" },
+    ]);
+    expect(names.shortTag(firstId)).not.toBe(names.shortTag(secondId));
+    expect(names.tag(firstId)).toBe(publicIdentityTag(firstId));
+    expect(names.tag(secondId)).toBe(publicIdentityTag(secondId));
+  });
+});

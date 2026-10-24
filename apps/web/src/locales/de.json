@@ -144,6 +144,7 @@
     }
   },
   "profile": {
+    "displayNameCooldown": "Nach einer Änderung deines Anzeigenamens musst du 24 Stunden warten, bevor du ihn erneut ändern kannst.",
     "open": "Kontomenü: {name}",
     "title": "Dein Profil",
     "age": "Alter",
@@ -565,7 +566,13 @@
     "label": "Menschliche Verifizierung",
     "retry": "Erneut versuchen"
   },
+  "identity": {
+    "publicTag": "Öffentliche Kennung",
+    "member": "Mitglied",
+    "guest": "Gast"
+  },
   "errors": {
+    "display_name_cooldown": "Du kannst deinen Anzeigenamen in {hours} Std. {minutes} Min. {seconds} Sek. wieder ändern.",
     "invalid_password": "Verwende 8-128 Zeichen mit Großbuchstaben, Kleinbuchstaben und einer Zahl.",
     "invalid_current_password": "Dein aktuelles Passwort ist falsch.",
     "password_not_supported": "Ändere dein Passwort bei deinem Anmeldeanbieter.",

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { Partner } from "./direct";
-import { splitMentions, suggestMentions } from "./mentions";
+import { mentionLabel, splitMentions, suggestMentions } from "./mentions";
+import { publicIdentityTag } from "../identity";
 import type { Member } from "./types";
 
 describe("suggestMentions", () => {
@@ -55,6 +56,32 @@ describe("suggestMentions", () => {
 });
 
 describe("splitMentions", () => {
+  it("does not choose an arbitrary Simon, and resolves tagged mentions even after a rename", () => {
+    const first: Partner = {
+      guestId: "m-11111111111111111111111111111111",
+      nickname: "Simon",
+      role: "member",
+      avatar: "other",
+    };
+    const second: Partner = {
+      guestId: "m-22222222222222222222222222222222",
+      nickname: "Simon",
+      role: "member",
+      avatar: "other",
+    };
+    expect(splitMentions("hi @Simon", [first, second])).toEqual(["hi @Simon"]);
+    const token = mentionLabel(second, [first, second]);
+    expect(token).toBe(`Simon#${publicIdentityTag(second.guestId)}`);
+    expect(mentionLabel(second, [second])).toBe(token);
+    expect(splitMentions(`@${token}`, [first, second])).toEqual([
+      { mention: second, text: `@${token}` },
+    ]);
+    const renamed = { ...second, nickname: "Simon New" };
+    expect(splitMentions(`@${token}`, [first, renamed])).toEqual([
+      { mention: renamed, text: `@${token}` },
+    ]);
+  });
+
   const member = (nickname: string): Member => ({
     guestId: `g-${nickname}`,
     nickname,

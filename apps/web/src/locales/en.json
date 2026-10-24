@@ -144,6 +144,7 @@
     }
   },
   "profile": {
+    "displayNameCooldown": "After a display name change, you must wait 24 hours before changing it again.",
     "open": "Account menu: {name}",
     "title": "Your profile",
     "age": "Age",
@@ -565,7 +566,13 @@
     "label": "Human verification",
     "retry": "Retry verification"
   },
+  "identity": {
+    "publicTag": "Public tag",
+    "member": "Member",
+    "guest": "Guest"
+  },
   "errors": {
+    "display_name_cooldown": "You can change your display name again in {hours}h {minutes}m {seconds}s.",
     "invalid_password": "Use 8-128 characters with uppercase, lowercase and a number.",
     "invalid_current_password": "Your current password is incorrect.",
     "password_not_supported": "Change your password with your sign-in provider.",

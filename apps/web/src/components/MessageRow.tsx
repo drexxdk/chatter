@@ -18,6 +18,7 @@ import type { PersonMenuOptions } from "./PersonMenu";
 import { Timestamp } from "./Timestamp";
 import { messagePresentation } from "./messagePresentation";
 import { MessageEffectsContext } from "./messageEffects";
+import { IdentityName, IdentityProfile } from "./Identity";
 
 export interface GroupMessage {
   id: string;
@@ -34,6 +35,7 @@ export interface GroupMessage {
 // chooses the person to write to (from the keyboard, Enter on a message does); `nav` makes every message a stop for the
 // arrow keys (see rowNavigation.ts).
 function MessageGroupView({
+  guestId,
   mine,
   nickname,
   role,
@@ -55,6 +57,7 @@ function MessageGroupView({
   virtualMeasure,
   virtualStyle,
 }: {
+  guestId?: string;
   mine: boolean;
   // Who the click chooses; in a private message that is the other person, not the author.
   nickname: string;
@@ -87,6 +90,9 @@ function MessageGroupView({
   virtualStyle?: CSSProperties;
 }) {
   const { t } = useTranslation();
+  const person = guestId
+    ? { guestId, nickname, role, avatar, picture }
+    : menu?.partner;
   const effects = useContext(MessageEffectsContext);
   const groupRef = useRef<HTMLLIElement>(null);
   useEffect(() => {
@@ -217,7 +223,13 @@ function MessageGroupView({
           onClick={clickPerson}
           className={clsx("flex shrink-0", pick && "cursor-pointer")}
         >
-          <AvatarIcon avatar={avatar} picture={picture} dimmed={gone} />
+          {person ? (
+            <IdentityProfile person={person} tabIndex={-1}>
+              <AvatarIcon avatar={avatar} picture={picture} dimmed={gone} />
+            </IdentityProfile>
+          ) : (
+            <AvatarIcon avatar={avatar} picture={picture} dimmed={gone} />
+          )}
         </span>
       )}
       <div
@@ -226,7 +238,7 @@ function MessageGroupView({
           mine ? "items-end" : "items-start",
         )}
       >
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex max-w-full flex-wrap items-center gap-2 text-xs">
           {/* What the guest wrote needs no name, as in Teams; a private message still says who it is to. */}
           {(!mine || direct) && (
             <span
@@ -239,7 +251,13 @@ function MessageGroupView({
                     : "font-semibold"
               } ${appearance.label} ${pick && !mine ? "cursor-pointer hover:underline" : ""}`}
             >
-              {direct ? direct.label : nickname}
+              {direct ? (
+                direct.label
+              ) : person ? (
+                <IdentityName person={person} />
+              ) : (
+                nickname
+              )}
             </span>
           )}
           {(!mine || direct) && (

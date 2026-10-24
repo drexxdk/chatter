@@ -44,11 +44,7 @@ export function PicturePicker({
         {shown.map((option, index) => (
           <label
             key={option}
-            className={`flex aspect-square cursor-pointer items-center justify-center rounded-full p-1 focus-within:ring-2 focus-within:ring-focus ${
-              value === option
-                ? "bg-indigo-500/10 ring-2 ring-indigo-400"
-                : "hover:bg-neutral-800"
-            }`}
+            className="relative block aspect-square cursor-pointer rounded-full"
           >
             <input
               type="radio"
@@ -57,9 +53,11 @@ export function PicturePicker({
               checked={value === option}
               onChange={() => onChange(option)}
               aria-label={t("picture.option", { number: index + 1 })}
-              className="sr-only"
+              className="peer sr-only"
             />
-            <AvatarIcon avatar="other" picture={option} fill />
+            <span className="flex aspect-square w-full items-center justify-center rounded-full border border-transparent p-1 peer-checked:border-indigo-400 peer-checked:bg-indigo-500/10 peer-focus-visible:outline-2 peer-focus-visible:outline-indigo-400">
+              <AvatarIcon avatar="other" picture={option} fill />
+            </span>
           </label>
         ))}
       </div>
@@ -93,24 +91,19 @@ export function AvatarPicker({
       <legend className="text-sm font-medium">{t("avatar.legend")}</legend>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2">
         {AVATARS.map((option) => (
-          <label
-            key={option}
-            className={`flex min-w-0 cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-sm focus-within:ring-2 focus-within:ring-focus ${
-              value === option
-                ? "border-indigo-400 bg-indigo-500/10"
-                : "border-neutral-700"
-            }`}
-          >
+          <label key={option} className="relative min-w-0 cursor-pointer">
             <input
               type="radio"
               name={name}
               value={option}
               checked={value === option}
               onChange={() => onChange(option)}
-              className="sr-only"
+              className="peer sr-only"
             />
-            <AvatarIcon avatar={option} small />
-            <span>{t(`avatar.${option}`)}</span>
+            <span className="flex h-full min-h-11 items-center gap-2 rounded border border-neutral-700 px-2 py-2 text-sm peer-checked:border-indigo-400 peer-checked:bg-indigo-500/10 peer-focus-visible:outline-2 peer-focus-visible:outline-indigo-400">
+              <AvatarIcon avatar={option} small />
+              <span>{t(`avatar.${option}`)}</span>
+            </span>
           </label>
         ))}
       </div>

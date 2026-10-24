@@ -236,7 +236,7 @@ describe("somebody who has left the room", () => {
 
     const row = within(screen.getByText("from bob").closest("li")!);
     expect(row.queryByText("Left the room")).toBeNull();
-    expect(row.getByText("Bob")).toHaveClass("cursor-pointer");
+    expect(row.getByText("Bob").closest(".cursor-pointer")).not.toBeNull();
     expect(row.getByText("from bob")).toBeInTheDocument();
   });
 

@@ -216,7 +216,10 @@ export interface AccountSession {
 
 // Carries a code the interface can translate (see `errors.*` in the locales).
 export class AccountError extends Error {
-  constructor(readonly code: string) {
+  constructor(
+    readonly code: string,
+    readonly retryAfterSeconds?: number,
+  ) {
     super(code);
   }
 }
@@ -229,6 +232,7 @@ const ACCOUNT_ERRORS = new Set([
   "invalid_username",
   "reserved_username",
   "invalid_profile",
+  "display_name_cooldown",
   "invalid_credentials",
   "invalid_password",
   "password_mismatch",
@@ -300,7 +304,19 @@ async function accountRequest(
   if (!response.ok) {
     const code = (body as { error?: unknown } | null)?.error;
 
-    if (response.status === 429) throw new AccountError("too_many_attempts");
+    if (response.status === 429) {
+      const seconds = (body as { retryAfterSeconds?: unknown } | null)
+        ?.retryAfterSeconds;
+      if (
+        code === "display_name_cooldown" &&
+        typeof seconds === "number" &&
+        Number.isFinite(seconds) &&
+        seconds > 0
+      ) {
+        throw new AccountError(code, Math.ceil(seconds));
+      }
+      throw new AccountError("too_many_attempts");
+    }
 
     throw new AccountError(
       typeof code === "string" && ACCOUNT_ERRORS.has(code)

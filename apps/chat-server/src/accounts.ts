@@ -83,12 +83,13 @@ export function safeReturnPath(value: unknown): string {
 // valid (null) is refused as such.
 async function nameRefusal(
   name: string | null,
+  unique = false,
 ): Promise<"invalid" | "reserved" | undefined> {
   if (!name) return "invalid";
 
   if (
     isReservedNickname(name, await getModeratorNames()) ||
-    (await isMemberName(name))
+    (unique && (await isMemberName(name)))
   ) {
     return "reserved";
   }
@@ -313,10 +314,7 @@ export function createAccountsRouter(options: {
           await updateUser(account.id, {
             lastLoginAt: new Date().toISOString(),
           }).catch((error) => log.error("Failed to note the sign-in", error));
-          await cacheMemberNames(account.id, [
-            account.nickname,
-            account.displayName,
-          ]);
+          await cacheMemberNames(account.id, [account.nickname]);
         }
 
         return account;
@@ -387,7 +385,7 @@ export function createAccountsRouter(options: {
 
         try {
           const username = validateUsername(body.data.username);
-          const usernameRefusal = await nameRefusal(username);
+          const usernameRefusal = await nameRefusal(username, true);
 
           if (usernameRefusal) {
             return res
@@ -443,7 +441,7 @@ export function createAccountsRouter(options: {
             if (!user) throw error;
           }
 
-          await cacheMemberNames(user.id, [user.nickname, user.displayName]);
+          await cacheMemberNames(user.id, [user.nickname]);
 
           res.json({
             token: tokenFor(user),
@@ -594,6 +592,13 @@ export function createAccountsRouter(options: {
           );
 
           if (failure) {
+            if (typeof failure !== "string") {
+              const retryAfterSeconds = Math.ceil(failure.retryAfterMs / 1000);
+              return res
+                .status(429)
+                .set("Retry-After", String(retryAfterSeconds))
+                .json({ error: failure.error, retryAfterSeconds });
+            }
             return res
               .status(failure === "reserved_nickname" ? 409 : 503)
               .json({ error: failure });

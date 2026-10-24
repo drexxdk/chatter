@@ -13,7 +13,11 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import clsx from "clsx";
 
 import type { Partner } from "../chat/direct";
-import { MAX_NAME_LENGTH, suggestMentions } from "../chat/mentions";
+import {
+  MAX_NAME_LENGTH,
+  mentionLabel,
+  suggestMentions,
+} from "../chat/mentions";
 import { plainText } from "../chat/plainText";
 import type { useComposer } from "../chat/useComposer";
 import { isTouchScreen } from "../touch";
@@ -139,7 +143,7 @@ export function MessageInput({
         renderHTML: ({ options, node }) => [
           "span",
           mergeAttributes(options.HTMLAttributes),
-          node.attrs.label,
+          node.attrs.label.split("#")[0],
         ],
         renderText: ({ node }) => `@${node.attrs.label}`,
         // Backspace takes the name out whole, rather than leaving the "@" to choose again.
@@ -188,7 +192,10 @@ export function MessageInput({
               ) {
                 const person = offered[current];
                 if (person) {
-                  open.command({ id: person.guestId, label: person.nickname });
+                  open.command({
+                    id: person.guestId,
+                    label: mentionLabel(person, latest.current.people ?? []),
+                  });
                 }
                 return true;
               }
@@ -303,7 +310,10 @@ export function MessageInput({
           people={matches}
           active={Math.min(active, matches.length - 1)}
           onChoose={(person) =>
-            suggestion.command({ id: person.guestId, label: person.nickname })
+            suggestion.command({
+              id: person.guestId,
+              label: mentionLabel(person, people ?? []),
+            })
           }
           onHover={setActive}
         />

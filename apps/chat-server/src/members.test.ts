@@ -294,7 +294,7 @@ describe("keeping the list right", () => {
     expect(await isMemberName("Gone")).toBe(false);
   });
 
-  it("keeps the display names too, for the same account", async () => {
+  it("reserves only private usernames, not public display names", async () => {
     vi.useFakeTimers();
     fetchUserNames.mockResolvedValue([
       { id: 1, nicknameKey: "alicea", displayNameKey: "alicewonder" },
@@ -305,7 +305,7 @@ describe("keeping the list right", () => {
     await vi.advanceTimersByTimeAsync(0);
     clearInterval(timer);
 
-    expect(await isMemberName("Alice Wonder")).toBe(true);
+    expect(await isMemberName("Alice Wonder")).toBe(false);
     expect(await isMemberName("Alice Wonder", 1)).toBe(false);
     expect(await isMemberName("alice_a")).toBe(true);
     expect(await isMemberName("Bob")).toBe(true);

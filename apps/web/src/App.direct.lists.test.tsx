@@ -2,6 +2,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { stubRooms } from "./test/app";
+import { publicIdentityTag } from "./identity";
 import {
   bob,
   carol,
@@ -34,7 +35,9 @@ describe("direct messages", () => {
       await screen.findByRole("menuitem", { name: "View profile" });
       await user.keyboard("{End}{Enter}");
       const profile = within(
-        await screen.findByRole("dialog", { name: "Profile: Bob" }),
+        await screen.findByRole("dialog", {
+          name: `Profile: Bob \u00b7 ${publicIdentityTag(bob.guestId)}`,
+        }),
       );
       expect(profile.getByText("Bob")).toBeVisible();
       expect(profile.getByText("Male")).toBeVisible();
@@ -144,15 +147,18 @@ describe("direct messages", () => {
 
       expect(people().getByText("Alice")).toBeInTheDocument();
       expect(people().getByText("(you)")).toBeInTheDocument();
-      expect(people().queryByRole("button")).toBeNull();
+      expect(
+        people().getByRole("button", { name: /^Profile: Alice/ }),
+      ).toBeInTheDocument();
+      expect(people().queryByRole("button", { name: "Alice" })).toBeNull();
     });
 
     it("does not offer to write to oneself", async () => {
       await enter();
 
       expect(people().getByText("Alice")).toBeInTheDocument();
-      expect(people().queryByRole("button", { name: /Alice/ })).toBeNull();
-      expect(people().getAllByRole("button")).toHaveLength(6);
+      expect(people().queryByRole("button", { name: "Alice" })).toBeNull();
+      expect(people().getAllByRole("button")).toHaveLength(10);
     });
 
     it("chooses who to write to privately by clicking a person, and again to stop", async () => {
@@ -278,8 +284,12 @@ describe("direct messages", () => {
         }),
       );
 
-      expect(people().getByText("Ada Mod")).toHaveClass("text-green-400");
-      expect(threads().getByText("Ada Mod")).toHaveClass("text-green-400");
+      expect(
+        people().getByText("Ada Mod").closest(".text-green-400"),
+      ).toBeInTheDocument();
+      expect(
+        threads().getByText("Ada Mod").closest(".text-green-400"),
+      ).toBeInTheDocument();
     });
 
     it("ignores a message that is not shaped like one", async () => {

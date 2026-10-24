@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { editorOf, joinRoom, selectText, setup, stubRooms } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
+import { publicIdentityTag } from "./identity";
 
 beforeEach(() => {
   stubRooms();
@@ -295,7 +296,9 @@ describe("mentioning somebody with @", () => {
       await user.keyboard("{Enter}");
 
       expect(server.latest.emittedEvents("message:send")).toEqual([
-        { text: "hi @Carol and @Anne Linde bye" },
+        {
+          text: `hi @Carol#${publicIdentityTag(CAROL.guestId)} and @Anne Linde#${publicIdentityTag(ANNE.guestId)} bye`,
+        },
       ]);
     });
 

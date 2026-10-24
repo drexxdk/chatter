@@ -57,6 +57,7 @@ import { MentionsProvider, type MentionsValue } from "./Mentions";
 import type { PersonMenuOptions } from "./PersonMenu";
 import { ReportDialog } from "./ReportDialog";
 import { RoomPanel, RoomPanelDropdown } from "./RoomPanel";
+import { IdentityProfile, useIdentityNames } from "./Identity";
 
 type MessageItem = Extract<TimelineItem, { kind: "message" }>;
 type DirectItem = Extract<TimelineItem, { kind: "direct" }>;
@@ -126,6 +127,7 @@ export function ChatRoom({
   idleDeadline,
 }: ChatRoomProps) {
   const { t } = useTranslation();
+  const names = useIdentityNames();
   const draftKey = `composer:${roomSlug}:public`;
   const [replyTo, setReplyTo] = useState<Partner | null>(() => {
     const saved = readTabDraft(draftKey);
@@ -495,8 +497,9 @@ export function ChatRoom({
                   <ArrowLeft aria-hidden="true" className="h-4 w-4" />
                 </button>
                 <h3 className="min-w-0 truncate text-lg font-semibold">
-                  {t("dm.title", { name: direct.active.nickname })}
+                  {t("dm.title", { name: names.label(direct.active) })}
                 </h3>
+                <IdentityProfile person={direct.active} />
                 {direct.blockedIds.includes(direct.active.guestId) && (
                   <BlockedTag />
                 )}
@@ -506,13 +509,13 @@ export function ChatRoom({
                       type="button"
                       onClick={() => void blockActive()}
                       aria-label={t("dm.block", {
-                        name: direct.active.nickname,
+                        name: names.label(direct.active),
                       })}
                       className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-800 px-2.5 py-1.5 text-sm hover:bg-neutral-700"
                     >
                       <Ban aria-hidden="true" className="h-4 w-4" />
                       <span className="hidden sm:inline">
-                        {t("dm.block", { name: direct.active.nickname })}
+                        {t("dm.block", { name: names.label(direct.active) })}
                       </span>
                     </button>
                   )}
@@ -522,7 +525,7 @@ export function ChatRoom({
             {direct.active && blockFailure && (
               <ErrorAlert
                 code={blockFailure.error}
-                values={{ name: direct.active.nickname }}
+                values={{ name: names.label(direct.active) }}
                 onDismiss={() => setBlockFailure(undefined)}
               />
             )}
@@ -623,7 +626,7 @@ export function ChatRoom({
                     <StatusRow
                       key={first.status.id}
                       text={t(`dm.${first.status.event}`, {
-                        name: first.partner.nickname,
+                        name: names.label(first.partner),
                       })}
                       sentAt={first.status.sentAt}
                     />
@@ -637,6 +640,7 @@ export function ChatRoom({
                   return (
                     <MessageGroup
                       key={first.message.id}
+                      guestId={first.partner.guestId}
                       mine={mine}
                       nickname={first.partner.nickname}
                       role={first.partner.role}
@@ -648,7 +652,7 @@ export function ChatRoom({
                       gone={hasLeft(first.partner.guestId)}
                       direct={{
                         label: t(mine ? "dm.to" : "dm.from", {
-                          name: first.partner.nickname,
+                          name: names.label(first.partner),
                         }),
                       }}
                       messages={entries.map(({ message }) => ({
@@ -722,6 +726,7 @@ export function ChatRoom({
                 return (
                   <MessageGroup
                     key={first.message.id}
+                    guestId={author.guestId}
                     mine={mine}
                     nickname={author.nickname}
                     role={author.role}
@@ -762,7 +767,7 @@ export function ChatRoom({
                         : (messageId) =>
                             setReporting({
                               id: messageId,
-                              nickname: author.nickname,
+                              nickname: names.label(author, true),
                             })
                     }
                   />
@@ -785,18 +790,24 @@ export function ChatRoom({
                 announce
                   ? t("announcement.label")
                   : replyTo
-                    ? t("dm.label", { name: replyTo.nickname })
+                    ? t("dm.label", { name: names.label(replyTo) })
                     : t("room.messageLabel")
               }
               placeholder={
                 announce
                   ? t("announcement.placeholder")
                   : replyBlockedBy && replyTo
-                    ? t("dm.blockedByPlaceholder", { name: replyTo.nickname })
+                    ? t("dm.blockedByPlaceholder", {
+                        name: names.label(replyTo),
+                      })
                     : replyBlocked && replyTo
-                      ? t("dm.blockedPlaceholder", { name: replyTo.nickname })
+                      ? t("dm.blockedPlaceholder", {
+                          name: names.label(replyTo),
+                        })
                       : replyTo
-                        ? t("dm.replyPlaceholder", { name: replyTo.nickname })
+                        ? t("dm.replyPlaceholder", {
+                            name: names.label(replyTo),
+                          })
                         : t("room.messagePlaceholder")
               }
               disabled={!canWrite}
@@ -828,7 +839,7 @@ export function ChatRoom({
                       : replyFailure
                         ? replyFailure.retryAfterSeconds
                         : retryAfterSeconds,
-                    name: replyTo?.nickname,
+                    name: replyTo ? names.label(replyTo) : undefined,
                   }}
                   onDismiss={() => {
                     setReplyFailure(undefined);
@@ -877,7 +888,7 @@ export function ChatRoom({
                             className="min-w-0 wrap-break-word"
                             aria-live="polite"
                           >
-                            {t("dm.writingTo", { name: replyTo.nickname })}
+                            {t("dm.writingTo", { name: names.label(replyTo) })}
                           </span>
                           <ArrowUpRight
                             aria-hidden="true"
@@ -916,19 +927,19 @@ export function ChatRoom({
 
                   {replyTo && !replyPresent && (
                     <Notice role="status">
-                      {t("dm.away", { name: replyTo.nickname })}
+                      {t("dm.away", { name: names.label(replyTo) })}
                     </Notice>
                   )}
 
                   {replyTo && replyBlockedBy && (
                     <Notice role="status" tone="neutral" icon={Ban}>
-                      {t("dm.blockedByWrite", { name: replyTo.nickname })}
+                      {t("dm.blockedByWrite", { name: names.label(replyTo) })}
                     </Notice>
                   )}
 
                   {replyTo && replyBlocked && (
                     <Notice role="status" tone="error" icon={Ban}>
-                      {t("dm.blockedWrite", { name: replyTo.nickname })}{" "}
+                      {t("dm.blockedWrite", { name: names.label(replyTo) })}{" "}
                       <button
                         type="button"
                         onClick={() =>

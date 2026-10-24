@@ -144,6 +144,7 @@
     }
   },
   "profile": {
+    "displayNameCooldown": "Efter en ændring af dit visningsnavn skal du vente 24 timer, før du kan ændre det igen.",
     "open": "Kontomenu: {name}",
     "title": "Din profil",
     "age": "Alder",
@@ -562,7 +563,13 @@
     }
   },
   "humanCheck": { "label": "Bekræftelse af menneske", "retry": "Prøv igen" },
+  "identity": {
+    "publicTag": "Offentligt id",
+    "member": "Medlem",
+    "guest": "Gæst"
+  },
   "errors": {
+    "display_name_cooldown": "Du kan ændre dit visningsnavn igen om {hours} t {minutes} min {seconds} s.",
     "invalid_password": "Brug 8-128 tegn med store og små bogstaver og et tal.",
     "invalid_current_password": "Din nuværende adgangskode er forkert.",
     "password_not_supported": "Skift adgangskoden hos din loginudbyder.",

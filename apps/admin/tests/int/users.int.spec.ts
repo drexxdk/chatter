@@ -21,7 +21,7 @@ describe('user name derivation', () => {
     ).toMatchObject({
       nicknameKey: 'alice',
       displayNameKey: 'alicewonder',
-      nameClaims: [{ key: 'alice' }, { key: 'alicewonder' }],
+      nameClaims: [{ key: 'alice' }],
     })
   })
 
@@ -60,7 +60,7 @@ describe('user name derivation', () => {
       age: 30,
       nicknameKey: 'alice',
       displayNameKey: 'newname',
-      nameClaims: [{ id: 'kept', key: 'alice' }, { key: 'newname' }],
+      nameClaims: [{ id: 'kept', key: 'alice' }],
     })
   })
 })
@@ -125,35 +125,42 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('database name ownership', () =>
   it.each([
     ['beta', 'Gamma'],
     ['gamma', 'A L P H A'],
+    ['gamma', 'Beta'],
   ])(
-    'rejects cross-column ownership for %s / %s and rolls back the user',
+    'allows public-name sharing for %s / %s without claiming the display name',
     async (nickname, displayName) => {
       await makeUser('alpha', 'Beta')
-      await expect(makeUser(nickname, displayName)).rejects.toMatchObject({
-        status: 400,
-        data: { errors: [expect.objectContaining({ path: 'key', tableName: 'users' })] },
-      })
+      await expect(makeUser(nickname, displayName)).resolves.toMatchObject({ displayName })
 
       const users = await payload.find({
         collection: 'users',
         where: { provider: { equals: provider } },
       })
-      expect(users.totalDocs).toBe(1)
+      expect(users.totalDocs).toBe(2)
     },
   )
 
-  it('permits exactly one of two concurrent swapped-name registrations', async () => {
+  it('permits concurrent swapped-name registrations', async () => {
     const results = await Promise.allSettled([makeUser('alpha', 'Beta'), makeUser('beta', 'Alpha')])
-    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
-    const rejected = results.find((result) => result.status === 'rejected')
-    expect(rejected?.reason).toMatchObject({ status: 400 })
+    expect(results.every((result) => result.status === 'fulfilled')).toBe(true)
 
     const users = await payload.find({
       collection: 'users',
       where: { provider: { equals: provider } },
     })
-    expect(users.totalDocs).toBe(1)
-    expect(users.docs[0]?.nameClaims?.map((claim) => claim.key)).toEqual(['alpha', 'beta'])
+    expect(users.totalDocs).toBe(2)
+    expect(users.docs.every((user) => user.nameClaims?.length === 1)).toBe(true)
+  })
+
+  it('permits exactly one concurrent registration of a private username', async () => {
+    const results = await Promise.allSettled([
+      makeUser('alpha', 'Simon'),
+      makeUser('A L P H A', 'Simon'),
+    ])
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    expect(results.find((result) => result.status === 'rejected')?.reason).toMatchObject({
+      status: 400,
+    })
   })
 
   it('rolls back the entire profile and its old claims when a rename conflicts', async () => {
@@ -164,7 +171,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('database name ownership', () =>
       payload.update({
         collection: 'users',
         id: user.id,
-        data: { displayName: 'ALPHA', avatar: 'female' },
+        data: { nickname: 'ALPHA', avatar: 'female' },
       }),
     ).rejects.toMatchObject({ status: 400 })
 

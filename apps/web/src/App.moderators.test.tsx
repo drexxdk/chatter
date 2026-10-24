@@ -347,7 +347,7 @@ describe("moderators", () => {
     it("shows a moderator's name and words in green and bold, with a label", async () => {
       await enterAsGuest([], [fromModerator()]);
 
-      expect(log().getByText("Ada Mod")).toHaveClass(
+      expect(log().getByText("Ada Mod").closest(".font-bold")).toHaveClass(
         "font-bold",
         "text-green-400",
       );
@@ -403,7 +403,9 @@ describe("moderators", () => {
       );
 
       const members = within(screen.getByRole("complementary"));
-      expect(members.getByText("Ada Mod")).toHaveClass("text-green-400");
+      expect(
+        members.getByText("Ada Mod").closest(".text-green-400"),
+      ).not.toBeNull();
       expect(members.getByText("Bob")).not.toHaveClass("text-green-400");
     });
   });

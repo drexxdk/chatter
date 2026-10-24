@@ -2,8 +2,11 @@ import type { ProfileUpdateAck } from "../../../shared/chatProtocol.mjs";
 import type { Avatar } from "./avatars.js";
 import { slidingWindow } from "./limits.js";
 import { log } from "./log.js";
-import { saveMemberProfile, validateProfileUpdate } from "./memberProfile.js";
-import { normalizeName } from "./names.js";
+import {
+  saveMemberProfile,
+  validateProfileUpdate,
+  type ProfileSaveFailure,
+} from "./memberProfile.js";
 import { fetchUser } from "./payloadClient.js";
 import { withProfileLock } from "./profileLock.js";
 import type { ChatRole } from "./roles.js";
@@ -31,16 +34,14 @@ export async function handleProfileUpdate(
     socket,
     data,
     withRoomLock,
-    nameInUse,
     emitPresence,
   }: {
     socket: { id: string; connected: boolean };
     data: ProfileSocketData;
     withRoomLock: (
       slug: string,
-      task: () => Promise<string | undefined>,
-    ) => Promise<string | undefined>;
-    nameInUse: (slug: string, nickname: string) => Promise<boolean>;
+      task: () => Promise<ProfileSaveFailure | undefined>,
+    ) => Promise<ProfileSaveFailure | undefined>;
     emitPresence: (slug: string) => Promise<void>;
   },
 ): Promise<void> {
@@ -106,7 +107,7 @@ export async function handleProfileUpdate(
         data.birthDate = birthDate;
       };
       // The change for good: a member's is kept in their account first, so what the others see is never ahead of it.
-      const commit = async (): Promise<string | undefined> => {
+      const commit = async (): Promise<ProfileSaveFailure | undefined> => {
         if (data.memberId !== undefined) {
           const failure = await saveMemberProfile(
             data.memberId,
@@ -123,19 +124,13 @@ export async function handleProfileUpdate(
         return undefined;
       };
 
-      // A new name must not be one somebody else in the room has; checked and taken under the room's lock, so two
-      // people choosing the same name at once cannot both get it.
-      if (slug && normalizeName(nickname) !== normalizeName(data.nickname)) {
-        const failure = await withRoomLock(slug, async () =>
-          (await nameInUse(slug, nickname)) ? "nickname_taken" : commit(),
+      const failure = slug ? await withRoomLock(slug, commit) : await commit();
+      if (failure)
+        return reply(
+          typeof failure === "string"
+            ? { ok: false, error: failure }
+            : { ok: false, ...failure },
         );
-
-        if (failure) return reply({ ok: false, error: failure });
-      } else {
-        const failure = await commit();
-
-        if (failure) return reply({ ok: false, error: failure });
-      }
 
       reply({
         ok: true,

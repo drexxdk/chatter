@@ -141,10 +141,6 @@ vi.mock("./payloadClient.js", async (importOriginal) => {
         throw new original.PayloadError("taken", 400, "nicknameKey");
       }
 
-      if (taken.some((user) => user.displayNameKey === data.displayNameKey)) {
-        throw new original.PayloadError("taken", 400, "displayNameKey");
-      }
-
       if (taken.some((user) => identityOf(user) === identityOf(data))) {
         throw new original.PayloadError("taken", 400, "identity");
       }
@@ -538,7 +534,7 @@ describe("password accounts", () => {
     const user = accounts.users.get(1)!;
     expect(user.passwordHash).toMatch(/^scrypt-v1:/);
     expect(JSON.stringify(user)).not.toContain(password);
-    expect(accounts.names.get("aliceguest")).toBe(1);
+    expect(accounts.names.has("aliceguest")).toBe(false);
     expect(accounts.names.get("alice")).toBe(1);
   });
 
@@ -554,10 +550,12 @@ describe("password accounts", () => {
     },
   );
 
-  it("does not let a guest claim another account's name", async () => {
+  it("allows claiming a profile with a display name matching another account", async () => {
     accounts.names.set("aliceguest", 99);
-    await expect(claim()).rejects.toThrow("reserved_nickname");
-    expect(accounts.users.size).toBe(0);
+    await expect(claim()).resolves.toMatchObject({
+      profile: { nickname: "Alice Guest" },
+    });
+    expect(accounts.users.size).toBe(1);
   });
 
   it("allows only one concurrent claim of the same profile", async () => {
@@ -770,9 +768,8 @@ describe("signing in for the first time", () => {
         age: 30,
       }),
     ]);
-    // Both names are theirs from now on.
     expect(accounts.names.get("alicew")).toBe(1);
-    expect(accounts.names.get("alicewonder")).toBe(1);
+    expect(accounts.names.has("alicewonder")).toBe(false);
 
     const me = await get("/me", { Authorization: `Bearer ${body.token}` });
     expect(me.status).toBe(200);
@@ -982,7 +979,25 @@ describe("making the account", () => {
     }
   });
 
-  it("refuses a name that another account has, as a username or a display name, however it is written", async () => {
+  it("allows different accounts to share a display name without sharing a private username", async () => {
+    await start();
+    const first = await register({
+      username: "first_login",
+      nickname: "Simon",
+    });
+    const second = await register(
+      { username: "second_login", nickname: "Simon" },
+      "bob",
+    );
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(await second.json()).toMatchObject({
+      profile: { nickname: "Simon" },
+    });
+  });
+
+  it("keeps usernames unique without reserving their spelling as a display name", async () => {
     await start();
     await register({});
 
@@ -991,8 +1006,10 @@ describe("making the account", () => {
 
     expect(asUsername.status).toBe(409);
     expect(await asUsername.json()).toEqual({ error: "reserved_username" });
-    expect(asDisplayName.status).toBe(409);
-    expect(await asDisplayName.json()).toEqual({ error: "reserved_nickname" });
+    expect(asDisplayName.status).toBe(200);
+    expect(await asDisplayName.json()).toMatchObject({
+      profile: { nickname: "A L I C E" },
+    });
   });
 
   it("answers 409 too when a name was taken between the check and the account", async () => {
@@ -1011,11 +1028,13 @@ describe("making the account", () => {
 
     expect(asUsername.status).toBe(409);
     expect(await asUsername.json()).toEqual({ error: "reserved_username" });
-    expect(asDisplayName.status).toBe(409);
-    expect(await asDisplayName.json()).toEqual({ error: "reserved_nickname" });
+    expect(asDisplayName.status).toBe(200);
+    expect(await asDisplayName.json()).toMatchObject({
+      profile: { nickname: "Zedd" },
+    });
   });
 
-  it("refuses overlapping registrations with swapped usernames and display names", async () => {
+  it("allows overlapping registrations with swapped usernames and display names", async () => {
     await start();
     const firstTicket = (await signInAs("alice")).get("ticket");
     const secondTicket = (await signInAs("bob")).get("ticket");
@@ -1039,11 +1058,10 @@ describe("making the account", () => {
 
     const [created, refused] = await Promise.all([first, second]);
     expect(created.status).toBe(200);
-    expect(refused.status).toBe(409);
-    expect(await refused.json()).toEqual({ error: "reserved_username" });
-    expect(accounts.users.size).toBe(1);
+    expect(refused.status).toBe(200);
+    expect(accounts.users.size).toBe(2);
     expect(accounts.names.get("alpha")).toBe(1);
-    expect(accounts.names.get("beta")).toBe(1);
+    expect(accounts.names.get("beta")).toBe(2);
   });
 });
 
@@ -1230,7 +1248,7 @@ describe("the account's own data", () => {
         avatar: "female",
         age: 30,
       });
-      expect(accounts.names.has("alicia")).toBe(true);
+      expect(accounts.names.has("alicia")).toBe(false);
       expect(accounts.names.has("alice")).toBe(true);
 
       const again = await patch(token, {
@@ -1283,7 +1301,67 @@ describe("the account's own data", () => {
       expect(accounts.users.get(1)).toMatchObject({ displayName: "Alice" });
     });
 
-    it("refuses a name another account has", async () => {
+    it("enforces a 24-hour display-name cooldown without blocking other profile edits", async () => {
+      await start();
+      const token = await signedIn();
+      expect((await patch(token, { nickname: "First Name" })).status).toBe(200);
+      const refused = await patch(token, { nickname: "Second Name" });
+      expect(refused.status).toBe(429);
+      expect(await refused.json()).toMatchObject({
+        error: "display_name_cooldown",
+        retryAfterSeconds: expect.any(Number),
+      });
+      expect(
+        (await patch(token, { nickname: "First Name", avatar: "female" }))
+          .status,
+      ).toBe(200);
+      expect(accounts.users.get(1)).toMatchObject({
+        displayName: "First Name",
+        avatar: "female",
+      });
+    });
+
+    it("allows a rename at the exact 24-hour boundary and starts a new cooldown", async () => {
+      await start();
+      const token = await signedIn();
+      const now = Date.now();
+      const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+      try {
+        const account = accounts.users.get(1)!;
+        account.displayNameChangedAt = new Date(
+          now - 86_400_000 + 1,
+        ).toISOString();
+        const refused = await patch(token, { nickname: "New Name" });
+        expect(refused.status).toBe(429);
+        expect(refused.headers.get("Retry-After")).toBe("1");
+        expect(await refused.json()).toEqual({
+          error: "display_name_cooldown",
+          retryAfterSeconds: 1,
+        });
+        clock.mockReturnValue(now + 1);
+        expect((await patch(token, { nickname: "New Name" })).status).toBe(200);
+        const changedAt = accounts.users.get(1)!.displayNameChangedAt;
+        expect(changedAt).toBe(new Date(now + 1).toISOString());
+        expect(
+          (await patch(token, { nickname: "New Name", avatar: "male" })).status,
+        ).toBe(200);
+        expect(accounts.users.get(1)!.displayNameChangedAt).toBe(changedAt);
+      } finally {
+        clock.mockRestore();
+      }
+    });
+
+    it("allows only one concurrent display-name change per cooldown", async () => {
+      await start();
+      const token = await signedIn();
+      const results = await Promise.all([
+        patch(token, { nickname: "First Name" }),
+        patch(token, { nickname: "Second Name" }),
+      ]);
+      expect(results.map((result) => result.status).sort()).toEqual([200, 429]);
+    });
+
+    it("allows a display name another account has", async () => {
       await start();
       const token = await signedIn();
       const ticket = (await signInAs("bob")).get("ticket");
@@ -1291,11 +1369,13 @@ describe("the account's own data", () => {
 
       const res = await patch(token, { nickname: "bobby" });
 
-      expect(res.status).toBe(409);
-      expect(await res.json()).toEqual({ error: "reserved_nickname" });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({
+        profile: { nickname: "bobby" },
+      });
     });
 
-    it("rechecks a rename after an overlapping registration claims the username", async () => {
+    it("allows a display-name rename during an overlapping username registration", async () => {
       await start();
       const token = await signedIn();
       const ticket = (await signInAs("bob")).get("ticket");
@@ -1316,9 +1396,8 @@ describe("the account's own data", () => {
 
       const [created, refused] = await Promise.all([registration, rename]);
       expect(created.status).toBe(200);
-      expect(refused.status).toBe(409);
-      expect(await refused.json()).toEqual({ error: "reserved_nickname" });
-      expect(accounts.users.get(1)).toMatchObject({ displayName: "Alice" });
+      expect(refused.status).toBe(200);
+      expect(accounts.users.get(1)).toMatchObject({ displayName: "Shared" });
       expect(accounts.names.get("shared")).toBe(2);
     });
 

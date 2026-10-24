@@ -209,7 +209,10 @@ describe("choosing the person to write to", () => {
     await waitFor(() => expect(writingTo()).toBeNull());
 
     await user.click(rows()[0].querySelector<HTMLElement>("[data-avatar]")!);
-    await waitFor(() => expect(writingTo()).toBeInTheDocument());
+    expect(
+      await screen.findByRole("dialog", { name: /^Profile: Bob/ }),
+    ).toBeVisible();
+    expect(writingTo()).toBeNull();
   });
 
   it("keeps the name clickable for somebody online outside the room", async () => {
@@ -226,7 +229,9 @@ describe("choosing the person to write to", () => {
       });
     });
 
-    expect(within(rows()[0]).getByText("Bob")).toHaveClass("cursor-pointer");
+    expect(
+      within(rows()[0]).getByText("Bob").closest(".cursor-pointer"),
+    ).not.toBeNull();
 
     await user.click(within(rows()[0]).getByText("Bob"));
 
