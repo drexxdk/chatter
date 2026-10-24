@@ -2765,59 +2765,73 @@ test("a guest whose connection drops is reconnected to the same room", async ({
   await expect(bob.getByRole("log")).toContainText("I'm back");
 });
 
-test("a suspended mobile tab preserves recovery until it returns to the foreground", async ({
-  browser,
-}) => {
-  const alice = await newGuest(browser);
-  await alice.setViewportSize({ width: 390, height: 844 });
-  const bob = await newGuest(browser);
-  const connections: { close: () => Promise<void> }[] = [];
-  await alice.routeWebSocket(/socket\.io/, (ws) => {
-    const server = ws.connectToServer();
-    connections.push({
-      close: async () => {
-        await ws.close();
-        await server.close();
-      },
+for (const interruption of ["suspended", "offline"] as const) {
+  test(`a ${interruption} mobile tab preserves recovery until it returns to the foreground`, async ({
+    browser,
+  }) => {
+    const alice = await newGuest(browser);
+    await alice.setViewportSize({ width: 390, height: 844 });
+    const bob = await newGuest(browser);
+    const connections: { close: () => Promise<void> }[] = [];
+    await alice.routeWebSocket(/socket\.io/, (ws) => {
+      const server = ws.connectToServer();
+      connections.push({
+        close: async () => {
+          await ws.close();
+          await server.close();
+        },
+      });
     });
+    await enterRoom(alice, LOUNGE.name, "Alice");
+    await enterRoom(bob, LOUNGE.name, "Bob");
+    const missed = `While mobile was ${interruption} ${Date.now()}`;
+    await alice.clock.install();
+    if (interruption === "offline") {
+      await alice.bringToFront();
+      await alice.context().setOffline(true);
+      expect(await alice.evaluate(() => navigator.onLine)).toBe(false);
+      expect(await alice.evaluate(() => document.visibilityState)).toBe(
+        "visible",
+      );
+    } else
+      await alice.evaluate(() => {
+        Object.defineProperty(document, "visibilityState", {
+          configurable: true,
+          get: () => "hidden",
+        });
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+    await Promise.all(connections.map((connection) => connection.close()));
+    await expect(alice.getByRole("status")).toHaveText(
+      "Connection lost. Reconnecting…",
+    );
+    await expect(
+      bob.getByRole("heading", { name: "In this room (1 of 5)" }),
+    ).toBeVisible();
+    await send(bob, missed);
+    await alice.clock.fastForward(300_000);
+    await expect(alice.getByRole("status")).toHaveText(
+      "Connection lost. Reconnecting…",
+    );
+    if (interruption === "offline") await alice.context().setOffline(false);
+    else
+      await alice.evaluate(() => {
+        Object.defineProperty(document, "visibilityState", {
+          configurable: true,
+          get: () => "visible",
+        });
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+    await expect(alice.getByRole("status")).toHaveCount(0);
+    await expect(
+      alice.getByRole("log").getByText(missed, { exact: true }),
+    ).toHaveCount(1);
+    await send(alice, `Mobile restored ${missed}`);
+    await expect(bob.getByRole("log")).toContainText(
+      `Mobile restored ${missed}`,
+    );
   });
-  await enterRoom(alice, LOUNGE.name, "Alice");
-  await enterRoom(bob, LOUNGE.name, "Bob");
-  const missed = `While mobile was suspended ${Date.now()}`;
-  await alice.clock.install();
-  await alice.evaluate(() => {
-    Object.defineProperty(document, "visibilityState", {
-      configurable: true,
-      get: () => "hidden",
-    });
-    document.dispatchEvent(new Event("visibilitychange"));
-  });
-  await Promise.all(connections.map((connection) => connection.close()));
-  await expect(alice.getByRole("status")).toHaveText(
-    "Connection lost. Reconnecting…",
-  );
-  await expect(
-    bob.getByRole("heading", { name: "In this room (1 of 5)" }),
-  ).toBeVisible();
-  await send(bob, missed);
-  await alice.clock.fastForward(300_000);
-  await expect(alice.getByRole("status")).toHaveText(
-    "Connection lost. Reconnecting…",
-  );
-  await alice.evaluate(() => {
-    Object.defineProperty(document, "visibilityState", {
-      configurable: true,
-      get: () => "visible",
-    });
-    document.dispatchEvent(new Event("visibilitychange"));
-  });
-  await expect(alice.getByRole("status")).toHaveCount(0);
-  await expect(
-    alice.getByRole("log").getByText(missed, { exact: true }),
-  ).toHaveCount(1);
-  await send(alice, `Mobile restored ${missed}`);
-  await expect(bob.getByRole("log")).toContainText(`Mobile restored ${missed}`);
-});
+}
 
 test("a guest who joins later sees what was said earlier in the room", async ({
   browser,

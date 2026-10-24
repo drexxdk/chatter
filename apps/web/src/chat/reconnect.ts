@@ -1,5 +1,5 @@
-// About four minutes of foreground retry delays, never more than 30 seconds apart. Hidden tabs wait for the guest
-// to return instead of spending attempts while the browser may have suspended their connection.
+// About four minutes of foreground retry delays, never more than 30 seconds apart. Hidden or offline tabs wait
+// until the browser can reconnect instead of spending attempts without a usable connection.
 export const DEFAULT_RECONNECT_DELAYS_MS = [
   1_000, 2_000, 4_000, 8_000, 15_000, 15_000, 30_000, 30_000, 30_000, 30_000,
   30_000, 30_000,
@@ -14,7 +14,11 @@ export function waitOrWake(ms: number, signal?: AbortSignal): Promise<void> {
       return;
     }
     const done = () => {
-      if (document.visibilityState === "hidden" && !signal?.aborted) return;
+      if (
+        (document.visibilityState === "hidden" || navigator.onLine === false) &&
+        !signal?.aborted
+      )
+        return;
       clearTimeout(timer);
       window.removeEventListener("online", done);
       document.removeEventListener("visibilitychange", onVisibility);
