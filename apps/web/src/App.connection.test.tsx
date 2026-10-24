@@ -2,6 +2,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_RECONNECT_DELAYS_MS } from "./chat/useChat";
+import { waitOrWake } from "./chat/reconnect";
 import {
   stubRooms,
   setup,
@@ -257,6 +258,92 @@ describe("losing the connection", () => {
 });
 
 describe("a connection that keeps failing", () => {
+  it("cancels a suspended wait without keeping wake listeners or timers", async () => {
+    const visibility = vi
+      .spyOn(document, "visibilityState", "get")
+      .mockReturnValue("hidden");
+    const controller = new AbortController();
+    const removeOnline = vi.spyOn(window, "removeEventListener");
+    const removeVisibility = vi.spyOn(document, "removeEventListener");
+    vi.useFakeTimers();
+    try {
+      let settled = false;
+      const pending = waitOrWake(5, controller.signal).then(() => {
+        settled = true;
+      });
+      await vi.advanceTimersByTimeAsync(100);
+      window.dispatchEvent(new Event("online"));
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      controller.abort();
+      await pending;
+      expect(settled).toBe(true);
+      expect(removeOnline).toHaveBeenCalledWith("online", expect.any(Function));
+      expect(removeVisibility).toHaveBeenCalledWith(
+        "visibilitychange",
+        expect.any(Function),
+      );
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      controller.abort();
+      vi.useRealTimers();
+      visibility.mockRestore();
+      removeOnline.mockRestore();
+      removeVisibility.mockRestore();
+    }
+  });
+
+  it("does not schedule an already-cancelled reconnect wait", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const listener = vi.spyOn(window, "addEventListener");
+    try {
+      await waitOrWake(60_000, controller.signal);
+      expect(listener).not.toHaveBeenCalledWith("online", expect.any(Function));
+    } finally {
+      listener.mockRestore();
+    }
+  });
+
+  it("preserves reconnect attempts while hidden and restores the room on return", async () => {
+    const server = makeFakeServer();
+    const { user } = setup(server, [5]);
+    await joinRoom(user);
+    await screen.findByRole("log", { name: "General" });
+    const visibility = vi
+      .spyOn(document, "visibilityState", "get")
+      .mockReturnValue("hidden");
+    vi.useFakeTimers();
+    try {
+      act(() => server.latest.serverEmit("disconnect", "transport close"));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+      expect(server.createSocket).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole("log", { name: "General" })).toBeInTheDocument();
+      visibility.mockReturnValue("visible");
+      await act(async () => {
+        document.dispatchEvent(new Event("visibilitychange"));
+        await vi.advanceTimersByTimeAsync(10);
+      });
+      expect(server.createSocket).toHaveBeenCalledTimes(2);
+      expect(server.latest.emittedEvents("room:join")).toEqual([
+        { slug: "general" },
+      ]);
+      expect(server.createSocket).toHaveBeenLastCalledWith(
+        "Alice",
+        undefined,
+        undefined,
+        { guestId: "guest-me", secret: "secret-1" },
+        undefined,
+        anyPicture,
+      );
+    } finally {
+      vi.useRealTimers();
+      visibility.mockRestore();
+    }
+  });
+
   it("tries again at once when the browser is back online, instead of waiting out the delay", async () => {
     const server = makeFakeServer();
     const { user } = setup(server, [60_000]);

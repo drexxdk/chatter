@@ -108,6 +108,7 @@ export function useChat(
   // Which room the last list of people was for, so a different room's list is not mistaken for people leaving.
   // Bumped to cancel a reconnect loop in progress.
   const reconnectRunRef = useRef(0);
+  const reconnectAbortRef = useRef<AbortController | null>(null);
   const reconnectingRef = useRef(false);
   const delaysRef = useRef(
     options.reconnectDelaysMs ?? DEFAULT_RECONNECT_DELAYS_MS,
@@ -307,6 +308,8 @@ export function useChat(
 
   const cancelReconnect = useCallback(() => {
     reconnectRunRef.current += 1;
+    reconnectAbortRef.current?.abort();
+    reconnectAbortRef.current = null;
     reconnectingRef.current = false;
   }, []);
 
@@ -714,6 +717,8 @@ export function useChat(
   const reconnect = useCallback(
     async (nickname: string, onDrop: DropHandler): Promise<void> => {
       cancelReconnect();
+      const controller = new AbortController();
+      reconnectAbortRef.current = controller;
       const run = reconnectRunRef.current;
       const cancelled = () => reconnectRunRef.current !== run;
 
@@ -727,7 +732,7 @@ export function useChat(
       };
 
       for (const delay of delaysRef.current) {
-        await waitOrWake(delay);
+        await waitOrWake(delay, controller.signal);
         if (cancelled()) return;
 
         const failure = await openSocket(nickname, onDrop);

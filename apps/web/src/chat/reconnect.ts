@@ -1,5 +1,5 @@
-// About four minutes of trying, never more than 30 seconds apart: long enough for a server restart or a patchy
-// network, and a tab in the background has its timers slowed down by the browser anyway.
+// About four minutes of foreground retry delays, never more than 30 seconds apart. Hidden tabs wait for the guest
+// to return instead of spending attempts while the browser may have suspended their connection.
 export const DEFAULT_RECONNECT_DELAYS_MS = [
   1_000, 2_000, 4_000, 8_000, 15_000, 15_000, 30_000, 30_000, 30_000, 30_000,
   30_000, 30_000,
@@ -7,12 +7,18 @@ export const DEFAULT_RECONNECT_DELAYS_MS = [
 
 // Waits out a delay, but not when the browser says the network is back or the guest has returned to the tab: that is
 // the moment a retry is most likely to work, and a background tab's timers may have been held up.
-export function waitOrWake(ms: number): Promise<void> {
+export function waitOrWake(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve();
+      return;
+    }
     const done = () => {
+      if (document.visibilityState === "hidden" && !signal?.aborted) return;
       clearTimeout(timer);
       window.removeEventListener("online", done);
       document.removeEventListener("visibilitychange", onVisibility);
+      signal?.removeEventListener("abort", done);
       resolve();
     };
     const onVisibility = () => {
@@ -22,6 +28,7 @@ export function waitOrWake(ms: number): Promise<void> {
 
     window.addEventListener("online", done);
     document.addEventListener("visibilitychange", onVisibility);
+    signal?.addEventListener("abort", done, { once: true });
   });
 }
 // Errors the server reports in connect_error; anything else (network failure, CORS) is a connection problem.
