@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, LogIn, Unlink, X } from "lucide-react";
+import { LogIn, Unlink, X } from "lucide-react";
 
 import {
   AccountError,
@@ -25,7 +25,7 @@ const PROVIDER_NAMES: Record<string, string> = {
 };
 
 const PROVIDER_BUTTON_CLASS =
-  "h-14 min-w-0 w-full flex-col gap-1! bg-neutral-800 px-0 hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-indigo-400 [&>svg]:size-5";
+  "h-14 min-w-0 w-full flex-col gap-1! px-0 [&>svg]:size-5";
 
 export const providerName = (id: string) => PROVIDER_NAMES[id] ?? id;
 
@@ -186,12 +186,12 @@ export function AccountProviders({
             return (
               <Button
                 key={provider}
-                variant="icon"
+                variant="tile"
                 icon={providerIcon(provider)}
                 aria-label={label}
                 aria-pressed={linked}
                 title={label}
-                className={`${PROVIDER_BUTTON_CLASS} relative ${linked ? "bg-emerald-500/10! text-emerald-200 ring-1 ring-inset ring-emerald-400/60" : ""}`}
+                className={PROVIDER_BUTTON_CLASS}
                 disabled={loading || !connections || busy !== undefined}
                 onClick={() => {
                   if (linked) {
@@ -201,12 +201,6 @@ export function AccountProviders({
                   } else void connect(provider);
                 }}
               >
-                {linked && (
-                  <Check
-                    aria-hidden="true"
-                    className="absolute top-1 right-1 size-3!"
-                  />
-                )}
                 <span className="text-center text-xs leading-4 whitespace-nowrap">
                   {providerName(provider)}
                 </span>
@@ -246,7 +240,7 @@ export function AccountOptions({
       <div className="grid auto-cols-fr grid-flow-col gap-2">
         {onSignIn && (
           <Button
-            variant="icon"
+            variant="tile"
             icon={LogIn}
             onClick={onSignIn}
             aria-label={t("account.continueWith", {
@@ -263,7 +257,7 @@ export function AccountOptions({
         {providers.map((provider) => (
           <ButtonLink
             key={provider}
-            variant="icon"
+            variant="tile"
             href={authStartUrl(provider, returnPath)}
             icon={providerIcon(provider)}
             // The words are for those who cannot see the logo; the button shows the name.

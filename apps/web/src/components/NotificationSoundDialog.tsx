@@ -95,7 +95,7 @@ export function NotificationSoundSettings({
                       aria-label={t("notifications.soundFor", {
                         category: label,
                       })}
-                      className="flex h-9 min-w-0 flex-1 items-center justify-between gap-2 rounded border border-neutral-700 bg-neutral-900 px-2 text-left text-sm outline-none focus-visible:outline-2 focus-visible:outline-indigo-400 data-disabled:cursor-default"
+                      className="flex h-11 min-w-0 flex-1 items-center justify-between gap-2 rounded border border-neutral-700 bg-neutral-900 px-2 text-left text-sm outline-none focus-visible:outline-2 focus-visible:outline-indigo-400 data-disabled:cursor-default sm:h-9"
                     >
                       <span className="truncate">
                         {t(`notifications.sounds.${channel.sound}`)}
@@ -138,7 +138,7 @@ export function NotificationSoundSettings({
                           : { preview: true, kind },
                       )
                     }
-                    className="flex size-9 shrink-0 items-center justify-center rounded bg-neutral-800 hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-indigo-400"
+                    className="flex size-11 shrink-0 items-center justify-center rounded bg-neutral-800 hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-indigo-400 sm:size-9"
                   >
                     <Play aria-hidden="true" className="size-4" />
                   </button>

@@ -97,7 +97,8 @@ html:has([data-room-search] input:focus) {
 }
 
 @layer components {
-  .glass-surface {
+  .glass-surface,
+  .button-outline {
     position: relative;
   }
 }
@@ -229,6 +230,31 @@ html:has([data-room-search] input:focus) {
     box-shadow 120ms ease-out;
 }
 
+.button-outline::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--button-outline-color, var(--color-neutral-500));
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    inset 180ms ease-out,
+    opacity 180ms ease-out;
+}
+
+.button-outline:not(:disabled, [aria-disabled="true"]):focus-visible::after {
+  inset: -4px;
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .button-outline:not(:disabled, [aria-disabled="true"]):hover::after {
+    inset: -4px;
+    opacity: 1;
+  }
+}
+
 .glass-item:is(:hover, :focus-visible, [data-focus]):not(
     :where([data-disabled], :disabled, [aria-disabled="true"])
   ) {
@@ -242,18 +268,35 @@ html:has([data-room-search] input:focus) {
   box-shadow: inset 0 0 0 1px #ffffff0a;
 }
 
+.glass-surface .choice-tile[aria-pressed="true"],
+.glass-surface label:has(> input[type="radio"]:checked) > span {
+  --control-hover-color: var(--color-indigo-400);
+}
+
 .glass-surface
   :where(
-    button:not(.glass-item),
+    button:not(.glass-item, .button-outline),
     select,
     input:not([type="radio"], [type="checkbox"], [type="range"])
   ):enabled:is(:hover, :focus-visible),
 .glass-surface
+  a.choice-tile:not([aria-disabled="true"]):is(:hover, :focus-visible),
+.glass-surface
   label:has(> input[type="radio"]:enabled):is(:hover, :focus-within)
   > span {
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--glass-accent) 45%, transparent),
-    0 0 12px color-mix(in srgb, var(--glass-accent) 15%, transparent);
+    inset 0 0 0 1px
+      color-mix(
+        in srgb,
+        var(--control-hover-color, var(--color-neutral-500)) 45%,
+        transparent
+      ),
+    0 0 12px
+      color-mix(
+        in srgb,
+        var(--control-hover-color, var(--color-neutral-500)) 15%,
+        transparent
+      );
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -275,6 +318,10 @@ html:has([data-room-search] input:focus) {
 }
 
 @media (forced-colors: active) {
+  .button-outline::after {
+    border-color: ButtonText;
+  }
+
   .glass-surface::before,
   .glass-surface::after {
     content: none;
@@ -301,6 +348,8 @@ html:has([data-room-search] input:focus) {
       input:not([type="radio"], [type="checkbox"], [type="range"])
     ):enabled:is(:hover, :focus-visible),
   .glass-surface
+    a.choice-tile:not([aria-disabled="true"]):is(:hover, :focus-visible),
+  .glass-surface
     label:has(> input[type="radio"]:enabled):is(:hover, :focus-within)
     > span {
     box-shadow: none;
@@ -308,7 +357,8 @@ html:has([data-room-search] input:focus) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .glass-item {
+  .glass-item,
+  .button-outline::after {
     transition: none;
   }
 }

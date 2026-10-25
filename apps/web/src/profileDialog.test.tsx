@@ -670,6 +670,13 @@ describe("account provider controls", () => {
     });
     await waitFor(() => expect(google).toBeEnabled());
     expect(google).toHaveAttribute("aria-pressed", "true");
+    expect(google).toHaveClass(
+      "choice-tile",
+      "border-neutral-700",
+      "aria-pressed:border-indigo-400",
+      "aria-pressed:bg-indigo-500/10",
+    );
+    expect(google).not.toHaveClass("button-outline", "text-emerald-200");
     expect(
       screen.getByRole("button", { name: "Connect Discord" }),
     ).toHaveAttribute("aria-pressed", "false");

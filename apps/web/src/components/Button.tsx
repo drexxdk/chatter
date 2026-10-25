@@ -13,6 +13,7 @@ const button = cva("", {
       ghost: "rounded-md px-3 py-1.5 text-sm hover:bg-neutral-800",
       // Just an icon, as the close button of a panel.
       icon: "rounded-md p-1.5 hover:bg-neutral-800",
+      tile: "choice-tile rounded border border-neutral-700 text-sm aria-pressed:border-indigo-400 aria-pressed:bg-indigo-500/10 focus-visible:outline-2 focus-visible:outline-indigo-400",
       // In running text, to be taken for a link.
       link: "text-sm text-indigo-300 underline hover:text-indigo-200",
       // A small action next to a name or a row.
@@ -20,6 +21,20 @@ const button = cva("", {
         "rounded px-2 py-1 text-xs font-semibold text-neutral-200 underline hover:bg-neutral-800",
     },
   },
+  compoundVariants: [
+    {
+      variant: ["primary", "danger", "secondary", "ghost", "icon"],
+      className: "button-outline",
+    },
+    {
+      variant: "primary",
+      className: "[--button-outline-color:var(--color-indigo-400)]",
+    },
+    {
+      variant: "danger",
+      className: "[--button-outline-color:var(--color-red-400)]",
+    },
+  ],
   defaultVariants: { variant: "secondary" },
 });
 

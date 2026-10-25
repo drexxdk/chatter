@@ -21,7 +21,7 @@ export function SettingsCheckbox({
         onChange={onChange}
         aria-label={label}
         data-autofocus={autoFocus || undefined}
-        className="group flex min-h-11 w-full cursor-pointer items-start gap-3 rounded px-2 py-3 text-left text-sm outline-none data-hover:bg-white/5 data-disabled:cursor-default focus-visible:outline-2 focus-visible:outline-indigo-400"
+        className="group flex min-h-11 w-full cursor-pointer items-start gap-3 rounded px-2 py-3 text-left text-sm outline-none data-hover:bg-white/5 data-disabled:cursor-default focus-visible:outline-2 focus-visible:outline-indigo-400 sm:min-h-9 sm:py-2"
       >
         <span
           aria-hidden="true"

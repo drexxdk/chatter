@@ -20,6 +20,25 @@ type RoomsState =
   | { status: "error" }
   | { status: "ready"; rooms: Room[] };
 
+function pulseCard(card: HTMLElement) {
+  if (
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+    typeof card.animate !== "function"
+  ) {
+    return;
+  }
+
+  const style = getComputedStyle(card);
+  const color = style.getPropertyValue("--room-accent").trim() || style.color;
+  card.animate(
+    [
+      { boxShadow: `0 0 0 0 ${color}` },
+      { boxShadow: "0 0 0 12px transparent" },
+    ],
+    { duration: 300, easing: "ease-out" },
+  );
+}
+
 export function useRooms(
   lobbyOpen = false,
   connect: CreateLobbySocket = createLobbySocket,
@@ -210,7 +229,10 @@ export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
                 {/* Over the whole card, so that all of it is the way in. */}
                 <button
                   type="button"
-                  onClick={() => onSelect(room)}
+                  onClick={(event) => {
+                    pulseCard(event.currentTarget);
+                    onSelect(room);
+                  }}
                   aria-label={t("lobby.join", { name: room.name })}
                   className="absolute inset-0 cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-indigo-400"
                 />

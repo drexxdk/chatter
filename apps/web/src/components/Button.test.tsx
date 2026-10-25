@@ -19,12 +19,52 @@ describe("Button", () => {
       );
       expect(screen.getByRole("button", { name: "Action" })).toHaveClass(
         "text-sm",
+        "button-outline",
       );
       expect(screen.getByRole("link", { name: "Destination" })).toHaveClass(
         "text-sm",
+        "button-outline",
       );
     },
   );
+
+  it.each([
+    ["primary", "indigo-400"],
+    ["danger", "red-400"],
+  ] as const)("uses a matching outline for %s actions", (variant, color) => {
+    render(
+      <>
+        <Button variant={variant}>Action</Button>
+        <ButtonLink variant={variant} href="/">
+          Destination
+        </ButtonLink>
+      </>,
+    );
+    const outline = `[--button-outline-color:var(--color-${color})]`;
+    expect(screen.getByRole("button", { name: "Action" })).toHaveClass(outline);
+    expect(screen.getByRole("link", { name: "Destination" })).toHaveClass(
+      outline,
+    );
+  });
+
+  it("keeps text links and inline actions unframed", () => {
+    render(
+      <>
+        <Button variant="link">Link</Button>
+        <Button variant="inline">Inline</Button>
+        <Button variant="icon" aria-label="Close" />
+      </>,
+    );
+    expect(screen.getByRole("button", { name: "Link" })).not.toHaveClass(
+      "button-outline",
+    );
+    expect(screen.getByRole("button", { name: "Inline" })).not.toHaveClass(
+      "button-outline",
+    );
+    expect(screen.getByRole("button", { name: "Close" })).toHaveClass(
+      "button-outline",
+    );
+  });
 
   it("uses a muted red fill for destructive actions", () => {
     render(<Button variant="danger">Delete</Button>);
