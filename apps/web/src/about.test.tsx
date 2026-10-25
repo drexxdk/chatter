@@ -24,6 +24,9 @@ describe("the page about how the site is built", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "How Chatter is built" }),
     ).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 2 })[0]).toHaveTextContent(
+      "Built with",
+    );
     for (const heading of [
       "The parts",
       "The journey of a message",
@@ -48,16 +51,67 @@ describe("the page about how the site is built", () => {
     for (const library of [
       "TipTap",
       "DiceBear",
-      "Emoji Mart",
+      "Emoji Picker React",
       "GIPHY",
       "Lucide",
       "Headless UI",
       "Floating UI",
       "Motion",
+      "Dependabot",
+      "Fontsource",
+      "ioredis",
+      "React Router",
+      "Cloudflare Turnstile",
+      "Simple Icons",
+      "ESLint",
+      "Prettier",
+      "audit-ci",
+      "jsdom",
     ]) {
       expect(screen.getByText(library)).toBeInTheDocument();
     }
+    expect(screen.queryByText("Emoji Mart")).toBeNull();
+    expect(screen.getByText("Development")).toBeInTheDocument();
     expect(document.title).toBe("How Chatter is built \u2013 Chatter");
+  });
+
+  it("shows a consistently sized icon above every technology label", () => {
+    renderAt("/about");
+
+    const stack = screen
+      .getByRole("heading", { name: "Built with" })
+      .closest("section")!;
+    const technologies = within(stack).getAllByRole("listitem");
+    expect(technologies).toHaveLength(43);
+    for (const technology of technologies) {
+      expect(technology).toHaveClass("flex-col", "items-center");
+      expect(technology.querySelector("svg, img")).toHaveAttribute(
+        "aria-hidden",
+        "true",
+      );
+      expect(technology.querySelector("svg, img")).toHaveClass("size-8");
+    }
+    for (const [name, file] of [
+      ["Emoji Picker React", "emoji-picker-react.png"],
+      ["jsdom", "jsdom.svg"],
+      ["ioredis", "ioredis.svg"],
+      ["Fontsource", "fontsource.png"],
+      ["Floating UI", "floating-ui.png"],
+      ["Motion", "motion.png"],
+      ["Sonner", "sonner.png"],
+      ["TipTap", "tiptap.png"],
+      ["Oracle Cloud", "oracle-cloud.png"],
+      ["UptimeRobot", "uptimerobot.png"],
+      ["Playwright", "playwright.png"],
+    ]) {
+      const icon = within(stack)
+        .getByText(name)
+        .closest("li")!
+        .querySelector("img");
+      expect(icon).toHaveAttribute("src", `/images/build-with/${file}`);
+      expect(icon).toHaveAttribute("alt", "");
+      expect(icon).toHaveClass("object-contain");
+    }
   });
 
   it("links to the code, which opens in a tab of its own, and has the other pages at its foot", () => {

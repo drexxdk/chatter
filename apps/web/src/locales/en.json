@@ -350,6 +350,7 @@
       "server": "The chat server",
       "admin": "The admin",
       "hosting": "Hosting and operations",
+      "development": "Development",
       "tests": "Tests"
     },
     "limitsTitle": "What to expect",

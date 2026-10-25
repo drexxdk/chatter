@@ -350,6 +350,7 @@
       "server": "Chatserveren",
       "admin": "Administrationen",
       "hosting": "Drift og hosting",
+      "development": "Udvikling",
       "tests": "Tests"
     },
     "limitsTitle": "Hvad du kan forvente",

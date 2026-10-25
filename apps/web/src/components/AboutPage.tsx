@@ -1,4 +1,36 @@
 import {
+  SiCaddy,
+  SiCloudflare,
+  SiCloudflarepages,
+  SiDependabot,
+  SiDicebear,
+  SiDocker,
+  SiEslint,
+  SiExpress,
+  SiGiphy,
+  SiGithubactions,
+  SiHeadlessui,
+  SiI18next,
+  SiLucide,
+  SiNextdotjs,
+  SiNodedotjs,
+  SiPayloadcms,
+  SiPostgresql,
+  SiPrettier,
+  SiReact,
+  SiReactrouter,
+  SiRedis,
+  SiSimpleicons,
+  SiSocketdotio,
+  SiTailwindcss,
+  SiTanstack,
+  SiTestinglibrary,
+  SiTypescript,
+  SiVite,
+  SiVitest,
+  SiZod,
+} from "@icons-pack/react-simple-icons";
+import {
   Activity,
   Database,
   Globe,
@@ -6,10 +38,11 @@ import {
   LayoutDashboard,
   MessagesSquare,
   Server,
+  ShieldCheck,
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CONTACT_EMAIL, SOURCE_URL } from "../config";
@@ -50,45 +83,90 @@ const SAFETY = [
 const LIMITS = ["hobby", "public", "law"];
 
 // The names of the things it is built with are the products' own, the same in every language.
-const STACK: { id: string; items: string[] }[] = [
+const STACK: {
+  id: string;
+  items: {
+    name: string;
+    icon: ComponentType<SVGProps<SVGSVGElement> & { title?: string }> | string;
+    color?: string;
+  }[];
+}[] = [
   {
     id: "web",
     items: [
-      "React",
-      "TypeScript",
-      "Vite",
-      "Tailwind CSS",
-      "Headless UI",
-      "Floating UI",
-      "TanStack Virtual",
-      "Motion",
-      "Lucide",
-      "Sonner",
-      "i18next",
-      "TipTap",
-      "DiceBear",
-      "Emoji Mart",
-      "GIPHY",
+      { name: "React", icon: SiReact, color: "#61DAFB" },
+      { name: "React Router", icon: SiReactrouter, color: "#F87171" },
+      { name: "TypeScript", icon: SiTypescript, color: "#60A5FA" },
+      { name: "Vite", icon: SiVite, color: "#A78BFA" },
+      { name: "Tailwind CSS", icon: SiTailwindcss, color: "#38BDF8" },
+      { name: "Fontsource", icon: "/images/build-with/fontsource.png" },
+      { name: "Headless UI", icon: SiHeadlessui, color: "#66E3FF" },
+      { name: "Floating UI", icon: "/images/build-with/floating-ui.png" },
+      { name: "TanStack Virtual", icon: SiTanstack, color: "#FBBF24" },
+      { name: "Motion", icon: "/images/build-with/motion.png" },
+      { name: "Lucide", icon: SiLucide, color: "#F56565" },
+      { name: "Simple Icons", icon: SiSimpleicons, color: "currentColor" },
+      { name: "Sonner", icon: "/images/build-with/sonner.png" },
+      { name: "i18next", icon: SiI18next, color: "#26A69A" },
+      { name: "TipTap", icon: "/images/build-with/tiptap.png" },
+      { name: "DiceBear", icon: SiDicebear, color: "#93C5FD" },
+      {
+        name: "Emoji Picker React",
+        icon: "/images/build-with/emoji-picker-react.png",
+      },
+      { name: "GIPHY", icon: SiGiphy, color: "#00FF99" },
+      { name: "Cloudflare Turnstile", icon: SiCloudflare, color: "#F38020" },
     ],
   },
   {
     id: "server",
-    items: ["Node.js", "Express", "Socket.IO", "Redis", "zod"],
+    items: [
+      { name: "Node.js", icon: SiNodedotjs, color: "#5FA04E" },
+      { name: "Express", icon: SiExpress, color: "currentColor" },
+      { name: "Socket.IO", icon: SiSocketdotio, color: "currentColor" },
+      { name: "Redis", icon: SiRedis, color: "#FF4438" },
+      { name: "ioredis", icon: "/images/build-with/ioredis.svg" },
+      { name: "zod", icon: SiZod, color: "#60A5FA" },
+    ],
   },
-  { id: "admin", items: ["Payload CMS", "Next.js", "PostgreSQL"] },
+  {
+    id: "admin",
+    items: [
+      { name: "Payload CMS", icon: SiPayloadcms, color: "currentColor" },
+      { name: "Next.js", icon: SiNextdotjs, color: "currentColor" },
+      { name: "PostgreSQL", icon: SiPostgresql, color: "#7AAED1" },
+    ],
+  },
   {
     id: "hosting",
     items: [
-      "Docker Compose",
-      "Caddy",
-      "Oracle Cloud",
-      "Cloudflare Pages",
-      "Cloudflare R2",
-      "GitHub Actions",
-      "UptimeRobot",
+      { name: "Docker Compose", icon: SiDocker, color: "#2496ED" },
+      { name: "Caddy", icon: SiCaddy, color: "#4BC18A" },
+      { name: "Oracle Cloud", icon: "/images/build-with/oracle-cloud.png" },
+      { name: "Cloudflare Pages", icon: SiCloudflarepages, color: "#F38020" },
+      { name: "Cloudflare R2", icon: SiCloudflare, color: "#F38020" },
+      { name: "GitHub Actions", icon: SiGithubactions, color: "#60A5FA" },
+      { name: "Dependabot", icon: SiDependabot, color: "#60A5FA" },
+      { name: "UptimeRobot", icon: "/images/build-with/uptimerobot.png" },
     ],
   },
-  { id: "tests", items: ["Vitest", "Testing Library", "Playwright"] },
+  {
+    id: "development",
+    items: [
+      { name: "ESLint", icon: SiEslint, color: "#A78BFA" },
+      { name: "Prettier", icon: SiPrettier, color: "#F7B93E" },
+      { name: "audit-ci", icon: ShieldCheck, color: "#4ADE80" },
+    ],
+  },
+  {
+    id: "tests",
+    items: [
+      { name: "Vitest", icon: SiVitest, color: "#A3C96A" },
+      { name: "Testing Library", icon: SiTestinglibrary, color: "#F87171" },
+      { name: "jsdom", icon: "/images/build-with/jsdom.svg" },
+      { name: "Playwright", icon: "/images/build-with/playwright.png" },
+    ],
+  },
 ];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -114,6 +192,50 @@ export function AboutPage() {
           <h1 className="text-2xl font-bold">{t("about.title")}</h1>
           <p className="text-neutral-300">{t("about.lead")}</p>
         </div>
+
+        <Section title={t("about.stackTitle")}>
+          <dl className="space-y-3">
+            {STACK.map(({ id, items }) => (
+              <div key={id} className="space-y-1">
+                <dt className="text-sm text-neutral-400">
+                  {t(`about.stack.${id}`)}
+                </dt>
+                <dd>
+                  <ul className="grid grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-2">
+                    {items.map(({ name, icon: Icon, color }) => (
+                      <li
+                        key={name}
+                        className="flex min-w-0 flex-col items-center gap-2 rounded-lg border border-neutral-700 px-2 py-3 text-center text-sm"
+                      >
+                        {typeof Icon === "string" ? (
+                          <img
+                            src={Icon}
+                            alt=""
+                            aria-hidden="true"
+                            width={32}
+                            height={32}
+                            className="size-8 shrink-0 object-contain"
+                          />
+                        ) : (
+                          <Icon
+                            aria-hidden="true"
+                            focusable="false"
+                            title=""
+                            className="size-8 shrink-0"
+                            color={color}
+                          />
+                        )}
+                        <span className="flex min-h-10 items-center justify-center leading-5 wrap-anywhere">
+                          {name}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </Section>
 
         <Section title={t("about.partsTitle")}>
           <p className="text-sm text-neutral-400">{t("about.partsIntro")}</p>
@@ -194,30 +316,6 @@ export function AboutPage() {
           <ButtonLink href={SOURCE_URL} target="_blank" rel="noopener">
             {t("about.source")}
           </ButtonLink>
-        </Section>
-
-        <Section title={t("about.stackTitle")}>
-          <dl className="space-y-3">
-            {STACK.map(({ id, items }) => (
-              <div key={id} className="space-y-1">
-                <dt className="text-sm text-neutral-400">
-                  {t(`about.stack.${id}`)}
-                </dt>
-                <dd>
-                  <ul className="flex flex-wrap gap-2">
-                    {items.map((item) => (
-                      <li
-                        key={item}
-                        className="rounded-full border border-neutral-700 px-3 py-1 text-sm"
-                      >
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </dd>
-              </div>
-            ))}
-          </dl>
         </Section>
 
         <Section title={t("about.limitsTitle")}>
