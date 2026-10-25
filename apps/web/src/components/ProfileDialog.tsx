@@ -1,4 +1,4 @@
-import { Pencil, Save, UserPlus, X } from "lucide-react";
+import { Pencil, RotateCw, Save, UserPlus, X } from "lucide-react";
 import { useEffect, useState, type ReactNode, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -90,10 +90,41 @@ function ProfileBody({
   staffToken?: string;
   onPasswordChanged?: () => void;
 }) {
+  const { t } = useTranslation();
   const ui = useReloadUiContext();
   const [localEditing, setLocalEditing] = useState(false);
   const [accountAction, setAccountAction] = useState(false);
   const [providerAction, setProviderAction] = useState(false);
+  const [staffAttempt, setStaffAttempt] = useState(0);
+  const [staffResult, setStaffResult] = useState<{
+    token: string;
+    session?: Awaited<ReturnType<typeof fetchStaffSession>>;
+    error?: string;
+  }>();
+  const staff = staffResult?.token === staffToken ? staffResult : undefined;
+  useEffect(() => {
+    if (!staffToken) return;
+    let cancelled = false;
+    void fetchStaffSession(staffToken)
+      .then((session) => {
+        if (!cancelled)
+          setStaffResult({
+            token: staffToken,
+            session,
+            ...(!session.email ? { error: "unavailable" } : {}),
+          });
+      })
+      .catch((cause) => {
+        if (!cancelled)
+          setStaffResult({
+            token: staffToken,
+            error: cause instanceof Error ? cause.message : "connection",
+          });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [staffToken, staffAttempt]);
   const editing = ui ? ui.dialog === "profile-edit" : localEditing;
   const setEditing = (value: boolean) => {
     if (ui) ui.setDialog(value ? "profile-edit" : "profile");
@@ -117,7 +148,7 @@ function ProfileBody({
         <ProfileSummary
           profile={profile}
           account={account}
-          staffToken={staffToken}
+          staffProvider={staff?.session?.provider}
           onEdit={() => setEditing(true)}
           onCreateAccount={onCreateAccount}
         />
@@ -136,6 +167,7 @@ function ProfileBody({
         <AccountSection
           account={account ?? undefined}
           staffToken={profile.role === "moderator" ? staffToken : undefined}
+          staffUsername={staff?.session?.email}
           canDelete={profile.role === "member" && Boolean(account)}
           onEdit={() => setEditing(true)}
           onDelete={onDelete}
@@ -143,6 +175,17 @@ function ProfileBody({
           onActionChange={setAccountAction}
           onPasswordChanged={onPasswordChanged}
         />
+      )}
+      {staff?.error && (
+        <div className="space-y-2">
+          <ErrorAlert code={staff.error} />
+          <Button
+            icon={RotateCw}
+            onClick={() => setStaffAttempt((value) => value + 1)}
+          >
+            {t("notifications.retry")}
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -160,32 +203,19 @@ function Detail({ label, children }: { label: string; children: ReactNode }) {
 function ProfileSummary({
   profile,
   account,
-  staffToken,
+  staffProvider,
   onEdit,
   onCreateAccount,
 }: {
   profile: ProfileSubject;
   account: Account | null;
-  staffToken?: string;
+  staffProvider?: string;
   onEdit: () => void;
   onCreateAccount?: () => void;
 }) {
   const { t } = useTranslation();
   const moderator = profile.role === "moderator";
   const username = profile.role === "member" ? account?.username : undefined;
-  const [staffProvider, setStaffProvider] = useState("password");
-  useEffect(() => {
-    if (!staffToken) return;
-    let cancelled = false;
-    void fetchStaffSession(staffToken)
-      .then((staff) => {
-        if (!cancelled) setStaffProvider(staff.provider ?? "password");
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [staffToken]);
 
   return (
     <div className="space-y-4">
@@ -228,7 +258,9 @@ function ProfileSummary({
         {(moderator || account) && (
           <Detail label={t("profile.signedInWith")}>
             <ProviderLabel
-              provider={moderator ? staffProvider : account!.provider}
+              provider={
+                moderator ? (staffProvider ?? "password") : account!.provider
+              }
             />
           </Detail>
         )}

@@ -202,6 +202,7 @@ export function createAccountsRouter(options: {
       if (staff)
         res.set("Cache-Control", "no-store").json({
           name: staff.displayName,
+          email: staff.email,
           admin: staff.role === "super-admin",
           provider:
             verifyToken((req.get("authorization") ?? "").slice(7), { secret })

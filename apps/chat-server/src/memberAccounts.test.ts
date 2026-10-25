@@ -428,6 +428,22 @@ describe("staff password changes", () => {
     });
   });
 
+  it.each([undefined, ""])(
+    "rejects a missing or empty current password (%j)",
+    async (currentPassword) => {
+      const response = await post(
+        "/me/password",
+        { ...body, currentPassword },
+        headers,
+      );
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual({
+        error: "invalid_current_password",
+      });
+      expect(changeStaffPassword).not.toHaveBeenCalled();
+    },
+  );
+
   it.each([
     { password: "weak", confirmation: "weak" },
     { confirmation: "different" },
@@ -469,6 +485,7 @@ describe("staff provider linking", () => {
       id: 7,
       role: "super-admin",
       displayName: "Frederik Nielsen",
+      email: "frederik@chatter.test",
     });
   });
 
@@ -480,6 +497,7 @@ describe("staff provider linking", () => {
     });
     expect(await staffSession.json()).toMatchObject({
       name: "Frederik Nielsen",
+      email: "frederik@chatter.test",
       admin: true,
       provider: "dev",
     });

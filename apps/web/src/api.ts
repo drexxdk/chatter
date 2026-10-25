@@ -437,18 +437,29 @@ export async function fetchAccount(token: string): Promise<AccountSession> {
   );
 }
 
-export async function fetchStaffSession(
-  token: string,
-): Promise<{ name: string; admin: boolean; provider?: string }> {
+export async function fetchStaffSession(token: string): Promise<{
+  name: string;
+  admin: boolean;
+  provider?: string;
+  email?: string;
+}> {
   const body = (await accountRequest("/me/staff", {
     headers: bearer(token),
-  })) as { name?: unknown; admin?: unknown; provider?: unknown };
+  })) as {
+    name?: unknown;
+    admin?: unknown;
+    provider?: unknown;
+    email?: unknown;
+  };
   if (typeof body?.name !== "string" || typeof body.admin !== "boolean")
     throw new AccountError("connection");
   return {
     name: body.name,
     admin: body.admin,
     ...(typeof body.provider === "string" ? { provider: body.provider } : {}),
+    ...(typeof body.email === "string" && body.email
+      ? { email: body.email }
+      : {}),
   };
 }
 

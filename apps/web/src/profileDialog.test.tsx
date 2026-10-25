@@ -49,6 +49,42 @@ describe("account password changes", () => {
     const user = userEvent.setup();
     render(<AccountSection account={account} onDelete={async () => {}} />);
     await user.click(screen.getByRole("button", { name: "Change password" }));
+    const username = screen.getByLabelText("Username or email");
+    expect(username.parentElement?.parentElement).toHaveClass("sr-only");
+    expect(username).toHaveAttribute("tabindex", "-1");
+    expect(username).toHaveValue("alice");
+    expect(username).toHaveAttribute("readonly");
+    expect(username).toHaveAttribute("name", "username");
+    expect(username).toHaveAttribute("autocomplete", "username");
+    expect(screen.getByLabelText("Current password")).toHaveAttribute(
+      "name",
+      "current-password",
+    );
+    expect(screen.getByLabelText("Current password")).toHaveAttribute(
+      "autocomplete",
+      "off",
+    );
+    expect(screen.getByLabelText("Current password")).toHaveAttribute(
+      "data-lpignore",
+      "true",
+    );
+    expect(screen.getByLabelText("Current password")).toHaveAttribute(
+      "data-1p-ignore",
+      "true",
+    );
+    expect(screen.getByLabelText("Current password")).toHaveValue("");
+    expect(screen.getByLabelText("New password")).toHaveAttribute(
+      "name",
+      "new-password",
+    );
+    expect(screen.getByLabelText("New password")).toHaveAttribute(
+      "autocomplete",
+      "new-password",
+    );
+    expect(screen.getByLabelText("Confirm password")).toHaveAttribute(
+      "name",
+      "confirm-password",
+    );
     await user.type(
       screen.getByLabelText("Current password"),
       "OldPassword123",
@@ -171,6 +207,46 @@ describe("account password changes", () => {
     ).toBeVisible();
     expect(screen.queryByRole("button", { name: "Set password" })).toBeNull();
   });
+
+  it.each([false, true])(
+    "uses the placeholder suggestion or a typed username when claiming (edited: %s)",
+    async (edited) => {
+      const claim = vi.fn(async () => {});
+      const user = userEvent.setup();
+      render(
+        <CreateAccountDialog
+          nickname="Alice Example"
+          returnPath="/"
+          onClaim={claim}
+          onClose={() => {}}
+        />,
+      );
+      const username = screen.getByLabelText("Username");
+      expect(username).toHaveValue("");
+      expect(username).toHaveAttribute("placeholder", "AliceExample");
+      expect(username).toHaveAttribute("name", "username");
+      expect(username).toHaveAttribute("autocomplete", "username");
+      if (edited) {
+        await user.clear(username);
+        await user.type(username, "alice_custom");
+      }
+      await user.type(screen.getByLabelText("Password"), password);
+      await user.type(screen.getByLabelText("Confirm password"), password);
+      const form = username.closest("form")!;
+      expect(new FormData(form).get("username")).toBe(
+        edited ? "alice_custom" : "",
+      );
+      expect(new FormData(form).get("password")).toBe(password);
+      await user.click(screen.getByRole("button", { name: "Claim account" }));
+      await waitFor(() =>
+        expect(claim).toHaveBeenCalledWith({
+          username: edited ? "alice_custom" : "AliceExample",
+          password,
+          confirmation: password,
+        }),
+      );
+    },
+  );
 
   it("shows weak creation passwords in red and refuses them before submitting", async () => {
     const claim = vi.fn();
@@ -765,13 +841,63 @@ describe("account provider controls", () => {
 });
 
 describe("a moderator's profile", () => {
+  it("waits for the staff login identity and retries a failed lookup", async () => {
+    let staffReads = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (new URL(url).pathname === "/me/staff") {
+          staffReads += 1;
+          return staffReads === 1
+            ? Response.json({ error: "unavailable" }, { status: 503 })
+            : Response.json({
+                name: "Ada Mod",
+                admin: false,
+                email: "ada@chatter.test",
+              });
+        }
+        return Response.json({ providers: ["google"], canDisconnect: true });
+      }),
+    );
+    const user = userEvent.setup();
+    render(
+      <ProfileDialog
+        open
+        onClose={() => {}}
+        onSave={async () => ({ ok: true })}
+        account={null}
+        onDelete={async () => {}}
+        staffToken="staff-token"
+        profile={{ nickname: "Ada Mod", role: "moderator", avatar: "other" }}
+      />,
+    );
+    const changePassword = screen.getByRole("button", {
+      name: "Change password",
+    });
+    expect(changePassword).toBeDisabled();
+    await screen.findByRole("alert");
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(changePassword).toBeEnabled());
+    expect(staffReads).toBe(2);
+    expect(screen.queryByRole("alert")).toBeNull();
+    await user.click(changePassword);
+    expect(screen.getByLabelText("Username or email")).toHaveValue(
+      "ada@chatter.test",
+    );
+  });
+
   it("shows the actual provider for staff signed in through Google", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) =>
         Response.json(
           new URL(url).pathname === "/me/staff"
-            ? { name: "Ada Mod", admin: false, provider: "google" }
+            ? {
+                name: "Ada Mod",
+                admin: false,
+                provider: "google",
+                email: "ada@chatter.test",
+              }
             : { providers: ["google"], canDisconnect: true },
         ),
       ),
@@ -806,7 +932,9 @@ describe("a moderator's profile", () => {
         Response.json(
           new URL(url).pathname === "/me/password"
             ? { ok: true }
-            : { providers: ["google"], canDisconnect: true },
+            : new URL(url).pathname === "/me/staff"
+              ? { name: "Ada Mod", admin, email: "ada@chatter.test" }
+              : { providers: ["google"], canDisconnect: true },
         ),
       );
       vi.stubGlobal("fetch", request);
@@ -840,6 +968,10 @@ describe("a moderator's profile", () => {
         expect.objectContaining({ nickname: "Ada Updated", avatar: "female" }),
       );
       await user.click(screen.getByRole("button", { name: "Change password" }));
+      const username = screen.getByLabelText("Username or email");
+      expect(username).toHaveValue("ada@chatter.test");
+      expect(username).toHaveAttribute("readonly");
+      expect(username).toHaveAttribute("autocomplete", "username");
       expect(screen.queryByRole("button", { name: "Edit profile" })).toBeNull();
       expect(
         screen.queryByRole("region", { name: "Connected accounts" }),

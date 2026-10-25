@@ -16,6 +16,7 @@ import { Modal } from "./Modal";
 export function AccountSection({
   account,
   staffToken,
+  staffUsername,
   canDelete = true,
   onEdit,
   onDelete,
@@ -25,6 +26,7 @@ export function AccountSection({
 }: {
   account?: Account;
   staffToken?: string;
+  staffUsername?: string;
   canDelete?: boolean;
   onEdit?: () => void;
   // Fails with a code to show (see `errors.*`).
@@ -43,6 +45,7 @@ export function AccountSection({
   const [passwordAdded, setPasswordAdded] = useState(false);
   const line = separated ? "border-t border-neutral-800 pt-4" : "";
   const passwordToken = staffToken ?? account?.token;
+  const passwordUsername = staffToken ? staffUsername : account?.username;
   const hasPassword = Boolean(
     staffToken ||
     passwordAdded ||
@@ -66,7 +69,7 @@ export function AccountSection({
       {passwordToken && changingPassword && (
         <PasswordChangeForm
           token={passwordToken}
-          username={account?.username ?? account?.nickname}
+          username={passwordUsername}
           hasPassword={hasPassword}
           onCancel={() => {
             setChangingPassword(false);
@@ -129,6 +132,7 @@ export function AccountSection({
           {passwordToken && (
             <Button
               icon={KeyRound}
+              disabled={!passwordUsername}
               onClick={() => {
                 setPasswordResult(undefined);
                 setChangingPassword(true);
@@ -207,6 +211,8 @@ function PasswordChangeForm({
 
   return (
     <form
+      id="change-password-form"
+      method="post"
       aria-label={t(hasPassword ? "account.changePassword" : "account.claim")}
       onSubmit={submit}
       className="space-y-3"
@@ -214,18 +220,27 @@ function PasswordChangeForm({
       <h3 className="text-sm font-semibold">
         {t(hasPassword ? "account.changePassword" : "account.claim")}
       </h3>
-      <input
-        type="hidden"
-        name="username"
-        autoComplete="username"
-        value={username ?? ""}
-      />
+      <div className="sr-only">
+        <Field
+          id="change-username"
+          label={t("account.identifier")}
+          type="text"
+          name="username"
+          autoComplete="username"
+          value={username ?? ""}
+          readOnly
+          tabIndex={-1}
+        />
+      </div>
       {hasPassword && (
         <Field
           id="change-current-password"
+          name="current-password"
           label={t("account.currentPassword")}
           type="password"
-          autoComplete="current-password"
+          autoComplete="off"
+          data-lpignore="true"
+          data-1p-ignore="true"
           required
           maxLength={128}
           value={currentPassword}
@@ -235,6 +250,7 @@ function PasswordChangeForm({
       )}
       <Field
         id="change-new-password"
+        name="new-password"
         label={t("account.newPassword")}
         hint={t("account.passwordHint")}
         type="password"
@@ -249,6 +265,7 @@ function PasswordChangeForm({
       <PasswordStrength password={password} />
       <Field
         id="change-confirmation"
+        name="confirm-password"
         label={t("account.confirmPassword")}
         type="password"
         autoComplete="new-password"
@@ -378,7 +395,8 @@ function ClaimForm({
   onClaim: (input: PasswordClaim) => Promise<void>;
 }) {
   const { t } = useTranslation();
-  const [username, setUsername] = useState(() => nickname.replace(/\s+/g, ""));
+  const suggestedUsername = nickname.replace(/\s+/g, "");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [saving, setSaving] = useState(false);
@@ -387,7 +405,7 @@ function ClaimForm({
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     if (saving) return;
-    const name = normalizeUsername(username);
+    const name = normalizeUsername(username || suggestedUsername);
     if (!name) return setError("invalid_username");
     if (!Object.values(passwordChecks(password)).every(Boolean))
       return setError("invalid_password");
@@ -406,19 +424,27 @@ function ClaimForm({
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <form
+      id="claim-account-form"
+      method="post"
+      onSubmit={submit}
+      className="space-y-3"
+    >
       <Field
         id="claim-username"
+        name="username"
         label={t("account.register.username")}
         autoComplete="username"
         required
         maxLength={24}
-        placeholder={username}
+        placeholder={suggestedUsername}
+        value={username}
         onChange={(event) => setUsername(event.target.value)}
         disabled={saving}
       />
       <Field
         id="claim-password"
+        name="password"
         data-autofocus
         label={t("nickname.password")}
         hint={t("account.passwordHint")}
@@ -434,6 +460,7 @@ function ClaimForm({
       <PasswordStrength password={password} />
       <Field
         id="claim-confirmation"
+        name="confirm-password"
         label={t("account.confirmPassword")}
         type="password"
         autoComplete="new-password"
