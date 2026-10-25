@@ -1,5 +1,6 @@
 import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
-import { createContext, useContext, type ReactNode } from "react";
+import { Check, Copy } from "lucide-react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { createIdentityDirectory, type PublicPerson } from "../identity";
@@ -36,6 +37,18 @@ export function IdentityDetails({
 }) {
   const { t } = useTranslation();
   const names = useIdentityNames();
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
+    "idle",
+  );
+  const tag = names.shortTag(person.guestId);
+  const copyTag = async () => {
+    try {
+      await navigator.clipboard.writeText(tag);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
+  };
   const profile = { ...person, ...names.person(person.guestId) };
   const role =
     person.role ?? (person.guestId.startsWith("m-") ? "member" : "guest");
@@ -59,11 +72,39 @@ export function IdentityDetails({
         <span className="wrap-anywhere text-neutral-400">
           {t("identity.publicTag")}
         </span>
-        <span
-          aria-label={t("identity.publicTag")}
-          className="select-text text-right wrap-anywhere font-mono text-neutral-300"
-        >
-          #{names.shortTag(person.guestId)}
+        <span className="flex min-w-0 items-center justify-end gap-2">
+          <span
+            aria-label={t("identity.publicTag")}
+            className="min-w-0 select-text text-right wrap-anywhere font-mono text-neutral-300"
+          >
+            {tag}
+          </span>
+          <button
+            type="button"
+            aria-label={t("identity.copyTag")}
+            title={t(
+              copyStatus === "copied"
+                ? "identity.copied"
+                : copyStatus === "error"
+                  ? "identity.copyFailed"
+                  : "identity.copyTag",
+            )}
+            onClick={copyTag}
+            className="grid size-6 shrink-0 place-items-center rounded text-neutral-400 outline-none hover:bg-neutral-800 hover:text-neutral-100 focus-visible:outline-2 focus-visible:outline-indigo-400"
+          >
+            {copyStatus === "copied" ? (
+              <Check className="size-3.5" aria-hidden="true" />
+            ) : (
+              <Copy className="size-3.5" aria-hidden="true" />
+            )}
+          </button>
+          <span role="status" className="sr-only">
+            {copyStatus === "copied"
+              ? t("identity.copied")
+              : copyStatus === "error"
+                ? t("identity.copyFailed")
+                : ""}
+          </span>
         </span>
         <span className="wrap-anywhere text-neutral-400">
           {t("avatar.legend")}

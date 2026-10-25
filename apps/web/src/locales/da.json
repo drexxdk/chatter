@@ -556,6 +556,9 @@
   "humanCheck": { "label": "Bekræftelse af menneske", "retry": "Prøv igen" },
   "identity": {
     "publicTag": "Offentligt id",
+    "copyTag": "Kopiér offentligt id",
+    "copied": "Kopieret",
+    "copyFailed": "Kunne ikke kopiere. Markér id'et for at kopiere det manuelt.",
     "member": "Medlem",
     "guest": "Gæst"
   },

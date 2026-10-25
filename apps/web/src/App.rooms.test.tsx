@@ -1261,7 +1261,10 @@ describe("inside a room", () => {
 
     expect(toggle).toHaveAccessibleName("Hide sidebar");
     expect(sidebar).toHaveClass("md:block");
-    expect(room).toHaveClass("md:grid-cols-[14rem_1fr]");
+    expect(room).toHaveClass(
+      "[--room-sidebar-width:16rem]",
+      "md:grid-cols-[var(--room-sidebar-width)_1fr]",
+    );
     expect(room).toHaveAttribute("data-sidebar-open", "true");
     expect(chatColumn).toHaveClass("md:max-w-4xl");
     expect(localStorage.getItem("chatter.sidebarOpen")).toBe("true");

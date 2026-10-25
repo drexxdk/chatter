@@ -559,6 +559,9 @@
   },
   "identity": {
     "publicTag": "Öffentliche Kennung",
+    "copyTag": "Öffentliche Kennung kopieren",
+    "copied": "Kopiert",
+    "copyFailed": "Kopieren fehlgeschlagen. Markiere die Kennung, um sie manuell zu kopieren.",
     "member": "Mitglied",
     "guest": "Gast"
   },

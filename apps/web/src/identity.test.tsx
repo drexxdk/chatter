@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createIdentityDirectory, publicIdentityTag } from "./identity";
@@ -60,10 +60,10 @@ describe("public chat identities", () => {
     );
     const profile = await screen.findByRole("dialog");
     expect(
-      within(profile).getByText(`#${names.shortTag(second.guestId)}`),
+      within(profile).getByText(names.shortTag(second.guestId)),
     ).toBeVisible();
     expect(
-      within(profile).queryByText(`#${names.shortTag(first.guestId)}`),
+      within(profile).queryByText(names.shortTag(first.guestId)),
     ).toBeNull();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -88,13 +88,55 @@ describe("public chat identities", () => {
     const profile = await screen.findByRole("dialog");
     expect(within(profile).getByText("Simon")).toBeVisible();
     expect(within(profile).getByLabelText("Public tag")).toHaveTextContent(
-      `#${names.shortTag(person.guestId)}`,
+      names.shortTag(person.guestId),
     );
     expect(within(profile).getByLabelText("Gender")).toHaveTextContent(
       "Female",
     );
     expect(within(profile).getByLabelText("Age")).toHaveTextContent("32");
     expect(profile).not.toHaveTextContent(names.tag(person.guestId));
+  });
+
+  it("copies only the public tag without a hash prefix", async () => {
+    const user = userEvent.setup();
+    const names = createIdentityDirectory([first]);
+    render(
+      <IdentityProvider value={names}>
+        <IdentityProfile person={first} />
+      </IdentityProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: "Profile: Simon" }));
+    const profile = await screen.findByRole("dialog");
+    expect(within(profile).getByLabelText("Public tag").textContent).toBe(
+      names.shortTag(first.guestId),
+    );
+    await user.click(
+      within(profile).getByRole("button", { name: "Copy public tag" }),
+    );
+    expect(await navigator.clipboard.readText()).toBe(
+      names.shortTag(first.guestId),
+    );
+    expect(within(profile).getByRole("status")).toHaveTextContent("Copied");
+  });
+
+  it("reports a clipboard failure and keeps the public tag selectable", async () => {
+    const user = userEvent.setup();
+    const writeText = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockRejectedValueOnce(new Error("Clipboard denied"));
+    render(<IdentityProfile person={first} />);
+    await user.click(screen.getByRole("button", { name: "Profile: Simon" }));
+    const profile = await screen.findByRole("dialog");
+    await user.click(
+      within(profile).getByRole("button", { name: "Copy public tag" }),
+    );
+    expect(within(profile).getByRole("status")).toHaveTextContent(
+      "Could not copy",
+    );
+    expect(within(profile).getByLabelText("Public tag")).toHaveClass(
+      "select-text",
+    );
+    writeText.mockRestore();
   });
 
   it("does not invent missing age or gender details or expose a username", async () => {

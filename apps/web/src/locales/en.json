@@ -559,6 +559,9 @@
   },
   "identity": {
     "publicTag": "Public tag",
+    "copyTag": "Copy public tag",
+    "copied": "Copied",
+    "copyFailed": "Could not copy. Select the tag to copy it manually.",
     "member": "Member",
     "guest": "Guest"
   },

@@ -119,7 +119,7 @@ describe("direct messages", () => {
       await user.click(
         sheet
           .getByRole("list", { name: "Direct messages" })
-          .querySelector("button")!,
+          .querySelector("button[aria-pressed]")!,
       );
 
       expect(pane("Bob")).toBeInTheDocument();
@@ -146,7 +146,7 @@ describe("direct messages", () => {
       await enter([]);
 
       expect(people().getByText("Alice")).toBeInTheDocument();
-      expect(people().getByText("(you)")).toHaveClass("sr-only");
+      expect(people().getByText("(you)")).not.toHaveClass("sr-only");
       expect(
         people().getByText("Alice").closest("li")?.firstElementChild,
       ).toHaveClass("bg-neutral-800/40");
@@ -263,8 +263,7 @@ describe("direct messages", () => {
 
       const conversations = () =>
         threads()
-          .getAllByRole("button")
-          .filter((button) => !button.hasAttribute("aria-haspopup"))
+          .getAllByRole("button", { pressed: false })
           .map((button) => button.textContent);
       const names = conversations();
       expect(names[0]).toMatch(/Carol/);
@@ -327,7 +326,7 @@ describe("direct messages", () => {
 
       const button = threads().getByRole("button", { name: /^Bob/ });
       expect(button).toHaveAccessibleName(/Bob.*2 unread messages/);
-      expect(button).toHaveClass("motion-safe:animate-pulse");
+      expect(button.parentElement).toHaveClass("motion-safe:animate-pulse");
 
       await user.click(button);
       await user.click(
@@ -336,7 +335,7 @@ describe("direct messages", () => {
 
       const read = threads().getByRole("button", { name: /^Bob/ });
       expect(read).not.toHaveAccessibleName(/unread/);
-      expect(read).not.toHaveClass("motion-safe:animate-pulse");
+      expect(read.parentElement).not.toHaveClass("motion-safe:animate-pulse");
     });
 
     it("is cleared, for all of what somebody wrote, by clicking one of their private messages", async () => {
