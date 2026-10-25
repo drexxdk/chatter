@@ -31,6 +31,15 @@ import {
 import { saveState, takeState } from "./oauthState.js";
 import {
   createUser,
+  createStaffProvider,
+  createMemberProvider,
+  deleteStaffProvider,
+  deleteMemberProvider,
+  fetchMemberProviderLinks,
+  fetchStaffAccount,
+  changeStaffPassword,
+  fetchStaffProviders,
+  findStaffProvider,
   deleteUser,
   fetchUser,
   fetchNotificationOwner,
@@ -51,6 +60,12 @@ export { MEMBER_TOKEN_TTL_MS, profileOf } from "./memberSession.js";
 // How long a person has to choose a nickname after the provider has vouched for them.
 const TICKET_TTL_MS = 15 * 60_000;
 const MAX_RETURN_PATH_LENGTH = 200;
+
+const passwordChangeSchema = z.object({
+  currentPassword: z.string().max(128).optional(),
+  password: passwordSchema,
+  confirmation: z.string().max(128),
+});
 
 const registerBodySchema = z.object({
   ticket: z.string().min(1).max(2000),
@@ -123,9 +138,14 @@ export function createAccountsRouter(options: {
     options.listRateLimit ?? { max: 60, windowMs: 60_000 },
   );
 
-  const tokenFor = (user: UserRecord) =>
+  const tokenFor = (user: UserRecord, authProvider?: string) =>
     signToken(
-      { sub: user.id, name: user.nickname, role: "member" },
+      {
+        sub: user.id,
+        name: user.nickname,
+        role: "member",
+        ...(authProvider ? { authProvider } : {}),
+      },
       { secret, ttlMs: MEMBER_TOKEN_TTL_MS },
     );
 
@@ -155,6 +175,179 @@ export function createAccountsRouter(options: {
       return undefined;
     }
   }
+
+  async function staffOf(req: express.Request, res: express.Response) {
+    const header = req.get("authorization") ?? "";
+    const claims = header.startsWith("Bearer ")
+      ? verifyToken(header.slice(7), { secret })
+      : undefined;
+    if (!secret || claims?.role !== "moderator") {
+      res.status(401).json({ error: "invalid_token" });
+      return undefined;
+    }
+    const staff = await fetchStaffAccount(claims.sub);
+    if (
+      !staff?.displayName ||
+      !["moderator", "super-admin"].includes(staff.role)
+    ) {
+      res.status(401).json({ error: "invalid_token" });
+      return undefined;
+    }
+    return staff;
+  }
+
+  router.get("/me/staff", limiter, async (req, res) => {
+    try {
+      const staff = await staffOf(req, res);
+      if (staff)
+        res.set("Cache-Control", "no-store").json({
+          name: staff.displayName,
+          admin: staff.role === "super-admin",
+          provider:
+            verifyToken((req.get("authorization") ?? "").slice(7), { secret })
+              ?.authProvider ?? "password",
+        });
+    } catch {
+      res.status(503).json({ error: "unavailable" });
+    }
+  });
+
+  router.get("/me/providers", limiter, async (req, res) => {
+    try {
+      const owner = await providerOwner(req, res);
+      if (owner)
+        res.set("Cache-Control", "no-store").json(await connectionsOf(owner));
+    } catch {
+      res.status(503).json({ error: "unavailable" });
+    }
+  });
+
+  router.post(
+    "/me/providers/:provider/start",
+    limiter,
+    express.json({ limit: "1kb" }),
+    async (req, res) => {
+      try {
+        const owner = await providerOwner(req, res);
+        if (!owner) return;
+        const provider = req.params.provider;
+        if (
+          !isProviderId(provider) ||
+          !enabledProviders(secret).includes(provider)
+        )
+          return res.status(404).json({ error: "unknown_provider" });
+        const verifier = newVerifier();
+        const state = await saveState({
+          provider,
+          verifier,
+          returnPath: safeReturnPath(req.body?.returnPath),
+          ...(owner.kind === "staff"
+            ? { staffAccountId: owner.id }
+            : { memberAccountId: owner.user.id }),
+        });
+        res
+          .set("Cache-Control", "no-store")
+          .json({ url: authorizeUrl(provider, { state, verifier }) });
+      } catch {
+        res.status(503).json({ error: "unavailable" });
+      }
+    },
+  );
+
+  async function providerOwner(req: express.Request, res: express.Response) {
+    const header = req.get("authorization") ?? "";
+    const claims = header.startsWith("Bearer ")
+      ? verifyToken(header.slice(7), { secret })
+      : undefined;
+    if (claims?.role === "member") {
+      const user = await memberOf(req, res);
+      if (!user) return undefined;
+      if (typeof user.provider !== "string") {
+        res.status(401).json({ error: "invalid_token" });
+        return undefined;
+      }
+      return { kind: "member", user } as const;
+    }
+    const staff = await staffOf(req, res);
+    return staff ? ({ kind: "staff", id: staff.id } as const) : undefined;
+  }
+
+  async function connectionsOf(
+    owner: NonNullable<Awaited<ReturnType<typeof providerOwner>>>,
+  ) {
+    if (owner.kind === "staff")
+      return {
+        providers: [...new Set(await fetchStaffProviders(owner.id))],
+        canDisconnect: true,
+      };
+    const links = await fetchMemberProviderLinks(owner.user.id);
+    const providers = [
+      ...new Set([
+        ...(owner.user.provider === "password" ? [] : [owner.user.provider]),
+        ...links.map((link) => link.provider),
+      ]),
+    ];
+    return {
+      providers,
+      canDisconnect: Boolean(owner.user.passwordHash) || providers.length > 1,
+    };
+  }
+
+  router.delete("/me/providers/:provider", limiter, async (req, res) => {
+    try {
+      await withMemberNamesLock(async () => {
+        let owner = await providerOwner(req, res);
+        if (!owner) return;
+        const provider = req.params.provider;
+        if (!isProviderId(provider))
+          return res.status(404).json({ error: "unknown_provider" });
+        const connections = await connectionsOf(owner);
+        if (!connections.providers.includes(provider))
+          return res.status(404).json({ error: "provider_not_connected" });
+        if (!connections.canDisconnect)
+          return res.status(409).json({ error: "last_sign_in_method" });
+        if (
+          owner.kind === "member" &&
+          !owner.user.passwordHash &&
+          !connections.providers.some(
+            (candidate) =>
+              candidate !== provider &&
+              isProviderId(candidate) &&
+              enabledProviders(secret).includes(candidate),
+          )
+        )
+          return res.status(409).json({ error: "last_sign_in_method" });
+        if (owner.kind === "staff") {
+          await deleteStaffProvider(owner.id, provider);
+        } else {
+          const links = await fetchMemberProviderLinks(owner.user.id);
+          if (owner.user.provider === provider) {
+            const replacement = links.find(
+              (link) =>
+                link.provider !== provider &&
+                isProviderId(link.provider) &&
+                enabledProviders(secret).includes(link.provider),
+            );
+            const nextProvider = replacement?.provider ?? "password";
+            const providerUserId = replacement
+              ? replacement.identity.slice(replacement.provider.length + 1)
+              : owner.user.nicknameKey;
+            const user = await updateUser(owner.user.id, {
+              provider: nextProvider,
+              providerUserId,
+              identity: `${nextProvider}:${providerUserId}`,
+            });
+            owner = { kind: "member", user };
+          }
+          for (const link of links.filter((link) => link.provider === provider))
+            await deleteMemberProvider(link.id);
+        }
+        res.set("Cache-Control", "no-store").json(await connectionsOf(owner));
+      });
+    } catch {
+      res.status(503).json({ error: "unavailable" });
+    }
+  });
 
   router.get("/auth/providers", listLimiter, (_req, res) => {
     res.json({
@@ -199,29 +392,59 @@ export function createAccountsRouter(options: {
     express.json({ limit: "4kb" }),
     async (req, res) => {
       res.set("Cache-Control", "no-store");
+      const header = req.get("authorization") ?? "";
+      const claims = header.startsWith("Bearer ")
+        ? verifyToken(header.slice(7), { secret })
+        : undefined;
+      if (claims?.role === "moderator") {
+        try {
+          return await withProfileLock(`staff:${claims.sub}`, async () => {
+            const staff = await staffOf(req, res);
+            if (!staff) return;
+            const parsed = passwordChangeSchema.safeParse(req.body);
+            if (!parsed.success)
+              return res.status(400).json({ error: "invalid_password" });
+            if (parsed.data.password !== parsed.data.confirmation)
+              return res.status(400).json({ error: "password_mismatch" });
+            if (!staff.email)
+              return res.status(503).json({ error: "unavailable" });
+            if (!parsed.data.currentPassword)
+              return res
+                .status(403)
+                .json({ error: "invalid_current_password" });
+            if (
+              !(await changeStaffPassword(
+                { id: staff.id, email: staff.email },
+                parsed.data.currentPassword,
+                parsed.data.password,
+              ))
+            )
+              return res
+                .status(403)
+                .json({ error: "invalid_current_password" });
+            return res.json({ ok: true });
+          });
+        } catch {
+          log.error("Staff password change unavailable");
+          return res.status(503).json({ error: "unavailable" });
+        }
+      }
       const authenticated = await memberOf(req, res);
       if (!authenticated) return;
       return withProfileLock(`member:${authenticated.id}`, async () => {
         const user = await memberOf(req, res);
         if (!user) return;
-        if (user.provider !== "password")
-          return res.status(400).json({ error: "password_not_supported" });
-        const parsed = z
-          .object({
-            currentPassword: z.string().min(1).max(128),
-            password: passwordSchema,
-            confirmation: z.string().max(128),
-          })
-          .safeParse(req.body);
+        const parsed = passwordChangeSchema.safeParse(req.body);
         if (!parsed.success)
           return res.status(400).json({ error: "invalid_password" });
         if (parsed.data.password !== parsed.data.confirmation)
           return res.status(400).json({ error: "password_mismatch" });
         try {
           if (
+            user.passwordHash &&
             !(await verifyPassword(
-              parsed.data.currentPassword,
-              user.passwordHash ?? undefined,
+              parsed.data.currentPassword ?? "",
+              user.passwordHash,
             ))
           )
             return res.status(403).json({ error: "invalid_current_password" });
@@ -308,8 +531,75 @@ export function createAccountsRouter(options: {
         req.query.code,
         state.verifier,
       );
-      const user = await withMemberNamesLock(async () => {
+      const identity = `${provider}:${profile.id}`;
+      const staffResult = await withMemberNamesLock(async () => {
+        if (state.memberAccountId !== undefined) return undefined;
+        const existing = await findStaffProvider(identity);
+        const staffId = state.staffAccountId ?? existing?.staff;
+        if (staffId === undefined) return undefined;
+        const staff = await fetchStaffAccount(staffId);
+        if (
+          !staff?.displayName ||
+          !["moderator", "super-admin"].includes(staff.role)
+        )
+          return { error: "invalid_token" } as const;
+        if (state.staffAccountId !== undefined) {
+          if (
+            (existing && existing.staff !== staff.id) ||
+            (await findUserByIdentity(identity))
+          )
+            return { error: "provider_in_use" } as const;
+          if (
+            !existing &&
+            (await fetchStaffProviders(staff.id)).includes(provider)
+          )
+            return { error: "provider_already_connected" } as const;
+          if (!existing)
+            await createStaffProvider(staff.id, provider, identity);
+        }
+        return { staff } as const;
+      });
+      if (staffResult) {
+        if (staffResult.error !== undefined)
+          return back({ error: staffResult.error }, state.returnPath);
+        const staff = staffResult.staff;
+        return back(
+          {
+            token: signToken(
+              {
+                sub: staff.id,
+                name: staff.displayName!,
+                role: "moderator",
+                authProvider: provider,
+              },
+              { secret, ttlMs: 8 * 60 * 60_000 },
+            ),
+            staff: "1",
+          },
+          state.returnPath,
+        );
+      }
+      const memberResult = await withMemberNamesLock(async () => {
         const account = await findUserByIdentity(`${provider}:${profile.id}`);
+
+        if (state.memberAccountId !== undefined) {
+          const owner = await fetchUser(state.memberAccountId);
+          if (!owner) return { error: "invalid_token" } as const;
+          if (
+            (account && account.id !== owner.id) ||
+            (await findStaffProvider(identity))
+          )
+            return { error: "provider_in_use" } as const;
+          const connections = await connectionsOf({
+            kind: "member",
+            user: owner,
+          });
+          if (!account && connections.providers.includes(provider))
+            return { error: "provider_already_connected" } as const;
+          if (!account)
+            await createMemberProvider(owner.id, provider, identity);
+          return { user: owner } as const;
+        }
 
         if (account) {
           await updateUser(account.id, {
@@ -318,11 +608,14 @@ export function createAccountsRouter(options: {
           await cacheMemberNames(account.id, [account.nickname]);
         }
 
-        return account;
+        return { user: account } as const;
       });
 
+      if (memberResult.error !== undefined)
+        return back({ error: memberResult.error }, state.returnPath);
+      const user = memberResult.user;
       if (user) {
-        return back({ token: tokenFor(user) }, state.returnPath);
+        return back({ token: tokenFor(user, provider) }, state.returnPath);
       }
 
       back(
@@ -409,10 +702,12 @@ export function createAccountsRouter(options: {
             return res.status(400).json({ error: "invalid_profile" });
 
           const identity = `${ticket.provider}:${ticket.providerUserId}`;
-          let user: UserRecord | undefined;
+          if (await findStaffProvider(identity))
+            return res.status(409).json({ error: "provider_in_use" });
+          let user: UserRecord | undefined = await findUserByIdentity(identity);
 
           try {
-            user = await createUser({
+            user ??= await createUser({
               provider: ticket.provider,
               providerUserId: ticket.providerUserId,
               email: ticket.email,
@@ -445,9 +740,10 @@ export function createAccountsRouter(options: {
           await cacheMemberNames(user.id, [user.nickname]);
 
           res.json({
-            token: tokenFor(user),
+            token: tokenFor(user, ticket.provider),
             profile: profileOf(user),
-            provider: user.provider,
+            provider: ticket.provider,
+            hasPassword: Boolean(user.passwordHash),
             expiresAt: Date.now() + MEMBER_TOKEN_TTL_MS,
           });
         } catch (error) {
@@ -579,11 +875,16 @@ export function createAccountsRouter(options: {
   router.get("/me", limiter, async (req, res) => {
     const user = await memberOf(req, res);
     if (!user) return;
+    const authProvider = verifyToken(
+      (req.get("authorization") ?? "").slice(7),
+      { secret },
+    )?.authProvider;
 
     res.set("Cache-Control", "no-store").json({
       profile: profileOf(user),
-      provider: user.provider,
-      token: tokenFor(user),
+      provider: authProvider ?? user.provider,
+      hasPassword: Boolean(user.passwordHash),
+      token: tokenFor(user, authProvider),
       expiresAt: Date.now() + MEMBER_TOKEN_TTL_MS,
     });
   });

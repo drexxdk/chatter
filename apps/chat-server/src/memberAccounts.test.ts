@@ -36,7 +36,22 @@ const accounts = vi.hoisted(() => ({
 const getModeratorNames = vi.hoisted(() => vi.fn());
 const beforeCreateUser = vi.hoisted(() => vi.fn<() => Promise<void>>());
 const beforeUpdateUser = vi.hoisted(() => vi.fn<() => Promise<void>>());
+const changeStaffPassword = vi.hoisted(() => vi.fn());
+const staffLinks = vi.hoisted(
+  () =>
+    new Map<
+      string,
+      { id: number; staff: number; provider: string; identity: string }
+    >(),
+);
 const verifyHuman = vi.hoisted(() => vi.fn());
+const memberLinks = vi.hoisted(
+  () =>
+    new Map<
+      string,
+      { id: number; member: number; provider: string; identity: string }
+    >(),
+);
 vi.mock("./turnstile.js", () => ({ verifyHuman }));
 
 vi.mock("./env.js", () => ({ env: testEnv }));
@@ -106,6 +121,48 @@ vi.mock("./payloadClient.js", async (importOriginal) => {
 
   return {
     ...original,
+    changeStaffPassword,
+    findStaffProvider: async (identity: string) => staffLinks.get(identity),
+    fetchStaffAccount: async (id: number) => accounts.users.get(id),
+    fetchStaffProviders: async (staff: number) =>
+      [...staffLinks.values()]
+        .filter((link) => link.staff === staff)
+        .map((link) => link.provider),
+    createStaffProvider: async (
+      staff: number,
+      provider: string,
+      identity: string,
+    ) => {
+      staffLinks.set(identity, {
+        id: staffLinks.size + 1,
+        staff,
+        provider,
+        identity,
+      });
+    },
+    deleteStaffProvider: async (staff: number, provider: string) => {
+      for (const [identity, link] of staffLinks)
+        if (link.staff === staff && link.provider === provider)
+          staffLinks.delete(identity);
+    },
+    fetchMemberProviderLinks: async (member: number) =>
+      [...memberLinks.values()].filter((link) => link.member === member),
+    createMemberProvider: async (
+      member: number,
+      provider: string,
+      identity: string,
+    ) => {
+      memberLinks.set(identity, {
+        id: memberLinks.size + 1,
+        member,
+        provider,
+        identity,
+      });
+    },
+    deleteMemberProvider: async (id: number) => {
+      for (const [identity, link] of memberLinks)
+        if (link.id === id) memberLinks.delete(identity);
+    },
     fetchNotificationOwner: async (_collection: string, id: number) =>
       accounts.users.get(id),
     saveSidebarPreference: async (
@@ -130,10 +187,10 @@ vi.mock("./payloadClient.js", async (importOriginal) => {
     findUserByIdentity: async (identity: string) =>
       [...accounts.users.values()].find(
         (user) => identityOf(user) === identity,
-      ),
+      ) ?? accounts.users.get(memberLinks.get(identity)?.member ?? -1),
     findPasswordUser: async (key: string) =>
       [...accounts.users.values()].find(
-        (user) => user.provider === "password" && user.nicknameKey === key,
+        (user) => Boolean(user.passwordHash) && user.nicknameKey === key,
       ),
     fetchUser: async (id: number) => {
       const user = accounts.users.get(id);
@@ -179,7 +236,7 @@ vi.mock("./payloadClient.js", async (importOriginal) => {
 });
 
 const { createApp } = await import("./app.js");
-const { signToken } = await import("./tokens.js");
+const { signToken, verifyToken } = await import("./tokens.js");
 const { safeReturnPath } = await import("./accounts.js");
 const { claimGuestAccount } = await import("./passwordAccounts.js");
 
@@ -249,13 +306,20 @@ function nextRequestRead() {
 }
 
 // Goes through the provider as `who`, and returns what the web client is sent back with (the part after `#`).
-async function signInAs(who: string, returnPath = "/rooms/general") {
-  const started = await get(
-    `/auth/dev/start?return=${encodeURIComponent(returnPath)}`,
-  );
-  expect(started.status).toBe(302);
-
-  const authorize = new URL(started.headers.get("location") ?? "");
+async function signInAs(
+  who: string,
+  returnPath = "/rooms/general",
+  linkUrl?: string,
+) {
+  let targetUrl = linkUrl;
+  if (!targetUrl) {
+    const started = await get(
+      `/auth/dev/start?return=${encodeURIComponent(returnPath)}`,
+    );
+    expect(started.status).toBe(302);
+    targetUrl = started.headers.get("location") ?? "";
+  }
+  const authorize = new URL(targetUrl);
   expect(authorize.pathname).toBe("/dev-oauth/authorize");
 
   const approved = await fetch(`${base}/dev-oauth/authorize`, {
@@ -286,12 +350,15 @@ async function signInAs(who: string, returnPath = "/rooms/general") {
 beforeEach(() => {
   verifyHuman.mockReset().mockResolvedValue(undefined);
   store.clear();
+  staffLinks.clear();
+  memberLinks.clear();
   accounts.users.clear();
   accounts.names.clear();
   accounts.nextId = 1;
   getModeratorNames.mockReset().mockResolvedValue(["Ada Mod"]);
   beforeCreateUser.mockReset().mockResolvedValue(undefined);
   beforeUpdateUser.mockReset().mockResolvedValue(undefined);
+  changeStaffPassword.mockReset().mockResolvedValue(true);
   onAccountRemoved.mockReset();
   testEnv.DEV_OAUTH = true;
   testEnv.GOOGLE_CLIENT_ID = undefined;
@@ -308,6 +375,371 @@ afterEach(async () => {
         }),
     ),
   );
+});
+
+describe("staff password changes", () => {
+  const headers = {
+    Authorization: `Bearer ${signToken({ sub: 7, name: "Ada Mod", role: "moderator" }, { secret: testEnv.AUTH_TOKEN_SECRET, ttlMs: 3600000 })}`,
+  };
+  const body = {
+    currentPassword: "CurrentPassword42",
+    password: "NewSecurePassword42",
+    confirmation: "NewSecurePassword42",
+  };
+  beforeEach(async () => {
+    await start();
+    accounts.users.set(7, {
+      id: 7,
+      role: "moderator",
+      displayName: "Ada Mod",
+      email: "ada@example.test",
+    });
+  });
+
+  it.each(["moderator", "super-admin"])(
+    "verifies the current password of the authenticated %s",
+    async (role) => {
+      accounts.users.set(7, { ...accounts.users.get(7), role });
+      const response = await post(
+        "/me/password",
+        { ...body, staffAccountId: 8, role: "super-admin" },
+        headers,
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(changeStaffPassword).toHaveBeenCalledWith(
+        { id: 7, email: "ada@example.test" },
+        body.currentPassword,
+        body.password,
+      );
+      expect(
+        (await fetch(`${base}/me`, { method: "DELETE", headers })).status,
+      ).toBe(401);
+      expect(accounts.users.has(7)).toBe(true);
+    },
+  );
+
+  it("rejects an incorrect current password", async () => {
+    changeStaffPassword.mockResolvedValue(false);
+    const response = await post("/me/password", body, headers);
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      error: "invalid_current_password",
+    });
+  });
+
+  it.each([
+    { password: "weak", confirmation: "weak" },
+    { confirmation: "different" },
+  ])(
+    "validates the shared password policy before contacting Payload: %o",
+    async (changes) => {
+      expect(
+        (await post("/me/password", { ...body, ...changes }, headers)).status,
+      ).toBe(400);
+      expect(changeStaffPassword).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects removed and demoted staff accounts", async () => {
+    accounts.users.set(7, { ...accounts.users.get(7), role: "service" });
+    expect((await post("/me/password", body, headers)).status).toBe(401);
+    accounts.users.delete(7);
+    expect((await post("/me/password", body, headers)).status).toBe(401);
+    expect(changeStaffPassword).not.toHaveBeenCalled();
+  });
+});
+
+describe("staff provider linking", () => {
+  const headers = (id = 7, role: "moderator" | "member" = "moderator") => ({
+    Authorization: `Bearer ${signToken({ sub: id, name: "Staff", role }, { secret: testEnv.AUTH_TOKEN_SECRET, ttlMs: 60_000 })}`,
+  });
+  async function linkStart(id = 7) {
+    const response = await post(
+      "/me/providers/dev/start",
+      { returnPath: "/?dialog=profile", staffAccountId: 99 },
+      headers(id),
+    );
+    expect(response.status).toBe(200);
+    return ((await response.json()) as { url: string }).url;
+  }
+  beforeEach(async () => {
+    await start();
+    accounts.users.set(7, {
+      id: 7,
+      role: "super-admin",
+      displayName: "Frederik Nielsen",
+    });
+  });
+
+  it("links to the bearer owner and signs in later with the same staff role", async () => {
+    const outcome = await signInAs("staff-provider", "/", await linkStart());
+    expect(outcome.get("staff")).toBe("1");
+    const staffSession = await get("/me/staff", {
+      Authorization: `Bearer ${outcome.get("token")}`,
+    });
+    expect(await staffSession.json()).toMatchObject({
+      name: "Frederik Nielsen",
+      admin: true,
+      provider: "dev",
+    });
+    expect(
+      verifyToken(outcome.get("token"), { secret: testEnv.AUTH_TOKEN_SECRET }),
+    ).toMatchObject({ sub: 7, role: "moderator", name: "Frederik Nielsen" });
+    expect(await (await get("/me/providers", headers())).json()).toEqual({
+      providers: ["dev"],
+      canDisconnect: true,
+    });
+    const later = await signInAs("staff-provider");
+    expect(later.get("staff")).toBe("1");
+    expect(
+      verifyToken(later.get("token"), { secret: testEnv.AUTH_TOKEN_SECRET })
+        ?.sub,
+    ).toBe(7);
+    expect(accounts.users.size).toBe(1);
+  });
+
+  it("requires eligible staff authentication", async () => {
+    expect((await post("/me/providers/dev/start", {})).status).toBe(401);
+    expect(
+      (await post("/me/providers/dev/start", {}, headers(7, "member"))).status,
+    ).toBe(401);
+    accounts.users.set(7, { id: 7, role: "service", displayName: "Service" });
+    expect((await post("/me/providers/dev/start", {}, headers())).status).toBe(
+      401,
+    );
+  });
+
+  it("rejects a provider linked to a different staff account", async () => {
+    await signInAs("owned-provider", "/", await linkStart());
+    accounts.users.set(8, {
+      id: 8,
+      role: "moderator",
+      displayName: "Other staff",
+    });
+    const result = await signInAs("owned-provider", "/", await linkStart(8));
+    expect(result.get("error")).toBe("provider_in_use");
+    expect([...staffLinks.values()][0]?.staff).toBe(7);
+  });
+
+  it("disconnects only the staff owner's provider and no longer signs in as staff", async () => {
+    await signInAs("staff-provider", "/", await linkStart());
+    const response = await fetch(`${base}/me/providers/dev`, {
+      method: "DELETE",
+      headers: headers(),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      providers: [],
+      canDisconnect: true,
+    });
+    const later = await signInAs("staff-provider");
+    expect(later.get("staff")).toBeNull();
+    expect(later.has("ticket")).toBe(true);
+    expect(accounts.users.get(7)?.role).toBe("super-admin");
+  });
+
+  it("rejects linking an existing member identity and staff removed during the flow", async () => {
+    accounts.users.set(9, {
+      id: 9,
+      provider: "dev",
+      providerUserId: "dev-member-provider",
+    });
+    const memberResult = await signInAs(
+      "member-provider",
+      "/",
+      await linkStart(),
+    );
+    expect(memberResult.get("error")).toBe("provider_in_use");
+    const url = await linkStart();
+    accounts.users.delete(7);
+    expect((await signInAs("new-provider", "/", url)).get("error")).toBe(
+      "invalid_token",
+    );
+    expect(staffLinks.size).toBe(0);
+  });
+});
+
+describe("member provider connections", () => {
+  const headers = (id = 7) => ({
+    Authorization: `Bearer ${signToken({ sub: id, name: "Alice", role: "member" }, { secret: testEnv.AUTH_TOKEN_SECRET, ttlMs: 60_000 })}`,
+  });
+  async function linkStart(id = 7) {
+    const response = await post(
+      "/me/providers/dev/start",
+      { memberAccountId: 99, returnPath: "/?dialog=profile" },
+      headers(id),
+    );
+    expect(response.status).toBe(200);
+    return ((await response.json()) as { url: string }).url;
+  }
+  const remove = (provider = "dev", id = 7) =>
+    fetch(`${base}/me/providers/${provider}`, {
+      method: "DELETE",
+      headers: headers(id),
+    });
+  beforeEach(async () => {
+    await start();
+    testEnv.GOOGLE_CLIENT_ID = "configured-client";
+    testEnv.GOOGLE_CLIENT_SECRET = "configured-secret";
+    accounts.users.set(7, {
+      id: 7,
+      provider: "password",
+      providerUserId: "alice",
+      passwordHash: "hash",
+      nickname: "Alice",
+      nicknameKey: "alice",
+      displayName: "Alice",
+      avatar: "female",
+    });
+  });
+  it("links a provider to the authenticated member without changing their profile or creating another account", async () => {
+    const outcome = await signInAs("member-extra", "/", await linkStart());
+    expect(
+      verifyToken(outcome.get("token"), { secret: testEnv.AUTH_TOKEN_SECRET }),
+    ).toMatchObject({ sub: 7, role: "member" });
+    expect(outcome.has("staff")).toBe(false);
+    expect(memberLinks.get("dev:dev-member-extra")?.member).toBe(7);
+    expect(accounts.users.get(7)).toMatchObject({
+      nickname: "Alice",
+      avatar: "female",
+      provider: "password",
+    });
+    expect(accounts.users.size).toBe(1);
+    expect(
+      verifyToken((await signInAs("member-extra")).get("token"), {
+        secret: testEnv.AUTH_TOKEN_SECRET,
+      })?.sub,
+    ).toBe(7);
+    expect(await (await get("/me/providers", headers())).json()).toEqual({
+      providers: ["dev"],
+      canDisconnect: true,
+    });
+    expect((await remove()).status).toBe(200);
+    expect((await signInAs("member-extra")).has("ticket")).toBe(true);
+  });
+  it("rejects identities owned by other members or staff and does not silently switch accounts", async () => {
+    memberLinks.set("dev:dev-owned", {
+      id: 1,
+      member: 8,
+      provider: "dev",
+      identity: "dev:dev-owned",
+    });
+    accounts.users.set(8, {
+      id: 8,
+      provider: "password",
+      providerUserId: "bob",
+    });
+    expect((await signInAs("owned", "/", await linkStart())).get("error")).toBe(
+      "provider_in_use",
+    );
+    staffLinks.set("dev:dev-staff", {
+      id: 1,
+      staff: 10,
+      provider: "dev",
+      identity: "dev:dev-staff",
+    });
+    expect((await signInAs("staff", "/", await linkStart())).get("error")).toBe(
+      "provider_in_use",
+    );
+    expect(memberLinks.size).toBe(1);
+  });
+  it("requires authentication and rejects deleted members during the callback", async () => {
+    expect(
+      (await fetch(`${base}/me/providers/dev`, { method: "DELETE" })).status,
+    ).toBe(401);
+    const url = await linkStart();
+    accounts.users.delete(7);
+    expect((await signInAs("deleted", "/", url)).get("error")).toBe(
+      "invalid_token",
+    );
+    expect(memberLinks.size).toBe(0);
+  });
+  it("does not disconnect another member's link or replace an already connected provider", async () => {
+    await signInAs("first", "/", await linkStart());
+    expect(
+      (await signInAs("second", "/", await linkStart())).get("error"),
+    ).toBe("provider_already_connected");
+    accounts.users.set(8, {
+      id: 8,
+      provider: "password",
+      providerUserId: "bob",
+      passwordHash: "hash",
+    });
+    expect((await remove("dev", 8)).status).toBe(404);
+    expect(memberLinks.get("dev:dev-first")?.member).toBe(7);
+  });
+  it("protects the last OAuth sign-in method and safely promotes another connection", async () => {
+    accounts.users.set(7, {
+      id: 7,
+      provider: "dev",
+      providerUserId: "dev-primary",
+      nickname: "Alice",
+      nicknameKey: "alice",
+    });
+    expect((await remove()).status).toBe(409);
+    memberLinks.set("google:backup", {
+      id: 1,
+      member: 7,
+      provider: "google",
+      identity: "google:backup",
+    });
+    const response = await remove();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      providers: ["google"],
+      canDisconnect: false,
+    });
+    expect(accounts.users.get(7)).toMatchObject({
+      id: 7,
+      provider: "google",
+      providerUserId: "backup",
+    });
+    expect((await signInAs("primary")).has("ticket")).toBe(true);
+    expect((await remove("google")).status).toBe(409);
+  });
+  it("serializes simultaneous removals so an OAuth-only account keeps a working sign-in", async () => {
+    accounts.users.set(7, {
+      id: 7,
+      provider: "dev",
+      providerUserId: "dev-primary",
+      nickname: "Alice",
+      nicknameKey: "alice",
+    });
+    memberLinks.set("google:backup", {
+      id: 1,
+      member: 7,
+      provider: "google",
+      identity: "google:backup",
+    });
+    const responses = await Promise.all([remove(), remove("google")]);
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      200, 409,
+    ]);
+    expect(
+      (await (await get("/me/providers", headers())).json()) as unknown,
+    ).toMatchObject({ canDisconnect: false });
+  });
+  it("does not count a disabled backup provider as a usable sign-in method", async () => {
+    testEnv.GOOGLE_CLIENT_ID = undefined;
+    testEnv.GOOGLE_CLIENT_SECRET = undefined;
+    accounts.users.set(7, {
+      id: 7,
+      provider: "dev",
+      providerUserId: "dev-primary",
+      nickname: "Alice",
+      nicknameKey: "alice",
+    });
+    memberLinks.set("google:backup", {
+      id: 1,
+      member: 7,
+      provider: "google",
+      identity: "google:backup",
+    });
+    expect((await remove()).status).toBe(409);
+    expect(accounts.users.get(7)?.provider).toBe("dev");
+    expect((await remove("google")).status).toBe(200);
+  });
 });
 
 describe("notification preferences", () => {
@@ -572,14 +1004,55 @@ describe("password accounts", () => {
     },
   );
 
-  it("requires authentication and refuses changes for provider accounts", async () => {
+  it("lets provider accounts set a local password without replacing their provider or identity", async () => {
     const session = await claim();
     await start();
     expect((await post("/me/password", {})).status).toBe(401);
-    accounts.users.set(1, { ...accounts.users.get(1), provider: "google" });
-    const response = await change(session.token);
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "password_not_supported" });
+    accounts.users.set(1, {
+      ...accounts.users.get(1),
+      provider: "google",
+      passwordHash: undefined,
+    });
+    const original = { ...accounts.users.get(1) };
+    const response = await post(
+      "/me/password",
+      { password: "NewSecurePassword42", confirmation: "NewSecurePassword42" },
+      { Authorization: `Bearer ${session.token}` },
+    );
+    expect(response.status).toBe(200);
+    expect(accounts.users.get(1)).toMatchObject({
+      provider: "google",
+      providerUserId: original.providerUserId,
+      nickname: original.nickname,
+    });
+    const login = await post("/auth/password/login", {
+      username: "alice",
+      password: "NewSecurePassword42",
+    });
+    expect(login.status).toBe(200);
+    const localSession = (await login.json()) as { token: string };
+    expect(localSession).toMatchObject({
+      provider: "password",
+      hasPassword: true,
+    });
+    const restored = await get("/me", {
+      Authorization: `Bearer ${localSession.token}`,
+    });
+    expect(await restored.json()).toMatchObject({
+      provider: "password",
+      hasPassword: true,
+    });
+    expect(accounts.users.size).toBe(1);
+    expect((await change(session.token)).status).toBe(403);
+    expect(
+      (
+        await post(
+          "/me/password",
+          { password: "OtherPassword42", confirmation: "OtherPassword42" },
+          { Authorization: `Bearer ${session.token}` },
+        )
+      ).status,
+    ).toBe(403);
   });
 
   it("serializes concurrent changes so the old password cannot be reused", async () => {

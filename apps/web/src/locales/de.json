@@ -123,7 +123,12 @@
     "years": "{count, plural, one {# Jahr alt} other {# Jahre alt}}",
     "save": "Speichern",
     "saving": "Wird gespeichert…",
-    "moderatorNote": "Du bist als Moderator angemeldet. Dein Name stammt aus deinem Konto und kann hier nicht geändert werden."
+    "adminRole": "Administrator",
+    "providers": "Verknüpfte Konten",
+    "connectProvider": "{provider} verknüpfen",
+    "disconnectProvider": "{provider} trennen",
+    "disconnectQuestion": "Verknüpfung mit {provider} trennen?",
+    "moderatorNote": "Dein Name wird über dein Mitarbeiterkonto verwaltet."
   },
   "time": {
     "fewSecondsAgo": "vor wenigen Sekunden",
@@ -495,6 +500,7 @@
     "currentPassword": "Aktuelles Passwort",
     "newPassword": "Neues Passwort",
     "passwordChanged": "Dein Passwort wurde geändert.",
+    "passwordSet": "Dein Passwort wurde festgelegt.",
     "passwordStrength": "Passwortstärke",
     "passwordWeak": "Schwach",
     "passwordFair": "Fast fertig",
@@ -567,6 +573,10 @@
     "invalid_state": "Die Anmeldung hat zu lange gedauert oder wurde schon benutzt. Versuche es noch einmal.",
     "unknown_provider": "Diese Art der Anmeldung gibt es nicht.",
     "invalid_ticket": "Die Anmeldung ist abgelaufen. Fange noch einmal an.",
+    "provider_in_use": "Dieser Anbieter ist bereits mit einem anderen Konto verknüpft.",
+    "provider_already_connected": "Dieser Anbieter ist bereits mit deinem Konto verknüpft.",
+    "provider_not_connected": "Dieser Anbieter ist nicht mehr mit deinem Konto verknüpft.",
+    "last_sign_in_method": "Behalte mindestens eine Anmeldemethode für dein Konto.",
     "invalid_credentials": "Falscher Benutzername, falsche E-Mail oder falsches Passwort.",
     "human_check_required": "Bestätige, dass du ein Mensch bist, um fortzufahren.",
     "human_check_failed": "Die Verifizierung ist abgelaufen oder fehlgeschlagen. Bitte versuche es erneut.",

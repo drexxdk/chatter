@@ -15,6 +15,8 @@ import * as migration_20261024_155419_allow_duplicate_display_names from './2026
 import * as migration_20261024_162032_add_display_name_cooldown from './20261024_162032_add_display_name_cooldown'
 import * as migration_20261024_202458_retire_website_collections from './20261024_202458_retire_website_collections'
 import * as migration_20261025_085036_add_sidebar_preference from './20261025_085036_add_sidebar_preference'
+import * as migration_20261025_091035_add_staff_profiles_and_providers from './20261025_091035_add_staff_profiles_and_providers'
+import * as migration_20261025_100413_add_member_provider_links from './20261025_100413_add_member_provider_links'
 
 export const migrations = [
   {
@@ -101,5 +103,15 @@ export const migrations = [
     up: migration_20261025_085036_add_sidebar_preference.up,
     down: migration_20261025_085036_add_sidebar_preference.down,
     name: '20261025_085036_add_sidebar_preference',
+  },
+  {
+    up: migration_20261025_091035_add_staff_profiles_and_providers.up,
+    down: migration_20261025_091035_add_staff_profiles_and_providers.down,
+    name: '20261025_091035_add_staff_profiles_and_providers',
+  },
+  {
+    up: migration_20261025_100413_add_member_provider_links.up,
+    down: migration_20261025_100413_add_member_provider_links.down,
+    name: '20261025_100413_add_member_provider_links',
   },
 ]

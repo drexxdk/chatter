@@ -10,6 +10,7 @@ export const KEY = "chatter.account";
 
 export interface Account {
   token: string;
+  hasPassword?: boolean;
   // google, facebook or discord.
   provider: string;
   // The name the chat shows (the account's display name).
@@ -26,11 +27,12 @@ export interface Account {
 
 // What the browser keeps of an account the server has just described.
 export function accountOf(session: AccountSession): Account {
-  const { token, provider, profile, expiresAt } = session;
+  const { token, provider, profile, expiresAt, hasPassword } = session;
 
   return {
     token,
     provider,
+    ...(hasPassword === undefined ? {} : { hasPassword }),
     nickname: profile.nickname,
     ...(profile.username ? { username: profile.username } : {}),
     ...(profile.picture ? { picture: profile.picture } : {}),
@@ -59,6 +61,7 @@ export function loadAccount(now = Date.now()): Account | null {
       age,
       birthDate,
       expiresAt,
+      hasPassword,
     } = value as Record<string, unknown>;
 
     if (
@@ -77,6 +80,7 @@ export function loadAccount(now = Date.now()): Account | null {
       token,
       provider,
       nickname,
+      ...(typeof hasPassword === "boolean" ? { hasPassword } : {}),
       ...(typeof username === "string" && username ? { username } : {}),
       ...(parsePicture(picture) === undefined
         ? {}

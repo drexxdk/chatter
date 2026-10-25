@@ -63,7 +63,11 @@ export async function rememberModerator(moderator: Moderator): Promise<void> {
   const updated =
     index === -1
       ? [...moderators, moderator]
-      : moderators.map((known, i) => (i === index ? moderator : known));
+      : moderators.map((known, i) =>
+          i === index
+            ? { ...known, ...moderator, admin: moderator.admin }
+            : known,
+        );
 
   await redis.set(CACHE_KEY, JSON.stringify(updated));
 }

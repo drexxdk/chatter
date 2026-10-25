@@ -12,6 +12,8 @@ const stateSchema = z.object({
   provider: z.string(),
   verifier: z.string(),
   returnPath: z.string(),
+  staffAccountId: z.number().int().positive().optional(),
+  memberAccountId: z.number().int().positive().optional(),
 });
 
 export type OAuthState = z.infer<typeof stateSchema>;

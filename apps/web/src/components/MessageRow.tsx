@@ -225,10 +225,20 @@ function MessageGroupView({
         >
           {person ? (
             <IdentityProfile person={person} tabIndex={-1}>
-              <AvatarIcon avatar={avatar} picture={picture} dimmed={gone} />
+              <AvatarIcon
+                avatar={avatar}
+                picture={picture}
+                moderator={moderator}
+                dimmed={gone}
+              />
             </IdentityProfile>
           ) : (
-            <AvatarIcon avatar={avatar} picture={picture} dimmed={gone} />
+            <AvatarIcon
+              avatar={avatar}
+              picture={picture}
+              moderator={moderator}
+              dimmed={gone}
+            />
           )}
         </span>
       )}

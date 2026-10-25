@@ -80,6 +80,36 @@ describe('account sidebar preference access', () => {
     expect(await serviceUpdate({ role: 'super-admin' })).toBe(false)
     expect(await serviceUpdate({})).toBe(false)
   })
+
+  it('allows whitelisted staff profile updates through the service', async () => {
+    expect(
+      await serviceUpdate({
+        displayName: 'Ada',
+        avatar: 'female',
+        picture: 'lorelei:ada0001',
+        birthDate: '1990-04-18',
+      }),
+    ).toBe(true)
+  })
+
+  it.each(['role', 'email', 'password', 'apiKey', 'enableAPIKey'])(
+    'does not allow the service to change %s',
+    async (field) => {
+      expect(await serviceUpdate({ displayName: 'Ada', [field]: 'forged' })).toBe(false)
+    },
+  )
+
+  it('allows moderators to update only their own profile and password, never privileges', async () => {
+    const moderatorUpdate = (id: number, data: Record<string, unknown>) =>
+      update({ req: { user: { id: 7, role: 'moderator' } }, id, data } as Parameters<
+        typeof update
+      >[0])
+    expect(await moderatorUpdate(7, { displayName: 'Ada', avatar: 'female' })).toBe(true)
+    expect(await moderatorUpdate(7, { password: 'NewSecurePassword42' })).toBe(true)
+    expect(await moderatorUpdate(8, { password: 'NewSecurePassword42' })).toBe(false)
+    expect(await moderatorUpdate(7, { role: 'super-admin' })).toBe(false)
+    expect(await moderatorUpdate(7, { email: 'other@example.test' })).toBe(false)
+  })
 })
 
 describe.skipIf(!process.env.TEST_DATABASE_URL)('database name ownership', () => {

@@ -1,4 +1,4 @@
-import { Check, KeyRound, Trash2, X } from "lucide-react";
+import { Check, KeyRound, Pencil, Save, Trash2, X } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -15,22 +15,39 @@ import { Modal } from "./Modal";
 
 export function AccountSection({
   account,
+  staffToken,
+  canDelete = true,
+  onEdit,
   onDelete,
   separated = false,
+  onActionChange,
+  onPasswordChanged,
 }: {
   account?: Account;
+  staffToken?: string;
+  canDelete?: boolean;
+  onEdit?: () => void;
   // Fails with a code to show (see `errors.*`).
   onDelete: () => Promise<void>;
   // A line above it, for when it follows other things in a dialog.
   separated?: boolean;
+  onActionChange?: (active: boolean) => void;
+  onPasswordChanged?: () => void;
 }) {
   const { t } = useTranslation();
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [changingPassword, setChangingPassword] = useState(false);
-  const [passwordChanged, setPasswordChanged] = useState(false);
+  const [passwordResult, setPasswordResult] = useState<"set" | "changed">();
+  const [passwordAdded, setPasswordAdded] = useState(false);
   const line = separated ? "border-t border-neutral-800 pt-4" : "";
+  const passwordToken = staffToken ?? account?.token;
+  const hasPassword = Boolean(
+    staffToken ||
+    passwordAdded ||
+    (account?.hasPassword ?? account?.provider === "password"),
+  );
 
   async function confirmDelete() {
     setDeleting(true);
@@ -46,64 +63,95 @@ export function AccountSection({
 
   return (
     <section aria-label={t("account.title")} className={`space-y-3 ${line}`}>
-      {account?.provider === "password" &&
-        (changingPassword ? (
-          <PasswordChangeForm
-            account={account}
-            onCancel={() => setChangingPassword(false)}
-            onDone={() => {
-              setChangingPassword(false);
-              setPasswordChanged(true);
-            }}
-          />
-        ) : (
-          <Button
-            icon={KeyRound}
-            onClick={() => {
-              setPasswordChanged(false);
-              setChangingPassword(true);
-            }}
-          >
-            {t("account.changePassword")}
-          </Button>
-        ))}
-      {passwordChanged && (
+      {passwordToken && changingPassword && (
+        <PasswordChangeForm
+          token={passwordToken}
+          username={account?.username ?? account?.nickname}
+          hasPassword={hasPassword}
+          onCancel={() => {
+            setChangingPassword(false);
+            onActionChange?.(false);
+          }}
+          onDone={() => {
+            setChangingPassword(false);
+            setPasswordResult(hasPassword ? "changed" : "set");
+            setPasswordAdded(true);
+            onPasswordChanged?.();
+            onActionChange?.(false);
+          }}
+        />
+      )}
+      {passwordResult && (
         <p role="status" className="text-sm text-green-400">
-          {t("account.passwordChanged")}
+          {t(
+            passwordResult === "set"
+              ? "account.passwordSet"
+              : "account.passwordChanged",
+          )}
         </p>
       )}
-      {confirming ? (
+      {!changingPassword && confirming && canDelete && (
         <div className="space-y-2">
+          <h3 className="text-sm font-semibold">{t("account.delete")}</h3>
           <Notice tone="warning">{t("account.deleteWarning")}</Notice>
           <ErrorAlert code={error} />
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <Button
-              variant="primary"
+              variant="ghost"
+              icon={X}
+              disabled={deleting}
+              onClick={() => {
+                setConfirming(false);
+                setError(null);
+                onActionChange?.(false);
+              }}
+            >
+              {t("nickname.cancel")}
+            </Button>
+            <Button
+              variant="danger"
               icon={Trash2}
               disabled={deleting}
               onClick={() => void confirmDelete()}
             >
               {t("account.deleteConfirm")}
             </Button>
-            <Button
-              variant="ghost"
-              icon={X}
-              disabled={deleting}
-              onClick={() => setConfirming(false)}
-            >
-              {t("nickname.cancel")}
-            </Button>
           </div>
         </div>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="ghost"
-            icon={Trash2}
-            onClick={() => setConfirming(true)}
-          >
-            {t("account.delete")}
-          </Button>
+      )}
+      {!changingPassword && !confirming && (
+        <div className="flex flex-wrap items-center gap-2">
+          {onEdit && (
+            <Button icon={Pencil} onClick={onEdit}>
+              {t("profile.edit")}
+            </Button>
+          )}
+          {passwordToken && (
+            <Button
+              icon={KeyRound}
+              onClick={() => {
+                setPasswordResult(undefined);
+                setChangingPassword(true);
+                onActionChange?.(true);
+              }}
+            >
+              {t(hasPassword ? "account.changePassword" : "account.claim")}
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              variant="danger"
+              icon={Trash2}
+              onClick={() => {
+                setConfirming(true);
+                setPasswordResult(undefined);
+                setError(null);
+                onActionChange?.(true);
+              }}
+            >
+              {t("account.delete")}
+            </Button>
+          )}
         </div>
       )}
     </section>
@@ -111,11 +159,15 @@ export function AccountSection({
 }
 
 function PasswordChangeForm({
-  account,
+  token,
+  username,
+  hasPassword,
   onCancel,
   onDone,
 }: {
-  account: Account;
+  token: string;
+  username?: string;
+  hasPassword: boolean;
   onCancel: () => void;
   onDone: () => void;
 }) {
@@ -129,15 +181,16 @@ function PasswordChangeForm({
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     if (saving) return;
-    if (!currentPassword) return setError("invalid_current_password");
+    if (hasPassword && !currentPassword)
+      return setError("invalid_current_password");
     if (!Object.values(passwordChecks(password)).every(Boolean))
       return setError("invalid_password");
     if (password !== confirmation) return setError("password_mismatch");
     setSaving(true);
     setError(null);
     try {
-      await changeAccountPassword(account.token, {
-        currentPassword,
+      await changeAccountPassword(token, {
+        ...(hasPassword ? { currentPassword } : {}),
         password,
         confirmation,
       });
@@ -154,27 +207,32 @@ function PasswordChangeForm({
 
   return (
     <form
-      aria-label={t("account.changePassword")}
+      aria-label={t(hasPassword ? "account.changePassword" : "account.claim")}
       onSubmit={submit}
       className="space-y-3"
     >
+      <h3 className="text-sm font-semibold">
+        {t(hasPassword ? "account.changePassword" : "account.claim")}
+      </h3>
       <input
         type="hidden"
         name="username"
         autoComplete="username"
-        value={account.username ?? account.nickname}
+        value={username ?? ""}
       />
-      <Field
-        id="change-current-password"
-        label={t("account.currentPassword")}
-        type="password"
-        autoComplete="current-password"
-        required
-        maxLength={128}
-        value={currentPassword}
-        onChange={(event) => setCurrentPassword(event.target.value)}
-        disabled={saving}
-      />
+      {hasPassword && (
+        <Field
+          id="change-current-password"
+          label={t("account.currentPassword")}
+          type="password"
+          autoComplete="current-password"
+          required
+          maxLength={128}
+          value={currentPassword}
+          onChange={(event) => setCurrentPassword(event.target.value)}
+          disabled={saving}
+        />
+      )}
       <Field
         id="change-new-password"
         label={t("account.newPassword")}
@@ -201,17 +259,12 @@ function PasswordChangeForm({
         disabled={saving}
       />
       <ErrorAlert code={error} />
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="submit"
-          icon={KeyRound}
-          variant="primary"
-          disabled={saving}
-        >
-          {t("account.changePassword")}
-        </Button>
+      <div className="flex flex-wrap justify-end gap-2">
         <Button icon={X} variant="ghost" disabled={saving} onClick={onCancel}>
           {t("nickname.cancel")}
+        </Button>
+        <Button type="submit" icon={Save} variant="primary" disabled={saving}>
+          {t("profile.save")}
         </Button>
       </div>
     </form>

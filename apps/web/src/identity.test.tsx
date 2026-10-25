@@ -130,6 +130,43 @@ describe("public chat identities", () => {
     );
   });
 
+  it.each([undefined, "lorelei:staff"])(
+    "shows the staff shield to other viewers in the list and public profile (picture: %s)",
+    async (picture) => {
+      const user = userEvent.setup();
+      const person = {
+        guestId: "staff-public-id",
+        nickname: "Frederik Nielsen",
+        role: "moderator" as const,
+        avatar: "male" as const,
+        age: 36,
+        picture,
+      };
+      render(
+        <IdentityProvider value={createIdentityDirectory([person])}>
+          <IdentityProfile person={person} />
+        </IdentityProvider>,
+      );
+      const button = screen.getByRole("button", {
+        name: "Profile: Frederik Nielsen",
+      });
+      expect(button.querySelector('[data-avatar="moderator"]')).toHaveClass(
+        "lucide-shield-check",
+      );
+      expect(button.querySelector("[data-picture]")).toBeNull();
+      await user.click(button);
+      const profile = await screen.findByRole("dialog");
+      expect(profile.querySelector('[data-avatar="moderator"]')).toHaveClass(
+        "lucide-shield-check",
+        "text-green-300",
+      );
+      expect(within(profile).getByText("Moderator")).toBeVisible();
+      expect(within(profile).getByLabelText("Gender")).toHaveTextContent(
+        "Male",
+      );
+    },
+  );
+
   it("disambiguates both people, including departed authors still in history", () => {
     const names = createIdentityDirectory([first, second]);
     expect(names.label(first)).toContain(names.shortTag(first.guestId));

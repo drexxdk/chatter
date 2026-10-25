@@ -1,8 +1,9 @@
 import { Pencil, Save, UserPlus, X } from "lucide-react";
-import { useState, type ReactNode, type SubmitEvent } from "react";
+import { useEffect, useState, type ReactNode, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Account } from "../account";
+import { fetchStaffSession } from "../api";
 import { AVATARS, PLAIN_AVATAR } from "../chat/avatar";
 import { randomPicture } from "../chat/picture";
 import type { ActionResult, Session } from "../chat/types";
@@ -14,7 +15,7 @@ import {
   readBirthDate,
   type ProfileChanges,
 } from "../profile";
-import { ProviderLabel } from "./AccountOptions";
+import { ProviderLabel, AccountProviders } from "./AccountOptions";
 import { AccountSection } from "./AccountSection";
 import { AvatarIcon, GenderLabel } from "./Avatar";
 import { Button } from "./Button";
@@ -28,12 +29,10 @@ import { useTabText, writeTabDraft } from "../tabDraft";
 // Who somebody is shown as: a guest or an account in a room, or an account in the lobby.
 export type ProfileSubject = Pick<
   Session,
-  "role" | "nickname" | "avatar" | "picture" | "age" | "birthDate"
+  "role" | "admin" | "nickname" | "avatar" | "picture" | "age" | "birthDate"
 >;
 
-// Who you are, in a modal on top of the page, the same in the lobby and in a room: what is shown of you, who you are
-// signed in through, and a button that turns it into a form to change it. A moderator's name belongs to their account,
-// so theirs is only shown.
+// Who you are, in a modal on top of the page, the same in the lobby and in a room.
 export function ProfileDialog({
   open,
   onClose,
@@ -42,6 +41,8 @@ export function ProfileDialog({
   account,
   onDelete,
   onCreateAccount,
+  staffToken,
+  onPasswordChanged,
 }: {
   open: boolean;
   onClose: () => void;
@@ -51,6 +52,8 @@ export function ProfileDialog({
   account: Account | null;
   onDelete: () => Promise<void>;
   onCreateAccount?: () => void;
+  staffToken?: string;
+  onPasswordChanged?: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -62,6 +65,8 @@ export function ProfileDialog({
         account={account}
         onDelete={onDelete}
         onCreateAccount={onCreateAccount}
+        staffToken={staffToken}
+        onPasswordChanged={onPasswordChanged}
       />
     </Modal>
   );
@@ -74,18 +79,22 @@ function ProfileBody({
   account,
   onDelete,
   onCreateAccount,
+  staffToken,
+  onPasswordChanged,
 }: {
   profile: ProfileSubject;
   onSave: (changes: ProfileChanges) => Promise<ActionResult>;
   account: Account | null;
   onDelete: () => Promise<void>;
   onCreateAccount?: () => void;
+  staffToken?: string;
+  onPasswordChanged?: () => void;
 }) {
   const ui = useReloadUiContext();
   const [localEditing, setLocalEditing] = useState(false);
-  const editing =
-    profile.role !== "moderator" &&
-    (ui ? ui.dialog === "profile-edit" : localEditing);
+  const [accountAction, setAccountAction] = useState(false);
+  const [providerAction, setProviderAction] = useState(false);
+  const editing = ui ? ui.dialog === "profile-edit" : localEditing;
   const setEditing = (value: boolean) => {
     if (ui) ui.setDialog(value ? "profile-edit" : "profile");
     else setLocalEditing(value);
@@ -104,14 +113,36 @@ function ProfileBody({
 
   return (
     <div className="space-y-4">
-      <ProfileSummary
-        profile={profile}
-        account={account}
-        onEdit={() => setEditing(true)}
-        onCreateAccount={onCreateAccount}
-      />
-      {profile.role === "member" && account && (
-        <AccountSection account={account} onDelete={onDelete} separated />
+      {!accountAction && !providerAction && (
+        <ProfileSummary
+          profile={profile}
+          account={account}
+          staffToken={staffToken}
+          onEdit={() => setEditing(true)}
+          onCreateAccount={onCreateAccount}
+        />
+      )}
+      {!accountAction &&
+        (profile.role === "moderator" ? staffToken : account?.token) && (
+          <AccountProviders
+            token={
+              (profile.role === "moderator" ? staffToken : account?.token)!
+            }
+            onActionChange={setProviderAction}
+            separated={!providerAction}
+          />
+        )}
+      {!providerAction && profile.role !== "guest" && (
+        <AccountSection
+          account={account ?? undefined}
+          staffToken={profile.role === "moderator" ? staffToken : undefined}
+          canDelete={profile.role === "member" && Boolean(account)}
+          onEdit={() => setEditing(true)}
+          onDelete={onDelete}
+          separated={!accountAction}
+          onActionChange={setAccountAction}
+          onPasswordChanged={onPasswordChanged}
+        />
       )}
     </div>
   );
@@ -129,17 +160,32 @@ function Detail({ label, children }: { label: string; children: ReactNode }) {
 function ProfileSummary({
   profile,
   account,
+  staffToken,
   onEdit,
   onCreateAccount,
 }: {
   profile: ProfileSubject;
   account: Account | null;
+  staffToken?: string;
   onEdit: () => void;
   onCreateAccount?: () => void;
 }) {
   const { t } = useTranslation();
   const moderator = profile.role === "moderator";
   const username = profile.role === "member" ? account?.username : undefined;
+  const [staffProvider, setStaffProvider] = useState("password");
+  useEffect(() => {
+    if (!staffToken) return;
+    let cancelled = false;
+    void fetchStaffSession(staffToken)
+      .then((staff) => {
+        if (!cancelled) setStaffProvider(staff.provider ?? "password");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [staffToken]);
 
   return (
     <div className="space-y-4">
@@ -147,6 +193,7 @@ function ProfileSummary({
         <AvatarIcon
           avatar={profile.avatar ?? PLAIN_AVATAR}
           picture={profile.picture}
+          moderator={moderator}
           large
         />
         <div className="min-w-0">
@@ -158,42 +205,45 @@ function ProfileSummary({
           {profile.role === "guest" && (
             <p className="text-xs text-neutral-400">{t("account.guest")}</p>
           )}
+          {moderator && (
+            <p className="text-xs font-semibold text-green-400">
+              {t(profile.admin ? "profile.adminRole" : "room.moderatorBadge")}
+            </p>
+          )}
         </div>
       </div>
 
-      {moderator ? (
-        <p className="text-sm text-neutral-300">{t("profile.moderatorNote")}</p>
-      ) : (
-        <>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-            {username && (
-              <Detail label={t("account.register.username")}>{username}</Detail>
-            )}
-            <Detail label={t("profile.gender")}>
-              <GenderLabel avatar={profile.avatar ?? PLAIN_AVATAR} />
-            </Detail>
-            <Detail label={t("profile.age")}>
-              {profile.age === undefined
-                ? t("profile.notGiven")
-                : t("profile.years", { count: profile.age })}
-            </Detail>
-            {account && (
-              <Detail label={t("profile.signedInWith")}>
-                <ProviderLabel provider={account.provider} />
-              </Detail>
-            )}
-          </dl>
-          <div className="flex flex-wrap gap-2">
-            <Button icon={Pencil} onClick={onEdit}>
-              {t("profile.edit")}
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+        {username && (
+          <Detail label={t("account.register.username")}>{username}</Detail>
+        )}
+        <Detail label={t("profile.gender")}>
+          <GenderLabel avatar={profile.avatar ?? PLAIN_AVATAR} />
+        </Detail>
+        <Detail label={t("profile.age")}>
+          {profile.age === undefined
+            ? t("profile.notGiven")
+            : t("profile.years", { count: profile.age })}
+        </Detail>
+        {(moderator || account) && (
+          <Detail label={t("profile.signedInWith")}>
+            <ProviderLabel
+              provider={moderator ? staffProvider : account!.provider}
+            />
+          </Detail>
+        )}
+      </dl>
+      {profile.role === "guest" && (
+        <div className="flex flex-wrap gap-2">
+          <Button icon={Pencil} onClick={onEdit}>
+            {t("profile.edit")}
+          </Button>
+          {profile.role === "guest" && onCreateAccount && (
+            <Button icon={UserPlus} onClick={onCreateAccount}>
+              {t("account.claimTitle")}
             </Button>
-            {profile.role === "guest" && onCreateAccount && (
-              <Button icon={UserPlus} onClick={onCreateAccount}>
-                {t("account.claimTitle")}
-              </Button>
-            )}
-          </div>
-        </>
+          )}
+        </div>
       )}
     </div>
   );
@@ -212,7 +262,7 @@ function ProfileForm({
 }) {
   const { t } = useTranslation();
   // An account's name is a display name; a guest's is a nickname.
-  const account = profile.role === "member";
+  const account = profile.role !== "guest";
   const draftKey = `profile:${profile.role}:${profile.nickname}`;
   const [usernameText, setUsernameText] = useTabText(
     `${draftKey}:username`,
@@ -340,7 +390,7 @@ function ProfileForm({
         nicknameLabel={account ? t("account.register.displayName") : undefined}
         nicknameHint={
           account
-            ? `${t("account.register.displayNameHint")} ${t("profile.displayNameCooldown")}`
+            ? `${t("account.register.displayNameHint")}${profile.role === "member" ? ` ${t("profile.displayNameCooldown")}` : ""}`
             : undefined
         }
         birthDate={birthDateText}

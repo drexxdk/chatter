@@ -1,5 +1,6 @@
 import type { ProfileUpdateAck } from "../../../shared/chatProtocol.mjs";
-import type { Avatar } from "./avatars.js";
+import { parseAvatar, parsePicture, type Avatar } from "./avatars.js";
+import { ageFromBirthDate } from "./age.js";
 import { slidingWindow } from "./limits.js";
 import { log } from "./log.js";
 import {
@@ -7,7 +8,12 @@ import {
   validateProfileUpdate,
   type ProfileSaveFailure,
 } from "./memberProfile.js";
-import { fetchUser } from "./payloadClient.js";
+import {
+  fetchUser,
+  fetchStaffAccount,
+  updateStaffProfile,
+} from "./payloadClient.js";
+import { rememberModerator } from "./names.js";
 import { withProfileLock } from "./profileLock.js";
 import type { ChatRole } from "./roles.js";
 
@@ -22,6 +28,7 @@ interface ProfileSocketData {
   age?: number;
   birthDate?: string;
   memberId?: number;
+  accountId?: number;
   username?: string;
   roomSlug?: string;
   profileChangeTimes: number[];
@@ -45,7 +52,8 @@ export async function handleProfileUpdate(
     emitPresence: (slug: string) => Promise<void>;
   },
 ): Promise<void> {
-  if (data.role === "moderator") {
+  const staffId = data.role === "moderator" ? data.accountId : undefined;
+  if (data.role === "moderator" && staffId === undefined) {
     return reply({ ok: false, error: "forbidden" });
   }
 
@@ -69,9 +77,11 @@ export async function handleProfileUpdate(
   data.profileChangeTimes.push(now);
   let committed = false;
   const key =
-    data.memberId === undefined
-      ? `socket:${socket.id}`
-      : `member:${data.memberId}`;
+    staffId !== undefined
+      ? `staff:${staffId}`
+      : data.memberId === undefined
+        ? `socket:${socket.id}`
+        : `member:${data.memberId}`;
 
   try {
     await withProfileLock(key, async () => {
@@ -83,14 +93,37 @@ export async function handleProfileUpdate(
       if (data.memberId !== undefined && !account) {
         return reply({ ok: false, error: "invalid_token" });
       }
+      const staff =
+        staffId === undefined ? undefined : await fetchStaffAccount(staffId);
+      if (
+        staffId !== undefined &&
+        (!staff?.displayName ||
+          !["moderator", "super-admin"].includes(staff.role))
+      ) {
+        return reply({ ok: false, error: "invalid_token" });
+      }
 
       const result = await validateProfileUpdate(
         {
-          nickname: account?.displayName ?? data.nickname,
-          avatar: account?.avatar ?? data.avatar,
-          picture: account ? account.picture : data.picture,
-          age: account ? account.age : data.age,
-          birthDate: account ? account.birthDate : data.birthDate,
+          nickname: account?.displayName ?? staff?.displayName ?? data.nickname,
+          avatar:
+            account?.avatar ??
+            (staff ? parseAvatar(staff.avatar) : data.avatar),
+          picture: account
+            ? account.picture
+            : staff
+              ? parsePicture(staff.picture)
+              : data.picture,
+          age: account
+            ? account.age
+            : staff
+              ? ageFromBirthDate(staff.birthDate)
+              : data.age,
+          birthDate: account
+            ? account.birthDate
+            : staff
+              ? (staff.birthDate ?? undefined)
+              : data.birthDate,
         },
         payload,
         data.memberId,
@@ -119,6 +152,22 @@ export async function handleProfileUpdate(
           );
 
           if (failure) return failure;
+        }
+        if (staffId !== undefined && staff) {
+          await updateStaffProfile(staffId, {
+            displayName: nickname,
+            avatar,
+            picture,
+            birthDate: birthDate ?? null,
+          });
+          await rememberModerator({
+            id: staffId,
+            name: nickname,
+            avatar,
+            picture,
+            birthDate,
+            ...(staff.role === "super-admin" ? { admin: true } : {}),
+          });
         }
 
         apply();

@@ -163,6 +163,18 @@ describe("rememberModerator", () => {
     );
   });
 
+  it("preserves cached profile fields on login without retaining revoked admin rights", async () => {
+    get.mockResolvedValue(
+      JSON.stringify([
+        { ...ADA, admin: true, avatar: "male", birthDate: "1990-04-18" },
+      ]),
+    );
+    await rememberModerator(ADA);
+    expect(JSON.parse(set.mock.calls[0][1])).toEqual([
+      { ...ADA, avatar: "male", birthDate: "1990-04-18" },
+    ]);
+  });
+
   // Starting a list of one would turn every other moderator away until the first sync.
   it("leaves the list alone when it has never been read", async () => {
     get.mockResolvedValue(null);

@@ -192,6 +192,7 @@ export const authStartUrl = (provider: string, returnPath: string) =>
 export interface AccountSession {
   token: string;
   provider: string;
+  hasPassword?: boolean;
   // `nickname` is the name the chat shows; `username` is the handle that is theirs alone.
   profile: {
     nickname: string;
@@ -272,6 +273,9 @@ export function parseAccountSession(body: unknown): AccountSession {
   return {
     token: fields.token,
     provider: fields.provider,
+    ...(typeof fields.hasPassword === "boolean"
+      ? { hasPassword: fields.hasPassword }
+      : {}),
     expiresAt: fields.expiresAt,
     profile: parseAccountProfile(fields.profile),
   };
@@ -327,7 +331,7 @@ export interface PasswordClaim {
 }
 
 export interface PasswordChange {
-  currentPassword: string;
+  currentPassword?: string;
   password: string;
   confirmation: string;
 }
@@ -431,6 +435,76 @@ export async function fetchAccount(token: string): Promise<AccountSession> {
   return parseAccountSession(
     await accountRequest("/me", { headers: bearer(token) }),
   );
+}
+
+export async function fetchStaffSession(
+  token: string,
+): Promise<{ name: string; admin: boolean; provider?: string }> {
+  const body = (await accountRequest("/me/staff", {
+    headers: bearer(token),
+  })) as { name?: unknown; admin?: unknown; provider?: unknown };
+  if (typeof body?.name !== "string" || typeof body.admin !== "boolean")
+    throw new AccountError("connection");
+  return {
+    name: body.name,
+    admin: body.admin,
+    ...(typeof body.provider === "string" ? { provider: body.provider } : {}),
+  };
+}
+
+export interface ProviderConnections {
+  providers: string[];
+  canDisconnect: boolean;
+}
+
+function parseProviderConnections(value: unknown): ProviderConnections {
+  const body = value as { providers?: unknown; canDisconnect?: unknown };
+  if (
+    !Array.isArray(body?.providers) ||
+    !body.providers.every((value) => typeof value === "string")
+  )
+    throw new AccountError("connection");
+  return {
+    providers: body.providers,
+    canDisconnect: body.canDisconnect === true,
+  };
+}
+
+export async function fetchProviderConnections(
+  token: string,
+): Promise<ProviderConnections> {
+  return parseProviderConnections(
+    await accountRequest("/me/providers", { headers: bearer(token) }),
+  );
+}
+
+export async function disconnectProvider(
+  token: string,
+  provider: string,
+): Promise<ProviderConnections> {
+  return parseProviderConnections(
+    await accountRequest(`/me/providers/${encodeURIComponent(provider)}`, {
+      method: "DELETE",
+      headers: bearer(token),
+    }),
+  );
+}
+
+export async function startProviderLink(
+  token: string,
+  provider: string,
+  returnPath: string,
+): Promise<string> {
+  const body = (await accountRequest(
+    `/me/providers/${encodeURIComponent(provider)}/start`,
+    {
+      method: "POST",
+      headers: { ...bearer(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ returnPath }),
+    },
+  )) as { url?: unknown };
+  if (typeof body?.url !== "string") throw new AccountError("connection");
+  return body.url;
 }
 
 export async function deleteAccount(token: string): Promise<void> {

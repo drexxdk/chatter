@@ -14,13 +14,23 @@ export function profileOf(user: UserRecord) {
   };
 }
 
-export function memberSession(user: UserRecord, secret: string) {
+export function memberSession(
+  user: UserRecord,
+  secret: string,
+  authProvider?: string,
+) {
   return {
     token: signToken(
-      { sub: user.id, name: user.nickname, role: "member" },
+      {
+        sub: user.id,
+        name: user.nickname,
+        role: "member",
+        ...(authProvider ? { authProvider } : {}),
+      },
       { secret, ttlMs: MEMBER_TOKEN_TTL_MS },
     ),
-    provider: user.provider,
+    provider: authProvider ?? user.provider,
+    hasPassword: Boolean(user.passwordHash),
     profile: profileOf(user),
     expiresAt: Date.now() + MEMBER_TOKEN_TTL_MS,
   };

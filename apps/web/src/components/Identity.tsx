@@ -110,7 +110,12 @@ export function IdentityProfile({
         className="inline-flex shrink-0 rounded-full outline-none focus-visible:outline-2 focus-visible:outline-indigo-400"
       >
         {children ?? (
-          <AvatarIcon avatar={person.avatar} picture={person.picture} small />
+          <AvatarIcon
+            avatar={person.avatar}
+            picture={person.picture}
+            moderator={person.role === "moderator"}
+            small
+          />
         )}
       </PopoverButton>
       <PopoverPanel
@@ -120,7 +125,12 @@ export function IdentityProfile({
         className={`z-50 w-72 max-w-[calc(100vw-1rem)] p-3 ${MENU_SURFACE}`}
       >
         <div className="flex items-start gap-3">
-          <AvatarIcon avatar={person.avatar} picture={person.picture} large />
+          <AvatarIcon
+            avatar={person.avatar}
+            picture={person.picture}
+            moderator={person.role === "moderator"}
+            large
+          />
           <IdentityDetails person={person} />
         </div>
       </PopoverPanel>

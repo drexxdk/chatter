@@ -6,6 +6,21 @@ import { Button } from "./Button";
 import { Field } from "./Field";
 
 describe("Button", () => {
+  it("uses a muted red fill for destructive actions", () => {
+    render(<Button variant="danger">Delete</Button>);
+    const action = screen.getByRole("button", { name: "Delete" });
+    expect(action).toHaveClass(
+      "rounded-md",
+      "bg-red-900/80",
+      "px-3",
+      "py-1.5",
+      "text-red-100",
+      "ring-red-400/30",
+      "hover:bg-red-800/80",
+    );
+    expect(action).not.toHaveClass("bg-red-600", "hover:bg-red-500");
+  });
+
   it("does not submit a form unless told to", async () => {
     const onSubmit = vi.fn((event: React.SubmitEvent) =>
       event.preventDefault(),

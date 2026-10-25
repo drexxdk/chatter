@@ -217,6 +217,7 @@ export function ThreadList({
               <AvatarIcon
                 avatar={thread.avatar}
                 picture={thread.picture}
+                moderator={thread.role === "moderator"}
                 small
               />
               <span className={`min-w-0 ${nameClass(thread.role) ?? ""}`}>

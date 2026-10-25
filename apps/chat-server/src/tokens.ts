@@ -11,6 +11,7 @@ const claimsSchema = z.object({
   name: z.string().min(1),
   // Only roles that need signing in: nobody gets a token that says "guest".
   role: chatRoleSchema.exclude(["guest"]),
+  authProvider: z.string().min(1).max(32).optional(),
   exp: z.number(),
 });
 

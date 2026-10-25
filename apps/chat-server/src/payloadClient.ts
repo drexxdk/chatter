@@ -173,6 +173,183 @@ export interface Account {
   displayName: string | null;
 }
 
+export async function fetchStaffAccount(id: number) {
+  try {
+    return await payloadFetch(
+      `/api/admins/${id}?depth=0`,
+      z.object({
+        id: z.number(),
+        role: z.string(),
+        displayName: z.string().nullish(),
+        email: z.string().optional(),
+        avatar: z.string().nullish(),
+        picture: z.string().nullish(),
+        birthDate: z.string().nullish(),
+      }),
+    );
+  } catch (error) {
+    if (error instanceof PayloadError && error.status === 404) return undefined;
+    throw error;
+  }
+}
+
+const staffProviderSchema = z.object({
+  id: z.number(),
+  identity: z.string(),
+  provider: z.string(),
+  staff: z.number(),
+});
+
+export async function updateStaffProfile(
+  id: number,
+  changes: {
+    displayName: string;
+    avatar: Avatar;
+    picture?: string;
+    birthDate: string | null;
+  },
+): Promise<void> {
+  await payloadSend("PATCH", `/api/admins/${id}`, {
+    displayName: changes.displayName,
+    avatar: changes.avatar,
+    ...(changes.picture === undefined ? {} : { picture: changes.picture }),
+    birthDate: changes.birthDate,
+  });
+}
+
+export async function changeStaffPassword(
+  staff: { id: number; email: string },
+  currentPassword: string,
+  password: string,
+): Promise<boolean> {
+  const login = await fetch(`${env.PAYLOAD_URL}/api/admins/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: staff.email, password: currentPassword }),
+  });
+  if (login.status === 401 || login.status === 403) return false;
+  if (!login.ok) throw new Error("Staff password verification unavailable");
+  const authenticated = z
+    .object({
+      token: z.string().min(1),
+      user: z.object({ id: z.number(), role: z.string() }),
+    })
+    .parse(await login.json());
+  if (
+    authenticated.user.id !== staff.id ||
+    !["moderator", "super-admin"].includes(authenticated.user.role)
+  )
+    return false;
+  const changed = await fetch(`${env.PAYLOAD_URL}/api/admins/${staff.id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `JWT ${authenticated.token}`,
+    },
+    body: JSON.stringify({ password }),
+  });
+  if (!changed.ok) throw new Error("Staff password change unavailable");
+  return true;
+}
+
+export async function findStaffProvider(identity: string) {
+  const query = new URLSearchParams({
+    "where[identity][equals]": identity,
+    depth: "0",
+    limit: "1",
+  });
+  const data = await payloadFetch(
+    `/api/staff-provider-links?${query}`,
+    z.object({ docs: z.array(staffProviderSchema) }),
+  );
+  return data.docs[0];
+}
+
+export async function fetchStaffProviders(staff: number) {
+  const query = new URLSearchParams({
+    "where[staff][equals]": String(staff),
+    depth: "0",
+    limit: "20",
+  });
+  const data = await payloadFetch(
+    `/api/staff-provider-links?${query}`,
+    z.object({ docs: z.array(staffProviderSchema) }),
+  );
+  return data.docs.map((link) => link.provider);
+}
+
+export async function createStaffProvider(
+  staff: number,
+  provider: string,
+  identity: string,
+): Promise<void> {
+  await payloadSend("POST", "/api/staff-provider-links", {
+    staff,
+    provider,
+    identity,
+  });
+}
+
+export async function deleteStaffProvider(
+  staff: number,
+  provider: string,
+): Promise<void> {
+  const query = new URLSearchParams({
+    "where[staff][equals]": String(staff),
+    "where[provider][equals]": provider,
+  });
+  await payloadSend("DELETE", `/api/staff-provider-links?${query}`);
+}
+
+const memberProviderSchema = z.object({
+  id: z.number(),
+  identity: z.string(),
+  provider: z.string(),
+  member: z.number(),
+});
+
+export async function findMemberProvider(identity: string) {
+  const query = new URLSearchParams({
+    "where[identity][equals]": identity,
+    depth: "0",
+    limit: "1",
+  });
+  const data = await payloadFetch(
+    `/api/member-provider-links?${query}`,
+    z.object({ docs: z.array(memberProviderSchema) }),
+  );
+  return data.docs[0];
+}
+
+export async function fetchMemberProviderLinks(member: number) {
+  const query = new URLSearchParams({
+    "where[member][equals]": String(member),
+    depth: "0",
+    limit: "20",
+  });
+  const data = await payloadFetch(
+    `/api/member-provider-links?${query}`,
+    z.object({ docs: z.array(memberProviderSchema) }),
+  );
+  return data.docs;
+}
+
+export async function createMemberProvider(
+  member: number,
+  provider: string,
+  identity: string,
+): Promise<void> {
+  await payloadSend("POST", "/api/member-provider-links", {
+    member,
+    provider,
+    identity,
+  });
+}
+
+export async function deleteMemberProvider(id: number): Promise<void> {
+  await payloadSend("DELETE", `/api/member-provider-links/${id}`);
+}
+
 export async function fetchNotificationOwner(
   collection: "users" | "admins",
   id: number,
@@ -252,6 +429,9 @@ export async function loginAccount(
 
 export interface Moderator {
   id: number;
+  avatar?: Avatar;
+  picture?: string;
+  birthDate?: string;
   // Moderators without a display name cannot sign in to the chat, but their names are not theirs to take either.
   name: string | null;
   // A super-admin: the chat gives them the same powers as a moderator, plus the tools for testing (see adminRooms.ts).
@@ -269,6 +449,9 @@ export async function fetchModerators(): Promise<Moderator[]> {
           id: z.number(),
           displayName: z.string().nullish(),
           role: z.string().nullish(),
+          avatar: z.string().nullish(),
+          picture: z.string().nullish(),
+          birthDate: z.string().nullish(),
         }),
       ),
     }),
@@ -277,6 +460,11 @@ export async function fetchModerators(): Promise<Moderator[]> {
   return data.docs.map((doc) => ({
     id: doc.id,
     name: doc.displayName || null,
+    ...(doc.avatar ? { avatar: parseAvatar(doc.avatar) } : {}),
+    ...(parsePicture(doc.picture)
+      ? { picture: parsePicture(doc.picture) }
+      : {}),
+    ...(doc.birthDate ? { birthDate: doc.birthDate } : {}),
     ...(isAdminRole(doc.role ?? "") ? { admin: true } : {}),
   }));
 }
@@ -488,6 +676,9 @@ export interface NewUser {
 }
 
 export interface UserChanges {
+  provider?: string;
+  providerUserId?: string;
+  identity?: string;
   nickname?: string;
   nicknameKey?: string;
   displayNameChangedAt?: string;
@@ -548,7 +739,7 @@ export async function findPasswordUser(
   usernameKey: string,
 ): Promise<UserRecord | undefined> {
   const query = new URLSearchParams({
-    "where[provider][equals]": "password",
+    "where[passwordHash][exists]": "true",
     "where[nicknameKey][equals]": usernameKey,
     limit: "1",
     depth: "0",
@@ -568,7 +759,9 @@ export async function findUserByIdentity(
     z.object({ docs: z.array(userSchema) }),
   );
 
-  return data.docs[0];
+  if (data.docs[0]) return data.docs[0];
+  const link = await findMemberProvider(identity);
+  return link ? fetchUser(link.member) : undefined;
 }
 
 // Undefined when there is no such account (it was deleted); other failures are thrown.

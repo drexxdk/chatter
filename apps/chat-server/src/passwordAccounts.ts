@@ -101,12 +101,10 @@ export async function signInPassword(input: unknown, secret: string) {
   const user = await findPasswordUser(normalizeName(username));
   const matches = await verifyPassword(
     parsed.data.password,
-    user?.provider === "password"
-      ? (user.passwordHash ?? undefined)
-      : undefined,
+    user?.passwordHash ?? undefined,
   );
   if (!user || !matches) throw new PasswordAccountError("invalid_credentials");
   await withMemberNamesLock(() => cacheMemberNames(user.id, [user.nickname]));
   await updateUser(user.id, { lastLoginAt: new Date().toISOString() });
-  return memberSession(user, secret);
+  return memberSession(user, secret, "password");
 }

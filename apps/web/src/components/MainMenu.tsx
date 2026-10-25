@@ -73,6 +73,7 @@ export function MainMenu({
           <AvatarIcon
             avatar={profile.avatar ?? PLAIN_AVATAR}
             picture={profile.picture}
+            moderator={profile.moderator}
             small
             titled={false}
           />
@@ -85,6 +86,7 @@ export function MainMenu({
                   <AvatarIcon
                     avatar={profile.avatar ?? PLAIN_AVATAR}
                     picture={profile.picture}
+                    moderator={profile.moderator}
                     large
                     titled={false}
                   />

@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./test/app";
 import { ProfileDialog } from "./components/ProfileDialog";
+import { MainMenu } from "./components/MainMenu";
 import {
   AccountSection,
   CreateAccountDialog,
@@ -65,7 +66,7 @@ describe("account password changes", () => {
       screen.getByRole("meter", { name: "Password strength" }),
     ).toHaveAttribute("aria-valuenow", "4");
     expect(screen.getByText("Meets requirements")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Change password" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
     await screen.findByText("Your password has been changed.");
     expect(request).toHaveBeenCalledWith(
       "http://localhost:4000/me/password",
@@ -97,24 +98,78 @@ describe("account password changes", () => {
       ),
     );
     const user = await fillForm();
-    await user.click(screen.getByRole("button", { name: "Change password" }));
+    expect(
+      screen.queryByRole("button", { name: "Delete my account" }),
+    ).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Save" }));
     await screen.findByText("Your current password is incorrect.");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(
+      screen.getByRole("button", { name: "Delete my account" }),
+    ).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Change password" }));
     expect(screen.getByLabelText("Current password")).toHaveValue("");
     expect(screen.getByLabelText("New password")).toHaveValue("");
   });
 
-  it("does not offer password changes for provider accounts", () => {
+  it("offers initial password setup for provider accounts and then requires the current password", async () => {
+    const request = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", request);
+    const user = userEvent.setup();
+    const changed = vi.fn();
     render(
       <AccountSection
-        account={{ ...account, provider: "google" }}
+        account={{ ...account, provider: "google", hasPassword: false }}
         onDelete={async () => {}}
+        onPasswordChanged={changed}
       />,
     );
     expect(
       screen.queryByRole("button", { name: "Change password" }),
     ).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Set password" }));
+    expect(screen.queryByLabelText("Current password")).toBeNull();
+    await user.type(screen.getByLabelText("New password"), password);
+    await user.type(screen.getByLabelText("Confirm password"), password);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("Your password has been set.");
+    expect(changed).toHaveBeenCalledOnce();
+    expect(request).toHaveBeenCalledWith(
+      "http://localhost:4000/me/password",
+      expect.objectContaining({
+        body: JSON.stringify({ password, confirmation: password }),
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Change password" }));
+    expect(screen.getByLabelText("Current password")).toBeVisible();
+  });
+
+  it("shows Google as the sign-in provider and retains a connected account's local-password capability", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({ providers: ["google"], canDisconnect: true }),
+      ),
+    );
+    render(
+      <ProfileDialog
+        open
+        onClose={() => {}}
+        onSave={async () => ({ ok: true })}
+        account={{ ...account, provider: "google", hasPassword: true }}
+        onDelete={async () => {}}
+        profile={{ nickname: "Alice", role: "member", avatar: "other" }}
+      />,
+    );
+    expect(
+      within(screen.getByText("Signed in with").closest("dl")!).getByText(
+        "Google",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Change password" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Set password" })).toBeNull();
   });
 
   it("shows weak creation passwords in red and refuses them before submitting", async () => {
@@ -578,8 +633,142 @@ describe("a member's display-name cooldown", () => {
   });
 });
 
+describe("account provider controls", () => {
+  function show(provider = "password", canDisconnect = true) {
+    const request = vi.fn(async (url: string, init?: RequestInit) => {
+      const path = new URL(url).pathname;
+      if (path === "/auth/providers")
+        return Response.json({ providers: ["google", "facebook", "discord"] });
+      if (init?.method === "DELETE")
+        return Response.json({ providers: [], canDisconnect: true });
+      return Response.json({ providers: ["google"], canDisconnect });
+    });
+    vi.stubGlobal("fetch", request);
+    render(
+      <ProfileDialog
+        open
+        onClose={() => {}}
+        onSave={async () => ({ ok: true })}
+        onDelete={async () => {}}
+        account={{
+          token: "member-token",
+          provider,
+          nickname: "Alice",
+          username: "alice",
+          expiresAt: Date.now() + 60_000,
+        }}
+        profile={{ role: "member", nickname: "Alice", avatar: "female" }}
+      />,
+    );
+    return { user: userEvent.setup(), request };
+  }
+
+  it("highlights connected providers for normal members and confirms removal before changing them", async () => {
+    const { user, request } = show();
+    const google = await screen.findByRole("button", {
+      name: "Disconnect Google",
+    });
+    await waitFor(() => expect(google).toBeEnabled());
+    expect(google).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Connect Discord" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    await user.click(google);
+    expect(
+      screen.getByRole("heading", { name: "Disconnect Google?" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Delete my account" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit profile" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("button", { name: "Edit profile" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Disconnect Google" }));
+    await user.click(screen.getByRole("button", { name: "Disconnect Google" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Connect Google" }),
+      ).toBeEnabled(),
+    );
+    expect(request).toHaveBeenCalledWith(
+      "http://localhost:4000/me/providers/google",
+      expect.objectContaining({
+        method: "DELETE",
+        headers: { Authorization: "Bearer member-token" },
+      }),
+    );
+  });
+
+  it("explains why the last sign-in method cannot be removed", async () => {
+    const { user, request } = show("google", false);
+    const google = await screen.findByRole("button", {
+      name: "Disconnect Google",
+    });
+    await waitFor(() => expect(google).toBeEnabled());
+    await user.click(google);
+    expect(
+      screen.getByText(
+        "Keep at least one sign-in method connected to your account.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Disconnect Google" }),
+    ).toBeDisabled();
+    expect(
+      request.mock.calls.some(([, init]) => init?.method === "DELETE"),
+    ).toBe(false);
+  });
+
+  it("keeps password editing and deletion as focused, mutually exclusive views", async () => {
+    const { user } = show();
+    await screen.findByRole("button", { name: "Disconnect Google" });
+    await user.click(screen.getByRole("button", { name: "Change password" }));
+    const form = screen.getByRole("form", { name: "Change password" });
+    expect(
+      within(form)
+        .getAllByRole("button", { name: /^(Cancel|Save)$/ })
+        .map((button) => button.textContent),
+    ).toEqual(["Cancel", "Save"]);
+    expect(
+      screen.queryByRole("region", { name: "Connected accounts" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit profile" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Delete my account" }),
+    ).toBeNull();
+    await user.type(
+      screen.getByLabelText("Current password"),
+      "PrivatePassword42",
+    );
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Change password" }));
+    expect(screen.getByLabelText("Current password")).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Delete my account" }));
+    expect(
+      screen.queryByRole("button", { name: "Change password" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Connected accounts" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit profile" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("button", { name: "Edit profile" })).toBeVisible();
+  });
+});
+
 describe("a moderator's profile", () => {
-  it("is only shown, because the name belongs to the account", async () => {
+  it("shows the actual provider for staff signed in through Google", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        Response.json(
+          new URL(url).pathname === "/me/staff"
+            ? { name: "Ada Mod", admin: false, provider: "google" }
+            : { providers: ["google"], canDisconnect: true },
+        ),
+      ),
+    );
     render(
       <ProfileDialog
         open
@@ -587,24 +776,207 @@ describe("a moderator's profile", () => {
         onSave={async () => ({ ok: true })}
         account={null}
         onDelete={async () => {}}
+        staffToken="staff-token"
+        profile={{ nickname: "Ada Mod", role: "moderator", avatar: "other" }}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        within(screen.getByText("Signed in with").closest("dl")!).getByText(
+          "Google",
+        ),
+      ).toBeVisible(),
+    );
+  });
+
+  it.each([false, true])(
+    "shares editing and password actions but never account deletion (admin: %s)",
+    async (admin) => {
+      const user = userEvent.setup();
+      const onSave = vi.fn(async () => ({ ok: true as const }));
+      const onDelete = vi.fn();
+      const request = vi.fn(async (url: string, _init?: RequestInit) =>
+        Response.json(
+          new URL(url).pathname === "/me/password"
+            ? { ok: true }
+            : { providers: ["google"], canDisconnect: true },
+        ),
+      );
+      vi.stubGlobal("fetch", request);
+      render(
+        <ProfileDialog
+          open
+          onClose={() => {}}
+          onSave={onSave}
+          onDelete={onDelete}
+          account={null}
+          staffToken="staff-token"
+          profile={{
+            nickname: "Ada Mod",
+            role: "moderator",
+            admin,
+            avatar: "male",
+            picture: anyPicture,
+          }}
+        />,
+      );
+      const edit = screen.getByRole("button", { name: "Edit profile" });
+      const password = screen.getByRole("button", { name: "Change password" });
+      expect(edit.parentElement).toBe(password.parentElement);
+      expect(screen.queryByRole("button", { name: /delete/i })).toBeNull();
+      await user.click(edit);
+      await user.clear(screen.getByLabelText("Display name"));
+      await user.type(screen.getByLabelText("Display name"), "Ada Updated");
+      await user.click(screen.getByRole("radio", { name: "Female" }));
+      await user.click(screen.getByRole("button", { name: "Save" }));
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({ nickname: "Ada Updated", avatar: "female" }),
+      );
+      await user.click(screen.getByRole("button", { name: "Change password" }));
+      expect(screen.queryByRole("button", { name: "Edit profile" })).toBeNull();
+      expect(
+        screen.queryByRole("region", { name: "Connected accounts" }),
+      ).toBeNull();
+      await user.type(
+        screen.getByLabelText("Current password"),
+        "OldPassword123",
+      );
+      await user.type(
+        screen.getByLabelText("New password"),
+        "NewSecurePassword42",
+      );
+      await user.type(
+        screen.getByLabelText("Confirm password"),
+        "NewSecurePassword42",
+      );
+      await user.click(screen.getByRole("button", { name: "Save" }));
+      await screen.findByText("Your password has been changed.");
+      expect(request).toHaveBeenCalledWith(
+        "http://localhost:4000/me/password",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            Authorization: "Bearer staff-token",
+          }),
+        }),
+      );
+      expect(onDelete).not.toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: /delete/i })).toBeNull();
+    },
+  );
+
+  it("uses the staff shield in the account menu and its button, even with a saved picture", async () => {
+    const user = userEvent.setup();
+    render(
+      <MainMenu
         profile={{
-          nickname: "Ada Mod",
+          nickname: "Frederik Nielsen",
+          avatar: "male",
+          picture: "lorelei:staff",
+          moderator: true,
+          onProfile: () => {},
+          onSignOut: () => {},
+        }}
+        onSettings={() => {}}
+      />,
+    );
+    const button = screen.getByRole("button", {
+      name: "Account menu: Frederik Nielsen",
+    });
+    expect(button.querySelector('[data-avatar="moderator"]')).toHaveClass(
+      "lucide-shield-check",
+      "text-green-300",
+    );
+    await user.click(button);
+    expect(
+      screen.getByRole("menu").querySelector('[data-avatar="moderator"]'),
+    ).toHaveClass("lucide-shield-check", "h-14", "w-14");
+  });
+
+  it("shows connected providers and offers other enabled providers to staff", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        Response.json({
+          providers:
+            new URL(url).pathname === "/auth/providers"
+              ? ["google", "discord"]
+              : ["google"],
+        }),
+      ),
+    );
+    render(
+      <ProfileDialog
+        open
+        onClose={() => {}}
+        onSave={async () => ({ ok: true })}
+        account={null}
+        onDelete={async () => {}}
+        staffToken="staff-token"
+        profile={{
+          nickname: "Frederik Nielsen",
           role: "moderator",
-          avatar: "other",
+          admin: true,
+          avatar: "male",
+          age: 36,
         }}
       />,
     );
-
-    const dialog = within(await screen.findByRole("dialog"));
-
-    expect(dialog.getByText("Ada Mod")).toBeInTheDocument();
     expect(
-      dialog.getByText(/Your name comes from your account/),
+      await screen.findByRole("heading", { name: "Connected accounts" }),
     ).toBeInTheDocument();
-    expect(dialog.queryByRole("button", { name: "Edit profile" })).toBeNull();
-    expect(dialog.queryByRole("button", { name: "Save" })).toBeNull();
-    expect(dialog.queryByLabelText("Nickname")).toBeNull();
+    expect(await screen.findByText("Google")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Connect Discord" }),
+      ).toBeEnabled(),
+    );
+    expect(screen.queryByRole("button", { name: "Connect Google" })).toBeNull();
   });
+
+  it.each([false, true])(
+    "shows staff role and normal profile details (admin: %s)",
+    async (admin) => {
+      render(
+        <ProfileDialog
+          open
+          onClose={() => {}}
+          onSave={async () => ({ ok: true })}
+          account={null}
+          onDelete={async () => {}}
+          profile={{
+            nickname: "Ada Mod",
+            role: "moderator",
+            admin,
+            avatar: "male",
+            age: 36,
+          }}
+        />,
+      );
+
+      const dialog = within(await screen.findByRole("dialog"));
+
+      expect(dialog.getByText("Ada Mod")).toBeInTheDocument();
+      expect(
+        dialog.getByText(admin ? "Admin" : "Moderator"),
+      ).toBeInTheDocument();
+      expect(dialog.getByText("Male")).toBeInTheDocument();
+      expect(dialog.getByText(/^36\b/)).toBeInTheDocument();
+      expect(
+        dialog.getByRole("button", { name: "Edit profile" }),
+      ).toBeVisible();
+      expect(
+        dialog.queryByRole("button", { name: "Delete my account" }),
+      ).toBeNull();
+      expect(dialog.queryByRole("button", { name: "Save" })).toBeNull();
+      expect(dialog.queryByLabelText("Nickname")).toBeNull();
+      await userEvent
+        .setup()
+        .click(dialog.getByRole("button", { name: "Edit profile" }));
+      expect(dialog.getByRole("button", { name: "Save" })).toBeVisible();
+      expect(dialog.getByLabelText("Display name")).toHaveValue("Ada Mod");
+    },
+  );
 });
 
 describe("a nickname somebody in the room already has", () => {

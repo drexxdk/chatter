@@ -1,10 +1,20 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { LogIn } from "lucide-react";
+import { Check, LogIn, Unlink, X } from "lucide-react";
 
-import { authStartUrl, fetchAuthProviders } from "../api";
+import {
+  AccountError,
+  authStartUrl,
+  fetchAuthProviders,
+  fetchProviderConnections,
+  disconnectProvider,
+  startProviderLink,
+  type ProviderConnections,
+} from "../api";
+import { ErrorAlert } from "./ErrorAlert";
 import { Button, ButtonLink } from "./Button";
 import { providerIcon } from "./ProviderIcons";
+import { Notice } from "./Notice";
 
 // The names are the services' own, written the same in every language.
 const PROVIDER_NAMES: Record<string, string> = {
@@ -13,6 +23,9 @@ const PROVIDER_NAMES: Record<string, string> = {
   discord: "Discord",
   dev: "Dev sign-in",
 };
+
+const PROVIDER_BUTTON_CLASS =
+  "h-14 min-w-0 w-full flex-col gap-1! bg-neutral-800 px-0 hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-indigo-400 [&>svg]:size-5";
 
 export const providerName = (id: string) => PROVIDER_NAMES[id] ?? id;
 
@@ -50,6 +63,162 @@ export function useAuthProviders(): string[] {
   return providers;
 }
 
+export function AccountProviders({
+  token,
+  onActionChange,
+  separated = true,
+}: {
+  token: string;
+  onActionChange?: (active: boolean) => void;
+  separated?: boolean;
+}) {
+  const { t } = useTranslation();
+  const available = useAuthProviders();
+  const [connections, setConnections] = useState<ProviderConnections>();
+  const connected = connections?.providers ?? [];
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string>();
+  const [error, setError] = useState<string>();
+  const [confirming, setConfirming] = useState<string>();
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setConnections(undefined);
+    void fetchProviderConnections(token)
+      .then((value) => {
+        if (!cancelled) setConnections(value);
+      })
+      .catch(() => {
+        if (!cancelled) setError("connection");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  async function connect(provider: string) {
+    setBusy(provider);
+    setError(undefined);
+    try {
+      const url = await startProviderLink(
+        token,
+        provider,
+        `${window.location.pathname}?dialog=profile`,
+      );
+      window.location.assign(url);
+    } catch (cause) {
+      setError(cause instanceof AccountError ? cause.code : "connection");
+      setBusy(undefined);
+    }
+  }
+
+  function finish() {
+    setConfirming(undefined);
+    setError(undefined);
+    onActionChange?.(false);
+  }
+
+  async function disconnect() {
+    if (!confirming || busy || !connections?.canDisconnect) return;
+    setBusy(confirming);
+    setError(undefined);
+    try {
+      setConnections(await disconnectProvider(token, confirming));
+      finish();
+    } catch (cause) {
+      setError(cause instanceof AccountError ? cause.code : "connection");
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  if (available.length === 0 && connected.length === 0 && !error) return null;
+  return (
+    <section
+      aria-label={t("profile.providers")}
+      className={`space-y-3 ${separated ? "border-t border-neutral-800 pt-4" : ""}`}
+    >
+      <h3 className="text-sm font-semibold">
+        {confirming
+          ? t("profile.disconnectQuestion", {
+              provider: providerName(confirming),
+            })
+          : t("profile.providers")}
+      </h3>
+      <ErrorAlert code={error ?? null} />
+      {confirming ? (
+        <>
+          {!connections?.canDisconnect && (
+            <Notice tone="warning">{t("errors.last_sign_in_method")}</Notice>
+          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              variant="ghost"
+              icon={X}
+              disabled={busy !== undefined}
+              onClick={finish}
+            >
+              {t("nickname.cancel")}
+            </Button>
+            <Button
+              variant="danger"
+              icon={Unlink}
+              disabled={busy !== undefined || !connections?.canDisconnect}
+              onClick={() => void disconnect()}
+            >
+              {t("profile.disconnectProvider", {
+                provider: providerName(confirming),
+              })}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <div className="grid auto-cols-fr grid-flow-col gap-2">
+          {[...new Set([...available, ...connected])].map((provider) => {
+            const linked = connected.includes(provider);
+            const label = t(
+              linked ? "profile.disconnectProvider" : "profile.connectProvider",
+              { provider: providerName(provider) },
+            );
+            return (
+              <Button
+                key={provider}
+                variant="icon"
+                icon={providerIcon(provider)}
+                aria-label={label}
+                aria-pressed={linked}
+                title={label}
+                className={`${PROVIDER_BUTTON_CLASS} relative ${linked ? "bg-emerald-500/10! text-emerald-200 ring-1 ring-inset ring-emerald-400/60" : ""}`}
+                disabled={loading || !connections || busy !== undefined}
+                onClick={() => {
+                  if (linked) {
+                    setError(undefined);
+                    setConfirming(provider);
+                    onActionChange?.(true);
+                  } else void connect(provider);
+                }}
+              >
+                {linked && (
+                  <Check
+                    aria-hidden="true"
+                    className="absolute top-1 right-1 size-3!"
+                  />
+                )}
+                <span className="text-center text-xs leading-4 whitespace-nowrap">
+                  {providerName(provider)}
+                </span>
+              </Button>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 // A button for each provider that is on. Each is a link: the browser leaves for the provider and comes back to
 // `returnPath`. Nothing at all when the chat-server has no provider, so there is no empty heading.
 export function AccountOptions({
@@ -84,7 +253,7 @@ export function AccountOptions({
               provider: t("account.local"),
             })}
             title={t("account.local")}
-            className="h-14 min-w-0 w-full flex-col gap-1! bg-neutral-800 px-0 hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-indigo-400 [&>svg]:size-5"
+            className={PROVIDER_BUTTON_CLASS}
           >
             <span className="text-center text-xs leading-4 whitespace-nowrap">
               {t("account.local")}
@@ -102,7 +271,7 @@ export function AccountOptions({
               provider: providerName(provider),
             })}
             title={providerName(provider)}
-            className="h-14 min-w-0 w-full flex-col gap-1! bg-neutral-800 px-0 hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-indigo-400 [&>svg]:size-5"
+            className={PROVIDER_BUTTON_CLASS}
           >
             <span className="text-center text-xs leading-4 whitespace-nowrap">
               {providerName(provider)}

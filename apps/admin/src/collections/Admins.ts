@@ -28,15 +28,66 @@ export const Admins: CollectionConfig = {
       return { id: { equals: user.id } }
     },
     create: ({ req }) => req.user?.role === 'super-admin',
-    update: ({ req, data }) =>
-      req.user?.role === 'super-admin' ||
-      (req.user?.role === 'service' &&
-        data != null &&
-        Object.keys(data).length === 1 &&
-        (Object.hasOwn(data, 'notificationPreferences') || Object.hasOwn(data, 'sidebarOpen'))),
+    update: ({ req, data, id }) => {
+      if (req.user?.role === 'super-admin') return true
+      if (!data || Object.keys(data).length === 0) return false
+      const profileFields = [
+        'notificationPreferences',
+        'sidebarOpen',
+        'displayName',
+        'avatar',
+        'picture',
+        'birthDate',
+      ]
+      if (req.user?.role === 'service')
+        return Object.keys(data).every((key) => profileFields.includes(key))
+      return (
+        req.user?.role === 'moderator' &&
+        String(req.user.id) === String(id) &&
+        Object.keys(data).every((key) => [...profileFields, 'password'].includes(key))
+      )
+    },
     delete: ({ req }) => req.user?.role === 'super-admin',
   },
+  hooks: {
+    beforeDelete: [
+      async ({ id, req }) => {
+        await req.payload.delete({
+          collection: 'staff-provider-links',
+          where: { staff: { equals: id } },
+          req,
+        })
+      },
+    ],
+  },
   fields: [
+    {
+      name: 'avatar',
+      type: 'text',
+      defaultValue: 'other',
+      validate: (value: string | null | undefined) =>
+        value == null || ['male', 'female', 'trans', 'other'].includes(value) || 'Invalid gender.',
+    },
+    { name: 'picture', type: 'text' },
+    {
+      name: 'birthDate',
+      type: 'text',
+      minLength: 10,
+      maxLength: 10,
+      access: {
+        read: ({ req }) => req.user?.role === 'service' || req.user?.role === 'super-admin',
+      },
+      validate: (value: string | null | undefined) => {
+        if (!value) return true
+        const date = new Date(`${value}T00:00:00Z`)
+        return (
+          (/^\d{4}-\d{2}-\d{2}$/.test(value) &&
+            !Number.isNaN(date.getTime()) &&
+            date.toISOString().slice(0, 10) === value) ||
+          'Enter a valid date of birth.'
+        )
+      },
+    },
     {
       name: 'sidebarOpen',
       type: 'checkbox',

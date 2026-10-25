@@ -123,7 +123,12 @@
     "years": "{count, plural, one {# year old} other {# years old}}",
     "save": "Save",
     "saving": "Saving…",
-    "moderatorNote": "You are signed in as a moderator. Your name comes from your account and can't be changed here."
+    "adminRole": "Admin",
+    "providers": "Connected accounts",
+    "connectProvider": "Connect {provider}",
+    "disconnectProvider": "Disconnect {provider}",
+    "disconnectQuestion": "Disconnect {provider}?",
+    "moderatorNote": "Your name is managed by your staff account."
   },
   "time": {
     "fewSecondsAgo": "a few seconds ago",
@@ -495,6 +500,7 @@
     "currentPassword": "Current password",
     "newPassword": "New password",
     "passwordChanged": "Your password has been changed.",
+    "passwordSet": "Your password has been set.",
     "passwordStrength": "Password strength",
     "passwordWeak": "Weak",
     "passwordFair": "Almost there",
@@ -567,6 +573,10 @@
     "invalid_state": "The sign-in took too long or had already been used. Try again.",
     "unknown_provider": "That way of signing in is not available.",
     "invalid_ticket": "The sign-in has expired. Start again.",
+    "provider_in_use": "This provider is already connected to another account.",
+    "provider_already_connected": "This provider is already connected to your account.",
+    "provider_not_connected": "This provider is no longer connected to your account.",
+    "last_sign_in_method": "Keep at least one sign-in method connected to your account.",
     "invalid_credentials": "Wrong username, email or password.",
     "human_check_required": "Complete the human verification to continue.",
     "human_check_failed": "Human verification expired or failed. Please try again.",

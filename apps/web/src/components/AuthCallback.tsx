@@ -2,10 +2,11 @@ import { ArrowLeft, UserPlus, X } from "lucide-react";
 import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
-import { accountOf, saveAccount } from "../account";
+import { accountOf, clearAccount, saveAccount } from "../account";
 import {
   AccountError,
   fetchAccount,
+  fetchStaffSession,
   registerAccount,
   type AccountSession,
 } from "../api";
@@ -16,7 +17,12 @@ import { normalizeNickname, normalizeUsername, tidyName } from "../nickname";
 import { slugFromPath } from "../place";
 import { loadTermsAccepted, saveTermsAccepted } from "../preferences";
 import { readBirthDate } from "../profile";
-import { clearSession, loadSession, saveSession } from "../session";
+import {
+  clearSession,
+  loadSession,
+  saveSession,
+  saveModerator,
+} from "../session";
 import { usePageTitle } from "../usePageTitle";
 import { providerName } from "./AccountOptions";
 import { Button, ButtonLink } from "./Button";
@@ -30,6 +36,7 @@ import { TermsCheckbox } from "./TermsCheckbox";
 export type CallbackOutcome =
   | { kind: "error"; code: string }
   | { kind: "token"; token: string }
+  | { kind: "staff"; token: string }
   | { kind: "ticket"; ticket: string; provider: string; name?: string };
 
 // A path of this site; anything else is the lobby, so a made-up link cannot send somebody away.
@@ -54,7 +61,11 @@ export function parseCallback(hash: string): {
   const ticket = params.get("ticket");
 
   if (error) return { outcome: { kind: "error", code: error }, returnPath };
-  if (token) return { outcome: { kind: "token", token }, returnPath };
+  if (token)
+    return {
+      outcome: { kind: params.get("staff") === "1" ? "staff" : "token", token },
+      returnPath,
+    };
 
   if (ticket) {
     const name = params.get("name");
@@ -133,6 +144,20 @@ export function AuthCallback({
     if (outcome.kind === "token") {
       fetchAccount(outcome.token)
         .then((session) => finish(session, returnPath, navigate))
+        .catch((error: unknown) =>
+          setView({ status: "error", code: codeOf(error) }),
+        );
+    }
+
+    if (outcome.kind === "staff") {
+      fetchStaffSession(outcome.token)
+        .then((staff) => {
+          clearAccount();
+          clearSession();
+          saveModerator({ nickname: staff.name, token: outcome.token });
+          saveSession({ nickname: staff.name, token: outcome.token });
+          navigate(returnPath);
+        })
         .catch((error: unknown) =>
           setView({ status: "error", code: codeOf(error) }),
         );

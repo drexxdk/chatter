@@ -15,6 +15,8 @@ import {
   PayloadError,
   saveReport,
   updateUser,
+  updateStaffProfile,
+  changeStaffPassword,
 } from "./payloadClient.js";
 
 function respondWith(body: unknown, init: ResponseInit = { status: 200 }) {
@@ -43,14 +45,100 @@ const ban = {
 };
 
 describe("findPasswordUser", () => {
-  it("looks up only password accounts by their current normalized username", async () => {
+  it("looks up accounts with a local password by their current normalized username", async () => {
     const request = respondWith({ docs: [] });
     expect(await findPasswordUser("alice")).toBeUndefined();
     const [url] = request.mock.calls[0] as unknown as [string];
     const query = new URL(url).searchParams;
-    expect(query.get("where[provider][equals]")).toBe("password");
+    expect(query.get("where[provider][equals]")).toBeNull();
+    expect(query.get("where[passwordHash][exists]")).toBe("true");
     expect(query.get("where[nicknameKey][equals]")).toBe("alice");
     expect(query.get("limit")).toBe("1");
+  });
+});
+
+describe("staff self-service", () => {
+  it("only sends whitelisted staff profile fields", async () => {
+    const request = respondWith({ doc: { id: 7 } });
+    const changes = {
+      displayName: "Ada",
+      avatar: "female" as const,
+      picture: "lorelei:ada",
+      birthDate: "1990-04-18",
+      role: "super-admin",
+      password: "must-not-be-sent",
+    };
+    await updateStaffProfile(7, changes);
+    const [url, init] = request.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(url).toContain("/api/admins/7");
+    expect(JSON.parse(init.body as string)).toEqual({
+      displayName: "Ada",
+      avatar: "female",
+      picture: "lorelei:ada",
+      birthDate: "1990-04-18",
+    });
+  });
+
+  it.each([401, 403])(
+    "refuses an invalid current password (%s)",
+    async (status) => {
+      const request = respondWith({}, { status });
+      expect(
+        await changeStaffPassword(
+          { id: 7, email: "ada@example.test" },
+          "old-password",
+          "new-password",
+        ),
+      ).toBe(false);
+      expect(request).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([
+    { id: 8, role: "moderator" },
+    { id: 7, role: "service" },
+  ])("refuses a different account or ineligible role: %o", async (user) => {
+    const request = respondWith({ token: "payload-token", user });
+    expect(
+      await changeStaffPassword(
+        { id: 7, email: "ada@example.test" },
+        "old-password",
+        "new-password",
+      ),
+    ).toBe(false);
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("changes the password using the freshly authenticated staff JWT, not the service key", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          token: "payload-token",
+          user: { id: 7, role: "moderator" },
+        }),
+      )
+      .mockResolvedValueOnce(Response.json({ doc: { id: 7 } }));
+    vi.stubGlobal("fetch", request);
+    expect(
+      await changeStaffPassword(
+        { id: 7, email: "ada@example.test" },
+        "old-password",
+        "new-password",
+      ),
+    ).toBe(true);
+    const [url, init] = request.mock.calls[1] as [string, RequestInit];
+    expect(url).toContain("/api/admins/7");
+    expect(init.headers).toEqual({
+      "Content-Type": "application/json",
+      Authorization: "JWT payload-token",
+    });
+    expect(JSON.parse(init.body as string)).toEqual({
+      password: "new-password",
+    });
   });
 });
 

@@ -373,6 +373,7 @@ export function RoomSearch({
                           <AvatarIcon
                             avatar={message.avatar ?? "other"}
                             picture={message.picture}
+                            moderator={moderator}
                           />
                         </span>
                       )}

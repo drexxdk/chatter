@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { clearAccount, loadAccount, saveAccount } from "./account";
+import { accountOf, clearAccount, loadAccount, saveAccount } from "./account";
+import { parseAccountSession } from "./api";
 
 const NOW = 1_700_000_000_000;
 const account = {
@@ -18,6 +19,27 @@ afterEach(() => {
 });
 
 describe("the account kept in this browser", () => {
+  it.each([false, true])(
+    "retains the password capability across reloads: %s",
+    (hasPassword) => {
+      saveAccount(
+        accountOf(
+          parseAccountSession({
+            token: account.token,
+            provider: account.provider,
+            expiresAt: account.expiresAt,
+            profile: {
+              nickname: account.nickname,
+              avatar: account.avatar,
+              age: account.age,
+            },
+            hasPassword,
+          }),
+        ),
+      );
+      expect(loadAccount(NOW)).toEqual({ ...account, hasPassword });
+    },
+  );
   it("is there after it was saved, and gone after it was cleared", () => {
     saveAccount(account);
 

@@ -72,6 +72,8 @@ export interface Config {
     bans: Ban;
     reports: Report;
     users: User;
+    'staff-provider-links': StaffProviderLink;
+    'member-provider-links': MemberProviderLink;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -84,6 +86,8 @@ export interface Config {
     bans: BansSelect<false> | BansSelect<true>;
     reports: ReportsSelect<false> | ReportsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    'staff-provider-links': StaffProviderLinksSelect<false> | StaffProviderLinksSelect<true>;
+    'member-provider-links': MemberProviderLinksSelect<false> | MemberProviderLinksSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -133,6 +137,9 @@ export interface AdminAuthOperations {
  */
 export interface Admin {
   id: number;
+  avatar?: string | null;
+  picture?: string | null;
+  birthDate?: string | null;
   sidebarOpen?: boolean | null;
   notificationPreferences?:
     | {
@@ -305,6 +312,30 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "staff-provider-links".
+ */
+export interface StaffProviderLink {
+  id: number;
+  identity: string;
+  provider: string;
+  staff: number | Admin;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "member-provider-links".
+ */
+export interface MemberProviderLink {
+  id: number;
+  identity: string;
+  provider: string;
+  member: number | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -346,6 +377,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: number | User;
+      } | null)
+    | ({
+        relationTo: 'staff-provider-links';
+        value: number | StaffProviderLink;
+      } | null)
+    | ({
+        relationTo: 'member-provider-links';
+        value: number | MemberProviderLink;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -394,6 +433,9 @@ export interface PayloadMigration {
  * via the `definition` "admins_select".
  */
 export interface AdminsSelect<T extends boolean = true> {
+  avatar?: T;
+  picture?: T;
+  birthDate?: T;
   sidebarOpen?: T;
   notificationPreferences?: T;
   role?: T;
@@ -490,6 +532,28 @@ export interface UsersSelect<T extends boolean = true> {
   birthDate?: T;
   age?: T;
   lastLoginAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "staff-provider-links_select".
+ */
+export interface StaffProviderLinksSelect<T extends boolean = true> {
+  identity?: T;
+  provider?: T;
+  staff?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "member-provider-links_select".
+ */
+export interface MemberProviderLinksSelect<T extends boolean = true> {
+  identity?: T;
+  provider?: T;
+  member?: T;
   updatedAt?: T;
   createdAt?: T;
 }

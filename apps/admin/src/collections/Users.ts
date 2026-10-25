@@ -19,6 +19,15 @@ export const Users: CollectionConfig = {
     delete: ({ req }) => req.user?.role === 'service' || req.user?.role === 'super-admin',
   },
   hooks: {
+    beforeDelete: [
+      async ({ id, req }) => {
+        await req.payload.delete({
+          collection: 'member-provider-links',
+          where: { member: { equals: id } },
+          req,
+        })
+      },
+    ],
     beforeValidate: [
       ({ data, originalDoc }) => {
         if (!data) return data

@@ -112,7 +112,12 @@ export function ThreadActions({
         >
           <ReturnFocus to={button} />
           <div className="flex items-center gap-4">
-            <AvatarIcon avatar={thread.avatar} picture={thread.picture} large />
+            <AvatarIcon
+              avatar={thread.avatar}
+              picture={thread.picture}
+              moderator={thread.role === "moderator"}
+              large
+            />
             <div className="min-w-0 space-y-1">
               <IdentityDetails person={thread} />
               <p className="text-sm text-neutral-400">

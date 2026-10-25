@@ -41,6 +41,7 @@ function Card({ person }: { person: Member }) {
       <AvatarIcon
         avatar={avatar}
         picture={person.picture}
+        moderator={person.role === "moderator"}
         small
         titled={false}
       />

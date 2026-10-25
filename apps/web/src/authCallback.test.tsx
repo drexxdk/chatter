@@ -60,6 +60,12 @@ afterEach(() => {
 });
 
 describe("what the chat-server sends the browser back with", () => {
+  it("recognizes a staff sign-in without treating it as a member", () => {
+    expect(parseCallback("#token=staff-token&staff=1&return=%2F")).toEqual({
+      outcome: { kind: "staff", token: "staff-token" },
+      returnPath: "/",
+    });
+  });
   it("is a session for somebody who has an account", () => {
     expect(parseCallback("#token=abc&return=%2Frooms%2Fmusic")).toEqual({
       outcome: { kind: "token", token: "abc" },
@@ -117,6 +123,50 @@ describe("what the chat-server sends the browser back with", () => {
 });
 
 describe("the page the providers send the browser back to", () => {
+  it("verifies staff callbacks and preserves staff identity without creating a member account", async () => {
+    const request = stubServer({
+      "GET /me/staff": () => ({
+        body: { name: "Frederik Nielsen", admin: true },
+      }),
+    });
+    const navigate = vi.fn();
+    render(
+      <AuthCallback
+        hash="#token=staff-token&staff=1&return=%2F%3Fdialog%3Dprofile"
+        navigate={navigate}
+      />,
+    );
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith("/?dialog=profile"),
+    );
+    expect(loadAccount()).toBeNull();
+    expect(loadSession()).toMatchObject({
+      nickname: "Frederik Nielsen",
+      token: "staff-token",
+    });
+    expect(request).toHaveBeenCalledWith(
+      "http://localhost:4000/me/staff",
+      expect.objectContaining({
+        headers: { Authorization: "Bearer staff-token" },
+      }),
+    );
+    expect(window.location.hash).toBe("");
+  });
+
+  it("does not trust a forged staff callback", async () => {
+    stubServer({
+      "GET /me/staff": () => ({
+        status: 401,
+        body: { error: "invalid_token" },
+      }),
+    });
+    const navigate = vi.fn();
+    render(<AuthCallback hash="#token=forged&staff=1" navigate={navigate} />);
+    await screen.findByRole("alert");
+    expect(navigate).not.toHaveBeenCalled();
+    expect(loadSession()).toBeNull();
+  });
+
   it("says what went wrong, and offers the way back to where the guest was", async () => {
     render(
       <AuthCallback

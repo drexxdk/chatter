@@ -37,6 +37,9 @@ const {
   releaseMemberName,
   fetchUser,
   updateUser,
+  fetchStaffAccount,
+  updateStaffProfile,
+  rememberModerator,
 } = vi.hoisted(() => ({
   isBanned: vi.fn(),
   getCachedPublicRooms: vi.fn(),
@@ -61,6 +64,9 @@ const {
   releaseMemberName: vi.fn(),
   fetchUser: vi.fn(),
   updateUser: vi.fn(),
+  fetchStaffAccount: vi.fn(),
+  updateStaffProfile: vi.fn(),
+  rememberModerator: vi.fn(),
 }));
 
 const claimGuestAccount = vi.hoisted(() => vi.fn());
@@ -97,6 +103,8 @@ vi.mock("./payloadClient.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./payloadClient.js")>()),
   fetchUser,
   updateUser,
+  fetchStaffAccount,
+  updateStaffProfile,
 }));
 vi.mock("./bans.js", () => ({ isBanned }));
 vi.mock("./rooms.js", () => ({ getCachedPublicRooms }));
@@ -116,6 +124,7 @@ vi.mock("./names.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./names.js")>()),
   getModeratorNames,
   getModerators,
+  rememberModerator,
 }));
 vi.mock("./history.js", () => ({
   recordMessage,
@@ -326,6 +335,9 @@ beforeEach(() => {
   releaseMemberName.mockReset().mockResolvedValue(undefined);
   fetchUser.mockReset().mockResolvedValue(undefined);
   updateUser.mockReset().mockResolvedValue(undefined);
+  fetchStaffAccount.mockReset().mockResolvedValue(undefined);
+  updateStaffProfile.mockReset().mockResolvedValue(undefined);
+  rememberModerator.mockReset().mockResolvedValue(undefined);
 });
 
 afterEach(async () => {
@@ -2219,6 +2231,57 @@ describe("roles", () => {
       role: "moderator",
     });
   });
+
+  it.each([false, true])(
+    "loads staff profile fields from the account and keeps the birthday private (admin: %s)",
+    async (admin) => {
+      getModerators.mockResolvedValue([
+        {
+          id: 7,
+          name: "Frederik Nielsen",
+          admin,
+          avatar: "male",
+          birthDate: "1990-04-18",
+        },
+      ]);
+      const { port } = await startServer({ authTokenSecret: SECRET });
+      const alice = await connectGuest("Alice", port);
+      const staff = await connect(
+        {
+          token: tokenFor(),
+          nickname: "Forged",
+          avatar: "female",
+          birthDate: "2001-01-01",
+        },
+        port,
+      );
+      expect(await staff.session).toMatchObject({
+        nickname: "Frederik Nielsen",
+        role: "moderator",
+        avatar: "male",
+        birthDate: "1990-04-18",
+        age: expect.any(Number),
+      });
+      if (admin) expect(await staff.session).toMatchObject({ admin: true });
+      else expect(await staff.session).not.toHaveProperty("admin");
+      await emit(alice, "room:join", { slug: "general" });
+      const presence = waitFor<Presence>(
+        alice,
+        "room:presence",
+        (value) => value.members.length === 2,
+      );
+      await emit(staff.socket!, "room:join", { slug: "general" });
+      const publicStaff = (await presence).members.find(
+        (member) => member.role === "moderator",
+      );
+      expect(publicStaff).toMatchObject({
+        nickname: "Frederik Nielsen",
+        avatar: "male",
+        age: expect.any(Number),
+      });
+      expect(publicStaff).not.toHaveProperty("birthDate");
+    },
+  );
 
   it.each([
     ["garbage", () => "not-a-token"],
@@ -4469,18 +4532,80 @@ describe("profiles", () => {
     ).toMatchObject({ ok: false, error: "rate_limited" });
   });
 
-  it("does not let a moderator change theirs", async () => {
-    const { port } = await startServer({ authTokenSecret: SECRET });
-    const token = signToken(
-      { sub: 7, name: "Ada Mod", role: "moderator" },
-      { secret: SECRET, ttlMs: 3_600_000 },
-    );
-    const { socket } = await connect({ token }, port);
+  it.each([false, true])(
+    "saves staff profile changes without accepting role changes (admin: %s)",
+    async (admin) => {
+      fetchStaffAccount.mockResolvedValue({
+        id: 7,
+        displayName: "Ada Mod",
+        role: admin ? "super-admin" : "moderator",
+        avatar: "male",
+        birthDate: "1990-04-18",
+      });
+      const { port } = await startServer({ authTokenSecret: SECRET });
+      const token = signToken(
+        { sub: 7, name: "Ada Mod", role: "moderator" },
+        { secret: SECRET, ttlMs: 3_600_000 },
+      );
+      const { socket } = await connect({ token }, port);
 
-    expect(
-      await emit(socket!, "profile:update", { nickname: "Somebody" }),
-    ).toEqual({ ok: false, error: "forbidden" });
-  });
+      expect(
+        await emit(socket!, "profile:update", {
+          nickname: "Somebody",
+          avatar: "female",
+          picture: "lorelei:staff01",
+          birthDate: "1991-06-20",
+          role: "super-admin",
+          admin: true,
+          accountId: 8,
+        }),
+      ).toMatchObject({
+        ok: true,
+        profile: {
+          nickname: "Somebody",
+          avatar: "female",
+          picture: "lorelei:staff01",
+          birthDate: "1991-06-20",
+        },
+      });
+      expect(updateStaffProfile).toHaveBeenCalledWith(7, {
+        displayName: "Somebody",
+        avatar: "female",
+        picture: "lorelei:staff01",
+        birthDate: "1991-06-20",
+      });
+      expect(rememberModerator).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 7,
+          name: "Somebody",
+          ...(admin ? { admin: true } : {}),
+        }),
+      );
+      if (!admin)
+        expect(rememberModerator.mock.calls[0][0]).not.toHaveProperty("admin");
+    },
+  );
+
+  it.each([
+    undefined,
+    { id: 7, displayName: "Ada Mod", role: "service" },
+    { id: 7, displayName: null, role: "moderator" },
+  ])(
+    "rejects staff profile writes after access is removed: %o",
+    async (staff) => {
+      fetchStaffAccount.mockResolvedValue(staff);
+      const { port } = await startServer({ authTokenSecret: SECRET });
+      const token = signToken(
+        { sub: 7, name: "Ada Mod", role: "moderator" },
+        { secret: SECRET, ttlMs: 3600000 },
+      );
+      const { socket } = await connect({ token }, port);
+      expect(
+        await emit(socket!, "profile:update", { avatar: "female" }),
+      ).toMatchObject({ ok: false, error: "invalid_token" });
+      expect(updateStaffProfile).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("nicknames in a room", () => {

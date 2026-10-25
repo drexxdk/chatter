@@ -48,6 +48,7 @@ export function MentionList({
           <AvatarIcon
             avatar={person.avatar}
             picture={person.picture}
+            moderator={person.role === "moderator"}
             small
             titled={false}
           />

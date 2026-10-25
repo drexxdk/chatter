@@ -1,4 +1,11 @@
-import { Mars, Transgender, User, Venus, type LucideIcon } from "lucide-react";
+import {
+  Mars,
+  ShieldCheck,
+  Transgender,
+  User,
+  Venus,
+  type LucideIcon,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { parseAvatar, type Avatar } from "../chat/avatar";
@@ -44,6 +51,7 @@ export function AvatarIcon({
   fill = false,
   titled = true,
   dimmed = false,
+  moderator = false,
 }: {
   avatar: Avatar;
   // The picture an account chose, which takes the place of the symbol; the others have only the symbol.
@@ -56,9 +64,10 @@ export function AvatarIcon({
   titled?: boolean;
   // For somebody who is no longer here.
   dimmed?: boolean;
+  moderator?: boolean;
 }) {
   const { t } = useTranslation();
-  const known = parsePicture(picture);
+  const known = moderator ? undefined : parsePicture(picture);
   const uri = usePictureUri(known);
   // Live messages and the list of people reach here as the server sent them, so an unknown value must not break it.
   const kind = parseAvatar(avatar);
@@ -72,6 +81,16 @@ export function AvatarIcon({
         ? "h-6 w-6"
         : "h-9 w-9";
   const fade = dimmed ? "opacity-50 grayscale" : "";
+
+  if (moderator) {
+    return (
+      <ShieldCheck
+        aria-hidden="true"
+        data-avatar="moderator"
+        className={`shrink-0 text-green-300 ${size} ${fade}`}
+      />
+    );
+  }
 
   if (known) {
     return (

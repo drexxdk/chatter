@@ -92,6 +92,30 @@ describe("loginAccount", () => {
 });
 
 describe("fetchModerators", () => {
+  it("loads staff profile fields without exposing private account data", async () => {
+    respondWith({
+      docs: [
+        {
+          id: 1,
+          role: "super-admin",
+          displayName: "Frederik Nielsen",
+          avatar: "male",
+          birthDate: "1990-04-18",
+          email: "private@example.com",
+        },
+      ],
+    });
+    expect(await fetchModerators()).toEqual([
+      {
+        id: 1,
+        name: "Frederik Nielsen",
+        admin: true,
+        avatar: "male",
+        birthDate: "1990-04-18",
+      },
+    ]);
+  });
+
   it("asks for the moderating accounts with the service key", async () => {
     const fetchMock = respondWith({ docs: [] });
 

@@ -123,7 +123,12 @@
     "years": "{count, plural, one {# år} other {# år}}",
     "save": "Gem",
     "saving": "Gemmer…",
-    "moderatorNote": "Du er logget ind som moderator. Dit navn kommer fra din konto og kan ikke ændres her."
+    "adminRole": "Administrator",
+    "providers": "Tilknyttede konti",
+    "connectProvider": "Tilknyt {provider}",
+    "disconnectProvider": "Fjern {provider}",
+    "disconnectQuestion": "Fjern forbindelsen til {provider}?",
+    "moderatorNote": "Dit navn administreres via din personalekonto."
   },
   "time": {
     "fewSecondsAgo": "for få sekunder siden",
@@ -495,6 +500,7 @@
     "currentPassword": "Nuværende adgangskode",
     "newPassword": "Ny adgangskode",
     "passwordChanged": "Din adgangskode er blevet ændret.",
+    "passwordSet": "Din adgangskode er blevet oprettet.",
     "passwordStrength": "Adgangskodens styrke",
     "passwordWeak": "Svag",
     "passwordFair": "Næsten klar",
@@ -564,6 +570,10 @@
     "invalid_state": "Indlogningen tog for lang tid eller var allerede brugt. Prøv igen.",
     "unknown_provider": "Den måde at logge ind på findes ikke.",
     "invalid_ticket": "Indlogningen er udløbet. Start forfra.",
+    "provider_in_use": "Denne udbyder er allerede tilknyttet en anden konto.",
+    "provider_already_connected": "Denne udbyder er allerede tilknyttet din konto.",
+    "provider_not_connected": "Denne udbyder er ikke længere tilknyttet din konto.",
+    "last_sign_in_method": "Behold mindst én loginmetode tilknyttet din konto.",
     "invalid_credentials": "Forkert brugernavn, e-mail eller adgangskode.",
     "human_check_required": "Bekræft, at du er et menneske, for at fortsætte.",
     "human_check_failed": "Bekræftelsen er udløbet eller mislykkedes. Prøv igen.",

@@ -77,7 +77,9 @@ async function seed() {
         password,
         role: 'super-admin',
         // Without one the account cannot sign in to the chat.
-        displayName: 'Admin',
+        displayName: 'Frederik Nielsen',
+        avatar: 'male',
+        birthDate: '1990-04-18',
       },
     })
 
@@ -116,7 +118,8 @@ async function seed() {
   if (existingService.totalDocs > 0) {
     payload.logger.info('Service account already exists, skipping.')
   } else {
-    const apiKey = crypto.randomBytes(32).toString('hex')
+    const configuredKey = process.env.PAYLOAD_SERVICE_API_KEY
+    const apiKey = configuredKey || crypto.randomBytes(32).toString('hex')
 
     await payload.create({
       collection: 'admins',
@@ -131,9 +134,11 @@ async function seed() {
     })
 
     payload.logger.info('Created chat-server service account.')
-    payload.logger.info(
-      `Set this as PAYLOAD_SERVICE_API_KEY in the chat-server's settings (apps/chat-server/.env, or deploy/chat-server.env in production): ${apiKey}`,
-    )
+    if (!configuredKey) {
+      payload.logger.info(
+        `Set this as PAYLOAD_SERVICE_API_KEY in the chat-server's settings (apps/chat-server/.env, or deploy/chat-server.env in production): ${apiKey}`,
+      )
+    }
   }
 
   await seedLegal(payload)

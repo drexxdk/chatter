@@ -705,15 +705,20 @@ export function createSocketServer(
             return next(new Error("invalid_token"));
           }
 
-          admin =
-            moderators.find((moderator) => moderator.id === claims.sub)
-              ?.admin === true;
+          const moderator = moderators.find(
+            (person) => person.id === claims.sub,
+          )!;
+          admin = moderator.admin === true;
+          nickname = moderator.name ?? claims.name;
+          avatar = moderator.avatar ?? "other";
+          picture = moderator.picture;
+          birthDate = moderator.birthDate;
+          age = birthDate ? ageFromBirthDate(birthDate) : undefined;
         } catch (error) {
           log.error("Moderator check failed", error);
           return next(new Error("unavailable"));
         }
 
-        nickname = claims.name;
         role = claims.role;
         accountId = claims.sub;
       }

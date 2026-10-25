@@ -1256,7 +1256,16 @@ export function App({
             onSave={saveProfile}
             account={account}
             onDelete={deleteMyAccount}
+            onPasswordChanged={() => {
+              if (!account || profile.role !== "member") return;
+              const next = { ...account, hasPassword: true };
+              saveAccount(next);
+              setAccount(next);
+            }}
             onCreateAccount={openAccountCreation}
+            staffToken={
+              profile.role === "moderator" ? loadSession()?.token : undefined
+            }
           />
         )}
 

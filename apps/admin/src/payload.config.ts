@@ -5,6 +5,8 @@ import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 
 import { Admins } from './collections/Admins'
+import { StaffProviderLinks } from './collections/StaffProviderLinks'
+import { MemberProviderLinks } from './collections/MemberProviderLinks'
 import { PublicRooms } from './collections/PublicRooms'
 import { Bans } from './collections/Bans'
 import { Reports } from './collections/Reports'
@@ -23,7 +25,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Admins, PublicRooms, Bans, Reports, Users],
+  collections: [Admins, PublicRooms, Bans, Reports, Users, StaffProviderLinks, MemberProviderLinks],
   globals: [Legal],
   // The languages of the web client; only fields marked `localized` differ between them.
   localization: {
