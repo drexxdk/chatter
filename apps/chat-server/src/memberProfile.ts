@@ -58,15 +58,8 @@ export async function validateProfileUpdate(
     const nickname = validateNickname(fields.nickname);
     if (!nickname) return { ok: false, error: "invalid_nickname" };
 
-    if (nickname !== current.nickname) {
-      try {
-        if (isReservedNickname(nickname, await getModeratorNames())) {
-          return { ok: false, error: "reserved_nickname" };
-        }
-      } catch (error) {
-        log.error("Reserved names unavailable", error);
-        return { ok: false, error: "unavailable" };
-      }
+    if (nickname !== current.nickname && isReservedNickname(nickname, [])) {
+      return { ok: false, error: "reserved_nickname" };
     }
 
     profile.nickname = nickname;

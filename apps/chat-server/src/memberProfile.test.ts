@@ -176,7 +176,15 @@ describe("shared profile validation", () => {
     },
   );
 
-  it.each(["Ada Mod", "moderator", "system"])(
+  it("accepts another user's display name, including a moderator's", async () => {
+    expect(
+      await validateProfileUpdate(current, { nickname: "Ada Mod" }, 5),
+    ).toEqual({ ok: true, profile: { ...current, nickname: "Ada Mod" } });
+    expect(getModeratorNames).not.toHaveBeenCalled();
+    expect(isMemberName).not.toHaveBeenCalled();
+  });
+
+  it.each(["moderator", "system"])(
     "refuses the reserved name %s",
     async (nickname) => {
       expect(await validateProfileUpdate(current, { nickname }, 5)).toEqual({
@@ -205,21 +213,14 @@ describe("shared profile validation", () => {
     expect(isMemberName).not.toHaveBeenCalled();
   });
 
-  it.each(["moderators"])(
-    "fails closed when %s cannot be checked",
-    async (lookup) => {
-      if (lookup === "moderators") {
-        vi.mocked(getModeratorNames).mockRejectedValueOnce(
-          new Error("offline"),
-        );
-      } else {
-        vi.mocked(isMemberName).mockRejectedValueOnce(new Error("offline"));
-      }
-
-      expect(
-        await validateProfileUpdate(current, { nickname: "Alicia" }, 5),
-      ).toEqual({ ok: false, error: "unavailable" });
-      expect(updateUser).not.toHaveBeenCalled();
-    },
-  );
+  it("does not depend on name lookups being available", async () => {
+    vi.mocked(getModeratorNames).mockRejectedValueOnce(new Error("offline"));
+    vi.mocked(isMemberName).mockRejectedValueOnce(new Error("offline"));
+    expect(
+      await validateProfileUpdate(current, { nickname: "Alicia" }, 5),
+    ).toEqual({ ok: true, profile: { ...current, nickname: "Alicia" } });
+    expect(getModeratorNames).not.toHaveBeenCalled();
+    expect(isMemberName).not.toHaveBeenCalled();
+    expect(updateUser).not.toHaveBeenCalled();
+  });
 });
