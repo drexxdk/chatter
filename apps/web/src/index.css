@@ -420,6 +420,7 @@ html:has(#headlessui-portal-root [role="dialog"][aria-modal="true"]) {
 .panel {
   container: panel / size;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 /* The slide-in panel is the same, and is not as tall as the window, so it goes on scrolling its lists one by one for as
@@ -455,6 +456,7 @@ html:has(#headlessui-portal-root [role="dialog"][aria-modal="true"]) {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .panel .panel-section {
@@ -467,7 +469,7 @@ html:has(#headlessui-portal-root [role="dialog"][aria-modal="true"]) {
 }
 
 .panel .panel-list {
-  padding-inline-end: 0.75rem;
+  padding-inline-end: 0;
 }
 
 .panel-list :focus-visible,

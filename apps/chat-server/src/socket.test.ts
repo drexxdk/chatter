@@ -2913,31 +2913,49 @@ describe("who comes into a room and who goes out of it", () => {
 });
 
 describe("the warning before an inactivity disconnect", () => {
-  it("is not for a moderator, who is not disconnected either", async () => {
-    getModerators.mockResolvedValue([{ id: 8, name: "Grace" }]);
-    const secret = "a-secret-that-is-long-enough-for-tests";
-    const { io, port } = await startServer({
-      authTokenSecret: secret,
-      inactivityTimeoutMs: 300,
-      idleWarningBeforeMs: 150,
-    });
-    const token = signToken(
-      { sub: 8, name: "Grace", role: "moderator" },
-      { secret, ttlMs: 3_600_000 },
-    );
-    const { socket } = await connect({ token }, port);
-    const onWarning = vi.fn();
-    const onKicked = vi.fn();
-    socket?.on("idle:warning", onWarning);
-    socket?.on("kicked", onKicked);
+  it.each([false, true])(
+    "exempts staff from inactivity in the lobby and rooms (admin: %s)",
+    async (admin) => {
+      getModerators.mockResolvedValue([{ id: 8, name: "Grace", admin }]);
+      const secret = "a-secret-that-is-long-enough-for-tests";
+      const { io, port } = await startServer({
+        authTokenSecret: secret,
+        inactivityTimeoutMs: 300,
+        idleWarningBeforeMs: 150,
+      });
+      const token = signToken(
+        { sub: 8, name: "Grace", role: "moderator" },
+        { secret, ttlMs: 3_600_000 },
+      );
+      const { socket, session } = await connect({ token }, port);
+      expect(await session).toMatchObject({
+        role: "moderator",
+        ...(admin ? { admin: true } : {}),
+      });
+      const onWarning = vi.fn();
+      const onKicked = vi.fn();
+      socket?.on("idle:warning", onWarning);
+      socket?.on("kicked", onKicked);
 
-    await new Promise((resolve) => setTimeout(resolve, 700));
+      await new Promise((resolve) => setTimeout(resolve, 350));
 
-    expect(socket?.connected).toBe(true);
-    expect(onWarning).not.toHaveBeenCalled();
-    expect(onKicked).not.toHaveBeenCalled();
-    await io.close();
-  });
+      expect(socket?.connected).toBe(true);
+      expect(onWarning).not.toHaveBeenCalled();
+      expect(onKicked).not.toHaveBeenCalled();
+
+      expect(
+        await emit(socket!, "room:join", { slug: "general" }),
+      ).toMatchObject({
+        ok: true,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 350));
+
+      expect(socket?.connected).toBe(true);
+      expect(onWarning).not.toHaveBeenCalled();
+      expect(onKicked).not.toHaveBeenCalled();
+      await io.close();
+    },
+  );
 
   it("comes once, with how long is left, and then the guest is disconnected", async () => {
     const { io, port } = await startServer({

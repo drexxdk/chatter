@@ -318,7 +318,7 @@ describe("lobby", () => {
     expect(screen.queryByRole("status")).toBeNull();
     expect(
       screen.getByRole("region", { name: "Public rooms" }).parentElement,
-    ).toHaveClass("justify-center");
+    ).not.toHaveClass("justify-center");
     expect(screen.getByRole("heading", { name: "Music" })).toBeInTheDocument();
     expect(screen.getByText("Open chat")).toBeInTheDocument();
     expect(screen.getByText("Up to 30 people")).toBeInTheDocument();

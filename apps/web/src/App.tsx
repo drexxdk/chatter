@@ -1177,7 +1177,7 @@ export function App({
               <AboutPage />
             ) : (
               <div className="flex flex-1 flex-col gap-6">
-                <div className="flex flex-1 flex-col justify-center gap-4 py-6">
+                <div className="flex flex-1 flex-col gap-4">
                   {!pendingRoom && !moderatorOpen && (
                     <ErrorAlert code={chat.error} onDismiss={chat.clearError} />
                   )}
