@@ -1069,17 +1069,14 @@ export function App({
                   />
                 </div>
               ) : page ? (
-                <Link
-                  to={LOBBY_PATH}
-                  className="font-heading text-2xl font-bold"
-                >
+                <Link to={LOBBY_PATH} className="font-brand text-2xl font-bold">
                   {t("app.title")}
                 </Link>
               ) : (
                 <h1
                   className={
                     settled || !startedInRoom.current
-                      ? "text-2xl font-bold"
+                      ? "font-brand text-2xl font-bold"
                       : "sr-only"
                   }
                 >

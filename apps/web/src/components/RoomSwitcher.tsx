@@ -67,7 +67,7 @@ export function RoomSwitcher({
             <div className="absolute left-(--page-gutter) w-0">
               <MenuItems
                 modal={false}
-                className={`${HEADER_DROPDOWN} min-w-48 font-sans text-sm font-normal ${MENU_SURFACE}`}
+                className={`${HEADER_DROPDOWN} min-w-48 font-sans text-sm font-normal tracking-normal ${MENU_SURFACE}`}
               >
                 {groups.map(({ group, rooms: inGroup }, index) => (
                   <div
