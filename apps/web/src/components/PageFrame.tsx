@@ -10,12 +10,14 @@ import { loadAccount } from "../account";
 import { loadSession } from "../session";
 import { loadShowMovements, saveShowMovements } from "../preferences";
 import { useNotificationPreferences } from "../useNotificationPreferences";
+import { useSettingsErrorToast } from "../useSettingsErrorToast";
 
 function PageSettingsMenu() {
   const [open, setOpen] = useState(false);
   const [movements, setMovements] = useState(loadShowMovements);
   const [token] = useState(() => loadAccount()?.token ?? loadSession()?.token);
   const notifications = useNotificationPreferences(token);
+  useSettingsErrorToast(notifications, open);
   return (
     <>
       <MainMenu onSettings={() => setOpen(true)} />

@@ -218,6 +218,11 @@ html:has([data-room-search] input:focus) {
   mask-composite: exclude;
 }
 
+.glass-surface:where(.overflow-y-auto, .overflow-auto)::before,
+.glass-surface:where(.overflow-y-auto, .overflow-auto)::after {
+  content: none;
+}
+
 .glass-menu {
   --glass-radius: 12rem;
   --glass-fill: 10%;

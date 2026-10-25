@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 
 import { App } from "./App";
+import { AppToaster } from "./components/AppToaster";
 import { AuthCallback } from "./components/AuthCallback";
 import "./i18n";
 import "./index.css";
@@ -26,6 +27,7 @@ keepStickyInView();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
+      <AppToaster />
       <Routes>
         <Route path={AUTH_CALLBACK_PATH} element={<AuthCallback />} />
         <Route path="*" element={<App />} />

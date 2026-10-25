@@ -1001,7 +1001,7 @@ export function createSocketServer(
         ...(idleWarningBeforeMs < inactivityTimeoutMs
           ? [
               setTimeout(() => {
-                if (isQueued()) return;
+                if (!data.roomSlug || isQueued()) return;
                 warned = true;
                 socket.emit("idle:warning", {
                   remainingMs: idleWarningBeforeMs,
@@ -1009,10 +1009,11 @@ export function createSocketServer(
               }, inactivityTimeoutMs - idleWarningBeforeMs),
             ]
           : []),
-        setTimeout(() => {
+        setTimeout(async () => {
           if (isQueued()) return resetIdleTimer();
-          socket.emit("kicked", { reason: "inactivity" });
-          socket.disconnect(true);
+          if (!data.roomSlug) return;
+          await leaveRoom();
+          socket.emit("kicked", { reason: "inactivity", roomOnly: true });
         }, inactivityTimeoutMs),
       ];
     };
@@ -1946,16 +1947,17 @@ export function createSocketServer(
       return crowd.stop(slug);
     });
 
-    socket.on("admin:kick", (payload: unknown, ack?: Ack) => {
+    socket.on("admin:kick", async (payload: unknown, ack?: Ack) => {
       const reply = ackOf(ack);
       if (!data.admin) return reply({ ok: false, error: "forbidden" });
       const reason = stringField(payload, "reason");
       if (!KICK_REASONS.includes(reason))
         return reply({ ok: false, error: "invalid_reason" });
 
+      removeFromQueue(socket.id);
+      await leaveRoom();
       reply({ ok: true });
-      socket.emit("kicked", { reason });
-      socket.disconnect(true);
+      socket.emit("kicked", { reason, roomOnly: true });
     });
 
     socket.on("message:send", async (payload: unknown, ack?: Ack) => {

@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
 
 import { saveModerator, saveSession } from "./session";
 import { ROOMS, setup, stubRooms } from "./test/app";
@@ -219,6 +220,39 @@ describe("reloading in a room", () => {
 });
 
 describe("the admin's tools", () => {
+  it.each([
+    ["Message", "message"],
+    ["Success", "success"],
+    ["Info", "info"],
+    ["Warning", "warning"],
+    ["Error", "error"],
+    ["Loading", "loading"],
+  ] as const)(
+    "previews a %s notification without sending a server command",
+    async (label, method) => {
+      const preview = vi.spyOn(toast, method).mockReturnValue("preview");
+      try {
+        stubLogin("admin-token", "Ada Admin");
+        const { user, server } = setup();
+        await signIn(user);
+        await openTools(user);
+        await user.click(screen.getByRole("menuitem", { name: label }));
+        expect(preview).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            id: `admin-toast-preview-${method === "message" ? "default" : method}`,
+          }),
+        );
+        expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+        expect(server.latest.emittedEvents("admin:crowd:start")).toHaveLength(
+          0,
+        );
+      } finally {
+        preview.mockRestore();
+      }
+    },
+  );
+
   it("keeps the dropdown open for repeated actions until clicking outside", async () => {
     stubLogin("admin-token", "Ada Admin");
     const { user, server } = setup();
@@ -399,20 +433,25 @@ describe("the admin's tools", () => {
     ["Replaced", "replaced", "You opened the chat in another window"],
     ["Expired", "invalid_token", "Your session has expired."],
   ])(
-    "returns to the lobby with a persistent explanation for %s",
+    "leaves only the room with a persistent explanation for %s",
     async (label, reason, explanation) => {
+      vi.stubGlobal("matchMedia", (query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }));
       stubLogin("admin-token", "Ada Admin");
       const server = makeFakeServer();
       const { user } = setup(server, [0]);
 
       await signInAndJoin(user);
+      await screen.findByRole("log", { name: "General" });
       await openTools(user);
       await user.click(await screen.findByRole("menuitem", { name: label }));
 
       expect(server.latest.emittedEvents("admin:kick")).toEqual([{ reason }]);
       act(() => {
-        server.latest.serverEmit("kicked", { reason });
-        server.latest.serverEmit("disconnect", "io server disconnect");
+        server.latest.serverEmit("kicked", { reason, roomOnly: true });
       });
       expect(await screen.findByRole("alert")).toHaveTextContent(explanation);
       expect(
@@ -420,7 +459,14 @@ describe("the admin's tools", () => {
       ).toBeVisible();
       expect(screen.queryByRole("log")).not.toBeInTheDocument();
       expect(screen.getByRole("alert")).toHaveTextContent(explanation);
+      expect(
+        screen.getByRole("button", { name: "Account menu: Ada Admin" }),
+      ).toBeVisible();
+      expect(server.latest.disconnected).toBe(false);
       expect(server.createSocket).toHaveBeenCalledTimes(1);
+
+      await user.click(screen.getByRole("button", { name: "Join General" }));
+      expect(await screen.findByRole("log", { name: "General" })).toBeVisible();
     },
   );
 });

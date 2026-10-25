@@ -6,6 +6,16 @@ import {
 } from "./api";
 import { loadNotificationSound, saveNotificationSound } from "./preferences";
 import { useNotificationPreferences } from "./useNotificationPreferences";
+import { useSettingsErrorToast } from "./useSettingsErrorToast";
+import {
+  dismissSettingsErrorToast,
+  showSettingsErrorToast,
+} from "./components/AppToaster";
+
+vi.mock("./components/AppToaster", () => ({
+  dismissSettingsErrorToast: vi.fn(),
+  showSettingsErrorToast: vi.fn(),
+}));
 
 vi.mock("./api", () => ({
   fetchNotificationPreferences: vi.fn(),
@@ -19,6 +29,8 @@ describe("notification preference synchronization", () => {
     warnings: { enabled: true, sound: "bell" as const },
   };
   beforeEach(() => {
+    vi.mocked(showSettingsErrorToast).mockClear();
+    vi.mocked(dismissSettingsErrorToast).mockClear();
     vi.mocked(fetchNotificationPreferences)
       .mockReset()
       .mockResolvedValue(saved);
@@ -31,6 +43,73 @@ describe("notification preference synchronization", () => {
     expect(loadNotificationSound()).toEqual(saved);
     expect(fetchNotificationPreferences).not.toHaveBeenCalled();
     expect(updateNotificationPreferences).not.toHaveBeenCalled();
+  });
+
+  it("reports a delayed save failure after closing settings and retries the latest value", async () => {
+    let failSave!: (reason: Error) => void;
+    vi.mocked(updateNotificationPreferences).mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          failSave = reject;
+        }),
+    );
+    const { result, rerender } = renderHook(
+      ({ open }) => {
+        const preferences = useNotificationPreferences("account-a");
+        useSettingsErrorToast(preferences, open);
+        return preferences;
+      },
+      { initialProps: { open: true } },
+    );
+    await waitFor(() => expect(result.current.status).toBe("saved"));
+    expect(showSettingsErrorToast).not.toHaveBeenCalled();
+    const changed = { ...saved, volume: 0.7 };
+    act(() => {
+      result.current.change(changed);
+      result.current.flush();
+    });
+    rerender({ open: false });
+    await waitFor(() =>
+      expect(updateNotificationPreferences).toHaveBeenCalledOnce(),
+    );
+    await act(async () => failSave(new Error("offline")));
+    expect(showSettingsErrorToast).toHaveBeenCalledExactlyOnceWith(
+      "save-error",
+      expect.any(Function),
+    );
+    act(() => vi.mocked(showSettingsErrorToast).mock.calls[0][1]());
+    await waitFor(() => expect(result.current.status).toBe("saved"));
+    expect(updateNotificationPreferences).toHaveBeenLastCalledWith(
+      "account-a",
+      changed,
+    );
+    expect(dismissSettingsErrorToast).toHaveBeenCalled();
+  });
+
+  it("keeps errors inline while settings are open and switches back when reopened", async () => {
+    vi.mocked(updateNotificationPreferences).mockRejectedValueOnce(
+      new Error("offline"),
+    );
+    const { result, rerender } = renderHook(
+      ({ open }) => {
+        const preferences = useNotificationPreferences("account-a");
+        useSettingsErrorToast(preferences, open);
+        return preferences;
+      },
+      { initialProps: { open: true } },
+    );
+    await waitFor(() => expect(result.current.status).toBe("saved"));
+    act(() => {
+      result.current.change({ ...saved, volume: 0.7 });
+      result.current.flush();
+    });
+    await waitFor(() => expect(result.current.status).toBe("save-error"));
+    expect(showSettingsErrorToast).not.toHaveBeenCalled();
+    rerender({ open: false });
+    expect(showSettingsErrorToast).toHaveBeenCalledOnce();
+    vi.mocked(dismissSettingsErrorToast).mockClear();
+    rerender({ open: true });
+    expect(dismissSettingsErrorToast).toHaveBeenCalledOnce();
   });
 
   it("loads from the database and preserves the guest's settings on sign-out", async () => {

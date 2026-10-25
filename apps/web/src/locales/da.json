@@ -57,6 +57,29 @@
   },
   "admin": {
     "open": "Admin-værktøjer",
+    "toasts": {
+      "title": "Notifikationer",
+      "default": "Besked",
+      "success": "Succes",
+      "info": "Info",
+      "warning": "Advarsel",
+      "error": "Fejl",
+      "loading": "Indlæser",
+      "action": "Handling",
+      "promise": "Promise",
+      "dismiss": "Luk testbeskeder",
+      "undo": "Fortryd",
+      "undone": "Beskeden er gendannet.",
+      "messages": {
+        "default": "Du har en ny notifikation.",
+        "success": "Ændringerne er gemt.",
+        "info": "Et nyt rum er tilgængeligt.",
+        "warning": "Din forbindelse er ustabil.",
+        "error": "Kunne ikke gemme ændringerne.",
+        "loading": "Gemmer ændringer...",
+        "action": "Beskeden er arkiveret."
+      }
+    },
     "roomLimit": "Rumgrænse",
     "applyRoomLimit": "Gem rumgrænse",
     "queue": {

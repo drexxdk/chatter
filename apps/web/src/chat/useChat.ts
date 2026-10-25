@@ -675,12 +675,19 @@ export function useChat(
           queueReaction(messageId, parseReactions(update.reactions));
         });
 
-        socket.on("kicked", (payload: { reason: string }) => {
-          if (!isCurrent()) return;
-          void playNotificationSound({ kind: "warnings" });
-          setIdleDeadline(null);
-          setError(payload.reason);
-        });
+        socket.on(
+          "kicked",
+          (payload: { reason: string; roomOnly?: boolean }) => {
+            if (!isCurrent()) return;
+            void playNotificationSound({ kind: "warnings" });
+            setIdleDeadline(null);
+            if (payload.roomOnly) {
+              resetQueue();
+              resetRoom();
+            }
+            setError(payload.reason);
+          },
+        );
 
         socket.on("disconnect", (reason: string) => {
           if (!isCurrent()) return;
@@ -710,6 +717,7 @@ export function useChat(
       redactDirectMessages,
       restoreDirectSession,
       resetQueue,
+      resetRoom,
     ],
   );
 

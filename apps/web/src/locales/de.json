@@ -57,6 +57,29 @@
   },
   "admin": {
     "open": "Admin-Werkzeuge",
+    "toasts": {
+      "title": "Benachrichtigungen",
+      "default": "Nachricht",
+      "success": "Erfolg",
+      "info": "Info",
+      "warning": "Warnung",
+      "error": "Fehler",
+      "loading": "Laden",
+      "action": "Aktion",
+      "promise": "Promise",
+      "dismiss": "Testnachrichten schließen",
+      "undo": "Rückgängig",
+      "undone": "Nachricht wiederhergestellt.",
+      "messages": {
+        "default": "Du hast eine neue Benachrichtigung.",
+        "success": "Änderungen gespeichert.",
+        "info": "Ein neuer Raum ist verfügbar.",
+        "warning": "Deine Verbindung ist instabil.",
+        "error": "Änderungen konnten nicht gespeichert werden.",
+        "loading": "Änderungen werden gespeichert...",
+        "action": "Nachricht archiviert."
+      }
+    },
     "roomLimit": "Raumlimit",
     "applyRoomLimit": "Raumlimit speichern",
     "queue": {

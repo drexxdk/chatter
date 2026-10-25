@@ -6,14 +6,22 @@ import {
   MenuSection,
 } from "@headlessui/react";
 import {
+  CircleCheck,
+  Clock3,
   FlaskConical,
+  Info,
+  LoaderCircle,
+  MessageSquare,
   Minus,
+  MousePointerClick,
   Pause,
   Play,
   Plus,
   Save,
   SkipForward,
   Square,
+  Trash2,
+  TriangleAlert,
   UserRoundPlus,
   UserX,
   UsersRound,
@@ -25,14 +33,43 @@ import type { Room } from "../api";
 import type { CrowdState, QueueTestSettings } from "../chat/types";
 import { HEADER_DROPDOWN, MENU_ITEM, MENU_SURFACE } from "./dropdown";
 import { ReloadMenu } from "./ReloadMenu";
+import {
+  dismissToastPreviews,
+  showToastPreview,
+  TOAST_PREVIEW_KINDS,
+  type ToastPreview,
+} from "./AppToaster";
+
+const TOAST_ICONS = {
+  default: MessageSquare,
+  success: CircleCheck,
+  info: Info,
+  warning: TriangleAlert,
+  error: TriangleAlert,
+  loading: LoaderCircle,
+  action: MousePointerClick,
+  promise: Clock3,
+} satisfies Record<ToastPreview, typeof Info>;
 
 const item = `${MENU_ITEM} gap-3 px-2 py-2`;
+const previewItem = `${MENU_ITEM} min-h-9 gap-2 px-2 py-2`;
 const heading = "px-2 py-1 text-xs font-semibold uppercase text-neutral-500";
 const iconAction =
   "flex size-9 shrink-0 items-center justify-center rounded bg-neutral-800 text-neutral-300 enabled:hover:bg-neutral-700 data-focus:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400 disabled:cursor-default disabled:opacity-50 data-disabled:cursor-default data-disabled:opacity-50 data-disabled:hover:bg-neutral-800 [&_svg]:size-4";
 
 // Why the server removes somebody; each can be shown to the admin themselves.
-const KICK_REASONS = ["inactivity", "banned", "replaced", "invalid_token"];
+const KICK_REASONS = [
+  "inactivity",
+  "banned",
+  "replaced",
+  "invalid_token",
+] as const;
+const KICK_ICONS = {
+  inactivity: Clock3,
+  banned: UserX,
+  replaced: UsersRound,
+  invalid_token: TriangleAlert,
+};
 
 // What the crowd is when nothing else is chosen, and the most it can be in a room with no limit.
 const DEFAULT_AMOUNT = 10;
@@ -601,20 +638,56 @@ export function AdminMenu({
             <MenuSection className="border-t border-neutral-800 pt-1">
               <MenuHeading className={heading}>{t("admin.kick")}</MenuHeading>
               <div className="grid grid-cols-2 gap-1 px-1 pb-1">
-                {KICK_REASONS.map((reason) => (
-                  <MenuItem key={reason}>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        onTool("admin:kick", { reason });
-                      }}
-                      className={`${MENU_ITEM} min-h-8 justify-center px-2 py-1.5 text-xs text-neutral-300 hover:bg-neutral-800`}
-                    >
-                      {t(`admin.kicks.${reason}`)}
-                    </button>
-                  </MenuItem>
-                ))}
+                {KICK_REASONS.map((reason) => {
+                  const Icon = KICK_ICONS[reason];
+                  return (
+                    <MenuItem key={reason}>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          onTool("admin:kick", { reason });
+                        }}
+                        className={previewItem}
+                      >
+                        <Icon aria-hidden="true" className="size-4 shrink-0" />
+                        {t(`admin.kicks.${reason}`)}
+                      </button>
+                    </MenuItem>
+                  );
+                })}
+              </div>
+            </MenuSection>
+            <MenuSection className="border-t border-neutral-800 pt-1">
+              <MenuHeading className={heading}>
+                {t("admin.toasts.title")}
+              </MenuHeading>
+              <div className="grid grid-cols-2 gap-1 px-1 pb-1">
+                {TOAST_PREVIEW_KINDS.map((kind) => {
+                  const Icon = TOAST_ICONS[kind];
+                  return (
+                    <MenuItem key={kind}>
+                      <button
+                        type="button"
+                        onClick={() => showToastPreview(kind, t)}
+                        className={previewItem}
+                      >
+                        <Icon aria-hidden="true" className="size-4 shrink-0" />
+                        {t(`admin.toasts.${kind}`)}
+                      </button>
+                    </MenuItem>
+                  );
+                })}
+                <MenuItem>
+                  <button
+                    type="button"
+                    onClick={dismissToastPreviews}
+                    className={`${previewItem} col-span-2`}
+                  >
+                    <Trash2 aria-hidden="true" className="size-4 shrink-0" />
+                    {t("admin.toasts.dismiss")}
+                  </button>
+                </MenuItem>
               </div>
             </MenuSection>
           </MenuItems>

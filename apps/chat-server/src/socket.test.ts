@@ -2649,20 +2649,38 @@ describe("inactivity", () => {
     await server.io.close();
   });
 
-  it("disconnects an idle guest, says why, and frees their seat", async () => {
+  it("removes an idle guest from the room, preserves their session, and frees their seat", async () => {
     const idle = await connectGuest("Idle", server.port);
     const kicked = waitFor<{ reason: string }>(idle, "kicked");
-    const disconnected = new Promise((resolve) =>
-      idle.once("disconnect", resolve),
-    );
 
     await emit(idle, "room:join", { slug: "tiny" });
 
-    expect(await kicked).toEqual({ reason: "inactivity" });
-    await disconnected;
+    expect(await kicked).toEqual({ reason: "inactivity", roomOnly: true });
+    expect(idle.connected).toBe(true);
+    expect(
+      await emit(idle, "message:send", { text: "Still in the room?" }),
+    ).toEqual({
+      ok: false,
+      error: "not_in_room",
+    });
 
     const other = await connectGuest("Other", server.port);
     expect((await emit(other, "room:join", { slug: "tiny" })).ok).toBe(true);
+    expect((await emit(idle, "room:join", { slug: "general" })).ok).toBe(true);
+  });
+
+  it("does not remove or warn a guest who is already in the lobby", async () => {
+    const idle = await connectGuest("Browsing", server.port);
+    const onKicked = vi.fn();
+    const onWarning = vi.fn();
+    idle.on("kicked", onKicked);
+    idle.on("idle:warning", onWarning);
+
+    await new Promise((resolve) => setTimeout(resolve, TIMEOUT_MS * 2));
+
+    expect(idle.connected).toBe(true);
+    expect(onKicked).not.toHaveBeenCalled();
+    expect(onWarning).not.toHaveBeenCalled();
   });
 
   it("keeps a guest connected while they keep sending events", async () => {
@@ -2975,7 +2993,7 @@ describe("who comes into a room and who goes out of it", () => {
   });
 });
 
-describe("the warning before an inactivity disconnect", () => {
+describe("the warning before an inactivity removal", () => {
   it.each([false, true])(
     "exempts staff from inactivity in the lobby and rooms (admin: %s)",
     async (admin) => {
@@ -3020,7 +3038,7 @@ describe("the warning before an inactivity disconnect", () => {
     },
   );
 
-  it("comes once, with how long is left, and then the guest is disconnected", async () => {
+  it("comes once, with how long is left, and then the guest leaves only the room", async () => {
     const { io, port } = await startServer({
       inactivityTimeoutMs: 400,
       idleWarningBeforeMs: 250,
@@ -3028,10 +3046,15 @@ describe("the warning before an inactivity disconnect", () => {
     const idle = await connectGuest("Idle", port);
     const heard: unknown[] = [];
     idle.on("idle:warning", (warning) => heard.push(warning));
+    await emit(idle, "room:join", { slug: "general" });
 
-    await waitFor(idle, "kicked");
+    expect(await waitFor(idle, "kicked")).toEqual({
+      reason: "inactivity",
+      roomOnly: true,
+    });
 
     expect(heard).toEqual([{ remainingMs: 250 }]);
+    expect(idle.connected).toBe(true);
     await io.close();
   });
 
@@ -3066,6 +3089,7 @@ describe("the warning before an inactivity disconnect", () => {
     const heard: string[] = [];
     guest.on("idle:warning", () => heard.push("warning"));
     guest.on("idle:cleared", () => heard.push("cleared"));
+    await emit(guest, "room:join", { slug: "general" });
     await waitFor(guest, "idle:warning");
 
     await emit(guest, "room:join", { slug: "general" });
@@ -3083,6 +3107,7 @@ describe("the warning before an inactivity disconnect", () => {
     const idle = await connectGuest("Idle", port);
     const onWarning = vi.fn();
     idle.on("idle:warning", onWarning);
+    await emit(idle, "room:join", { slug: "general" });
 
     await waitFor(idle, "kicked");
 
@@ -6057,12 +6082,11 @@ describe("admin tools", () => {
   });
 
   it.each(["inactivity", "banned", "replaced", "invalid_token"])(
-    "removes the admin with the simulated reason %s",
+    "removes the admin from only the room with the simulated reason %s",
     async (reason) => {
       const { socket } = await signIn(7, "Ada Admin");
       await emit(socket, "room:join", { slug: "admin-lab" });
       const kicked = waitFor<{ reason: string }>(socket, "kicked");
-      const disconnected = waitFor<string>(socket, "disconnect");
       const order: string[] = [];
       socket.on("kicked", () => order.push("kicked"));
       socket.on("disconnect", () => order.push("disconnect"));
@@ -6080,10 +6104,18 @@ describe("admin tools", () => {
       });
       expect(response).toEqual({ ok: true });
 
-      expect(await kicked).toEqual({ reason });
-      expect(await disconnected).toBe("io server disconnect");
-      expect(socket.connected).toBe(false);
-      expect(order).toEqual(["ack", "kicked", "disconnect"]);
+      expect(await kicked).toEqual({ reason, roomOnly: true });
+      expect(socket.connected).toBe(true);
+      expect(order).toEqual(["ack", "kicked"]);
+      expect(
+        await emit(socket, "message:send", { text: "Still in the room?" }),
+      ).toEqual({
+        ok: false,
+        error: "not_in_room",
+      });
+      expect((await emit(socket, "room:join", { slug: "admin-lab" })).ok).toBe(
+        true,
+      );
     },
   );
 

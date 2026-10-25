@@ -57,6 +57,29 @@
   },
   "admin": {
     "open": "Admin tools",
+    "toasts": {
+      "title": "Notifications",
+      "default": "Message",
+      "success": "Success",
+      "info": "Info",
+      "warning": "Warning",
+      "error": "Error",
+      "loading": "Loading",
+      "action": "Action",
+      "promise": "Promise",
+      "dismiss": "Dismiss previews",
+      "undo": "Undo",
+      "undone": "Message restored.",
+      "messages": {
+        "default": "You have a new notification.",
+        "success": "Changes saved.",
+        "info": "A new room is available.",
+        "warning": "Your connection is unstable.",
+        "error": "Could not save changes.",
+        "loading": "Saving changes...",
+        "action": "Message archived."
+      }
+    },
     "roomLimit": "Room limit",
     "applyRoomLimit": "Save room limit",
     "queue": {

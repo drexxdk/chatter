@@ -52,6 +52,7 @@ import { Lobby, useRooms } from "./components/Lobby";
 import { MainMenu } from "./components/MainMenu";
 import { NicknameDialog } from "./components/NicknameDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { useSettingsErrorToast } from "./useSettingsErrorToast";
 import { ModeratorDialog } from "./components/ModeratorDialog";
 import { PageFrame } from "./components/PageFrame";
 import { ProfileDialog, type ProfileSubject } from "./components/ProfileDialog";
@@ -212,6 +213,7 @@ export function App({
   const settingsOpen =
     reloadUi.dialog === "settings" || reloadUi.dialog === "sound";
   const setSettingsOpen = dialogSetter("settings");
+  useSettingsErrorToast(soundPreferences, settingsOpen);
 
   useEffect(() => {
     if (!settled) return;
