@@ -1,8 +1,13 @@
 @import "tailwindcss";
+@import "@fontsource-variable/roboto";
+@import "@fontsource-variable/roboto/wght-italic.css";
+@import "@fontsource/bebas-neue/400.css";
 
 /* The greys of the interface, after Teams' dark theme: neutral, with none of the blue of Tailwind's slate. 950 is the page,
    900 what sits on it (panels, menus), 800 what sits on those (bubbles, fields), 700 borders and hovers. */
 @theme {
+  --font-sans: "Roboto Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Bebas Neue", var(--font-sans);
   --color-neutral-950: #1f1f1f;
   --color-neutral-900: #292929;
   --color-neutral-800: #333333;
@@ -13,6 +18,21 @@
   --color-focus: var(--color-neutral-400);
   /* What the guest sent, after Teams' dark theme: a muted, dark indigo rather than a bright one. */
   --color-sent: #2f3057;
+}
+
+h1,
+h2,
+h3.text-lg,
+.font-heading {
+  font-family: var(--font-heading);
+  font-synthesis: none;
+  font-size: 1.5rem;
+  line-height: 1.25;
+}
+
+h1,
+.font-heading.text-2xl {
+  font-size: 2rem;
 }
 
 /* Tailwind leaves buttons with the arrow; whatever can be clicked shows a hand (in the base layer, so a class can still

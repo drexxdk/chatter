@@ -116,7 +116,7 @@ async function nameRefusal(
 export function createAccountsRouter(options: {
   authTokenSecret: string;
   rateLimit?: { max: number; windowMs: number };
-  // For the list of providers, which every page asks for: the same generous limit as the list of rooms.
+  // For read-only account data and the provider list: the same generous limit as the list of rooms.
   listRateLimit?: { max: number; windowMs: number };
   // Called when an account has been deleted, so what is still connected as it can be cut off.
   onAccountRemoved?: (userId: number) => unknown;
@@ -196,7 +196,7 @@ export function createAccountsRouter(options: {
     return staff;
   }
 
-  router.get("/me/staff", limiter, async (req, res) => {
+  router.get("/me/staff", listLimiter, async (req, res) => {
     try {
       const staff = await staffOf(req, res);
       if (staff)
@@ -212,7 +212,7 @@ export function createAccountsRouter(options: {
     }
   });
 
-  router.get("/me/providers", limiter, async (req, res) => {
+  router.get("/me/providers", listLimiter, async (req, res) => {
     try {
       const owner = await providerOwner(req, res);
       if (owner)
@@ -786,7 +786,7 @@ export function createAccountsRouter(options: {
     } as const;
   };
 
-  router.get("/me/notifications", limiter, async (req, res) => {
+  router.get("/me/notifications", listLimiter, async (req, res) => {
     try {
       const owner = await preferenceOwner(req, res);
       if (!owner) return;
@@ -832,7 +832,7 @@ export function createAccountsRouter(options: {
     },
   );
 
-  router.get("/me/sidebar", limiter, async (req, res) => {
+  router.get("/me/sidebar", listLimiter, async (req, res) => {
     try {
       const owner = await preferenceOwner(req, res);
       if (!owner) return;
@@ -872,7 +872,7 @@ export function createAccountsRouter(options: {
     },
   );
 
-  router.get("/me", limiter, async (req, res) => {
+  router.get("/me", listLimiter, async (req, res) => {
     const user = await memberOf(req, res);
     if (!user) return;
     const authProvider = verifyToken(

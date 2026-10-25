@@ -2111,8 +2111,8 @@ describe("the account's own data", () => {
     });
   });
 
-  it("is limited, like the other routes of an account", async () => {
-    await start({ authRateLimit: { max: 2, windowMs: 60_000 } });
+  it("limits account reads using the read-only budget", async () => {
+    await start({ roomsRateLimit: { max: 2, windowMs: 60_000 } });
 
     await get("/me");
     await get("/me");
@@ -2121,6 +2121,25 @@ describe("the account's own data", () => {
     expect(refused.status).toBe(429);
     expect(await refused.json()).toEqual({ error: "rate_limited" });
   });
+
+  it("does not count account reads against account writes", async () => {
+    await start({ authRateLimit: { max: 1, windowMs: 60_000 } });
+
+    for (const path of [
+      "/me",
+      "/me/staff",
+      "/me/providers",
+      "/me/notifications",
+      "/me/sidebar",
+    ]) {
+      expect((await get(path)).status).toBe(401);
+    }
+
+    const write = () => fetch(`${base}/me`, { method: "PATCH" });
+    expect((await write()).status).toBe(401);
+    expect((await write()).status).toBe(429);
+  });
+
   it("does not have the list of providers count against the account's own limit, but against the room list's", async () => {
     await start({
       authRateLimit: { max: 1, windowMs: 60_000 },

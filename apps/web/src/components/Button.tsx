@@ -5,11 +5,12 @@ const button = cva("", {
   variants: {
     variant: {
       primary:
-        "rounded-md bg-indigo-600 px-3 py-1.5 font-medium hover:bg-indigo-500 disabled:opacity-60",
+        "rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium hover:bg-indigo-500 disabled:opacity-60",
       danger:
-        "rounded-md bg-red-900/80 px-3 py-1.5 text-red-100 ring-1 ring-inset ring-red-400/30 hover:bg-red-800/80 disabled:opacity-60",
-      secondary: "rounded-md bg-neutral-800 px-3 py-1.5 hover:bg-neutral-700",
-      ghost: "rounded-md px-3 py-1.5 hover:bg-neutral-800",
+        "rounded-md bg-red-900/80 px-3 py-1.5 text-sm text-red-100 ring-1 ring-inset ring-red-400/30 hover:bg-red-800/80 disabled:opacity-60",
+      secondary:
+        "rounded-md bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700",
+      ghost: "rounded-md px-3 py-1.5 text-sm hover:bg-neutral-800",
       // Just an icon, as the close button of a panel.
       icon: "rounded-md p-1.5 hover:bg-neutral-800",
       // In running text, to be taken for a link.

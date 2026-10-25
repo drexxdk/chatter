@@ -619,7 +619,9 @@ describe("somebody signed in", () => {
     );
 
     const dialog = within(await screen.findByRole("dialog"));
-    expect(dialog.getByText("Google")).toBeInTheDocument();
+    expect(
+      dialog.getByText("Signed in with").nextElementSibling,
+    ).toHaveTextContent("Google");
     expect(dialog.getByText("Signed in with")).toBeInTheDocument();
     expect(dialog.getByText("alice_w")).toBeInTheDocument();
     expect(dialog.getByText("Not specified")).toBeInTheDocument();

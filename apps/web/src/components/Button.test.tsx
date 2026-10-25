@@ -2,10 +2,30 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { Button } from "./Button";
+import { Button, ButtonLink } from "./Button";
 import { Field } from "./Field";
 
 describe("Button", () => {
+  it.each(["primary", "secondary", "danger", "ghost"] as const)(
+    "uses compact body text for %s actions",
+    (variant) => {
+      render(
+        <>
+          <Button variant={variant}>Action</Button>
+          <ButtonLink variant={variant} href="/">
+            Destination
+          </ButtonLink>
+        </>,
+      );
+      expect(screen.getByRole("button", { name: "Action" })).toHaveClass(
+        "text-sm",
+      );
+      expect(screen.getByRole("link", { name: "Destination" })).toHaveClass(
+        "text-sm",
+      );
+    },
+  );
+
   it("uses a muted red fill for destructive actions", () => {
     render(<Button variant="danger">Delete</Button>);
     const action = screen.getByRole("button", { name: "Delete" });

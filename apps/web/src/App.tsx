@@ -1069,7 +1069,10 @@ export function App({
                   />
                 </div>
               ) : page ? (
-                <Link to={LOBBY_PATH} className="text-2xl font-bold">
+                <Link
+                  to={LOBBY_PATH}
+                  className="font-heading text-2xl font-bold"
+                >
                   {t("app.title")}
                 </Link>
               ) : (

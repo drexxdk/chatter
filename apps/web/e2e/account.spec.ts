@@ -924,7 +924,9 @@ test("an account is edited from the lobby, where it is only shown until it is as
   await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
   await page.getByRole("menuitem", { name: "Your profile" }).click();
   const dialog = page.getByRole("dialog", { name: "Your profile" });
-  await expect(dialog.getByText("Dev sign-in")).toBeVisible();
+  await expect(
+    dialog.getByRole("definition").filter({ hasText: "Dev sign-in" }),
+  ).toBeVisible();
   await expect(dialog.getByText("Not given")).toBeVisible();
   await expect(dialog.getByLabel("Display name")).toHaveCount(0);
 

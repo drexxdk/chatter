@@ -87,7 +87,7 @@ export function PageFrame({
       <HeaderFrame roomSlug={roomSlug} wide={wide}>
         {header ?? (
           <>
-            <a href={LOBBY_PATH} className="text-2xl font-bold">
+            <a href={LOBBY_PATH} className="font-heading text-2xl font-bold">
               {t("app.title")}
             </a>
             <PageSettingsMenu />

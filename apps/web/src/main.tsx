@@ -12,6 +12,10 @@ import { publishScrollbarWidth } from "./scrollbarWidth";
 import { holdScrollWhilePopups } from "./scrollHold";
 import { keepStickyInView } from "./stickyFocus";
 
+document.fonts.forEach((font) => {
+  font.display = "block";
+});
+
 trackInputMode();
 publishScrollbarWidth();
 holdScrollWhilePopups();
