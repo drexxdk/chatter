@@ -184,22 +184,18 @@ export function NotificationSoundSettings({
           </div>
         </div>
       </fieldset>
-      {status && (
+      {status?.endsWith("error") && (
         <div className="mt-3 flex min-h-6 items-center justify-between gap-3 text-sm text-neutral-400">
-          <span role={status.endsWith("error") ? "alert" : "status"}>
-            {t(`notifications.${status}`)}
-          </span>
-          {status.endsWith("error") && (
-            <button
-              type="button"
-              onClick={onRetry}
-              aria-label={t("notifications.retry")}
-              title={t("notifications.retry")}
-              className="flex size-9 shrink-0 items-center justify-center rounded bg-neutral-800 hover:bg-neutral-700"
-            >
-              <RotateCw aria-hidden="true" className="size-4" />
-            </button>
-          )}
+          <span role="alert">{t(`notifications.${status}`)}</span>
+          <button
+            type="button"
+            onClick={onRetry}
+            aria-label={t("notifications.retry")}
+            title={t("notifications.retry")}
+            className="flex size-9 shrink-0 items-center justify-center rounded bg-neutral-800 hover:bg-neutral-700"
+          >
+            <RotateCw aria-hidden="true" className="size-4" />
+          </button>
         </div>
       )}
     </>

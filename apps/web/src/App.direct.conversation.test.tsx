@@ -1,8 +1,15 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as notificationSound from "./notificationSound";
 import { loadNotificationSound } from "./preferences";
+import { NotificationSoundSettings } from "./components/NotificationSoundDialog";
 
 import { setup, stubRooms } from "./test/app";
 import {
@@ -30,6 +37,44 @@ describe("private-message notification sounds", () => {
     vi.spyOn(notificationSound, "playNotificationSound").mockResolvedValue();
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it.each(["loading", "saving", "saved"] as const)(
+    "keeps successful settings synchronization quiet (%s)",
+    (status) => {
+      render(
+        <NotificationSoundSettings
+          value={{ enabled: false, volume: 0.5 }}
+          onChange={() => {}}
+          status={status}
+        />,
+      );
+      expect(screen.getAllByRole("status")).toHaveLength(1);
+      expect(screen.getByRole("status")).toHaveTextContent("50%");
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(["load-error", "save-error"] as const)(
+    "shows a retryable settings failure (%s)",
+    (status) => {
+      const retry = vi.fn();
+      render(
+        <NotificationSoundSettings
+          value={{ enabled: false, volume: 0.5 }}
+          onChange={() => {}}
+          status={status}
+          onRetry={retry}
+        />,
+      );
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        status === "load-error"
+          ? "Could not load sound settings."
+          : "Could not save sound settings.",
+      );
+      fireEvent.click(screen.getByRole("button", { name: /retry|try again/i }));
+      expect(retry).toHaveBeenCalledOnce();
+    },
+  );
 
   async function openSettings(user: Awaited<ReturnType<typeof enter>>["user"]) {
     await user.click(
