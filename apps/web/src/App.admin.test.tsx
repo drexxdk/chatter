@@ -124,8 +124,13 @@ describe("a new tab", () => {
         expect(restoreSession).toBeDefined();
       });
       expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
-      expect(screen.queryByRole("region", { name: "Public rooms" })).toBeNull();
+      expect(
+        screen.getByRole("region", { name: "Public rooms" }),
+      ).toBeVisible();
       expect(screen.queryByRole("button", { name: "Join General" })).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: "Join Test lab" }),
+      ).toBeNull();
 
       await act(async () => restoreSession!());
 

@@ -311,7 +311,8 @@ describe("lobby", () => {
       "animate-spin",
     );
     expect(screen.getByText(/Loading rooms/)).toHaveClass("sr-only");
-    expect(screen.queryByRole("heading", { name: "Public rooms" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Public rooms" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: /^Join / })).toBeNull();
     expect(
       await screen.findByRole("heading", { name: "General" }),
     ).toBeInTheDocument();
