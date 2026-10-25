@@ -4534,12 +4534,23 @@ describe("profiles", () => {
     });
   });
 
-  it("refuses a name that looks like a moderator's", async () => {
+  it("allows sharing a moderator's display name", async () => {
     getModeratorNames.mockResolvedValue(["Ada Mod"]);
     const alice = await inGeneral({ nickname: "Alice" });
 
     expect(
       await emit(alice.socket, "profile:update", { nickname: "ada  mod" }),
+    ).toEqual({
+      ok: true,
+      profile: { nickname: "ada mod", avatar: "other" },
+    });
+  });
+
+  it("refuses an authority name", async () => {
+    const alice = await inGeneral({ nickname: "Alice" });
+
+    expect(
+      await emit(alice.socket, "profile:update", { nickname: "system" }),
     ).toEqual({ ok: false, error: "reserved_nickname" });
   });
 
@@ -5483,17 +5494,19 @@ describe("members", () => {
 
     it("counts in-flight profile updates against the rate limit", async () => {
       const { socket } = await member();
+      const read = fetchUser.getMockImplementation()!;
       let entered!: () => void;
       let release!: () => void;
       const started = new Promise<void>((resolve) => {
         entered = resolve;
       });
-      const finished = new Promise<string[]>((resolve) => {
-        release = () => resolve([]);
+      const finished = new Promise<void>((resolve) => {
+        release = resolve;
       });
-      getModeratorNames.mockImplementationOnce(() => {
+      fetchUser.mockImplementationOnce(async (...args: unknown[]) => {
         entered();
-        return finished;
+        await finished;
+        return read(...args);
       });
 
       const first = emit(socket, "profile:update", { nickname: "Alicia" });

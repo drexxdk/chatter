@@ -1977,9 +1977,24 @@ describe("the account's own data", () => {
       expect(accounts.users.get(1)).toMatchObject({ displayName: "ALICE" });
     });
 
+    it("allows sharing a moderator's display name", async () => {
+      await start();
+      const token = await signedIn();
+
+      const res = await patch(token, { nickname: "Ada Mod" });
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({
+        profile: { nickname: "Ada Mod", username: "alice" },
+      });
+      expect(accounts.users.get(1)).toMatchObject({ displayName: "Ada Mod" });
+      expect(accounts.names.has("adamod")).toBe(false);
+      expect(accounts.names.has("alice")).toBe(true);
+    });
+
     it.each([
       ["a name that is not valid", { nickname: "a" }, 400, "invalid_nickname"],
-      ["a staff name", { nickname: "Ada Mod" }, 409, "reserved_nickname"],
+      ["an authority name", { nickname: "system" }, 409, "reserved_nickname"],
       [
         "an avatar that is not one",
         { avatar: "robot" },
