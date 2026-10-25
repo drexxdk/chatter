@@ -92,10 +92,12 @@ export function IdentityProfile({
   person,
   children,
   tabIndex,
+  listButton = false,
 }: {
   person: Partner;
   children?: ReactNode;
   tabIndex?: number;
+  listButton?: boolean;
 }) {
   const { t } = useTranslation();
   const names = useIdentityNames();
@@ -107,7 +109,11 @@ export function IdentityProfile({
         aria-label={label}
         title={label}
         onClick={(event) => event.stopPropagation()}
-        className="inline-flex shrink-0 rounded-full outline-none focus-visible:outline-2 focus-visible:outline-indigo-400"
+        className={
+          listButton
+            ? "grid size-9 shrink-0 place-items-center rounded text-neutral-300 outline-none transition-colors hover:bg-neutral-800 hover:text-neutral-100 focus-visible:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-indigo-400 data-open:bg-neutral-800"
+            : "inline-flex shrink-0 rounded-full outline-none focus-visible:outline-2 focus-visible:outline-indigo-400"
+        }
       >
         {children ?? (
           <AvatarIcon

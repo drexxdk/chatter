@@ -485,7 +485,7 @@ export function ChatRoom({
         ref={root}
         aria-labelledby="room-heading"
         data-sidebar-open={sidebarOpen}
-        className={`@container grid flex-1 gap-4 ${sidebarOpen ? "md:grid-cols-[14rem_1fr]" : "md:grid-cols-1"}`}
+        className={`@container grid flex-1 gap-4 [--room-sidebar-width:16rem] ${sidebarOpen ? "md:grid-cols-[var(--room-sidebar-width)_1fr]" : "md:grid-cols-1"}`}
       >
         <div
           className={`flex min-w-0 flex-col md:w-full md:max-w-4xl md:justify-self-center ${sidebarOpen ? "md:col-start-2" : "md:col-start-1"}`}
@@ -965,7 +965,7 @@ export function ChatRoom({
         <aside
           id={`room-sidebar-${roomSlug}`}
           aria-label={t("room.panel")}
-          className={`panel hidden md:col-start-1 md:row-start-1 md:-mt-4 md:sticky md:top-(--header-height) ${sidebarOpen ? "md:block" : ""} md:h-[calc(100dvh-var(--header-height))] md:self-start md:overflow-y-auto md:border-r md:border-neutral-800 md:py-4 md:pr-3`}
+          className={`panel hidden md:col-start-1 md:row-start-1 md:-mt-4 md:sticky md:top-(--header-height) ${sidebarOpen ? "md:block" : ""} md:h-[calc(100dvh-var(--header-height))] md:self-start md:border-r md:border-neutral-800 md:py-4`}
         >
           <RoomPanel
             roomSlug={roomSlug}

@@ -146,7 +146,10 @@ describe("direct messages", () => {
       await enter([]);
 
       expect(people().getByText("Alice")).toBeInTheDocument();
-      expect(people().getByText("(you)")).toBeInTheDocument();
+      expect(people().getByText("(you)")).toHaveClass("sr-only");
+      expect(
+        people().getByText("Alice").closest("li")?.firstElementChild,
+      ).toHaveClass("bg-neutral-800/40");
       expect(
         people().getByRole("button", { name: /^Profile: Alice/ }),
       ).toBeInTheDocument();

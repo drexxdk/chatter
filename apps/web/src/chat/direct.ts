@@ -1,4 +1,5 @@
 import { isRecord } from "../isRecord";
+import { parseAge } from "../profile";
 import type { Avatar } from "./avatar";
 import { parseAvatar, PLAIN_AVATAR } from "./avatar";
 import { parsePicture } from "./picture";
@@ -12,6 +13,11 @@ const withPicture = <Key extends string>(key: Key, value: unknown) => {
   return picture === undefined
     ? {}
     : ({ [key]: picture } as Record<Key, string>);
+};
+
+const withAge = (value: unknown) => {
+  const age = parseAge(value);
+  return age === undefined ? {} : { age };
 };
 
 // A message as the server sends it; once its author was banned the text is gone and only a placeholder is shown.
@@ -54,6 +60,7 @@ export interface Partner {
   role: Role;
   avatar: Avatar;
   picture?: string;
+  age?: number;
 }
 
 export interface DirectThread extends Partner {
@@ -118,6 +125,7 @@ export function addDirectMessage(
   }
 
   const updated: DirectThread = {
+    ...withAge(existing?.age),
     ...partner,
     entries: [...(existing?.entries ?? []), message].slice(
       -MAX_ENTRIES_PER_THREAD,
@@ -151,6 +159,7 @@ export function parsePartner(value: unknown): Partner | undefined {
     role: value.role === "moderator" ? "moderator" : "guest",
     avatar: parseAvatar(value.avatar),
     ...withPicture("picture", value.picture),
+    ...withAge(value.age),
   };
 }
 
@@ -284,6 +293,7 @@ export function refreshPartners(
     nickname: string;
     avatar?: Avatar;
     picture?: string;
+    age?: number;
   }[],
 ): DirectThread[] {
   let changed = false;
@@ -299,19 +309,21 @@ export function refreshPartners(
       !member ||
       (member.nickname === thread.nickname &&
         avatar === thread.avatar &&
-        picture === thread.picture)
+        picture === thread.picture &&
+        member.age === thread.age)
     ) {
       return thread;
     }
 
     changed = true;
-    const { picture: _old, ...rest } = thread;
+    const { picture: _old, age: _oldAge, ...rest } = thread;
 
     return {
       ...rest,
       nickname: member.nickname,
       avatar,
       ...(picture === undefined ? {} : { picture }),
+      ...withAge(member.age),
     };
   });
 
@@ -528,6 +540,7 @@ export function parseThreads(value: unknown): DirectThread[] {
       role: raw.role === "moderator" ? "moderator" : "guest",
       avatar: parseAvatar(raw.avatar),
       ...withPicture("picture", raw.picture),
+      ...withAge(raw.age),
       entries: entries
         .flatMap((entry) => {
           const parsed = parseEntry(entry);

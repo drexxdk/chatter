@@ -1,11 +1,11 @@
 import { ArrowRight, Ban } from "lucide-react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { DirectThread, Partner } from "../chat/direct";
 import { PLAIN_AVATAR } from "../chat/avatar";
 import type { Member } from "../chat/useChat";
-import { AvatarIcon, GenderMark } from "./Avatar";
+import { GenderMark } from "./Avatar";
 import { ThreadActions } from "./ThreadActions";
 import { IdentityName, IdentityProfile, useIdentityNames } from "./Identity";
 
@@ -50,6 +50,97 @@ function AgeBadge({ age }: { age?: number }) {
   );
 }
 
+function PersonListRow({
+  person,
+  self = false,
+  selected = false,
+  blocked = false,
+  blockedBy = false,
+  disabled = false,
+  unread = 0,
+  title,
+  onClick,
+  actions,
+}: {
+  person: Partner;
+  self?: boolean;
+  selected?: boolean;
+  blocked?: boolean;
+  blockedBy?: boolean;
+  disabled?: boolean;
+  unread?: number;
+  title?: string;
+  onClick?: () => void;
+  actions?: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const content = (
+    <>
+      <span className={`min-w-0 ${nameClass(person.role) ?? ""}`}>
+        <IdentityName person={person} />
+      </span>
+      {!self && <GenderMark avatar={person.avatar} picture={person.picture} />}
+      {self && (
+        <span className="shrink-0 text-neutral-500">({t("room.you")})</span>
+      )}
+      {blocked && <BlockedTag />}
+      {blockedBy && !blocked && <BlockedByTag />}
+      <span className="ml-auto flex shrink-0 items-center gap-2">
+        {unread > 0 && (
+          <>
+            <span
+              aria-hidden="true"
+              className="rounded-full bg-amber-400 px-2 text-xs font-bold text-neutral-950"
+            >
+              {unread}
+            </span>
+            <span className="sr-only">
+              {" "}
+              {t("dm.unread", { count: unread })}
+            </span>
+          </>
+        )}
+        {!self && <AgeBadge age={person.age} />}
+      </span>
+    </>
+  );
+  const contentClass =
+    "flex h-9 min-w-0 flex-1 items-center gap-2 rounded px-2 py-1 text-left";
+
+  return (
+    <div
+      className={`flex min-w-0 items-center gap-1 rounded ${
+        unread > 0
+          ? "bg-amber-400/15 ring-1 ring-inset ring-amber-400 motion-safe:animate-pulse"
+          : selected
+            ? "bg-neutral-700/50 ring-1 ring-neutral-500/50"
+            : self
+              ? "bg-neutral-800/40"
+              : ""
+      }`}
+    >
+      <IdentityProfile person={person} listButton />
+      {onClick ? (
+        <button
+          type="button"
+          disabled={disabled}
+          aria-pressed={selected}
+          title={title}
+          onClick={onClick}
+          className={`${contentClass} hover:bg-neutral-800 disabled:opacity-50 disabled:hover:bg-transparent`}
+        >
+          {content}
+        </button>
+      ) : (
+        <span className={contentClass}>{content}</span>
+      )}
+      {!self && (
+        <div className="grid size-9 shrink-0 place-items-center">{actions}</div>
+      )}
+    </div>
+  );
+}
+
 // Everybody in the room, the guest included (who has nobody to write to there). A name chooses the person to write to
 // privately (and chooses nobody again when it is clicked once more); the arrow beside it goes into the private chat, which
 // is only listed below once something has been said.
@@ -85,6 +176,7 @@ function PeopleListView({
           nickname: member.nickname,
           role,
           avatar,
+          age: member.age,
           ...(member.picture ? { picture: member.picture } : {}),
         };
         const blocked = blockedIds.includes(member.guestId);
@@ -93,57 +185,36 @@ function PeopleListView({
 
         return (
           <li key={member.guestId}>
-            {member.guestId === selfGuestId ? (
-              <span className="flex min-w-0 items-center gap-2 px-2 py-1">
-                <IdentityProfile person={partner} />
-                <span className="min-w-0 flex-1">
-                  <span
-                    className={`inline-flex max-w-full align-middle ${nameClass(role) ?? ""}`}
+            <PersonListRow
+              person={partner}
+              self={member.guestId === selfGuestId}
+              selected={selected}
+              blocked={blocked}
+              blockedBy={blockedBy}
+              disabled={blocked || blockedBy}
+              title={t("person.message", { name: names.label(member, true) })}
+              onClick={
+                member.guestId === selfGuestId
+                  ? undefined
+                  : () => onSelect(partner)
+              }
+              actions={
+                member.guestId !== selfGuestId && (
+                  <button
+                    type="button"
+                    disabled={blockedBy}
+                    onClick={() => onOpen(partner)}
+                    aria-label={t("dm.openWith", { name: names.label(member) })}
+                    title={t("dm.openWith", {
+                      name: names.label(member, true),
+                    })}
+                    className="grid size-9 shrink-0 place-items-center rounded text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-40 disabled:hover:bg-transparent"
                   >
-                    <IdentityName person={member} />
-                  </span>
-                  <GenderMark avatar={avatar} picture={member.picture} />
-                  <span className="ml-1 text-neutral-500">
-                    ({t("room.you")})
-                  </span>
-                </span>
-                <AgeBadge age={member.age} />
-              </span>
-            ) : (
-              <div
-                className={`flex items-center gap-1 rounded ${selected ? "bg-neutral-700/50 ring-1 ring-neutral-500/50" : ""}`}
-              >
-                <IdentityProfile person={partner} />
-                <button
-                  type="button"
-                  disabled={blocked || blockedBy}
-                  aria-pressed={selected}
-                  title={t("person.message", {
-                    name: names.label(member, true),
-                  })}
-                  onClick={() => onSelect(partner)}
-                  className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1 text-left hover:bg-neutral-800 disabled:opacity-50 disabled:hover:bg-transparent"
-                >
-                  <span className={`min-w-0 ${nameClass(role) ?? ""}`}>
-                    <IdentityName person={member} />
-                  </span>
-                  <GenderMark avatar={avatar} picture={member.picture} />
-                  <AgeBadge age={member.age} />
-                  {blocked && <BlockedTag />}
-                  {blockedBy && <BlockedByTag />}
-                </button>
-                <button
-                  type="button"
-                  disabled={blockedBy}
-                  onClick={() => onOpen(partner)}
-                  aria-label={t("dm.openWith", { name: names.label(member) })}
-                  title={t("dm.openWith", { name: names.label(member, true) })}
-                  className="shrink-0 rounded p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-40 disabled:hover:bg-transparent"
-                >
-                  <ArrowRight aria-hidden="true" className="h-4 w-4" />
-                </button>
-              </div>
-            )}
+                    <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                  </button>
+                )
+              }
+            />
           </li>
         );
       })}
@@ -195,61 +266,22 @@ export function ThreadList({
   return (
     <ul ref={list} aria-label={t("dm.list")} className="space-y-1 text-sm">
       {threads.map((thread) => (
-        <li key={thread.guestId} className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() =>
-              onOpen({
-                guestId: thread.guestId,
-                nickname: thread.nickname,
-                role: thread.role,
-                avatar: thread.avatar,
-                ...(thread.picture ? { picture: thread.picture } : {}),
-              })
-            }
-            className={
-              thread.unread > 0
-                ? "flex h-9 min-w-0 flex-1 items-center justify-between gap-2 rounded border border-amber-400 bg-amber-400/15 px-2 py-1 text-left motion-safe:animate-pulse"
-                : "flex h-9 min-w-0 flex-1 items-center justify-between gap-2 rounded px-2 py-1 text-left hover:bg-neutral-800"
-            }
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <AvatarIcon
-                avatar={thread.avatar}
-                picture={thread.picture}
-                moderator={thread.role === "moderator"}
-                small
-              />
-              <span className={`min-w-0 ${nameClass(thread.role) ?? ""}`}>
-                <IdentityName person={thread} />
-              </span>
-              <GenderMark avatar={thread.avatar} picture={thread.picture} />
-              {blockedIds.includes(thread.guestId) && <BlockedTag />}
-              {thread.blockedBy && !blockedIds.includes(thread.guestId) && (
-                <BlockedByTag />
-              )}
-            </span>
-            {thread.unread > 0 && (
-              <>
-                <span
-                  aria-hidden="true"
-                  className="rounded-full bg-amber-400 px-2 text-xs font-bold text-neutral-950"
-                >
-                  {thread.unread}
-                </span>
-                <span className="sr-only">
-                  {" "}
-                  {t("dm.unread", { count: thread.unread })}
-                </span>
-              </>
-            )}
-          </button>
-          <ThreadActions
-            thread={thread}
-            menuWidth={menuWidth}
+        <li key={thread.guestId}>
+          <PersonListRow
+            person={thread}
+            unread={thread.unread}
             blocked={blockedIds.includes(thread.guestId)}
-            onSetMuted={onSetMuted}
-            onSetBlocked={onSetBlocked}
+            blockedBy={thread.blockedBy}
+            onClick={() => onOpen(thread)}
+            actions={
+              <ThreadActions
+                thread={thread}
+                menuWidth={menuWidth}
+                blocked={blockedIds.includes(thread.guestId)}
+                onSetMuted={onSetMuted}
+                onSetBlocked={onSetBlocked}
+              />
+            }
           />
         </li>
       ))}

@@ -178,13 +178,15 @@ export function useDirectChat({
       now &&
       (now.nickname !== open.nickname ||
         (now.avatar ?? PLAIN_AVATAR) !== open.avatar ||
-        parsePicture(now.picture) !== open.picture)
+        parsePicture(now.picture) !== open.picture ||
+        now.age !== open.age)
     ) {
       partnerRef.current = {
         ...open,
         nickname: now.nickname,
         avatar: now.avatar ?? PLAIN_AVATAR,
         picture: parsePicture(now.picture),
+        age: now.age,
       };
       setPartner(partnerRef.current);
     }
@@ -274,7 +276,12 @@ export function useDirectChat({
         void playNotificationSound();
       }
       const known = membersRef.current.find(
-        (member) => member.guestId === message.toGuestId,
+        (member) =>
+          member.guestId === (mine ? message.toGuestId : message.fromGuestId),
+      );
+      const knownThread = threadsRef.current.find(
+        (thread) =>
+          thread.guestId === (mine ? message.toGuestId : message.fromGuestId),
       );
       const other: Partner = mine
         ? {
@@ -282,6 +289,7 @@ export function useDirectChat({
             nickname: message.toNickname,
             role: known?.role ?? "guest",
             avatar: message.toAvatar,
+            age: known?.age ?? knownThread?.age,
             ...(message.toPicture ? { picture: message.toPicture } : {}),
           }
         : {
@@ -289,6 +297,7 @@ export function useDirectChat({
             nickname: message.fromNickname,
             role: message.fromRole,
             avatar: message.fromAvatar,
+            age: known?.age ?? knownThread?.age,
             ...(message.fromPicture ? { picture: message.fromPicture } : {}),
           };
       const viewing = partnerRef.current?.guestId === other.guestId;

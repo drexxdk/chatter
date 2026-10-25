@@ -637,6 +637,7 @@ export function createSocketServer(
       nickname: data.nickname,
       role: data.role,
       avatar: data.avatar,
+      ...(data.age === undefined ? {} : { age: data.age }),
       ...pictureOf(data),
     };
   }
