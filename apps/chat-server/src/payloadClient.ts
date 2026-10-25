@@ -184,12 +184,21 @@ export async function fetchNotificationOwner(
         id: z.number(),
         role: z.string().optional(),
         notificationPreferences: z.unknown().optional(),
+        sidebarOpen: z.boolean().nullable().optional(),
       }),
     );
   } catch (error) {
     if (error instanceof PayloadError && error.status === 404) return undefined;
     throw error;
   }
+}
+
+export async function saveSidebarPreference(
+  collection: "users" | "admins",
+  id: number,
+  sidebarOpen: boolean,
+): Promise<void> {
+  await payloadSend("PATCH", `/api/${collection}/${id}`, { sidebarOpen });
 }
 
 export async function saveNotificationPreferences(

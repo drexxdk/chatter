@@ -407,6 +407,26 @@ export async function updateNotificationPreferences(
   });
 }
 
+export async function fetchSidebarPreference(token: string): Promise<boolean> {
+  const body = await accountRequest("/me/sidebar", {
+    headers: bearer(token),
+  });
+  const open = (body as { sidebarOpen?: unknown } | null)?.sidebarOpen;
+  if (typeof open !== "boolean") throw new AccountError("connection");
+  return open;
+}
+
+export async function updateSidebarPreference(
+  token: string,
+  sidebarOpen: boolean,
+): Promise<void> {
+  await accountRequest("/me/sidebar", {
+    method: "PATCH",
+    headers: { ...bearer(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ sidebarOpen }),
+  });
+}
+
 export async function fetchAccount(token: string): Promise<AccountSession> {
   return parseAccountSession(
     await accountRequest("/me", { headers: bearer(token) }),

@@ -57,6 +57,17 @@ export const Users: CollectionConfig = {
   },
   fields: [
     {
+      name: 'sidebarOpen',
+      type: 'checkbox',
+      defaultValue: true,
+      admin: { hidden: true },
+      access: {
+        read: ({ req }) => req.user?.role === 'service',
+        create: ({ req }) => req.user?.role === 'service',
+        update: ({ req }) => req.user?.role === 'service',
+      },
+    },
+    {
       name: 'notificationPreferences',
       type: 'json',
       admin: { hidden: true },

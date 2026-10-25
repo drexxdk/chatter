@@ -4,6 +4,7 @@ export type { NotificationSoundPreferences } from "../../../shared/notificationP
 
 // Choices the guest made about how the chat looks. Unlike the session they belong to the browser, not the tab.
 const SHOW_MOVEMENTS_KEY = "chatter.showMovements";
+const SIDEBAR_OPEN_KEY = "chatter.sidebarOpen";
 const NOTIFICATION_SOUND_KEY = "chatter.notificationSound";
 const TERMS_KEY = "chatter.terms";
 // What is kept when the terms could not be loaded at the moment of accepting them.
@@ -42,6 +43,22 @@ export function saveShowMovements(show: boolean): void {
     localStorage.setItem(SHOW_MOVEMENTS_KEY, String(show));
   } catch {
     // Storage can be full or switched off; the choice then lasts until the page is closed.
+  }
+}
+
+export function loadSidebarOpen(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_OPEN_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
+export function saveSidebarOpen(open: boolean): void {
+  try {
+    localStorage.setItem(SIDEBAR_OPEN_KEY, String(open));
+  } catch {
+    return;
   }
 }
 

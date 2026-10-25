@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { LoaderCircle, LogIn } from "lucide-react";
+import { LoaderCircle, LogIn, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   Link,
@@ -71,6 +71,7 @@ import {
   notificationChannel,
 } from "../../../shared/notificationPreferences.mjs";
 import { prepareNotificationSound } from "./notificationSound";
+import { useSidebarPreference } from "./useSidebarPreference";
 import type { ProfileChanges } from "./profile";
 import {
   clearSession,
@@ -202,6 +203,8 @@ export function App({
     account?.token ??
     (chat.session?.role === "guest" ? undefined : loadSession()?.token);
   const soundPreferences = useNotificationPreferences(soundToken);
+  const { open: sidebarOpen, change: setSidebarOpen } =
+    useSidebarPreference(soundToken);
   const notificationSound = soundPreferences.value;
   const soundEnabled = NOTIFICATION_KINDS.some(
     (kind) => notificationChannel(notificationSound, kind).enabled,
@@ -290,6 +293,11 @@ export function App({
   }, [reloadUi, settled, roomsState.status, requestedRoom, pendingRoom]);
   // What is shown when not in a room: one of the site's pages, or the lobby.
   const page = pageFromPath(location.pathname);
+  const unreadCount = chat.direct.threads.reduce(
+    (sum, thread) => sum + thread.unread,
+    0,
+  );
+
   // The tab says the room while in one, the page on one of those, and the site alone in the lobby; private messages
   // not yet seen are counted in front.
   usePageTitle(
@@ -301,7 +309,7 @@ export function App({
           ? (legalDocOf(legalState, i18n.resolvedLanguage, page)?.title ??
             t(`legal.${page}`))
           : undefined,
-    chat.direct.threads.reduce((sum, thread) => sum + thread.unread, 0),
+    unreadCount,
   );
 
   const resumeDetails = () => {
@@ -1021,6 +1029,25 @@ export function App({
               {chat.roomSlug && chat.session ? (
                 <div className="flex min-w-0 max-w-[calc(100%-8rem)] items-center gap-1 sm:max-w-[35%]">
                   <h1 className="sr-only">{t("app.title")}</h1>
+                  <button
+                    type="button"
+                    aria-label={`${t(sidebarOpen ? "room.hidePanel" : "room.showPanel")}${!sidebarOpen && unreadCount > 0 ? `, ${t("dm.unread", { count: unreadCount })}` : ""}`}
+                    title={t(sidebarOpen ? "room.hidePanel" : "room.showPanel")}
+                    aria-expanded={sidebarOpen}
+                    aria-controls={`room-sidebar-${chat.roomSlug}`}
+                    onClick={() => setSidebarOpen(!sidebarOpen)}
+                    className="relative hidden size-9 shrink-0 items-center justify-center rounded-md text-(--room-accent) hover:bg-(--room-accent)/10 focus-visible:outline-2 focus-visible:outline-indigo-400 md:inline-flex"
+                  >
+                    <Users aria-hidden="true" className="size-5" />
+                    {!sidebarOpen && unreadCount > 0 && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute -right-1 -top-1.5 rounded-full bg-amber-400 px-1.5 text-xs font-bold text-neutral-950"
+                      >
+                        {unreadCount}
+                      </span>
+                    )}
+                  </button>
                   <RoomSwitcher
                     // The room you are in is counted from who is in it now, which is newer than the list.
                     rooms={knownRooms.map((room) =>
@@ -1150,6 +1177,7 @@ export function App({
                   key={chat.roomSlug}
                   roomSlug={chat.roomSlug}
                   roomName={currentRoom?.name ?? chat.roomSlug}
+                  sidebarOpen={sidebarOpen}
                   maxMembers={currentRoom?.maxMembers}
                   session={chat.session}
                   ownGuestIds={chat.ownGuestIds}

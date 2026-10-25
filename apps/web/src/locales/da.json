@@ -390,6 +390,8 @@
     "members": "I dette rum ({count})",
     "membersOfMax": "I dette rum ({count} af {max})",
     "panel": "Personer og direkte beskeder",
+    "hidePanel": "Skjul sidepanel",
+    "showPanel": "Vis sidepanel",
     "peopleButton": "Personer",
     "closePanel": "Luk",
     "people": "Personer i dette rum",

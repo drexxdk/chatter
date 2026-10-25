@@ -3,6 +3,7 @@ import type { Payload } from 'payload'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import { Users } from '@/collections/Users'
+import { Admins } from '@/collections/Admins'
 
 const hook = Users.hooks!.beforeValidate![0]!
 const derive = (data: Record<string, unknown>, originalDoc?: Record<string, unknown>) =>
@@ -62,6 +63,22 @@ describe('user name derivation', () => {
       displayNameKey: 'newname',
       nameClaims: [{ id: 'kept', key: 'alice' }],
     })
+  })
+})
+
+describe('account sidebar preference access', () => {
+  const update = Admins.access!.update!
+  const serviceUpdate = (data: Record<string, unknown>) =>
+    update({ req: { user: { role: 'service' } }, data } as Parameters<typeof update>[0])
+
+  it('allows service updates of either preference without broadening staff access', async () => {
+    expect(await serviceUpdate({ sidebarOpen: false })).toBe(true)
+    expect(await serviceUpdate({ notificationPreferences: { enabled: false, volume: 0.5 } })).toBe(
+      true,
+    )
+    expect(await serviceUpdate({ sidebarOpen: false, role: 'super-admin' })).toBe(false)
+    expect(await serviceUpdate({ role: 'super-admin' })).toBe(false)
+    expect(await serviceUpdate({})).toBe(false)
   })
 })
 

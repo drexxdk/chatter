@@ -133,6 +133,7 @@ export interface AdminAuthOperations {
  */
 export interface Admin {
   id: number;
+  sidebarOpen?: boolean | null;
   notificationPreferences?:
     | {
         [k: string]: unknown;
@@ -243,6 +244,7 @@ export interface Report {
  */
 export interface User {
   id: number;
+  sidebarOpen?: boolean | null;
   notificationPreferences?:
     | {
         [k: string]: unknown;
@@ -392,6 +394,7 @@ export interface PayloadMigration {
  * via the `definition` "admins_select".
  */
 export interface AdminsSelect<T extends boolean = true> {
+  sidebarOpen?: T;
   notificationPreferences?: T;
   role?: T;
   displayName?: T;
@@ -463,6 +466,7 @@ export interface ReportsSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  sidebarOpen?: T;
   notificationPreferences?: T;
   provider?: T;
   providerUserId?: T;

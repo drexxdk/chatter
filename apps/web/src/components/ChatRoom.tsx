@@ -78,6 +78,7 @@ function runAuthor(item: TimelineItem): string | undefined {
 interface ChatRoomProps {
   roomSlug: string;
   roomName: string;
+  sidebarOpen?: boolean;
   // Absent or null means the room has no limit.
   maxMembers?: number | null;
   session: Session;
@@ -106,6 +107,7 @@ interface ChatRoomProps {
 export function ChatRoom({
   roomSlug,
   roomName,
+  sidebarOpen = true,
   maxMembers,
   session,
   ownGuestIds,
@@ -482,9 +484,12 @@ export function ChatRoom({
       <section
         ref={root}
         aria-labelledby="room-heading"
-        className="@container grid flex-1 gap-4 md:grid-cols-[14rem_1fr]"
+        data-sidebar-open={sidebarOpen}
+        className={`@container grid flex-1 gap-4 ${sidebarOpen ? "md:grid-cols-[14rem_1fr]" : "md:grid-cols-1"}`}
       >
-        <div className="flex min-w-0 flex-col md:col-start-2 md:w-full md:max-w-4xl md:justify-self-center">
+        <div
+          className={`flex min-w-0 flex-col md:w-full md:max-w-4xl md:justify-self-center ${sidebarOpen ? "md:col-start-2" : "md:col-start-1"}`}
+        >
           <div className="sticky top-(--header-height) z-20 -mt-4 space-y-2 bg-neutral-950 pb-2 pt-4 empty:hidden">
             {direct.active && (
               <div className="flex items-center gap-2">
@@ -958,8 +963,9 @@ export function ChatRoom({
         </div>
 
         <aside
+          id={`room-sidebar-${roomSlug}`}
           aria-label={t("room.panel")}
-          className="panel hidden md:col-start-1 md:row-start-1 md:-mt-4 md:sticky md:top-(--header-height) md:block md:h-[calc(100dvh-var(--header-height))] md:self-start md:overflow-y-auto md:border-r md:border-neutral-800 md:py-4 md:pr-3"
+          className={`panel hidden md:col-start-1 md:row-start-1 md:-mt-4 md:sticky md:top-(--header-height) ${sidebarOpen ? "md:block" : ""} md:h-[calc(100dvh-var(--header-height))] md:self-start md:overflow-y-auto md:border-r md:border-neutral-800 md:py-4 md:pr-3`}
         >
           <RoomPanel
             roomSlug={roomSlug}

@@ -331,7 +331,7 @@ html:has([data-room-search] input:focus) {
 }
 
 @media (min-width: 48rem) {
-  .composer-surface {
+  [data-sidebar-open="true"] .composer-surface {
     --composer-column-width: calc(100cqw - 15rem);
     --composer-left-gutter: 1rem;
   }

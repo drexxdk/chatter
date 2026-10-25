@@ -108,6 +108,14 @@ vi.mock("./payloadClient.js", async (importOriginal) => {
     ...original,
     fetchNotificationOwner: async (_collection: string, id: number) =>
       accounts.users.get(id),
+    saveSidebarPreference: async (
+      _collection: string,
+      id: number,
+      sidebarOpen: boolean,
+    ) => {
+      await beforeUpdateUser();
+      accounts.users.set(id, { ...accounts.users.get(id), sidebarOpen });
+    },
     saveNotificationPreferences: async (
       _collection: string,
       id: number,
@@ -375,6 +383,74 @@ describe("notification preferences", () => {
     const response = await save(preferences);
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "unavailable" });
+    expect(accounts.users.get(7)).toEqual({ id: 7 });
+  });
+});
+
+describe("sidebar preference", () => {
+  const authorization = (role: "member" | "moderator" = "member") => ({
+    Authorization: `Bearer ${signToken(
+      { sub: 7, name: "Alice", role },
+      { secret: testEnv.AUTH_TOKEN_SECRET, ttlMs: 60_000 },
+    )}`,
+  });
+  const save = (body: unknown, headers = authorization()) =>
+    fetch(`${base}/me/sidebar`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(body),
+    });
+
+  beforeEach(async () => {
+    await start();
+    accounts.users.set(7, { id: 7 });
+  });
+
+  it.each(["member", "moderator"] as const)(
+    "saves and restores only the %s token owner's sidebar preference",
+    async (role) => {
+      accounts.users.set(7, { id: 7, role });
+      accounts.users.set(8, { id: 8 });
+      const headers = authorization(role);
+      expect(await (await get("/me/sidebar", headers)).json()).toEqual({
+        sidebarOpen: true,
+      });
+      for (const sidebarOpen of [false, true]) {
+        expect((await save({ sidebarOpen, userId: 8 }, headers)).status).toBe(
+          200,
+        );
+        const restored = await get("/me/sidebar", headers);
+        expect(restored.headers.get("cache-control")).toBe("no-store");
+        expect(await restored.json()).toEqual({ sidebarOpen });
+      }
+      expect(accounts.users.get(8)).toEqual({ id: 8 });
+    },
+  );
+
+  it("rejects unauthorized, deleted and ineligible accounts", async () => {
+    expect((await get("/me/sidebar")).status).toBe(401);
+    expect(
+      (await fetch(`${base}/me/sidebar`, { method: "PATCH" })).status,
+    ).toBe(401);
+    accounts.users.delete(7);
+    expect((await get("/me/sidebar", authorization())).status).toBe(401);
+    accounts.users.set(7, { id: 7, role: "service" });
+    expect(
+      (await save({ sidebarOpen: false }, authorization("moderator"))).status,
+    ).toBe(401);
+  });
+
+  it.each([{}, { sidebarOpen: "false" }, { sidebarOpen: null }])(
+    "rejects invalid values (%j)",
+    async (body) => {
+      expect((await save(body)).status).toBe(400);
+      expect(accounts.users.get(7)).toEqual({ id: 7 });
+    },
+  );
+
+  it("reports database write failures", async () => {
+    beforeUpdateUser.mockRejectedValueOnce(new Error("database unavailable"));
+    expect((await save({ sidebarOpen: false })).status).toBe(503);
     expect(accounts.users.get(7)).toEqual({ id: 7 });
   });
 });

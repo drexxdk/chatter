@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   loadNotificationSound,
+  loadSidebarOpen,
   loadShowMovements,
   saveNotificationSound,
+  saveSidebarOpen,
   saveShowMovements,
 } from "./preferences";
 
@@ -36,6 +38,34 @@ describe("showing who joins and leaves", () => {
 
     expect(loadShowMovements()).toBe(false);
     expect(() => saveShowMovements(false)).not.toThrow();
+  });
+});
+
+describe("desktop sidebar", () => {
+  it("defaults to open and remembers both states", () => {
+    expect(loadSidebarOpen()).toBe(true);
+    saveSidebarOpen(false);
+    expect(loadSidebarOpen()).toBe(false);
+    saveSidebarOpen(true);
+    expect(loadSidebarOpen()).toBe(true);
+  });
+
+  it("defaults to open for invalid saved values", () => {
+    localStorage.setItem("chatter.sidebarOpen", "invalid");
+    expect(loadSidebarOpen()).toBe(true);
+  });
+
+  it("handles unavailable storage", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => {
+        throw new Error("denied");
+      },
+      setItem: () => {
+        throw new Error("denied");
+      },
+    });
+    expect(loadSidebarOpen()).toBe(true);
+    expect(() => saveSidebarOpen(false)).not.toThrow();
   });
 });
 

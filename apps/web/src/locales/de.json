@@ -390,6 +390,8 @@
     "members": "In diesem Raum ({count})",
     "membersOfMax": "In diesem Raum ({count} von {max})",
     "panel": "Personen und Direktnachrichten",
+    "hidePanel": "Seitenleiste ausblenden",
+    "showPanel": "Seitenleiste einblenden",
     "peopleButton": "Personen",
     "closePanel": "Schließen",
     "people": "Personen in diesem Raum",

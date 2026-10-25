@@ -35,6 +35,7 @@ import {
   fetchUser,
   fetchNotificationOwner,
   saveNotificationPreferences,
+  saveSidebarPreference,
   findUserByIdentity,
   isTaken,
   updateUser,
@@ -459,7 +460,7 @@ export function createAccountsRouter(options: {
       }),
   );
 
-  const notificationOwner = async (
+  const preferenceOwner = async (
     req: express.Request,
     res: express.Response,
   ) => {
@@ -485,12 +486,13 @@ export function createAccountsRouter(options: {
       collection,
       id: claims.sub,
       preferences: owner.notificationPreferences,
+      sidebarOpen: owner.sidebarOpen ?? true,
     } as const;
   };
 
   router.get("/me/notifications", limiter, async (req, res) => {
     try {
-      const owner = await notificationOwner(req, res);
+      const owner = await preferenceOwner(req, res);
       if (!owner) return;
       res.set("Cache-Control", "no-store").json({
         preferences: parseNotificationPreferences(owner.preferences) ?? {
@@ -510,7 +512,7 @@ export function createAccountsRouter(options: {
     express.json({ limit: "4kb" }),
     async (req, res) => {
       try {
-        const owner = await notificationOwner(req, res);
+        const owner = await preferenceOwner(req, res);
         if (!owner) return;
         const preferences = parseNotificationPreferences(req.body);
         if (!preferences) {
@@ -529,6 +531,46 @@ export function createAccountsRouter(options: {
         res.set("Cache-Control", "no-store").json({ preferences });
       } catch (error) {
         log.error("Failed to save notification preferences", error);
+        res.status(503).json({ error: "unavailable" });
+      }
+    },
+  );
+
+  router.get("/me/sidebar", limiter, async (req, res) => {
+    try {
+      const owner = await preferenceOwner(req, res);
+      if (!owner) return;
+      res
+        .set("Cache-Control", "no-store")
+        .json({ sidebarOpen: owner.sidebarOpen });
+    } catch (error) {
+      log.error("Failed to read sidebar preference", error);
+      res.status(503).json({ error: "unavailable" });
+    }
+  });
+
+  router.patch(
+    "/me/sidebar",
+    limiter,
+    express.json({ limit: "1kb" }),
+    async (req, res) => {
+      try {
+        const owner = await preferenceOwner(req, res);
+        if (!owner) return;
+        const parsed = z
+          .object({ sidebarOpen: z.boolean() })
+          .safeParse(req.body);
+        if (!parsed.success) {
+          res.status(400).json({ error: "invalid_profile" });
+          return;
+        }
+        const { sidebarOpen } = parsed.data;
+        await withProfileLock(`${owner.collection}:${owner.id}:sidebar`, () =>
+          saveSidebarPreference(owner.collection, owner.id, sidebarOpen),
+        );
+        res.set("Cache-Control", "no-store").json({ sidebarOpen });
+      } catch (error) {
+        log.error("Failed to save sidebar preference", error);
         res.status(503).json({ error: "unavailable" });
       }
     },

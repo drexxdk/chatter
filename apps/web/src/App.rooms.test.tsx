@@ -1231,6 +1231,87 @@ describe("inside a room", () => {
     );
   });
 
+  it("collapses and expands the desktop sidebar from the header without resetting it", async () => {
+    const { user } = await enterRoom();
+    await screen.findByRole("log", { name: "General" });
+    const toggle = screen.getByRole("button", { name: "Hide sidebar" });
+    const sidebar = screen.getByRole("complementary", {
+      name: "People and direct messages",
+    });
+    const room = screen.getByRole("region", { name: "General" });
+    const chatColumn = room.firstElementChild;
+    expect(chatColumn).toHaveClass("md:max-w-4xl");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).toHaveAttribute("aria-controls", sidebar.id);
+    expect(toggle).toHaveClass("hidden", "md:inline-flex");
+
+    toggle.focus();
+    await user.keyboard("{Enter}");
+
+    expect(toggle).toHaveAccessibleName("Show sidebar");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(sidebar).not.toHaveClass("md:block");
+    expect(room).toHaveClass("md:grid-cols-1");
+    expect(room).toHaveAttribute("data-sidebar-open", "false");
+    expect(chatColumn).toHaveClass("md:max-w-4xl");
+    expect(localStorage.getItem("chatter.sidebarOpen")).toBe("false");
+
+    await user.keyboard("{Enter}");
+
+    expect(toggle).toHaveAccessibleName("Hide sidebar");
+    expect(sidebar).toHaveClass("md:block");
+    expect(room).toHaveClass("md:grid-cols-[14rem_1fr]");
+    expect(room).toHaveAttribute("data-sidebar-open", "true");
+    expect(chatColumn).toHaveClass("md:max-w-4xl");
+    expect(localStorage.getItem("chatter.sidebarOpen")).toBe("true");
+    expect(screen.getByRole("complementary")).toBe(sidebar);
+  });
+
+  it.each([false, true])(
+    "restores the saved sidebar state (%s)",
+    async (open) => {
+      localStorage.setItem("chatter.sidebarOpen", String(open));
+      await enterRoom();
+      await screen.findByRole("log", { name: "General" });
+      expect(
+        screen.getByRole("button", {
+          name: open ? "Hide sidebar" : "Show sidebar",
+        }),
+      ).toHaveAttribute("aria-expanded", String(open));
+      expect(screen.getByRole("region", { name: "General" })).toHaveAttribute(
+        "data-sidebar-open",
+        String(open),
+      );
+    },
+  );
+
+  it("shows unread messages on the sidebar toggle only while collapsed", async () => {
+    const { user, server } = await enterWithPeople();
+    await screen.findByRole("log", { name: "General" });
+    const toggle = screen.getByRole("button", { name: "Hide sidebar" });
+    await user.click(toggle);
+    expect(toggle).toHaveAccessibleName("Show sidebar");
+    expect(toggle.querySelector("span")).toBeNull();
+
+    receive(server, dm());
+    expect(toggle).toHaveAccessibleName("Show sidebar, 1 unread message");
+    expect(within(toggle).getByText("1")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+
+    receive(server, dm({ id: "second-unread" }));
+    expect(toggle).toHaveAccessibleName("Show sidebar, 2 unread messages");
+    expect(within(toggle).getByText("2")).toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAccessibleName("Hide sidebar");
+    expect(toggle.querySelector("span")).toBeNull();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAccessibleName("Show sidebar, 2 unread messages");
+  });
+
   it("has the people and the direct messages open, each of which can be closed and opened from its heading", async () => {
     const { user } = await enterRoom();
     const people = () =>

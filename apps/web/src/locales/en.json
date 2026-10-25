@@ -391,6 +391,8 @@
     "membersOfMax": "In this room ({count} of {max})",
     "people": "People in this room",
     "panel": "People and direct messages",
+    "hidePanel": "Hide sidebar",
+    "showPanel": "Show sidebar",
     "peopleButton": "People",
     "closePanel": "Close",
     "you": "you",
