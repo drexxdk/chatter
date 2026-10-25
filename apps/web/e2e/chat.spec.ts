@@ -4003,7 +4003,7 @@ test(
       name: /^Alice/,
     });
     await expect(fromAlice).toHaveAccessibleName(/1 unread message/);
-    await expect(fromAlice).toHaveClass(/animate-pulse/);
+    await expect(fromAlice.locator("..")).toHaveClass(/animate-pulse/);
     await expect(bob.getByRole("log", { name: room.name })).toContainText(
       "Direct message from Alice",
     );

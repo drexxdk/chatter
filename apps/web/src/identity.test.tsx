@@ -12,6 +12,8 @@ describe("public chat identities", () => {
   const first = {
     guestId: "m-11111111111111111111111111111111",
     nickname: "Simon",
+    role: "member" as const,
+    avatar: "other" as const,
   };
   const second = {
     guestId: "22222222-2222-4222-8222-222222222222",

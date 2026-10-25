@@ -345,7 +345,7 @@ test("accounts share display names with distinct public identities and private r
   const tag = profileLabel.split(" \u00b7 ")[1]!;
   await people.getByRole("button", { name: profileLabel, exact: true }).click();
   await expect(
-    observer.getByRole("dialog").getByText(`#${tag}`, { exact: true }),
+    observer.getByRole("dialog").getByText(tag, { exact: true }),
   ).toBeVisible();
   await observer.keyboard.press("Escape");
   await people
