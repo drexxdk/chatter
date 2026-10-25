@@ -99,6 +99,35 @@ describe("public chat identities", () => {
     expect(profile).not.toHaveTextContent(names.tag(person.guestId));
   });
 
+  it.each([true, false])(
+    "uses the same live status for message and sidebar profiles (online: %s)",
+    async (present) => {
+      const user = userEvent.setup();
+      const names = createIdentityDirectory([{ ...first, present }]);
+      render(
+        <IdentityProvider value={names}>
+          <IdentityProfile person={first} />
+          <IdentityProfile
+            person={{ ...first, present: !present }}
+            listButton
+          />
+        </IdentityProvider>,
+      );
+      const avatars = screen.getAllByRole("button", { name: "Profile: Simon" });
+      for (const avatar of avatars) {
+        await user.click(avatar);
+        const profile = await screen.findByRole("dialog");
+        expect(within(profile).getByLabelText("Status")).toHaveTextContent(
+          present ? "Online" : "Offline",
+        );
+        expect(within(profile).getByLabelText("Status")).toHaveClass(
+          "text-right",
+        );
+        await user.keyboard("{Escape}");
+      }
+    },
+  );
+
   it("copies only the public tag without a hash prefix", async () => {
     const user = userEvent.setup();
     const names = createIdentityDirectory([first]);
@@ -207,6 +236,43 @@ describe("public chat identities", () => {
       expect(within(profile).getByText("Moderator")).toBeVisible();
       expect(within(profile).getByLabelText("Gender")).toHaveTextContent(
         "Male",
+      );
+    },
+  );
+
+  it.each([false, true])(
+    "uses shared presence for sidebar and profile avatar dimming (online: %s)",
+    async (present) => {
+      const user = userEvent.setup();
+      const person = {
+        ...first,
+        picture: "critters:0a3b8a146a",
+        present: !present,
+      };
+      render(
+        <IdentityProvider
+          value={createIdentityDirectory([{ ...person, present }])}
+        >
+          <IdentityProfile person={person} listButton />
+        </IdentityProvider>,
+      );
+      const button = screen.getByRole("button", { name: "Profile: Simon" });
+      const avatar = button.querySelector("[data-picture]");
+      if (present) {
+        expect(avatar).not.toHaveClass("opacity-50", "grayscale");
+      } else {
+        expect(avatar).toHaveClass("opacity-50", "grayscale");
+      }
+      await user.click(button);
+      const profile = await screen.findByRole("dialog");
+      const profileAvatar = profile.querySelector("[data-picture]");
+      if (present) {
+        expect(profileAvatar).not.toHaveClass("opacity-50", "grayscale");
+      } else {
+        expect(profileAvatar).toHaveClass("opacity-50", "grayscale");
+      }
+      expect(within(profile).getByLabelText("Status")).toHaveTextContent(
+        present ? "Online" : "Offline",
       );
     },
   );

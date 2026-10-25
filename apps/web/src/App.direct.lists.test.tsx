@@ -27,26 +27,50 @@ describe("direct messages", () => {
     it("opens a public profile with the keyboard and restores focus when closed", async () => {
       const { user, server } = await enter();
       receive(server, dm());
-      const actions = threads().getByRole("button", {
-        name: "Actions for Bob",
+      const avatar = threads().getByRole("button", {
+        name: "Profile: Bob",
       });
-      actions.focus();
+      avatar.focus();
       await user.keyboard("{Enter}");
-      await screen.findByRole("menuitem", { name: "View profile" });
-      await user.keyboard("{End}{Enter}");
       const profile = within(
         await screen.findByRole("dialog", {
-          name: `Profile: Bob \u00b7 ${publicIdentityTag(bob.guestId)}`,
+          name: "Profile: Bob",
         }),
       );
       expect(profile.getByText("Bob")).toBeVisible();
       expect(profile.getByLabelText("Gender")).toHaveTextContent("Male");
-      expect(profile.getByText("Online")).toBeVisible();
+      expect(profile.getAllByText("Male")).toHaveLength(1);
+      expect(profile.getByText("Status")).toBeVisible();
+      expect(profile.getByLabelText("Status")).toHaveTextContent("Online");
+      expect(profile.getByLabelText("Status")).toHaveClass("text-right");
       expect(profile.queryByRole("textbox")).toBeNull();
       expect(screen.queryByRole("menu")).toBeNull();
       await user.keyboard("{Escape}");
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-      await waitFor(() => expect(actions).toHaveFocus());
+      await waitFor(() => expect(avatar).toHaveFocus());
+    });
+
+    it("keeps long public identities out of the avatar profile", async () => {
+      const person = {
+        ...bob,
+        guestId: "test-lab-guest-with-a-long-identity",
+        nickname: "coffee_heron2",
+      };
+      const { user, server } = await enter([person]);
+      receive(
+        server,
+        dm({ fromGuestId: person.guestId, fromNickname: person.nickname }),
+      );
+      await user.click(
+        threads().getByRole("button", { name: "Profile: coffee_heron2" }),
+      );
+      const profile = await screen.findByRole("dialog", {
+        name: "Profile: coffee_heron2",
+      });
+      expect(within(profile).getByLabelText("Public tag").textContent).toBe(
+        publicIdentityTag(person.guestId).slice(-8),
+      );
+      expect(profile).not.toHaveTextContent(publicIdentityTag(person.guestId));
     });
 
     it("blocks and unblocks a conversation from its actions menu", async () => {
@@ -69,8 +93,8 @@ describe("direct messages", () => {
         }),
       ).toBeVisible();
       expect(
-        screen.getByRole("menuitem", { name: "View profile" }),
-      ).toBeVisible();
+        screen.queryByRole("menuitem", { name: "View profile" }),
+      ).toBeNull();
       await user.click(screen.getByRole("menuitem", { name: "Unblock Bob" }));
       await waitFor(() => expect(threads().queryByText("Blocked")).toBeNull());
     });
@@ -90,13 +114,13 @@ describe("direct messages", () => {
         threads().getByRole("button", { name: "Actions for Ada Mod" }),
       );
       expect(
-        await screen.findByRole("menuitem", { name: "View profile" }),
-      ).toBeVisible();
-      expect(
-        screen.getByRole("menuitem", {
+        await screen.findByRole("menuitem", {
           name: "Stop notifications from Ada Mod",
         }),
       ).toBeVisible();
+      expect(
+        screen.queryByRole("menuitem", { name: "View profile" }),
+      ).toBeNull();
       expect(screen.queryByRole("menuitem", { name: /Block/ })).toBeNull();
     });
   });

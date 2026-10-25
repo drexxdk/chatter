@@ -205,6 +205,7 @@
     "actions": "Aktionen für {name}",
     "viewProfile": "Profil anzeigen",
     "profile": "Profil: {name}",
+    "status": "Status",
     "online": "Online",
     "offline": "Offline",
     "message": "{name} schreiben",

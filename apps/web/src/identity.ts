@@ -5,6 +5,7 @@ export interface PublicPerson {
   nickname: string;
   avatar?: Avatar;
   age?: number;
+  present?: boolean;
 }
 
 const nameKey = (name: string) =>

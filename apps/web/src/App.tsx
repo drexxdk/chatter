@@ -126,9 +126,9 @@ export function App({
   const identities = useMemo(
     () =>
       createIdentityDirectory([
-        ...chat.members,
-        ...chat.messages,
+        ...chat.members.map((member) => ({ ...member, present: true })),
         ...chat.direct.threads,
+        ...chat.messages.map((message) => ({ ...message, present: false })),
         ...chat.direct.threads.flatMap((thread) =>
           thread.entries.flatMap((entry) =>
             "fromGuestId" in entry

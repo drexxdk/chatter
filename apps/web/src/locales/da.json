@@ -205,6 +205,7 @@
     "actions": "Handlinger for {name}",
     "viewProfile": "Vis profil",
     "profile": "Profil: {name}",
+    "status": "Status",
     "online": "Online",
     "offline": "Offline",
     "message": "Skriv til {name}",

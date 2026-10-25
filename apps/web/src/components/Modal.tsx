@@ -37,7 +37,9 @@ export function PanelHeader({
     <div className="flex items-center justify-between gap-2">
       <DialogTitle
         className={
-          compact ? "text-base font-semibold" : "text-lg font-semibold"
+          compact
+            ? "min-w-0 wrap-anywhere text-base font-semibold"
+            : "min-w-0 wrap-anywhere text-lg font-semibold"
         }
       >
         {title}

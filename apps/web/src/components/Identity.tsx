@@ -33,7 +33,7 @@ export function IdentityName({ person }: { person: PublicPerson }) {
 export function IdentityDetails({
   person,
 }: {
-  person: PublicPerson & { role?: Partner["role"] };
+  person: PublicPerson & { role?: Partner["role"]; present?: boolean };
 }) {
   const { t } = useTranslation();
   const names = useIdentityNames();
@@ -124,8 +124,42 @@ export function IdentityDetails({
         >
           {profile.age ?? t("avatar.other")}
         </span>
+        {profile.present !== undefined && (
+          <>
+            <span className="wrap-anywhere text-neutral-400">
+              {t("person.status")}
+            </span>
+            <span
+              aria-label={t("person.status")}
+              className="text-right wrap-anywhere"
+            >
+              {t(profile.present ? "person.online" : "person.offline")}
+            </span>
+          </>
+        )}
       </span>
     </span>
+  );
+}
+
+export function IdentityProfileContent({
+  person,
+}: {
+  person: Partner & { present?: boolean };
+}) {
+  const names = useIdentityNames();
+  const profile = { ...person, ...names.person(person.guestId) };
+  return (
+    <div className="flex items-start gap-3">
+      <AvatarIcon
+        avatar={profile.avatar}
+        picture={profile.picture}
+        moderator={profile.role === "moderator"}
+        dimmed={profile.present === false}
+        large
+      />
+      <IdentityDetails person={person} />
+    </div>
   );
 }
 
@@ -135,7 +169,7 @@ export function IdentityProfile({
   tabIndex,
   listButton = false,
 }: {
-  person: Partner;
+  person: Partner & { present?: boolean };
   children?: ReactNode;
   tabIndex?: number;
   listButton?: boolean;
@@ -143,6 +177,7 @@ export function IdentityProfile({
   const { t } = useTranslation();
   const names = useIdentityNames();
   const label = t("person.profile", { name: names.label(person) });
+  const profile = { ...person, ...names.person(person.guestId) };
   return (
     <Popover className="inline-flex shrink-0">
       <PopoverButton
@@ -161,6 +196,7 @@ export function IdentityProfile({
             avatar={person.avatar}
             picture={person.picture}
             moderator={person.role === "moderator"}
+            dimmed={profile.present === false}
             small
           />
         )}
@@ -171,15 +207,7 @@ export function IdentityProfile({
         anchor={{ to: "bottom start", gap: 6, padding: 8 }}
         className={`z-50 w-72 max-w-[calc(100vw-1rem)] p-3 ${MENU_SURFACE}`}
       >
-        <div className="flex items-start gap-3">
-          <AvatarIcon
-            avatar={person.avatar}
-            picture={person.picture}
-            moderator={person.role === "moderator"}
-            large
-          />
-          <IdentityDetails person={person} />
-        </div>
+        <IdentityProfileContent person={person} />
       </PopoverPanel>
     </Popover>
   );
