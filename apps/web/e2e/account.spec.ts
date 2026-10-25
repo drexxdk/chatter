@@ -219,6 +219,15 @@ test("lobby loading keeps the room heading and saved account menu stable", async
       await expect
         .poll(() => waiting.has("/rooms") && waiting.has("/me"))
         .toBe(true);
+      const loader = await lobby
+        .getByRole("status")
+        .locator("svg")
+        .boundingBox();
+      expect(loader).not.toBeNull();
+      const viewportHeight = page.viewportSize()!.height;
+      expect(
+        Math.abs(loader!.y + loader!.height / 2 - viewportHeight / 2),
+      ).toBeLessThan(viewportHeight / 10);
       const before = {
         heading: (await heading.boundingBox())!,
         intro: (await intro.boundingBox())!,
@@ -397,7 +406,9 @@ test("notification choices follow the account into a different browser", async (
       name: "Settings",
       exact: true,
     });
-    await expect(dialog.getByText("Saved", { exact: true })).toBeVisible();
+    await expect(
+      dialog.getByRole("checkbox", { name: "Warnings", exact: true }),
+    ).toBeEnabled();
     return dialog;
   };
   const settings = await openSettings(page);
@@ -410,10 +421,18 @@ test("notification choices follow the account into a different browser", async (
     .click();
   await page.getByRole("option", { name: "Wood", exact: true }).click();
   const volume = settings.getByRole("slider", { name: "Volume" });
+  const saved = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/me/notifications" &&
+      response.request().method() === "PATCH" &&
+      response.request().postDataJSON().volume === 0.37 &&
+      response.ok(),
+  );
   await volume.focus();
   await volume.press("Home");
   for (let step = 0; step < 37; step += 1) await volume.press("ArrowRight");
-  await expect(settings.getByText("Saved", { exact: true })).toBeVisible();
+  await saved;
+  await expect(settings.getByText("Saved", { exact: true })).toHaveCount(0);
   const otherBrowser = await signedInPage(browser, request, handle, password);
   await expect(
     otherBrowser.getByRole("button", { name: `Account menu: ${chatName}` }),
@@ -800,7 +819,12 @@ test("a guest connects a provider, keeps their identity, shares public names, an
   await page.getByRole("button", { name: `Account menu: ${chatName}` }).click();
   await page.getByRole("menuitem", { name: "Your profile" }).click();
   await expect(page.getByText("Signed in with", { exact: true })).toBeVisible();
-  await expect(page.getByRole("dialog").getByText("Dev sign-in")).toBeVisible();
+  await expect(
+    page
+      .getByRole("dialog")
+      .locator("dl")
+      .getByText("Dev sign-in", { exact: true }),
+  ).toBeVisible();
 
   const [account] = await accountsNamed(handle);
   expect(account).toMatchObject({

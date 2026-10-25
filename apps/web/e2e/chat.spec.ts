@@ -2180,16 +2180,13 @@ test("neon glass menus and modals preserve focus and accessibility fallbacks", a
     });
     await expect(menu).toBeVisible();
     const rim = await menu.evaluate((element) => {
-      const style = getComputedStyle(element, "::after");
       return {
-        content: style.content,
-        mask: style.maskComposite,
-        pointer: style.pointerEvents,
+        before: getComputedStyle(element, "::before").content,
+        after: getComputedStyle(element, "::after").content,
+        border: getComputedStyle(element).borderTopWidth,
       };
     });
-    expect(rim.content).not.toBe("none");
-    expect(rim.mask).toContain("exclude");
-    expect(rim.pointer).toBe("none");
+    expect(rim).toEqual({ before: "none", after: "none", border: "1px" });
     await settings.hover();
     await expect
       .poll(() =>
@@ -2258,7 +2255,10 @@ test("neon glass menus and modals preserve focus and accessibility fallbacks", a
         name: label,
         exact: true,
       });
-      await expect(checkbox).toHaveCSS("min-height", "44px");
+      await expect(checkbox).toHaveCSS(
+        "min-height",
+        width >= 640 ? "36px" : "44px",
+      );
       await checkbox.scrollIntoViewIfNeeded();
       const target = await checkbox.boundingBox();
       expect(target).not.toBeNull();

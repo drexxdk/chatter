@@ -22,8 +22,9 @@ type RoomsState =
 
 function pulseCard(card: HTMLElement) {
   if (
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
-    typeof card.animate !== "function"
+    typeof card.animate !== "function" ||
+    typeof window.matchMedia !== "function" ||
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
   ) {
     return;
   }
@@ -158,18 +159,19 @@ interface LobbyProps {
 export function Lobby({ state, onRetry, onSelect }: LobbyProps) {
   const { t, i18n } = useTranslation();
 
-  if (state.status === "loading") {
-    return <Loading>{t("lobby.loading")}</Loading>;
-  }
-
   return (
-    <section aria-labelledby="lobby-heading" className="space-y-4">
+    <section
+      aria-labelledby="lobby-heading"
+      className="flex flex-1 flex-col gap-4"
+    >
       <div>
         <h2 id="lobby-heading" className="text-xl font-semibold">
           {t("lobby.heading")}
         </h2>
         <p className="text-neutral-400">{t("lobby.intro")}</p>
       </div>
+
+      {state.status === "loading" && <Loading>{t("lobby.loading")}</Loading>}
 
       {state.status === "error" && (
         <LoadError
