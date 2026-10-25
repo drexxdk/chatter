@@ -6,6 +6,14 @@ has to be restored: the cached rooms and bans are read again from the admin, and
 Run everything from the stack's folder on the machine (for example `/opt/chatter`). `COMPOSE` below is
 `docker compose --env-file deploy/stack.env -f docker-compose.prod.yml`.
 
+```sh
+COMPOSE() { docker compose --env-file deploy/stack.env -f docker-compose.prod.yml "$@"; }
+```
+
+Postgres backups include member/staff accounts, password hashes, provider links, preferences, reports and the published
+legal global with its version history. Protect dumps as sensitive data. After restore, verify the public `/legal`
+version; use the runbook's explicit legal-publishing workflow if a reviewed content update must be reapplied.
+
 ## Into the running stack (the data was damaged or deleted)
 
 1. Fetch the dump: `rclone ls r2:chatter-backups/postgres` to see them, then

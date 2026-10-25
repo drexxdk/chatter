@@ -259,7 +259,7 @@
       "admin": {
         "name": "The admin",
         "tech": "Payload CMS, Next.js",
-        "text": "Where moderators manage rooms, bans and reports, and where the terms and the privacy policy are written."
+        "text": "Where super-admins manage rooms, accounts, bans and reports, and publish the terms and privacy policy. Chat moderators do not have access to this panel."
       },
       "postgres": {
         "name": "The database",
@@ -305,19 +305,19 @@
         "howLong": "Until the tab is closed"
       },
       "guest": {
-        "what": "A guest's nickname, avatar and age",
+        "what": "A guest's nickname, picture, gender, and any birth date or age",
         "where": "In the server's memory while you are connected, and in this tab of your browser",
         "howLong": "The server forgets them when the connection ends; the tab, when it is closed"
       },
       "account": {
-        "what": "An account: the sign-in provider and your id there, email, username, display name, picture, gender and age",
+        "what": "An account: username, display name, picture, gender, birth date or age, saved preferences, a password hash if set, and linked sign-in providers and any email they supply",
         "where": "The database",
         "howLong": "Until you delete the account in your profile"
       },
       "address": {
         "what": "Your internet address",
-        "where": "Used while you are connected, to limit abuse; otherwise kept only as a salted hash (with messages and reports), so that a ban can find them",
-        "howLong": "The hash goes with the message, so an hour; with a report, 90 days"
+        "where": "Used for connections and abuse prevention; technical logs may contain it. Messages, bans and reports use salted identifiers; for a member these can identify the account instead of the address",
+        "howLong": "Hashes follow the bounded message history, reports (90 days) or ban expiry; technical logs rotate"
       },
       "reports": {
         "what": "A reported message, its sender's hash and the reasons",
@@ -334,14 +334,14 @@
     "safety": {
       "limits": "Slow mode, rate limits and a cap per address stop floods and spam.",
       "reports": "Anyone can report a message. When three different addresses have reported it, it is hidden for everybody until a moderator has looked at it.",
-      "bans": "Bans work on a salted hash of the address, so the address itself is not kept. Moderators are people with an account in the admin.",
+      "bans": "Bans use salted address or account hashes. Account bans follow the member across addresses. Moderator permissions come from staff accounts, not from a chosen display name.",
       "age": "You must be 18 or older. There is no way to check an age, so this rests on the terms and on moderation.",
-      "passwords": "Accounts have no password: you sign in with Google, Facebook or Discord, and Chatter receives your name and email, never your password. Moderators' passwords are stored hashed.",
-      "thirdParties": "Chatter runs no advertising or tracking scripts. Your browser talks to the site, the chat server, GIPHY when searching for GIFs, and YouTube when loading video previews or embedded videos. YouTube players follow YouTube's privacy policy. Avatars are drawn in your browser.",
-      "headers": "The site sends strict security headers: its Content-Security-Policy only lets it run its own scripts, load GIFs from GIPHY and previews from YouTube's thumbnail host, and embed videos from YouTube's privacy-enhanced host."
+      "passwords": "You can use a username and password or an enabled Google, Facebook or Discord connection. Chatter stores its own passwords only as hashes and never receives your password at another sign-in provider. Staff passwords are also stored hashed.",
+      "thirdParties": "Chatter runs no advertising or analytics. Your browser contacts Cloudflare Turnstile for human verification when enabled, GIPHY for GIF searches and media, and YouTube for video thumbnails and players. These providers receive connection data such as your IP address under their own privacy policies. Avatars are drawn in your browser.",
+      "headers": "The site sends strict security headers. Its Content-Security-Policy allows its own scripts and Cloudflare Turnstile, GIPHY media, YouTube thumbnails, and frames from Turnstile and YouTube's privacy-enhanced host."
     },
     "buildTitle": "Building and deploying",
-    "build": "The code is open: anybody can read it. Every change is checked automatically before it goes live: formatting, types, hundreds of unit tests and browser tests that run the real chat server. Only a change that passes is built into images and put on the server by GitHub Actions.",
+    "build": "The code is open. GitHub Actions checks formatting, types, unit tests and browser tests against the real chat server. Backend images deploy after successful CI; Cloudflare Pages builds the website from main through a separate pipeline.",
     "source": "Read the code on GitHub",
     "stackTitle": "Built with",
     "stack": {

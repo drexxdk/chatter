@@ -9,11 +9,11 @@ const LOCALES = ['en', 'da', 'de'] as const
 const TEXTS: Record<(typeof LOCALES)[number], LegalTexts> = { en, da, de }
 
 // The version the first terms carry; people who accepted another one are asked again.
-export const SEED_TERMS_VERSION = '2026-10-13'
+export const SEED_TERMS_VERSION = '2026-10-25'
 export const SEED_CONTACT_EMAIL = 'draxxdk@gmail.com'
 
 // The admin edits paragraphs as one text with blank lines between them, and a list as one item to a line.
-const asFields = (document: LegalDocument, updated: string) => ({
+export const legalDocumentFields = (document: LegalDocument, updated: string) => ({
   title: document.title,
   updated,
   sections: document.sections.map((section) => ({
@@ -44,8 +44,8 @@ export async function seedLegal(payload: Payload): Promise<void> {
         ...(locale === 'en'
           ? { termsVersion: SEED_TERMS_VERSION, contactEmail: SEED_CONTACT_EMAIL }
           : {}),
-        terms: asFields(texts.terms, texts.updated),
-        privacy: asFields(texts.privacy, texts.updated),
+        terms: legalDocumentFields(texts.terms, texts.updated),
+        privacy: legalDocumentFields(texts.privacy, texts.updated),
         _status: 'published',
       },
     })

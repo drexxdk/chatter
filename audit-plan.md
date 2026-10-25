@@ -3,6 +3,10 @@
 Source audit completed on 2026-10-18. Priorities below distinguish immediate fixes
 from changes that need database migrations or broader integration work.
 
+This is a historical audit and execution log, not the current feature checklist. Later work deliberately allows shared
+public display names while retaining unique private usernames, and replaces mobile popup autofocus with intentional
+touch focus. Earlier commit/deployment notes describe their recorded date; use `progress.md` and current code for present status.
+
 ## 1. Account Name Ownership
 
 - [x] Serialize registration, profile renames, deletion, and reserved-name cache

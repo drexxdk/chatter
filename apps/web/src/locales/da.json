@@ -259,7 +259,7 @@
       "admin": {
         "name": "Administrationen",
         "tech": "Payload CMS, Next.js",
-        "text": "Her styrer moderatorerne rum, udelukkelser og anmeldelser, og her skrives teksterne til vilkår og privatlivspolitik."
+        "text": "Her administrerer superadministratorer rum, konti, udelukkelser og anmeldelser og udgiver vilkår og privatlivspolitik. Chatmoderatorer har ikke adgang til dette panel."
       },
       "postgres": {
         "name": "Databasen",
@@ -305,19 +305,19 @@
         "howLong": "Til fanen lukkes"
       },
       "guest": {
-        "what": "En gæsts kaldenavn, avatar og alder",
+        "what": "En gæsts kaldenavn, billede, køn og eventuel fødselsdato eller alder",
         "where": "I serverens hukommelse, mens du er forbundet, og i denne fane i din browser",
         "howLong": "Serveren glemmer dem, når forbindelsen slutter; fanen, når den lukkes"
       },
       "account": {
-        "what": "En konto: loginudbyderen og dit id dér, e-mail, brugernavn, visningsnavn, billede, køn og alder",
+        "what": "En konto: brugernavn, visningsnavn, billede, køn, fødselsdato eller alder, gemte indstillinger, et adgangskodehash hvis valgt samt tilknyttede loginudbydere og eventuel e-mail fra dem",
         "where": "Databasen",
         "howLong": "Til du sletter kontoen i din profil"
       },
       "address": {
         "what": "Din internetadresse",
-        "where": "Bruges, mens du er forbundet, til at begrænse misbrug; ellers kun gemt som en saltet hash (sammen med beskeder og anmeldelser), så en udelukkelse kan finde dem",
-        "howLong": "Hashen følger beskeden, så en time; ved en anmeldelse 90 dage"
+        "where": "Bruges til forbindelser og misbrugsbeskyttelse; tekniske logfiler kan indeholde den. Beskeder, udelukkelser og anmeldelser bruger saltede identifikatorer, som for medlemmer kan identificere kontoen frem for adressen",
+        "howLong": "Hashværdier følger den begrænsede beskedhistorik, anmeldelser (90 dage) eller udelukkelsens udløb; tekniske logfiler roteres"
       },
       "reports": {
         "what": "En anmeldt besked, afsenderens hash og begrundelserne",
@@ -334,14 +334,14 @@
     "safety": {
       "limits": "Langsom tilstand, hastighedsgrænser og en grænse pr. adresse stopper oversvømmelser og spam.",
       "reports": "Alle kan anmelde en besked. Når tre forskellige adresser har anmeldt den, skjules den for alle, indtil en moderator har set på den.",
-      "bans": "Udelukkelser bruger en saltet hash af adressen, så selve adressen ikke gemmes. Moderatorer er personer med en konto i administrationen.",
+      "bans": "Udelukkelser bruger saltede adresse- eller kontohash. Kontoudelukkelser følger medlemmet på tværs af adresser. Moderatorrettigheder kommer fra personalekonti, ikke fra et valgt visningsnavn.",
       "age": "Du skal være 18 år eller derover. Der er ingen måde at kontrollere en alder på, så det hviler på vilkårene og på moderering.",
-      "passwords": "Konti har ingen adgangskode: du logger ind med Google, Facebook eller Discord, og Chatter modtager dit navn og din e-mail, aldrig din adgangskode. Moderatorers adgangskoder gemmes som hash.",
-      "thirdParties": "Chatter kører ingen reklame- eller sporingsscripts. Din browser taler med siden, chatserveren, GIPHY ved GIF-søgninger og YouTube, når videoforhåndsvisninger eller indlejrede videoer indlæses. YouTube-afspillere følger YouTubes privatlivspolitik. Avatarer tegnes i din browser.",
-      "headers": "Siden sender strenge sikkerhedshoveder: dens Content-Security-Policy tillader kun egne scripts, GIF-billeder fra GIPHY, forhåndsvisninger fra YouTubes billedvært og videoer fra YouTubes privatlivsforbedrede vært."
+      "passwords": "Du kan bruge brugernavn og adgangskode eller en aktiveret forbindelse til Google, Facebook eller Discord. Chatter gemmer kun egne adgangskoder som hash og modtager aldrig din adgangskode hos en anden loginudbyder. Personalets adgangskoder gemmes også som hash.",
+      "thirdParties": "Chatter har ingen reklamer eller analyseværktøjer. Din browser kontakter Cloudflare Turnstile til menneskeverifikation, når det er aktiveret, GIPHY til GIF-søgninger og medier samt YouTube til videobilleder og afspillere. Udbyderne modtager forbindelsesdata som din IP-adresse efter deres egne privatlivspolitikker. Avatarer tegnes i din browser.",
+      "headers": "Siden sender strenge sikkerhedshoveder. Dens Content-Security-Policy tillader egne scripts og Cloudflare Turnstile, GIPHY-medier, YouTube-billeder samt rammer fra Turnstile og YouTubes privatlivsforbedrede vært."
     },
     "buildTitle": "Bygning og udrulning",
-    "build": "Koden er åben: alle kan læse den. Hver ændring tjekkes automatisk, før den går i luften: formatering, typer, hundredvis af enhedstests og browsertests, der kører den rigtige chatserver. Kun en ændring, der består, bygges til billeder og lægges på serveren af GitHub Actions.",
+    "build": "Koden er åben. GitHub Actions kontrollerer formatering, typer, enhedstests og browsertests mod den rigtige chatserver. Backendbilleder udrulles efter godkendt CI; Cloudflare Pages bygger hjemmesiden fra main i en særskilt proces.",
     "source": "Læs koden på GitHub",
     "stackTitle": "Bygget med",
     "stack": {

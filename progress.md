@@ -14,17 +14,11 @@ Status legend: `[ ]` to do, `[~]` in progress, `[x]` done. Priorities are sugges
 
 ## Before real users (hobby launch)
 
-- [~] Accounts with Google, Facebook and Discord: built and tested (guest to account from the profile, sign in from the
-  nickname dialog and the lobby, nickname reserved, bans follow the account, delete from the profile; a stand-in provider
-  for tests). To do: make the three apps at the providers and put their ids and secrets in `deploy/chat-server.env` (see
-  "Accounts" in `deploy/runbook.md`), add the account words to the terms and privacy text in the admin and bump the
-  terms version. Not done: blocks are still kept in the browser (they follow the account only in that the guest id is
-  the same), and signing up without a provider needs an email service.
+- [~] Accounts: password signup/sign-in, provider linking/unlinking, self-service profile/password changes, deletion and saved preferences are implemented. Verify each desired production provider's configuration and approval before launch (see the runbook). Blocks and private conversations remain browser-held; email-based password recovery is not implemented.
 - [~] Terms and privacy text, a contact address for reports, and a rule for how reports are handled: drafted in English,
   Danish and German, managed in the admin panel (**Terms and privacy**, localized, with drafts; seeded from
   `apps/admin/src/seed/legal/`), shown at `/terms` and `/privacy`, contact `draxxdk@gmail.com` (changeable in the same
-  place), report handling in `deploy/runbook.md`. Still to do: have somebody who knows the law read it (it is a draft,
-  not legal advice), and run `npm run seed:prod` once after deploying so the text exists in production.
+  place), report handling in `deploy/runbook.md`. Revised legal version `2026-10-25` is published locally and live, covering current accounts, drafts, YouTube and Turnstile. Still to do: have somebody who knows the law review it; this is plain-language operational disclosure, not legal advice.
 - [x] Age rule: 18 or older, said in the terms and asked for in the nickname dialog (a browser that has not accepted the
       current terms must tick the box). There is no way to verify an age.
 - [x] A report button with auto-hide and a review list: done (see the chat-server README, "Reports", and the runbook).
@@ -37,8 +31,7 @@ Status legend: `[ ]` to do, `[~]` in progress, `[x]` done. Priorities are sugges
 
 ## Development backlog
 
-- [ ] High: keep mobile sessions connected. Investigate phone locks and app switching on iOS/Android; restore the same
-      guest without weakening inactivity or single-session rules.
+- [~] High: mobile recovery is implemented and browser-tested (visibility/offline-aware retry and same-identity recovery). Complete the physical iOS/Android lock/app-switch checks in the web README. Inactivity removes only the room; real bans, expired credentials and replacement sessions remain enforced.
 - [~] High: header and lobby loading. Stable identity/room loading and retry states are implemented; review remaining
   flashes and layout shifts on slow or failed connections before considering this complete.
 - [ ] High: review operational logging. Add useful request/connection correlation, retention and alerting; redact
@@ -70,6 +63,9 @@ Status legend: `[ ]` to do, `[~]` in progress, `[x]` done. Priorities are sugges
 - [x] HTTP-client evaluation: retain fetch rather than add Axios without a concrete requirement.
 - [x] Frontend framework evaluation: retain React and Vite rather than migrate without a demonstrated benefit.
 - [x] Notification sounds: selectable private-message, warning and join sounds, shared volume, previews and saved preferences.
+- [x] Persistent settings-error toasts with retry, localized admin notification previews, expanded non-overlapping notifications and consistent preview controls.
+- [x] Simulated removal and real inactivity return to the lobby without signing out; released room seats and immediate rejoining are regression-tested.
+- [x] Password accounts, explicit member/staff provider links, shared public display names with identity tags, and self-service account security controls.
 - [x] Typing activity: public rooms and private conversations; private drafts announce only to the intended recipient.
 - [x] Replace CMS-backed roadmap/releases with this checklist and git history; remove unused lobby image and generator.
 
@@ -87,7 +83,8 @@ Status legend: `[ ]` to do, `[~]` in progress, `[x]` done. Priorities are sugges
       arbitrary 80-group cutoff is removed. See the evaluation for measurements, verification, and scope/cost.
 - [ ] Verify the virtualized log with NVDA/VoiceOver and profile real production grouping, input responsiveness, and heap
       behavior on a slower mobile device; a large same-author group is not virtualized internally.
-- [ ] Accounts and saved history (Postgres), password reset email (Resend or Postmark free tier).
+- [ ] Saved chat history beyond bounded Redis room history; settle retention and privacy before adding Postgres storage.
+- [ ] Password recovery by email or another verified recovery method; password accounts themselves are already implemented.
 - [ ] Image uploads to R2 with resize on upload, hash-scan and classifier first, trusted or paying accounts only.
 - [ ] Move the per-process limits (connection cap, room capacity lock, rate limits) into Redis; then a second
       chat-server instance becomes possible.

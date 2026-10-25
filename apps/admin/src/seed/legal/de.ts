@@ -1,7 +1,7 @@
 import type { LegalTexts } from './types'
 
 export const de: LegalTexts = {
-  updated: 'Stand: 13. Oktober 2026',
+  updated: 'Stand: 25. Oktober 2026',
   terms: {
     title: 'Nutzungsbedingungen',
     sections: [
@@ -21,7 +21,7 @@ export const de: LegalTexts = {
       {
         heading: 'Konten',
         paragraphs: [
-          'Du kannst Chatter als Gast nutzen oder ein Konto anlegen, indem du ein Google-, Facebook- oder Discord-Konto verbindest. Ein Konto behält deinen Benutzernamen, deinen Anzeigenamen, deinen Avatar und dein Alter, damit du aus jedem Browser als dieselbe Person zurückkommen kannst, und beide Namen gehören dir allein.',
+          'Du kannst Chatter als Gast nutzen, ein Konto mit Benutzername und Passwort erstellen oder eine aktivierte Verbindung zu Google, Facebook oder Discord verwenden. Im Profil verwaltest du Passwort und verknüpfte Anmeldemethoden. Ein Konto behält Profil und Einstellungen über Browser hinweg. Anmeldebenutzernamen sind eindeutig und privat; Anzeigenamen können mehrfach vorkommen, und öffentliche Identitätskennungen unterscheiden Personen mit gleichem Namen.',
           'Du bist für das verantwortlich, was unter deinem Konto getan wird. Du kannst es jederzeit in deinem Profil löschen. Wir können ein Konto oder einen Spitznamen entfernen, der gegen diese Bedingungen verstößt oder so aussieht, als gehöre er zum Personal oder zu jemand anderem.',
         ],
       },
@@ -85,20 +85,21 @@ export const de: LegalTexts = {
       {
         heading: 'Was wir verarbeiten, und warum',
         items: [
-          'Deinen Spitznamen, deinen Avatar und, wenn du es angibst, dein Alter. Sie werden den anderen im Raum angezeigt.',
-          'Nachrichten in öffentlichen Räumen. Sie werden dem Raum angezeigt und etwa eine Stunde im Arbeitsspeicher des Servers gehalten, damit Neuankömmlinge nachlesen können. Danach werden sie gelöscht.',
+          'Deinen Spitznamen, dein Avatarbild, Geschlecht und gegebenenfalls Geburtsdatum oder Alter. Dein öffentliches Profil und Alter werden anderen angezeigt; dein vollständiges Geburtsdatum und dein Anmeldebenutzername nicht. Ein Geburtsdatum dient zur Berechnung des Alters.',
+          'Nachrichten in öffentlichen Räumen und ihre Reaktionen. Ein begrenzter aktueller Verlauf bleibt in Redis, damit neu Hinzugekommene nachlesen können. Ältere Nachrichten werden entfernt; standardmäßig verfällt der Verlauf eine Stunde nach der letzten Raumnachricht. Gemeldete Nachrichten können wie unten beschrieben separat aufbewahrt werden.',
           'Private Nachrichten. Sie werden an die andere Person weitergeleitet und nicht auf dem Server gespeichert. Sie bleiben in deinem Browser-Tab, bis du ihn schließt.',
           'Einen Hashwert deiner IP-Adresse: ein verfremdeter Wert, der mit einem geheimen Schlüssel erzeugt wird und mit dem wir Verbindungen begrenzen, Sperren durchsetzen und Meldungen zählen. Er wird etwa eine Stunde mit deinen Nachrichten gespeichert und in einer Sperre, solange sie gilt. Wir können ihn nicht in deine Adresse zurückverwandeln.',
           'Deine IP-Adresse selbst, solange du verbunden bist. Sie kann auch in den technischen Protokollen des Servers auftauchen (zum Beispiel bei Verbindungsfehlern). Die Protokolle werden automatisch rotiert und nur genutzt, um den Dienst am Laufen zu halten.',
           'Meldungen. Wird eine Nachricht gemeldet, bewahren wir eine Kopie auf (den Text, den Spitznamen, den Hashwert der Adresse des Absenders und die genannten Gründe), höchstens 90 Tage lang, damit sie geprüft werden kann.',
-          'Nur für Moderatoren: E-Mail-Adresse, Anzeigename und ein Passwort, das in verfremdeter Form gespeichert wird.',
-          'Konten. Legst du ein Konto an, speichern wir, welchen Dienst du genutzt hast (Google, Facebook oder Discord), deine Kennung dort, die E-Mail-Adresse, die der Dienst uns gibt (falls er eine gibt), deinen Benutzernamen, deinen Anzeigenamen, deinen Avatar und dein Alter und wann du dich zuletzt angemeldet hast. Die E-Mail-Adresse wird niemandem angezeigt und nur genutzt, um dich zu deinem Konto zu kontaktieren. Dein Passwort beim Dienst erhalten wir nie.',
+          'Personalkonten: E-Mail-Adresse, Profil, Berechtigungen, verknüpfte Anmeldemethoden und gegebenenfalls ein Passwort-Hash.',
+          'Mitgliedskonten: Benutzername, Anzeigename, Bild, Geschlecht, Geburtsdatum oder Alter, gespeicherte Einstellungen, Zeitpunkte von Profiländerungen und letzter Anmeldung. Passwortkonten speichern einen kryptografischen Hash, nicht das Passwort selbst. Verknüpfte Anbieter ergänzen ihren Namen, deine Kennung dort und gegebenenfalls eine E-Mail-Adresse. E-Mail-Adressen sind nicht öffentlich. Dein Passwort bei Google, Facebook oder Discord erhalten wir nie.',
         ],
       },
       {
         heading: 'Was in deinem Browser gespeichert wird',
         paragraphs: [
-          'Es gibt keine Cookies und kein Tracking und keine Statistik. Der lokale Speicher des Browsers hält deine Sprache, deine Anzeigeoptionen, dass du die Bedingungen akzeptiert hast und, wenn du ein Konto hast, den Schlüssel, der dich angemeldet hält. Sein Sitzungsspeicher hält, nur für diesen Tab, deinen Spitznamen, deinen Avatar und dein Alter, ein Geheimnis, das dich nach einem Neuladen in den Raum zurückbringt, und deine privaten Unterhaltungen. Das wird gelöscht, wenn du den Tab schließt.',
+          'Chatter verwendet keine Werbung oder Analysedienste. Der lokale Speicher hält Sprache, Anzeige- und Tonwahl von Gästen, akzeptierte Bedingungen und gespeicherte Kontoanmeldung. Der Sitzungsspeicher hält Chatidentität, Wiederherstellungsgeheimnis, private Unterhaltungen und Blockierungen dieses Tabs. Ton- und Seitenleisteneinstellungen von Konten liegen auch in der Datenbank. Browserspeicher lässt sich über die Browsereinstellungen entfernen.',
+          'Ungesendete Nachrichten, Anhänge, Suchen und Formularfelder ohne Passwörter werden im Sitzungsspeicher dieses Tabs zur Wiederherstellung nach Neuladen gehalten. Entwürfe verfallen nach acht Stunden und werden bei Abmeldung oder geänderter Anmeldung gelöscht. Passwörter werden nicht als Entwürfe gespeichert. Das Schließen des Tabs löscht dessen Sitzungsspeicher. Nicht vertrauliche Ansichtsoptionen wie ein offenes Menü können in der Seitenadresse stehen; Passwörter und Nachrichtenentwürfe nicht.',
         ],
       },
       {
@@ -108,9 +109,16 @@ export const de: LegalTexts = {
         ],
       },
       {
+        heading: 'YouTube und Prüfung menschlicher Nutzung',
+        paragraphs: [
+          'YouTube-Vorschaubilder laden von i.ytimg.com und übermitteln deine IP-Adresse an YouTube. Player laden ohne automatische Wiedergabe von www.youtube-nocookie.com; dabei gehen Verbindungsdaten einschließlich IP-Adresse und verweisender Herkunft an YouTube. YouTubes Datenschutzerklärung gilt.',
+          'Wenn aktiviert, prüft Cloudflare Turnstile menschliche Nutzung beim Gastzugang und bei Passwortanmeldungen. Dein Browser kontaktiert Cloudflare und übermittelt Verbindungs- und Geräteinformationen gemäß Cloudflares Datenschutzerklärung. Chatter validiert den kurzlebigen Prüfungsnachweis auf dem Server; der geheime Prüfschlüssel wird nie an deinen Browser gesendet.',
+        ],
+      },
+      {
         heading: 'Wer sonst Daten verarbeitet',
         paragraphs: [
-          'Wir nutzen Cloudflare (die Dateien der Website und Sicherungen der Admin-Datenbank, die Moderatorenkonten und Meldungen enthält, aber keine Chatnachrichten) und Oracle Cloud (den Server, in Frankfurt, Deutschland). GIPHY ist oben beschrieben.',
+          'Wir nutzen Cloudflare für Websitehosting, Datenbanksicherungen in R2 und gegebenenfalls Turnstile sowie Oracle Cloud für den Server in Frankfurt, Deutschland. Sicherungen enthalten Konten, Einstellungen, Räume, Sperren, Meldungen und Rechtstexte, aber keinen Redis-Raumverlauf und keine privaten Nachrichten. GIPHY und YouTube sind oben beschrieben.',
           'Verbindest du ein Konto, sehen Google, Facebook oder Discord, dass du Chatter nutzt, und was sie uns über dich mitteilen, ist oben beschrieben. Siehe deren eigene Datenschutzerklärungen.',
           'Wir verkaufen keine Daten und nutzen sie nicht für Werbung. Wir geben Daten an Behörden weiter, wenn das Gesetz es verlangt.',
         ],
@@ -130,13 +138,13 @@ export const de: LegalTexts = {
           'Ein Konto: bis du es in deinem Profil löschst oder uns darum bittest.',
           'Sicherungen der Datenbank: 30 Tage.',
           'Technische Protokolle: bis sie rotiert werden.',
-          'Was in deinem Browser ist: bis du es löschst oder den Tab schließt.',
+          'Lokaler Browserspeicher: bis er entfernt oder von der App gelöscht wird. Sitzungsspeicher: bis der Tab schließt; Entwürfe verfallen zusätzlich nach acht Stunden.',
         ],
       },
       {
         heading: 'Deine Rechte',
         paragraphs: [
-          'Du kannst Auskunft über deine Daten verlangen, sie berichtigen oder löschen lassen, ihre Nutzung einschränken lassen und widersprechen. Hast du ein Konto, kannst du es selbst in deinem Profil löschen. Schreibe an {contact}. Weil wir nur anonyme Werte speichern, können wir deine Daten möglicherweise nur finden, wenn du uns sagst, wann und wo du im Chat warst.',
+          'Du kannst Auskunft über deine Daten verlangen, sie berichtigen oder löschen lassen, ihre Nutzung einschränken lassen und widersprechen. Hast du ein Konto, kannst du es selbst in deinem Profil löschen. Schreibe an {contact}. Manche Einträge sind nur durch einen gesalzenen Hash identifiziert; um sie zu finden, benötigen wir möglicherweise Angaben dazu, wann und wo du den Chat genutzt hast.',
           'Du kannst dich bei der dänischen Datenschutzbehörde (Datatilsynet, datatilsynet.dk) oder bei der Behörde in deinem Land beschweren.',
         ],
       },

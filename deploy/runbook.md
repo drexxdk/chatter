@@ -3,6 +3,12 @@
 Run on the machine as `deploy`, from `/opt/chatter`. `COMPOSE` is
 `docker compose --env-file deploy/stack.env -f docker-compose.prod.yml`.
 
+Define the shorthand in that shell before using the commands below:
+
+```sh
+COMPOSE() { docker compose --env-file deploy/stack.env -f docker-compose.prod.yml "$@"; }
+```
+
 ## Is it up?
 
 - `curl -fsS https://<API_HOST>/health` and `https://<ADMIN_HOST>/admin/login`.
@@ -11,7 +17,7 @@ Run on the machine as `deploy`, from `/opt/chatter`. `COMPOSE` is
 
 ## Restart
 
-- One service: `COMPOSE restart chat-server`. Restarting the chat-server drops every socket; clients reconnect on their own.
+- One service: `COMPOSE restart chat-server`. Restarting the chat-server drops every socket; in-room clients retry unexpected transport loss. Lobby-only guests do not automatically reconnect.
 - Everything: `COMPOSE up -d`. After a reboot the services come back by themselves (`restart: unless-stopped`).
 
 ## Roll back to the previous version
@@ -40,7 +46,7 @@ Settings missing from your copy are left alone; `-- --restart` recreates even wh
 Notes per secret:
 
 - `WEB_ORIGIN` must be exactly the web address, no trailing slash. Changing the web address means changing it here too.
-- `AUTH_TOKEN_SECRET`: changing it signs every guest out of their saved session.
+- `AUTH_TOKEN_SECRET`: changing it invalidates saved member/staff bearer tokens. Anonymous guest resume secrets are separate.
 - `BAN_HASH_SALT`: changing it makes existing bans stop matching. Do not rotate unless the salt leaked.
 - `PAYLOAD_SECRET`: changing it signs every admin out.
 - `PAYLOAD_SERVICE_API_KEY`: delete the admin whose role is `service` in the admin panel, run `bash deploy/seed.sh`
@@ -72,7 +78,7 @@ New guest joins and username/password or moderator email/password sign-in requir
 
 ## Accounts (Google, Facebook, Discord)
 
-Guests can make an account by connecting one of the three; how it works is in the chat-server README, "Accounts". Each
+Guests can claim a password account without an email service, or connect an enabled provider; members and staff can manage linked providers and passwords in their own profile. Password recovery is not implemented. Provider setup is described below and the HTTP/socket behavior is in the chat-server README, "Accounts". Each
 provider needs an app that only you can make, which gives an id and a secret. The address people are sent back to is the
 same form for all, with the chat-server's public address (`PUBLIC_API_URL`, for example
 `https://chatter-drexx-api.duckdns.org`): `<PUBLIC_API_URL>/auth/google/callback`, `/auth/facebook/callback` and
@@ -121,6 +127,30 @@ A language is shown only when both documents are complete in it; others see Engl
   that is in `apps/admin/src/seed/legal/` and leaves everything that exists alone. Until then `/legal` answers 404 and
   the terms pages say they cannot be loaded.
 - The draft is plain-language and not legal advice; have somebody who knows the law read it.
+
+### Updating an existing publication
+
+The ordinary seed never replaces existing legal text. After reviewing changes in `apps/admin/src/seed/legal/`, update
+the localized dates and `SEED_TERMS_VERSION` in `apps/admin/src/seed/legal.ts` for substantive changes. From the repository root:
+
+```sh
+node --import=tsx scripts/publishLegal.mjs --local
+node --import=tsx scripts/publishLegal.mjs --local --publish
+node --import=tsx scripts/publishLegal.mjs --live
+node --import=tsx scripts/publishLegal.mjs --live --publish
+```
+
+Without `--publish`, the command only checks authenticated access and draft state. Publishing saves a restricted
+temporary JSON backup, refuses differing unpublished drafts, preserves the contact address, stages all three languages,
+publishes one terms version and verifies every saved document. Payload also retains its normal version history.
+This explicitly replaces the reviewed document text; inspect custom CMS edits before using it.
+
+Credentials are read in-process from `apps/admin/.env` locally or `deploy/seed.env` for live. They must still be valid
+super-admin credentials. `LEGAL_ADMIN_EMAIL` and `LEGAL_ADMIN_PASSWORD` can override them through the process environment;
+never commit or print credentials. No database reset, schema push or general reseed is needed.
+
+Version `2026-10-25` is published locally and live. Check the public `/legal` version after the next server sync;
+browsers can cache its response for up to a minute. About is separate web-build content and requires a web deployment.
 
 ## Backups and restore
 

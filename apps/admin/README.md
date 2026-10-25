@@ -1,6 +1,6 @@
 # Chatter — Admin (Payload CMS)
 
-This app is the **admin/management backend** for Chatter. It is built with [Payload CMS](https://payloadcms.com) on Next.js and is used by super-admins to manage public chat rooms and the ban list. It is **not** the end-user chat client — that lives in `apps/web` (planned) and connects through `apps/chat-server` (planned).
+This app is the **admin/management backend** for Chatter. It is built with [Payload CMS](https://payloadcms.com) on Next.js. Super-admins manage rooms, bans, reports, accounts and published legal text here. The working end-user client lives in `apps/web` and connects through `apps/chat-server`, never directly to Payload.
 
 It is one workspace inside the root npm-workspaces monorepo (`apps/*`), not a standalone project — commands below are meant to be run either from here or via `npm run <script> --workspace apps/admin` from the repo root.
 
@@ -15,6 +15,15 @@ It is one workspace inside the root npm-workspaces monorepo (`apps/*`), not a st
 - **`Admins`** — auth-enabled. `role` is `super-admin` (can log into `/admin`), `moderator` (a chat moderator: signs in through the chat app, never the admin panel) or `service` (API-key-only, used by `apps/chat-server` to call Payload). Only `super-admin`s can access the admin panel or manage other admin accounts. `displayName` (2-24 letters, digits, spaces, `_`, `.`, `-`; unique) is the name a moderator chats under and is required for moderators. Reading is limited: `super-admin` and `service` read every account, anyone else only their own. A moderator's role takes effect in the chat when they next sign in, and a removed moderator is signed out of the chat within one sync interval of the chat server (30 seconds by default).
 - **`PublicRooms`** — chat room configuration (name, slug, optional max members, slow mode, description). Leave max members empty for an unlimited room. Slow mode is the number of seconds a guest must wait between messages: it defaults to 10 for new rooms, and leaving it empty uses the chat server's default (10 seconds unless `DEFAULT_SLOW_MODE_SECONDS` is set), so no room is without a wait. Both numbers must be whole numbers of 1 or more. Publicly readable (no auth) so the chat client can list rooms; writes are `super-admin`-only.
 - **`Bans`** — hashed-identifier ban list. Readable only by `service`/`super-admin` roles; writes are `super-admin`-only.
+- **`Reports`** — reported public messages, sender hashes, reasons, counts and review status; retained for the configured report-retention period (90 days by default).
+- **`Users`** — member accounts, including private unique usernames, shared public display names, profile data, optional password hashes and saved preferences. Members are not Payload admin users. Credential and preference fields have narrower service-only access.
+- **`StaffProviderLinks` / `MemberProviderLinks`** — provider identities explicitly linked to staff or member accounts; accounts are never merged solely because email addresses match.
+
+## Legal publishing
+
+The localized **Terms and privacy** global holds published terms, privacy text, contact email and the acceptance version. It supports drafts and version history. A draft is not public; publishing reaches the chat-server cache on its next sync.
+
+`src/seed/legal/` contains the reviewed English, Danish and German defaults. Ordinary seeding fills only an empty global and never overwrites an existing publication. Use the explicit preflight/backup/publication workflow in [the runbook](../../deploy/runbook.md#terms-and-privacy) to apply a reviewed update to local or live data. The October 25, 2026 revision covers password/provider accounts, browser drafts, YouTube and Turnstile.
 
 ## Local setup
 
@@ -49,7 +58,7 @@ See `package.json` for the full list. Common ones: `dev`, `build`, `start`, `see
 
 ## Database migrations
 
-Schema changes live in `src/migrations`. `next dev` pushes collection changes to your local database on its own, but a production build (`next build` and `next start`) never creates or alters tables, so any environment that is not `next dev` needs the migrations applied first:
+Schema changes live in `src/migrations`. `next dev` pushes collection changes to your local database on its own; do not point it at production. Production never pushes schema automatically: the configured `prodMigrations` applies committed migrations when Payload starts. For an explicit migration run:
 
 ```
 npm run migrate --workspace apps/admin

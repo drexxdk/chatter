@@ -259,7 +259,7 @@
       "admin": {
         "name": "Die Verwaltung",
         "tech": "Payload CMS, Next.js",
-        "text": "Hier verwalten Moderatoren Räume, Sperren und Meldungen, und hier werden die Texte der Nutzungsbedingungen und der Datenschutzerklärung geschrieben."
+        "text": "Hier verwalten Super-Admins Räume, Konten, Sperren und Meldungen und veröffentlichen Nutzungsbedingungen und Datenschutzerklärung. Chatmoderatoren haben keinen Zugang zu diesem Bereich."
       },
       "postgres": {
         "name": "Die Datenbank",
@@ -305,19 +305,19 @@
         "howLong": "Bis der Tab geschlossen wird"
       },
       "guest": {
-        "what": "Spitzname, Avatar und Alter eines Gasts",
+        "what": "Spitzname, Bild, Geschlecht und gegebenenfalls Geburtsdatum oder Alter eines Gasts",
         "where": "Im Speicher des Servers, solange du verbunden bist, und in diesem Tab deines Browsers",
         "howLong": "Der Server vergisst sie, wenn die Verbindung endet; der Tab, wenn er geschlossen wird"
       },
       "account": {
-        "what": "Ein Konto: der Anmeldedienst und deine Kennung dort, E-Mail, Benutzername, Anzeigename, Bild, Geschlecht und Alter",
+        "what": "Ein Konto: Benutzername, Anzeigename, Bild, Geschlecht, Geburtsdatum oder Alter, gespeicherte Einstellungen, gegebenenfalls ein Passwort-Hash sowie verknüpfte Anmeldedienste und deren gegebenenfalls übermittelte E-Mail-Adresse",
         "where": "Die Datenbank",
         "howLong": "Bis du das Konto in deinem Profil löschst"
       },
       "address": {
         "what": "Deine Internetadresse",
-        "where": "Wird, solange du verbunden bist, zur Missbrauchsbegrenzung genutzt; sonst nur als gesalzener Hash gespeichert (bei Nachrichten und Meldungen), damit eine Sperre sie finden kann",
-        "howLong": "Der Hash gehört zur Nachricht, also eine Stunde; bei einer Meldung 90 Tage"
+        "where": "Für Verbindungen und Missbrauchsschutz genutzt; technische Protokolle können sie enthalten. Nachrichten, Sperren und Meldungen verwenden gesalzene Kennungen, die bei Mitgliedern das Konto statt der Adresse identifizieren können",
+        "howLong": "Hashes folgen dem begrenzten Nachrichtenverlauf, Meldungen (90 Tage) oder dem Ablauf der Sperre; technische Protokolle werden rotiert"
       },
       "reports": {
         "what": "Eine gemeldete Nachricht, der Hash ihres Absenders und die Gründe",
@@ -334,14 +334,14 @@
     "safety": {
       "limits": "Langsamer Modus, Ratenlimits und eine Obergrenze pro Adresse stoppen Fluten und Spam.",
       "reports": "Jeder kann eine Nachricht melden. Haben drei verschiedene Adressen sie gemeldet, wird sie für alle ausgeblendet, bis ein Moderator sie angesehen hat.",
-      "bans": "Sperren arbeiten mit einem gesalzenen Hash der Adresse, die Adresse selbst wird nicht gespeichert. Moderatoren sind Personen mit einem Konto in der Verwaltung.",
+      "bans": "Sperren verwenden gesalzene Adress- oder Konto-Hashes. Kontosperren folgen dem Mitglied über verschiedene Adressen. Moderatorrechte stammen aus Personalkonten, nicht aus einem gewählten Anzeigenamen.",
       "age": "Du musst mindestens 18 Jahre alt sein. Ein Alter lässt sich nicht prüfen, das beruht also auf den Bedingungen und auf Moderation.",
-      "passwords": "Konten haben kein Passwort: Du meldest dich mit Google, Facebook oder Discord an, und Chatter erhält deinen Namen und deine E-Mail, nie dein Passwort. Die Passwörter von Moderatoren werden als Hash gespeichert.",
-      "thirdParties": "Chatter führt keine Werbe- oder Tracking-Skripte aus. Dein Browser spricht mit der Seite, dem Chat-Server, GIPHY bei GIF-Suchen und YouTube beim Laden von Videovorschauen oder eingebetteten Videos. Für YouTube-Player gilt die Datenschutzerklärung von YouTube. Avatare werden in deinem Browser gezeichnet.",
-      "headers": "Die Seite sendet strenge Sicherheits-Header: ihre Content-Security-Policy erlaubt nur eigene Skripte, GIFs von GIPHY, Vorschauen von YouTubes Bild-Domain und Videos von YouTubes datenschutzfreundlicher Domain."
+      "passwords": "Du kannst Benutzername und Passwort oder eine aktivierte Verbindung zu Google, Facebook oder Discord verwenden. Chatter speichert eigene Passwörter nur als Hash und erhält nie dein Passwort bei einem anderen Anmeldedienst. Auch Passwörter des Personals werden als Hash gespeichert.",
+      "thirdParties": "Chatter verwendet keine Werbung oder Analysedienste. Dein Browser kontaktiert bei Aktivierung Cloudflare Turnstile zur Prüfung menschlicher Nutzung, GIPHY für GIF-Suchen und Medien sowie YouTube für Videovorschaubilder und Player. Diese Anbieter erhalten Verbindungsdaten wie deine IP-Adresse gemäß ihren eigenen Datenschutzerklärungen. Avatare werden in deinem Browser gezeichnet.",
+      "headers": "Die Seite sendet strenge Sicherheits-Header. Ihre Content-Security-Policy erlaubt eigene Skripte und Cloudflare Turnstile, GIPHY-Medien, YouTube-Vorschaubilder sowie Frames von Turnstile und YouTubes datenschutzfreundlicher Domain."
     },
     "buildTitle": "Bauen und Ausliefern",
-    "build": "Der Code ist offen: Jeder kann ihn lesen. Jede Änderung wird automatisch geprüft, bevor sie live geht: Formatierung, Typen, Hunderte Unit-Tests und Browser-Tests, die den echten Chat-Server laufen lassen. Nur eine Änderung, die besteht, wird von GitHub Actions zu Images gebaut und auf den Server gebracht.",
+    "build": "Der Code ist offen. GitHub Actions prüft Formatierung, Typen, Unit-Tests und Browser-Tests mit dem echten Chat-Server. Backend-Images werden nach erfolgreicher CI bereitgestellt; Cloudflare Pages baut die Website aus main in einer separaten Pipeline.",
     "source": "Den Code auf GitHub lesen",
     "stackTitle": "Gebaut mit",
     "stack": {

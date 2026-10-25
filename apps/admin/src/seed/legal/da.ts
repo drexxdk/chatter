@@ -1,7 +1,7 @@
 import type { LegalTexts } from './types'
 
 export const da: LegalTexts = {
-  updated: 'Version fra 13. oktober 2026',
+  updated: 'Version fra 25. oktober 2026',
   terms: {
     title: 'Brugsvilkår',
     sections: [
@@ -21,7 +21,7 @@ export const da: LegalTexts = {
       {
         heading: 'Konti',
         paragraphs: [
-          'Du kan bruge Chatter som gæst eller oprette en konto ved at forbinde en Google-, Facebook- eller Discord-konto. En konto gemmer dit brugernavn, dit visningsnavn, din avatar og din alder, så du kan komme tilbage som den samme person fra en hvilken som helst browser, og begge navne er kun dine.',
+          'Du kan bruge Chatter som gæst, oprette en konto med brugernavn og adgangskode eller bruge en aktiveret forbindelse til Google, Facebook eller Discord. I din profil kan du administrere adgangskode og tilknyttede loginmetoder. En konto gemmer din profil og dine indstillinger på tværs af browsere. Loginbrugernavne er unikke og private; visningsnavne kan deles, og offentlige identitetsmærker skelner personer med samme navn.',
           'Du er ansvarlig for det, der gøres under din konto. Du kan slette den når som helst fra din profil. Vi kan fjerne en konto eller et kaldenavn, der bryder disse vilkår, eller som ser ud til at tilhøre personalet eller en anden.',
         ],
       },
@@ -85,20 +85,21 @@ export const da: LegalTexts = {
       {
         heading: 'Hvad vi behandler, og hvorfor',
         items: [
-          'Dit kaldenavn, din avatar og, hvis du vælger at oplyse den, din alder. De vises for de andre i rummet.',
-          'Beskeder i offentlige rum. De vises for rummet og gemmes i serverens hukommelse i cirka en time, så dem, der kommer ind, kan følge med. Derefter slettes de.',
+          'Dit kaldenavn, avatarbillede, køn og eventuel fødselsdato eller alder. Din offentlige profil og alder vises for andre; din fulde fødselsdato og dit loginbrugernavn gør ikke. En fødselsdato bruges til at beregne din alder.',
+          'Beskeder i offentlige rum og deres reaktioner. En begrænset, nyere historik gemmes i Redis, så nye deltagere kan følge med. Ældre beskeder fjernes, og historikken udløber som standard en time efter rummets seneste besked. Anmeldte beskeder kan gemmes særskilt som beskrevet nedenfor.',
           'Private beskeder. De sendes videre til den anden person og gemmes ikke på serveren. De bliver i din browserfane, til du lukker den.',
           'En hashværdi af din IP-adresse: en forvansket værdi lavet med en hemmelig nøgle, som vi bruger til at begrænse forbindelser, håndhæve udelukkelser og tælle anmeldelser. Den gemmes sammen med dine beskeder i cirka en time og i en udelukkelse, så længe den varer. Vi kan ikke omdanne den tilbage til din adresse.',
           'Selve din IP-adresse, mens du er forbundet. Den kan også optræde i serverens tekniske logfiler (for eksempel ved forbindelsesfejl). Logfilerne roteres automatisk og bruges kun til at holde tjenesten kørende.',
           'Anmeldelser. Når en besked anmeldes, gemmer vi en kopi (teksten, kaldenavnet, hashværdien af afsenderens adresse og de angivne grunde) i højst 90 dage, så den kan gennemgås.',
-          'Kun for moderatorer: e-mailadresse, visningsnavn og en adgangskode, der gemmes i forvansket form.',
-          'Konti. Opretter du en konto, gemmer vi, hvilken tjeneste du brugte (Google, Facebook eller Discord), dit id dér, den e-mailadresse, tjenesten giver os (hvis den giver en), dit brugernavn, dit visningsnavn, din avatar og din alder og hvornår du sidst loggede ind. E-mailadressen vises ikke for nogen og bruges kun til at kontakte dig om din konto. Vi modtager aldrig din adgangskode hos tjenesten.',
+          'Personalekonti: e-mailadresse, profil, rettigheder, tilknyttede loginmetoder og et adgangskodehash, hvis der er valgt en adgangskode.',
+          'Medlemskonti: brugernavn, visningsnavn, billede, køn, fødselsdato eller alder, gemte indstillinger, tidspunkter for profilændringer og seneste login. En adgangskodekonto gemmer et kryptografisk hash, ikke selve adgangskoden. Tilknyttede udbydere tilføjer deres navn, dit id hos dem og eventuel e-mailadresse, de leverer. E-mailadresser er ikke offentlige. Vi modtager aldrig din adgangskode hos Google, Facebook eller Discord.',
         ],
       },
       {
         heading: 'Hvad der gemmes i din browser',
         paragraphs: [
-          'Der er ingen cookies og ingen sporing eller statistik. Browserens lokale lager gemmer dit sprog, dine visningsvalg, at du har accepteret vilkårene og, hvis du har en konto, nøglen, der holder dig logget ind. Dens sessionslager gemmer, kun for denne fane, dit kaldenavn, din avatar og din alder, en hemmelighed, der bringer dig tilbage til rummet efter en genindlæsning, og dine private samtaler. Det slettes, når du lukker fanen.',
+          'Chatter har ingen reklamer eller analyseværktøjer. Lokalt lager gemmer sprog, gæsters visnings- og lydvalg, accepterede vilkår og gemt kontologin. Sessionslager gemmer denne fanes chatidentitet, gendannelseshemmelighed, private samtaler og blokeringer. Kontoens lyd- og sidepanelindstillinger gemmes også i databasen. Browserlager kan slettes i browserens indstillinger.',
+          'Ufærdige beskeder, vedhæftninger, søgninger og formularfelter uden adgangskoder gemmes i denne fanes sessionslager til genindlæsning. Kladder udløber efter otte timer og slettes ved logout eller ændret login. Adgangskoder gemmes ikke som kladder. Når fanen lukkes, slettes dens sessionslager. Ikke-følsomme visningsvalg, som en åben menu, kan stå i sidens adresse; adgangskoder og beskedkladder gør ikke.',
         ],
       },
       {
@@ -108,9 +109,16 @@ export const da: LegalTexts = {
         ],
       },
       {
+        heading: 'YouTube og menneskeverifikation',
+        paragraphs: [
+          'YouTube-billeder hentes fra i.ytimg.com og viser din IP-adresse til YouTube. Afspillere indlæses fra www.youtube-nocookie.com uden automatisk afspilning. Indlæsning sender forbindelsesdata, herunder IP-adresse og henvisende oprindelse, til YouTube. YouTubes privatlivspolitik gælder.',
+          'Når Cloudflare Turnstile er aktiveret, kontrollerer det, at gæsteadgang og adgangskodelogin kommer fra et menneske. Din browser kontakter Cloudflare og leverer forbindelses- og enhedsoplysninger efter Cloudflares privatlivspolitik. Chatter validerer den kortlivede verifikation på serveren; den hemmelige verifikationsnøgle sendes aldrig til din browser.',
+        ],
+      },
+      {
         heading: 'Hvem andre behandler oplysninger',
         paragraphs: [
-          'Vi bruger Cloudflare (hjemmesidens filer og sikkerhedskopier af administrationsdatabasen, som indeholder moderatorkonti og anmeldelser, men ingen chatbeskeder) og Oracle Cloud (serveren, i Frankfurt i Tyskland). GIPHY er beskrevet ovenfor.',
+          'Vi bruger Cloudflare til hjemmesidehosting, databasesikkerhedskopier i R2 og Turnstile, når det er aktiveret, samt Oracle Cloud til serveren i Frankfurt i Tyskland. Sikkerhedskopier indeholder konti, indstillinger, rum, udelukkelser, anmeldelser og juridiske tekster, men ikke Redis-rumhistorik eller private beskeder. GIPHY og YouTube er beskrevet ovenfor.',
           'Forbinder du en konto, ser Google, Facebook eller Discord, at du bruger Chatter, og det, de fortæller os om dig, er beskrevet ovenfor. Se deres egne privatlivspolitikker.',
           'Vi sælger ikke oplysninger og bruger dem ikke til reklamer. Vi videregiver oplysninger til myndighederne, når loven kræver det.',
         ],
@@ -130,13 +138,13 @@ export const da: LegalTexts = {
           'En konto: til du sletter den i din profil eller beder os om det.',
           'Sikkerhedskopier af databasen: 30 dage.',
           'Tekniske logfiler: til de roteres væk.',
-          'Det, der er i din browser: til du sletter det eller lukker fanen.',
+          'Browserens lokale lager: til det fjernes eller ryddes af appen. Sessionslager: til fanen lukkes, og kladder udløber desuden efter otte timer.',
         ],
       },
       {
         heading: 'Dine rettigheder',
         paragraphs: [
-          'Du kan bede om indsigt i, berigtigelse eller sletning af dine oplysninger, om at vi begrænser brugen af dem, og gøre indsigelse. Har du en konto, kan du selv slette den i din profil. Skriv til {contact}. Fordi vi kun gemmer anonyme værdier, kan vi muligvis ikke finde dine oplysninger, medmindre du fortæller os, hvornår og hvor du var i chatten.',
+          'Du kan bede om indsigt i, berigtigelse eller sletning af dine oplysninger, om at vi begrænser brugen af dem, og gøre indsigelse. Har du en konto, kan du selv slette den i din profil. Skriv til {contact}. Nogle poster identificeres kun med et saltet hash, så vi kan have brug for oplysninger om, hvornår og hvor du brugte chatten, for at finde dem.',
           'Du kan klage til Datatilsynet (datatilsynet.dk) eller til myndigheden i dit eget land.',
         ],
       },

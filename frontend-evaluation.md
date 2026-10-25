@@ -4,6 +4,9 @@ Research date: 2026-10-23. These recommendations come from reviewing Chatter's c
 plus the Query trial and adopted Virtual integration described below. The rendering measurements are from a
 development-browser harness, not a production performance benchmark. Query was removed; Virtual is a runtime dependency.
 
+Recorded bundle sizes, test counts and dependency versions below belong to those dated trials, not the latest build.
+They are retained as historical evidence rather than rewritten as current measurements.
+
 ## Direction
 
 1. Keep React and the existing Socket.IO architecture.

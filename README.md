@@ -1,6 +1,6 @@
 # Chatter
 
-A real-time chat for guests: public rooms, private messages, moderators and bans. A monorepo with three apps:
+A real-time chat for guests and members: public rooms, private messages, password and provider accounts, moderators and bans. A monorepo with three apps:
 
 | App                                            | What it is                                                                      |
 | ---------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -63,6 +63,10 @@ Things to know:
 
 [progress.md](progress.md) is the development checklist; git contains the change history. There are no public
 roadmap/version pages or CMS publishing workflow for development updates.
+
+About-page text lives in the web locale catalogs. Terms and privacy are published CMS content, not Markdown:
+changing their seed files does not replace existing database content. The reviewed publication workflow, including
+local/live preflight, backups and a substantive terms-version change, is in [deploy/runbook.md](deploy/runbook.md#terms-and-privacy).
 
 The retirement migration preserves existing CMS roadmap and release data in the `retired_website` database schema,
 outside the active Payload collections. Its rollback restores the content tables. Historical migrations are retained

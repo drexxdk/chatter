@@ -1,7 +1,7 @@
 import type { LegalTexts } from './types'
 
 export const en: LegalTexts = {
-  updated: 'Version of 13 October 2026',
+  updated: 'Version of 25 October 2026',
   terms: {
     title: 'Terms of use',
     sections: [
@@ -21,7 +21,7 @@ export const en: LegalTexts = {
       {
         heading: 'Accounts',
         paragraphs: [
-          'You can use Chatter as a guest, or make an account by connecting a Google, Facebook or Discord account. An account keeps your username, display name, avatar and age, so you can come back as the same person from any browser, and both names are yours alone.',
+          'You can use Chatter as a guest, create an account with a username and password, or use an enabled Google, Facebook or Discord connection. Your profile lets you manage your password and linked sign-in methods. An account keeps your profile and preferences across browsers. Login usernames are unique and private; display names can be shared, and public identity tags distinguish people with the same name.',
           'You are responsible for what is done under your account. You can delete it at any time from your profile. We may remove an account or a nickname that breaks these terms or that looks like it belongs to staff or to somebody else.',
         ],
       },
@@ -85,20 +85,21 @@ export const en: LegalTexts = {
       {
         heading: 'What we handle, and why',
         items: [
-          'Your nickname, your avatar and, if you choose to give it, your age. They are shown to the others in the room.',
-          'Messages in public rooms. They are shown to the room and kept in the server’s memory for about an hour, so that people who join can catch up. Then they are deleted.',
+          'Your nickname, avatar picture, gender and any birth date or age you provide. Your public profile and age are shown to others; your full birth date and login username are not. A birth date is used to calculate your age.',
+          'Messages in public rooms and their reactions. A bounded recent history is kept in Redis so people who join can catch up; older messages are trimmed and the history expires one hour after the room’s last message by default. Reported messages may be retained separately as described below.',
           'Private messages. They are passed on to the other person and are not stored on the server. They stay in your browser tab until you close it.',
           'A hash of your IP address: a scrambled value made with a secret key, which we use to limit connections, to enforce bans and to count reports. It is kept with your messages for about an hour, and in a ban for as long as the ban lasts. We cannot turn it back into your address.',
           'Your IP address itself, while you are connected. It may also appear in the server’s technical logs (for example in connection errors). The logs are rotated automatically and used only to keep the service running.',
           'Reports. When a message is reported we keep a copy (the text, the nickname, the hash of the sender’s address and the reasons given) for at most 90 days, so that it can be reviewed.',
-          'Moderators only: email address, display name and a password that is stored in a scrambled form.',
-          'Accounts. If you make an account we keep which service you used (Google, Facebook or Discord), your id there, the email address the service gives us (if it gives one), your username, display name, avatar picture and age, and when you last signed in. The email address is not shown to anybody and is only used to contact you about your account. We never receive your password at the service.',
+          'Staff accounts: email address, profile, permissions, linked sign-in methods and a password hash when a password is set.',
+          'Member accounts: username, display name, picture, gender, birth date or age, saved preferences, profile-change timestamps and last sign-in time. A password account stores a cryptographic password hash, not the password itself. Linked providers add their name, your identifier there and any email address they supply. Email addresses are not public. We never receive your password at Google, Facebook or Discord.',
         ],
       },
       {
         heading: 'What is stored in your browser',
         paragraphs: [
-          'There are no cookies, and no tracking or analytics. The browser’s local storage keeps your language, your display choices, that you accepted the terms and, if you have an account, the key that keeps you signed in. Its session storage keeps, for this tab only, your nickname, avatar and age, a secret that brings you back to the room after a reload, and your private conversations. That is deleted when you close the tab.',
+          'Chatter runs no advertising or analytics. Local storage keeps language, guest display and sound choices, accepted terms and saved account authentication. Session storage keeps this tab’s chat identity, recovery secret, private conversations and blocks. Account sound and sidebar preferences are also saved in the database. Browser storage can be removed through your browser settings.',
+          'Unsaved message drafts, attachments, searches and non-password form fields are kept in this tab’s session storage for reload recovery. Draft entries expire after eight hours and are cleared on sign-out or authentication changes. Passwords are not saved as drafts. Closing the tab clears its session storage. Non-sensitive view choices, such as an open menu, may appear in the page address; passwords and message drafts do not.',
         ],
       },
       {
@@ -108,9 +109,16 @@ export const en: LegalTexts = {
         ],
       },
       {
+        heading: 'YouTube and human verification',
+        paragraphs: [
+          'YouTube thumbnails load from i.ytimg.com and expose your IP address to YouTube. Players load from www.youtube-nocookie.com without autoplay; loading a player sends connection data, including your IP address and referring origin, to YouTube. YouTube’s privacy policy applies.',
+          'When enabled, Cloudflare Turnstile checks that guest entry and password sign-in requests come from a person. Your browser contacts Cloudflare and supplies connection and device information under Cloudflare’s privacy policy. Chatter validates the short-lived verification token on the server; the secret verification key is never sent to your browser.',
+        ],
+      },
+      {
         heading: 'Who else handles data',
         paragraphs: [
-          'We use Cloudflare (the website’s files, and backups of the admin database, which holds moderator accounts and reports but no chat messages) and Oracle Cloud (the server, in Frankfurt, Germany). GIPHY is described above.',
+          'We use Cloudflare for website hosting, database backups in R2 and Turnstile when enabled, and Oracle Cloud for the server in Frankfurt, Germany. Backups contain accounts, preferences, rooms, bans, reports and legal text, but not Redis room history or private messages. GIPHY and YouTube are described above.',
           'If you connect an account, Google, Facebook or Discord learn that you use Chatter, and what they tell us about you is described above. See their own privacy policies.',
           'We do not sell data and do not use it for advertising. We pass data to the authorities when the law requires it.',
         ],
@@ -130,13 +138,13 @@ export const en: LegalTexts = {
           'An account: until you delete it in your profile, or ask us to.',
           'Database backups: 30 days.',
           'Technical logs: until they are rotated out.',
-          'What is in your browser: until you delete it or close the tab.',
+          'Browser local storage: until removed or cleared by the app; session storage: until the tab closes, with draft entries also expiring after eight hours.',
         ],
       },
       {
         heading: 'Your rights',
         paragraphs: [
-          'You can ask to see, correct or delete your data, to limit how we use it, and to object to it. If you have an account you can delete it yourself in your profile. Write to {contact}. Because we keep only anonymous values, we may not be able to find your data unless you tell us when and where you were in the chat.',
+          'You can ask to see, correct or delete your data, to limit how we use it, and to object to it. If you have an account you can delete it yourself in your profile. Write to {contact}. Some records are identified only by a salted hash, so we may need context such as when and where you used the chat to find them.',
           'You can complain to the Danish Data Protection Agency (Datatilsynet, datatilsynet.dk) or to the authority in your own country.',
         ],
       },
