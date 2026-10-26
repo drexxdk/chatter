@@ -2316,9 +2316,29 @@ test("neon glass menus and modals preserve focus and accessibility fallbacks", a
     await preview.hover();
     await expect
       .poll(() =>
-        preview.evaluate((element) => getComputedStyle(element).boxShadow),
+        preview.evaluate(
+          (element) => getComputedStyle(element).backgroundColor,
+        ),
       )
-      .not.toBe("none");
+      .toMatch(/(?:\/\s*0\.1|,\s*0\.1\))/);
+    await expect
+      .poll(() =>
+        preview.evaluate(
+          (element) => getComputedStyle(element, "::after").opacity,
+        ),
+      )
+      .toBe("1");
+    expect(
+      await preview.evaluate((element) => {
+        const outline = getComputedStyle(element, "::after");
+        return {
+          width: outline.borderTopWidth,
+          matchingFill:
+            outline.backgroundColor ===
+            getComputedStyle(element).backgroundColor,
+        };
+      }),
+    ).toEqual({ width: "2px", matchingFill: true });
     await activity.hover();
     await guest.screenshot({
       path: testInfo.outputPath(`glass-settings-${width}.png`),

@@ -8,8 +8,8 @@ const button = cva("", {
         "rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium hover:bg-indigo-500 disabled:opacity-60",
       danger:
         "rounded-md bg-red-900/80 px-3 py-1.5 text-sm text-red-100 ring-1 ring-inset ring-red-400/30 hover:bg-red-800/80 disabled:opacity-60",
-      secondary: "bg-white/3 enabled:hover:bg-white/6 disabled:opacity-50",
-      ghost: "enabled:hover:bg-white/6 disabled:opacity-50",
+      secondary: "bg-white/3 enabled:hover:bg-white/10 disabled:opacity-50",
+      ghost: "enabled:hover:bg-white/10 disabled:opacity-50",
       // Just an icon, as the close button of a panel.
       icon: "control-icon",
       tile: "choice-tile rounded border border-neutral-700 text-sm aria-pressed:border-indigo-400 aria-pressed:bg-indigo-500/10 focus-visible:outline-2 focus-visible:outline-indigo-400",
@@ -28,14 +28,6 @@ const button = cva("", {
     {
       variant: ["primary", "danger", "secondary", "ghost", "icon"],
       className: "button-outline",
-    },
-    {
-      variant: "primary",
-      className: "[--button-outline-color:var(--color-indigo-400)]",
-    },
-    {
-      variant: "danger",
-      className: "[--button-outline-color:var(--color-red-400)]",
     },
   ],
   defaultVariants: { variant: "secondary" },

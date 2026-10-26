@@ -340,7 +340,7 @@ export function AdminMenu({
       <ReloadMenu name="admin">
         <MenuButton
           aria-label={t("admin.open")}
-          className="button-outline inline-flex size-9 items-center justify-center rounded-md outline-none hover:bg-neutral-800 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
+          className="control-icon button-outline size-9 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
         >
           <FlaskConical aria-hidden="true" className="h-5 w-5" />
         </MenuButton>

@@ -20,7 +20,7 @@ export function TabNotice({
       {(_changeView, close) => (
         <>
           <p className="text-sm text-neutral-300">{t("tabs.body")}</p>
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="modal-actions flex flex-wrap justify-end gap-2">
             <Button onClick={close}>{t("tabs.close")}</Button>
             <Button variant="primary" onClick={onUseHere} autoFocus>
               {t("tabs.useHere")}

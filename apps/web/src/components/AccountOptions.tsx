@@ -154,7 +154,7 @@ export function AccountProviders({
           {!connections?.canDisconnect && (
             <Notice tone="warning">{t("errors.last_sign_in_method")}</Notice>
           )}
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="modal-actions flex flex-wrap justify-end gap-2">
             <Button
               variant="ghost"
               icon={X}

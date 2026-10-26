@@ -118,15 +118,17 @@ export function NicknameDialog({
 
               <ErrorAlert code={error} />
 
-              <Button
-                type="submit"
-                variant="primary"
-                icon={ArrowRight}
-                disabled={connecting || humanToken === null}
-                className="w-full"
-              >
-                {connecting ? t("nickname.connecting") : t("nickname.submit")}
-              </Button>
+              <div className="modal-actions">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  icon={ArrowRight}
+                  disabled={connecting || humanToken === null}
+                  className="w-full"
+                >
+                  {connecting ? t("nickname.connecting") : t("nickname.submit")}
+                </Button>
+              </div>
             </form>
           </div>
         )

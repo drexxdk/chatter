@@ -482,7 +482,7 @@ function ProfileForm({
         }}
       />
 
-      <div className="flex justify-end gap-2">
+      <div className="modal-actions flex justify-end gap-2">
         <Button variant="ghost" icon={X} onClick={finish}>
           {t("nickname.cancel")}
         </Button>

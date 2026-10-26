@@ -7,7 +7,7 @@ import { Field } from "./Field";
 
 describe("Button", () => {
   it.each(["primary", "secondary", "danger", "ghost"] as const)(
-    "uses compact body text for %s actions",
+    "uses shared command styling for %s actions",
     (variant) => {
       render(
         <>
@@ -18,34 +18,35 @@ describe("Button", () => {
         </>,
       );
       expect(screen.getByRole("button", { name: "Action" })).toHaveClass(
-        "text-sm",
+        "control-command",
         "button-outline",
       );
       expect(screen.getByRole("link", { name: "Destination" })).toHaveClass(
-        "text-sm",
+        "control-command",
         "button-outline",
       );
     },
   );
 
-  it.each([
-    ["primary", "indigo-400"],
-    ["danger", "red-400"],
-  ] as const)("uses a matching outline for %s actions", (variant, color) => {
-    render(
-      <>
-        <Button variant={variant}>Action</Button>
-        <ButtonLink variant={variant} href="/">
-          Destination
-        </ButtonLink>
-      </>,
-    );
-    const outline = `[--button-outline-color:var(--color-${color})]`;
-    expect(screen.getByRole("button", { name: "Action" })).toHaveClass(outline);
-    expect(screen.getByRole("link", { name: "Destination" })).toHaveClass(
-      outline,
-    );
-  });
+  it.each(["primary", "danger"] as const)(
+    "uses the shared outline for %s actions",
+    (variant) => {
+      render(
+        <>
+          <Button variant={variant}>Action</Button>
+          <ButtonLink variant={variant} href="/">
+            Destination
+          </ButtonLink>
+        </>,
+      );
+      expect(screen.getByRole("button", { name: "Action" })).toHaveClass(
+        "button-outline",
+      );
+      expect(screen.getByRole("link", { name: "Destination" })).toHaveClass(
+        "button-outline",
+      );
+    },
+  );
 
   it("keeps text links and inline actions unframed", () => {
     render(
@@ -116,7 +117,7 @@ describe("Button", () => {
       "shrink-0",
     );
     expect(screen.getByRole("button", { name: "Cancel" })).toHaveClass(
-      "hover:bg-neutral-800",
+      "enabled:hover:bg-white/10",
     );
     expect(screen.getByRole("button", { name: "Cancel" })).not.toHaveClass(
       "bg-indigo-600",

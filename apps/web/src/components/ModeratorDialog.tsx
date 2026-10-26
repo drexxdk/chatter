@@ -88,15 +88,17 @@ export function ModeratorForm({
         />
         <ErrorAlert code={error} />
 
-        <Button
-          type="submit"
-          variant="primary"
-          icon={LogIn}
-          disabled={signingIn || humanToken === null}
-          className="w-full"
-        >
-          {signingIn ? t("nickname.signingIn") : t("nickname.signIn")}
-        </Button>
+        <div className="modal-actions">
+          <Button
+            type="submit"
+            variant="primary"
+            icon={LogIn}
+            disabled={signingIn || humanToken === null}
+            className="w-full"
+          >
+            {signingIn ? t("nickname.signingIn") : t("nickname.signIn")}
+          </Button>
+        </div>
       </form>
     </div>
   );

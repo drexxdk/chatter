@@ -103,7 +103,7 @@ export function AccountSection({
           <h3 className="text-sm font-semibold">{t("account.delete")}</h3>
           <Notice tone="warning">{t("account.deleteWarning")}</Notice>
           <ErrorAlert code={error} />
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="modal-actions flex flex-wrap justify-end gap-2">
             <Button
               variant="ghost"
               icon={X}
@@ -283,7 +283,7 @@ function PasswordChangeForm({
         disabled={saving}
       />
       <ErrorAlert code={error} />
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="modal-actions flex flex-wrap justify-end gap-2">
         <Button icon={X} variant="ghost" disabled={saving} onClick={onCancel}>
           {t("nickname.cancel")}
         </Button>
@@ -511,14 +511,16 @@ function ClaimForm({
         busy={saving}
       />
       <ErrorAlert code={error} />
-      <Button
-        type="submit"
-        variant="primary"
-        icon={KeyRound}
-        disabled={saving || humanToken === null}
-      >
-        {t(saving ? "account.register.submitting" : "account.claimTitle")}
-      </Button>
+      <div className="modal-actions">
+        <Button
+          type="submit"
+          variant="primary"
+          icon={KeyRound}
+          disabled={saving || humanToken === null}
+        >
+          {t(saving ? "account.register.submitting" : "account.claimTitle")}
+        </Button>
+      </div>
     </form>
   );
 }
