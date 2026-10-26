@@ -4,13 +4,10 @@ import { Eye, EyeOff } from "lucide-react";
 import { useState, type ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 
-const input = cva(
-  "rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2",
-  {
-    variants: { width: { full: "w-full", short: "w-16 text-center" } },
-    defaultVariants: { width: "full" },
-  },
-);
+const input = cva("control-field", {
+  variants: { width: { full: "w-full", short: "w-16 text-center" } },
+  defaultVariants: { width: "full" },
+});
 
 type FieldProps = Omit<ComponentProps<"input">, "id" | "className"> &
   VariantProps<typeof input> & {

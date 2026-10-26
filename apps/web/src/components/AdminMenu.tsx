@@ -143,7 +143,7 @@ function QueueSettingsForm({
             if (event.key !== "Escape" && event.key !== "Tab")
               event.stopPropagation();
           }}
-          className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm outline-none focus:border-indigo-400 aria-invalid:border-red-500"
+          className="control-field min-w-0 flex-1 aria-invalid:border-red-500"
         />
         <button
           type="submit"
@@ -218,7 +218,7 @@ function TypingPreviewForm({
               if (event.key !== "Escape" && event.key !== "Tab")
                 event.stopPropagation();
             }}
-            className="h-9 w-full min-w-0 rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-sm outline-none focus:border-indigo-400 aria-invalid:border-red-500 disabled:opacity-50"
+            className="control-field w-full min-w-0 aria-invalid:border-red-500"
           />
         </label>
       ))}
@@ -287,7 +287,7 @@ function RoomLimitForm({
           if (event.key !== "Escape" && event.key !== "Tab")
             event.stopPropagation();
         }}
-        className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm outline-none focus:border-indigo-400 aria-invalid:border-red-500"
+        className="control-field min-w-0 flex-1 aria-invalid:border-red-500"
       />
       <button
         type="submit"
@@ -344,10 +344,10 @@ export function AdminMenu({
         >
           <FlaskConical aria-hidden="true" className="h-5 w-5" />
         </MenuButton>
-        <div className="absolute right-0 w-0">
+        <div className="absolute -right-10 w-0 sm:-right-11">
           <MenuItems
             modal={false}
-            className={`${HEADER_DROPDOWN} right-[calc(var(--page-gutter)+var(--fixed-scrollbar-inset,0px))] w-72 space-y-1 ${MENU_SURFACE}`}
+            className={`${HEADER_DROPDOWN} -translate-x-full w-72 space-y-1 ${MENU_SURFACE}`}
             onKeyDown={(event) => {
               if (
                 event.target !== event.currentTarget ||
@@ -448,7 +448,7 @@ export function AdminMenu({
                       event.stopPropagation();
                     }
                   }}
-                  className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm outline-none focus:border-indigo-400 aria-invalid:border-red-500"
+                  className="control-field min-w-0 flex-1 aria-invalid:border-red-500"
                 />
                 <button
                   type="submit"

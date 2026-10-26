@@ -83,6 +83,7 @@ html:has([data-room-search] input:focus) {
    3.5rem and its 1px border), and how far the dropdowns keep from the screen's edge: the 0.75rem that the header's
    dropdowns (HEADER_DROPDOWN in dropdown.ts) leave at the bottom. */
 :root {
+  --control-height: 2.75rem;
   --page-gutter: 1rem;
   --anchor-padding: 0.75rem;
   --header-height: 3.5625rem;
@@ -103,7 +104,9 @@ html:has([data-room-search] input:focus) {
   }
 
   .control-icon {
-    @apply inline-flex size-11 shrink-0 items-center justify-center rounded-md bg-white/3 text-neutral-300 outline-none sm:size-9;
+    @apply inline-flex shrink-0 items-center justify-center rounded-md bg-white/3 text-neutral-300 outline-none;
+    width: var(--control-height);
+    height: var(--control-height);
   }
 
   .control-icon > svg {
@@ -115,23 +118,19 @@ html:has([data-room-search] input:focus) {
   }
 
   .control-field {
-    @apply h-11 rounded-md border border-neutral-700 bg-white/3 px-3 text-base outline-none sm:h-9 sm:text-sm;
+    @apply rounded-md border border-neutral-700 bg-neutral-950 px-3 text-base outline-none sm:text-sm;
+    height: var(--control-height);
   }
 
   .control-command {
-    @apply inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm sm:min-h-9;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm;
+    min-height: var(--control-height);
   }
 
   .control-icon:not(:disabled, [aria-disabled="true"], [data-disabled]):is(
       :hover,
       :focus-visible,
       [data-focus],
-      [data-open]
-    ),
-  .control-field:not(:disabled, [aria-disabled="true"], [data-disabled]):is(
-      :hover,
-      :focus-visible,
-      [data-hover],
       [data-open]
     ) {
     @apply bg-white/10;
@@ -362,20 +361,48 @@ html:has([data-room-search] input:focus) {
     button[aria-haspopup="listbox"],
     select,
     input:not([type="radio"], [type="checkbox"], [type="range"])
-  ):enabled:is(:hover, :focus-visible) {
+  ):enabled:not([aria-disabled="true"], [data-disabled]):is(
+    :hover,
+    :focus,
+    :focus-visible,
+    [data-hover],
+    [data-open]
+  ) {
+  background-color: color-mix(in srgb, #fff 6%, var(--color-neutral-950));
+  border-color: var(--field-state-color, var(--color-neutral-500));
+  outline: none;
   box-shadow:
     inset 0 0 0 1px
       color-mix(
         in srgb,
-        var(--control-hover-color, var(--color-neutral-500)) 45%,
+        var(--field-state-color, var(--color-neutral-500)) 45%,
         transparent
       ),
     0 0 12px
       color-mix(
         in srgb,
-        var(--control-hover-color, var(--color-neutral-500)) 15%,
+        var(--field-state-color, var(--color-neutral-500)) 15%,
         transparent
       );
+}
+
+.glass-surface
+  :where(
+    button[aria-haspopup="listbox"],
+    select,
+    input:not([type="radio"], [type="checkbox"], [type="range"])
+  ):is(:focus, :focus-visible, [data-open]) {
+  --field-state-color: var(--color-indigo-400);
+}
+
+.glass-surface
+  :where(
+    button[aria-haspopup="listbox"],
+    select,
+    input:not([type="radio"], [type="checkbox"], [type="range"])
+  )[aria-invalid="true"] {
+  --field-state-color: var(--color-red-500);
+  border-color: var(--field-state-color);
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -444,6 +471,7 @@ html:has([data-room-search] input:focus) {
 
 @media (min-width: 40rem) {
   :root {
+    --control-height: 2.25rem;
     --page-gutter: 1.5rem;
   }
 }

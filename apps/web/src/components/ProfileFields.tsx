@@ -155,8 +155,7 @@ export function NameAndBirthDate({
     month: "long",
     timeZone: "UTC",
   });
-  const controlClass =
-    "min-w-0 w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2";
+  const controlClass = "control-field min-w-0 w-full";
 
   function update(next: typeof parts) {
     setParts(next);
