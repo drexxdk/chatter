@@ -1113,6 +1113,25 @@ test("sidebar accordions share edge-aligned scrollbars and content gutters", asy
       path: testInfo.outputPath(`sidebar-scrollbars-${width}.png`),
       animations: "disabled",
     });
+    const toggle = aside.getByRole("button", { name: /^In this room/ });
+    const positions = await toggle.evaluate(
+      (button) =>
+        new Promise<number[]>((resolve) => {
+          const nextSection = button.closest("section")!.nextElementSibling!;
+          const positions: number[] = [];
+          button.click();
+          function capture() {
+            positions.push(nextSection.getBoundingClientRect().top);
+            if (positions.length < 20) requestAnimationFrame(capture);
+            else resolve(positions);
+          }
+          requestAnimationFrame(capture);
+        }),
+    );
+    expect(Math.max(...positions) - Math.min(...positions)).toBeLessThan(1);
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
   }
 });
 

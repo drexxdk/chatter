@@ -627,18 +627,11 @@ html:has(#headlessui-portal-root [role="dialog"][aria-modal="true"]) {
   flex: 0 1 0%;
   flex-direction: column;
   min-height: 1.75rem;
-  transition: flex-grow 200ms ease;
 }
 
 .panel-section[data-open] {
   flex-grow: 1;
   max-height: max-content;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .panel-section {
-    transition: none;
-  }
 }
 
 /* Positioned, so that text for screen readers only (which is absolute) is clipped with the list. */
