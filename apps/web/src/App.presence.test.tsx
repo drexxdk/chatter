@@ -412,9 +412,11 @@ describe("who comes and goes", () => {
       expect(toggle).toHaveAttribute("aria-checked", "true");
       await user.keyboard("{Escape}");
       expect(roomLog().getByText("Carol joined the room.")).toBeVisible();
-      expect(
-        screen.queryByRole("dialog", { name: "Settings" }),
-      ).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("dialog", { name: "Settings" }),
+        ).not.toBeInTheDocument(),
+      );
     });
 
     it("hides what was announced, and shows it again", async () => {

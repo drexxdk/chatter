@@ -1582,7 +1582,13 @@ test("viewport resizing keeps a pinned chat at the bottom without moving a reade
       await settleLayout();
       await expect.poll(distanceFromBottom).toBeLessThan(2);
     }
-    await guest.evaluate(() => window.scrollTo(0, 100));
+    await guest.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          window.addEventListener("scroll", () => resolve(), { once: true });
+          window.scrollTo(0, 100);
+        }),
+    );
     await expect.poll(() => guest.evaluate(() => window.scrollY)).toBe(100);
     expect(await distanceFromBottom()).toBeGreaterThan(120);
     for (const height of [480, 844]) {

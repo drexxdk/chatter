@@ -3,7 +3,7 @@ import {
   DialogBackdrop,
   DialogPanel,
   DialogTitle,
-  Transition,
+  TransitionChild,
 } from "@headlessui/react";
 import { X } from "lucide-react";
 import {
@@ -152,16 +152,21 @@ export function Modal({
   }
 
   return (
-    <Transition
-      show={open && entered && !closing}
-      afterLeave={() => {
-        if (closing) {
-          setClosing(false);
-          onClose();
-        }
-      }}
+    <Dialog
+      transition
+      open={open && entered && !closing}
+      onClose={() => setClosing(true)}
+      className="fixed inset-0 z-40"
     >
-      <Dialog onClose={() => setClosing(true)} className="fixed inset-0 z-40">
+      <TransitionChild
+        as="div"
+        afterLeave={() => {
+          if (closing) {
+            setClosing(false);
+            onClose();
+          }
+        }}
+      >
         <Backdrop />
         {/* Scrolls on its own when the content is taller than the screen, while the page behind stays put. */}
         <div className="fixed inset-0 overflow-y-auto p-4">
@@ -191,7 +196,7 @@ export function Modal({
             </DialogPanel>
           </div>
         </div>
-      </Dialog>
-    </Transition>
+      </TransitionChild>
+    </Dialog>
   );
 }

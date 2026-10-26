@@ -6,6 +6,7 @@ import { changeAccountPassword, type PasswordClaim } from "../api";
 import type { Account } from "../account";
 import { passwordChecks } from "../../../../shared/chatProtocol.mjs";
 import { normalizeUsername } from "../nickname";
+import { isTouchScreen } from "../touch";
 import { AccountOptions } from "./AccountOptions";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
@@ -478,6 +479,7 @@ function ClaimForm({
       <Field
         id="claim-password"
         name="password"
+        autoFocus={!isTouchScreen()}
         data-autofocus
         label={t("nickname.password")}
         hint={t("account.passwordHint")}

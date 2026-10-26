@@ -123,6 +123,45 @@ describe("what the chat-server sends the browser back with", () => {
 });
 
 describe("the page the providers send the browser back to", () => {
+  it.each(
+    ["token=old-token", "token=staff-token&staff=1"].flatMap((credentials) =>
+      ["/", "/rooms/general"].map((returnPath) => ({
+        credentials,
+        returnPath,
+      })),
+    ),
+  )(
+    "does not show guest header controls while verifying $returnPath ($credentials)",
+    async ({ credentials, returnPath }) => {
+      stubServer({
+        "GET /me": registered,
+        "GET /me/staff": () => ({ body: { name: "Alice", admin: true } }),
+      });
+      const navigate = vi.fn();
+      render(
+        <AuthCallback
+          hash={`#${credentials}&return=${encodeURIComponent(returnPath)}`}
+          navigate={navigate}
+        />,
+      );
+
+      expect(screen.queryByRole("banner")).toBeNull();
+      expect(screen.queryByRole("link", { name: "Chatter" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+      if (returnPath === "/rooms/general") {
+        expect(document.querySelector(".site-background")).toHaveAttribute(
+          "data-room",
+          "general",
+        );
+      } else {
+        expect(document.querySelector(".site-background")).not.toHaveAttribute(
+          "data-room",
+        );
+      }
+      await waitFor(() => expect(navigate).toHaveBeenCalledWith(returnPath));
+    },
+  );
+
   it("verifies staff callbacks and preserves staff identity without creating a member account", async () => {
     const request = stubServer({
       "GET /me/staff": () => ({

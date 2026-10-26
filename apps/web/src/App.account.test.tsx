@@ -1,4 +1,10 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -645,19 +651,55 @@ describe("somebody signed in", () => {
     expect(server.createSocket.mock.calls[0]?.[1]).toBe("member-abc");
   });
 
-  it("is brought into the room an address names, as the account, when coming back from a provider with nothing else saved", async () => {
-    stubBackend();
-    window.history.replaceState(null, "", "/rooms/general");
-    const server = makeFakeServer();
+  it.each([false, true])(
+    "returns directly to the room after provider login (saved session: %s)",
+    async (savedSession) => {
+      stubBackend();
+      if (savedSession) saveSession({ nickname: "Alice", token: "member-abc" });
+      window.history.replaceState(null, "", "/rooms/general");
+      const server = makeFakeServer();
+      let completeJoin: (() => void) | undefined;
+      const createSocket = server.createSocket.getMockImplementation()!;
+      server.createSocket.mockImplementation((...args) => {
+        const socket = createSocket(...args);
+        const emit = socket.emit.bind(socket);
+        vi.spyOn(socket, "emit").mockImplementation((event, payload, ack) => {
+          if (event === "room:join") {
+            completeJoin = () => emit(event, payload, ack);
+          } else emit(event, payload, ack);
+        });
+        return socket;
+      });
+      let lobbyShown = false;
+      const observer = new MutationObserver(() => {
+        if (screen.queryByRole("heading", { name: "Public rooms" }))
+          lobbyShown = true;
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
 
-    setup(server);
+      try {
+        setup(server);
 
-    expect(
-      await screen.findByRole("heading", { name: "General", level: 2 }),
-    ).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Nickname/)).toBeNull();
-    expect(server.createSocket.mock.calls[0]?.[1]).toBe("member-abc");
-  });
+        expect(screen.getByRole("banner")).toBeEmptyDOMElement();
+        await waitFor(() => expect(completeJoin).toBeDefined());
+        expect(screen.getByRole("banner")).toBeEmptyDOMElement();
+        await act(async () => completeJoin?.());
+        expect(
+          await screen.findByRole("heading", { name: "General", level: 2 }),
+        ).toBeInTheDocument();
+        expect(
+          within(screen.getByRole("banner")).getByRole("button", {
+            name: "Account menu: Alice",
+          }),
+        ).toBeVisible();
+        expect(screen.queryByLabelText(/Nickname/)).toBeNull();
+        expect(server.createSocket.mock.calls[0]?.[1]).toBe("member-abc");
+        expect(lobbyShown).toBe(false);
+      } finally {
+        observer.disconnect();
+      }
+    },
+  );
 
   it("sees the account in their profile, and not the offer to make one", async () => {
     stubBackend({ providers: ["google"] });

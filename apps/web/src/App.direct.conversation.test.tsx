@@ -176,6 +176,7 @@ describe("private-message notification sounds", () => {
     await user.click(screen.getByRole("button", { name: "Preview sound" }));
     expect(notificationSound.playNotificationSound).toHaveBeenCalledTimes(1);
     await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(await openSettings(user)).toBeChecked();
     expect(screen.getByRole("slider", { name: "Volume" })).toHaveValue("25");
     fireEvent.change(screen.getByRole("slider", { name: "Volume" }), {

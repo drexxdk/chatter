@@ -554,7 +554,7 @@ describe("announcements", () => {
       const { user, server } = await enterAsModerator();
       const sent = announcement();
       act(() => server.latest.serverEmit("announcement:new", sent));
-      const log = within(screen.getByRole("log"));
+      const log = within(await screen.findByRole("log"));
       expect(log.getByText(sent.text)).toBeInTheDocument();
       expect(log.getByText("Announcement from Ada Mod")).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Dismiss" }));

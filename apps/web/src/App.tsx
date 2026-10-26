@@ -1038,140 +1038,146 @@ export function App({
           flush={inRoom}
           wide={inRoom}
           header={
-            <>
-              {chat.roomSlug && chat.session ? (
-                <div className="flex min-w-0 max-w-[calc(100%-8rem)] items-center gap-1 sm:max-w-[35%]">
-                  <h1 className="sr-only">{t("app.title")}</h1>
-                  <button
-                    type="button"
-                    aria-label={`${t(sidebarOpen ? "room.hidePanel" : "room.showPanel")}${!sidebarOpen && unreadCount > 0 ? `, ${t("dm.unread", { count: unreadCount })}` : ""}`}
-                    title={t(sidebarOpen ? "room.hidePanel" : "room.showPanel")}
-                    aria-expanded={sidebarOpen}
-                    aria-controls={`room-sidebar-${chat.roomSlug}`}
-                    onClick={() => setSidebarOpen(!sidebarOpen)}
-                    className="relative hidden size-9 shrink-0 items-center justify-center rounded-md text-(--room-accent) hover:bg-(--room-accent)/10 focus-visible:outline-2 focus-visible:outline-indigo-400 md:inline-flex"
+            !settled && startedInRoom.current ? (
+              <></>
+            ) : (
+              <>
+                {chat.roomSlug && chat.session ? (
+                  <div className="flex min-w-0 max-w-[calc(100%-8rem)] items-center gap-1 sm:max-w-[35%]">
+                    <h1 className="sr-only">{t("app.title")}</h1>
+                    <button
+                      type="button"
+                      aria-label={`${t(sidebarOpen ? "room.hidePanel" : "room.showPanel")}${!sidebarOpen && unreadCount > 0 ? `, ${t("dm.unread", { count: unreadCount })}` : ""}`}
+                      title={t(
+                        sidebarOpen ? "room.hidePanel" : "room.showPanel",
+                      )}
+                      aria-expanded={sidebarOpen}
+                      aria-controls={`room-sidebar-${chat.roomSlug}`}
+                      onClick={() => setSidebarOpen(!sidebarOpen)}
+                      className="relative hidden size-9 shrink-0 items-center justify-center rounded-md text-(--room-accent) hover:bg-(--room-accent)/10 focus-visible:outline-2 focus-visible:outline-indigo-400 md:inline-flex"
+                    >
+                      <Users aria-hidden="true" className="size-5" />
+                      {!sidebarOpen && unreadCount > 0 && (
+                        <span
+                          aria-hidden="true"
+                          className="absolute -right-1 -top-1.5 rounded-full bg-amber-400 px-1.5 text-xs font-bold text-neutral-950"
+                        >
+                          {unreadCount}
+                        </span>
+                      )}
+                    </button>
+                    <RoomSwitcher
+                      // The room you are in is counted from who is in it now, which is newer than the list.
+                      rooms={knownRooms.map((room) =>
+                        room.slug === chat.roomSlug
+                          ? {
+                              ...room,
+                              memberCount: chat.members.filter(
+                                (member) => member.role !== "moderator",
+                              ).length,
+                            }
+                          : room,
+                      )}
+                      slug={chat.roomSlug}
+                      name={currentRoom?.name ?? chat.roomSlug}
+                      disabled={chat.status !== "connected"}
+                      onSelect={(room) => void handleSelect(room)}
+                      onLeave={() => void chat.leaveRoom()}
+                      onOpen={refreshRooms}
+                    />
+                  </div>
+                ) : page ? (
+                  <Link
+                    to={LOBBY_PATH}
+                    className="font-brand inline-flex items-center gap-2 text-2xl font-bold"
                   >
-                    <Users aria-hidden="true" className="size-5" />
-                    {!sidebarOpen && unreadCount > 0 && (
-                      <span
-                        aria-hidden="true"
-                        className="absolute -right-1 -top-1.5 rounded-full bg-amber-400 px-1.5 text-xs font-bold text-neutral-950"
-                      >
-                        {unreadCount}
-                      </span>
-                    )}
-                  </button>
-                  <RoomSwitcher
-                    // The room you are in is counted from who is in it now, which is newer than the list.
-                    rooms={knownRooms.map((room) =>
-                      room.slug === chat.roomSlug
-                        ? {
-                            ...room,
-                            memberCount: chat.members.filter(
-                              (member) => member.role !== "moderator",
-                            ).length,
-                          }
-                        : room,
-                    )}
-                    slug={chat.roomSlug}
-                    name={currentRoom?.name ?? chat.roomSlug}
-                    disabled={chat.status !== "connected"}
-                    onSelect={(room) => void handleSelect(room)}
-                    onLeave={() => void chat.leaveRoom()}
-                    onOpen={refreshRooms}
-                  />
-                </div>
-              ) : page ? (
-                <Link
-                  to={LOBBY_PATH}
-                  className="font-brand inline-flex items-center gap-2 text-2xl font-bold"
-                >
-                  <MessagesSquare
-                    aria-hidden="true"
-                    className="size-6 shrink-0 text-indigo-300"
-                  />
-                  {t("app.title")}
-                </Link>
-              ) : (
-                <h1
-                  className={
-                    settled || !startedInRoom.current
-                      ? "font-brand inline-flex items-center gap-2 text-2xl font-bold"
-                      : "sr-only"
-                  }
-                >
-                  <MessagesSquare
-                    aria-hidden="true"
-                    className="size-6 shrink-0 text-indigo-300"
-                  />
-                  {t("app.title")}
-                </h1>
-              )}
-              {chat.roomSlug && chat.session && !chat.direct.active && (
-                <RoomSearch
-                  key={chat.roomSlug}
-                  roomSlug={chat.roomSlug}
-                  roomName={currentRoom?.name ?? chat.roomSlug}
-                  messages={chat.messages}
-                  threads={chat.direct.threads}
-                  ownGuestIds={chat.ownGuestIds}
-                />
-              )}
-              <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-                {settled && !account && !chat.session && (
-                  <Button
-                    icon={LogIn}
-                    title={t("nickname.signIn")}
-                    onClick={() => {
-                      clearDialogErrors();
-                      setModeratorOpen(true);
-                    }}
+                    <MessagesSquare
+                      aria-hidden="true"
+                      className="size-6 shrink-0 text-indigo-300"
+                    />
+                    {t("app.title")}
+                  </Link>
+                ) : (
+                  <h1
+                    className={
+                      settled || !startedInRoom.current
+                        ? "font-brand inline-flex items-center gap-2 text-2xl font-bold"
+                        : "sr-only"
+                    }
                   >
-                    <span className="max-[360px]:sr-only">
-                      {t("nickname.signIn")}
-                    </span>
-                  </Button>
+                    <MessagesSquare
+                      aria-hidden="true"
+                      className="size-6 shrink-0 text-indigo-300"
+                    />
+                    {t("app.title")}
+                  </h1>
                 )}
-                {!chat.queue && adminTools}
-                <MainMenu
-                  onSettings={() => setSettingsOpen(true)}
-                  pending={!settled}
-                  profile={
-                    chat.session
-                      ? {
-                          nickname: chat.session.nickname,
-                          detail:
-                            chat.session.role === "member"
-                              ? account?.username
-                              : chat.session.role === "guest"
-                                ? t("account.guest")
-                                : undefined,
-                          avatar: chat.session.avatar,
-                          picture: chat.session.picture,
-                          moderator: chat.session.role === "moderator",
-                          guest: chat.session.role === "guest",
-                          onCreateAccount: openAccountCreation,
-                          onSignIn: () => {
-                            clearDialogErrors();
-                            setModeratorOpen(true);
-                          },
-                          onProfile: () => setProfileOpen(true),
-                          onSignOut: signOut,
-                        }
-                      : account
+                {chat.roomSlug && chat.session && !chat.direct.active && (
+                  <RoomSearch
+                    key={chat.roomSlug}
+                    roomSlug={chat.roomSlug}
+                    roomName={currentRoom?.name ?? chat.roomSlug}
+                    messages={chat.messages}
+                    threads={chat.direct.threads}
+                    ownGuestIds={chat.ownGuestIds}
+                  />
+                )}
+                <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                  {settled && !account && !chat.session && (
+                    <Button
+                      icon={LogIn}
+                      title={t("nickname.signIn")}
+                      onClick={() => {
+                        clearDialogErrors();
+                        setModeratorOpen(true);
+                      }}
+                    >
+                      <span className="max-[360px]:sr-only">
+                        {t("nickname.signIn")}
+                      </span>
+                    </Button>
+                  )}
+                  {!chat.queue && adminTools}
+                  <MainMenu
+                    onSettings={() => setSettingsOpen(true)}
+                    pending={!settled}
+                    profile={
+                      chat.session
                         ? {
-                            nickname: account.nickname,
-                            detail: account.username,
-                            avatar: account.avatar,
-                            picture: account.picture,
-                            onProfile: () => setAccountOpen(true),
+                            nickname: chat.session.nickname,
+                            detail:
+                              chat.session.role === "member"
+                                ? account?.username
+                                : chat.session.role === "guest"
+                                  ? t("account.guest")
+                                  : undefined,
+                            avatar: chat.session.avatar,
+                            picture: chat.session.picture,
+                            moderator: chat.session.role === "moderator",
+                            guest: chat.session.role === "guest",
+                            onCreateAccount: openAccountCreation,
+                            onSignIn: () => {
+                              clearDialogErrors();
+                              setModeratorOpen(true);
+                            },
+                            onProfile: () => setProfileOpen(true),
                             onSignOut: signOut,
                           }
-                        : undefined
-                  }
-                />
-              </div>
-            </>
+                        : account
+                          ? {
+                              nickname: account.nickname,
+                              detail: account.username,
+                              avatar: account.avatar,
+                              picture: account.picture,
+                              onProfile: () => setAccountOpen(true),
+                              onSignOut: signOut,
+                            }
+                          : undefined
+                    }
+                  />
+                </div>
+              </>
+            )
           }
         >
           {chat.announcement && (
@@ -1183,7 +1189,10 @@ export function App({
           <ViewTransition
             viewKey={inRoom ? `room:${chat.roomSlug}` : (page ?? "lobby")}
             depth={inRoom || page ? 1 : 0}
-            hold={!settled && startedInRoom.current}
+            hold={
+              (!settled && startedInRoom.current) ||
+              (signingIn && Boolean(signInRoom.current))
+            }
             resetScroll={!inRoom}
           >
             {chat.roomSlug && chat.session ? (

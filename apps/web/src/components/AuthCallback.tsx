@@ -170,10 +170,21 @@ export function AuthCallback({
     view.status === "form" ? t("account.register.title") : undefined,
   );
 
+  if (view.status === "working") {
+    return (
+      <div className="relative isolate flex min-h-dvh flex-col">
+        <div
+          aria-hidden="true"
+          className="site-background"
+          data-room={slugFromPath(returnPath) ?? undefined}
+        />
+        <Loading>{t("account.working")}</Loading>
+      </div>
+    );
+  }
+
   return (
     <PageFrame>
-      {view.status === "working" && <Loading>{t("account.working")}</Loading>}
-
       {view.status === "error" && (
         <div className="space-y-3">
           <ErrorAlert code={view.code} />

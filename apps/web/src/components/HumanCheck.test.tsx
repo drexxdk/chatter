@@ -43,14 +43,17 @@ beforeEach(() => {
   vi.stubGlobal(
     "ResizeObserver",
     class {
+      callback: ResizeObserverCallback;
       constructor(callback: ResizeObserverCallback) {
+        this.callback = callback;
+      }
+      observe(target: Element) {
+        if (target.getAttribute("aria-label") !== "Human verification") return;
         widget.resize = (width) =>
-          callback(
-            [{ contentRect: { width } } as ResizeObserverEntry],
+          this.callback(
+            [{ target, contentRect: { width } } as ResizeObserverEntry],
             this as unknown as ResizeObserver,
           );
-      }
-      observe() {
         widget.resize?.(343.75);
       }
       disconnect() {}
