@@ -179,9 +179,10 @@ describe("signing in from the lobby", () => {
       await user.click(
         await screen.findByRole("button", { name: "Join General" }),
       );
-      const join = within(
-        await screen.findByRole("dialog", { name: "Join the chat" }),
-      );
+      const joinElement = await screen.findByRole("dialog", {
+        name: "Join the chat",
+      });
+      const join = within(joinElement);
       await user.type(join.getByLabelText("Nickname"), "Guest Draft");
       expect(
         join.getByRole("button", { name: "Continue with Local" }),
@@ -192,6 +193,7 @@ describe("signing in from the lobby", () => {
       let login = within(
         await screen.findByRole("dialog", { name: "Sign in" }),
       );
+      expect(screen.getByRole("dialog", { name: "Sign in" })).toBe(joinElement);
       expect(
         screen.queryByRole("dialog", { name: "Join the chat" }),
       ).toBeNull();
@@ -209,6 +211,11 @@ describe("signing in from the lobby", () => {
         expect(login.queryByText("or", { exact: true })).toBeNull();
       }
       await user.click(login.getByRole("button", { name: "Close" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(
+        screen.queryByRole("dialog", { name: "Join the chat" }),
+      ).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Join General" }));
       const restored = within(
         await screen.findByRole("dialog", { name: "Join the chat" }),
       );
@@ -242,9 +249,10 @@ describe("signing in from the lobby", () => {
     await user.click(
       await screen.findByRole("menuitem", { name: "Your profile" }),
     );
-    let dialog = within(
-      await screen.findByRole("dialog", { name: "Your profile" }),
-    );
+    const profileElement = await screen.findByRole("dialog", {
+      name: "Your profile",
+    });
+    let dialog = within(profileElement);
     expect(dialog.getByText("Guest", { exact: true })).toBeVisible();
     expect(dialog.queryByLabelText("Password")).toBeNull();
     expect(dialog.queryByRole("link", { name: /Continue with/ })).toBeNull();
@@ -256,6 +264,9 @@ describe("signing in from the lobby", () => {
     await user.click(claim);
     dialog = within(
       await screen.findByRole("dialog", { name: "Claim account" }),
+    );
+    expect(screen.getByRole("dialog", { name: "Claim account" })).toBe(
+      profileElement,
     );
     expect(
       await dialog.findByRole("link", { name: "Continue with Google" }),
@@ -281,7 +292,7 @@ describe("signing in from the lobby", () => {
     expect(dialog.queryByRole("button", { name: "Use a password" })).toBeNull();
     expect(dialog.queryByRole("button", { name: "Back" })).toBeNull();
     await user.click(dialog.getByRole("button", { name: "Close" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(
       screen.getByRole("button", { name: "Account menu: Alice" }),
     ).toBeVisible();

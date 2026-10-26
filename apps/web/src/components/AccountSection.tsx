@@ -11,7 +11,7 @@ import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Notice } from "./Notice";
 import { Field } from "./Field";
-import { Modal } from "./Modal";
+import { Modal, useModalViewTransition } from "./Modal";
 import { HumanCheck } from "./HumanCheck";
 
 export function AccountSection({
@@ -38,6 +38,7 @@ export function AccountSection({
   onPasswordChanged?: () => void;
 }) {
   const { t } = useTranslation();
+  const changeView = useModalViewTransition();
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,8 +74,10 @@ export function AccountSection({
           username={passwordUsername}
           hasPassword={hasPassword}
           onCancel={() => {
-            setChangingPassword(false);
-            onActionChange?.(false);
+            changeView(() => {
+              setChangingPassword(false);
+              onActionChange?.(false);
+            });
           }}
           onDone={() => {
             setChangingPassword(false);
@@ -135,9 +138,11 @@ export function AccountSection({
               icon={KeyRound}
               disabled={!passwordUsername}
               onClick={() => {
-                setPasswordResult(undefined);
-                setChangingPassword(true);
-                onActionChange?.(true);
+                changeView(() => {
+                  setPasswordResult(undefined);
+                  setChangingPassword(true);
+                  onActionChange?.(true);
+                });
               }}
             >
               {t(hasPassword ? "account.changePassword" : "account.claim")}
@@ -382,9 +387,30 @@ export function CreateAccountDialog({
 
   return (
     <Modal title={t("account.claimTitle")} onClose={onClose} closable>
+      <CreateAccountForm
+        nickname={nickname}
+        returnPath={returnPath}
+        onClaim={onClaim}
+      />
+    </Modal>
+  );
+}
+
+export function CreateAccountForm({
+  nickname,
+  returnPath,
+  onClaim,
+}: {
+  nickname: string;
+  returnPath: string;
+  onClaim: (input: PasswordClaim) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-4">
       <AccountOptions returnPath={returnPath} divider={t("account.or")} />
       <ClaimForm nickname={nickname} onClaim={onClaim} />
-    </Modal>
+    </div>
   );
 }
 

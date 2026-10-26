@@ -42,7 +42,7 @@ import type { ActionResult } from "./chat/types";
 import { useChat } from "./chat/useChat";
 import { AboutPage } from "./components/AboutPage";
 import { createTabCoordinator, type TabCoordinator } from "./activeTab";
-import { CreateAccountDialog } from "./components/AccountSection";
+import { CreateAccountForm } from "./components/AccountSection";
 import { AnnouncementBanner } from "./components/AnnouncementBanner";
 import { Button } from "./components/Button";
 import { ErrorAlert } from "./components/ErrorAlert";
@@ -53,7 +53,7 @@ import { MainMenu } from "./components/MainMenu";
 import { NicknameDialog } from "./components/NicknameDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { useSettingsErrorToast } from "./useSettingsErrorToast";
-import { ModeratorDialog } from "./components/ModeratorDialog";
+import { ModeratorDialog, ModeratorForm } from "./components/ModeratorDialog";
 import { PageFrame } from "./components/PageFrame";
 import { ProfileDialog, type ProfileSubject } from "./components/ProfileDialog";
 import { RoomSwitcher } from "./components/RoomSwitcher";
@@ -976,6 +976,22 @@ export function App({
     if (room && slug !== chat.roomSlug) void handleSelect(room);
   }, [location.key, navigationType]);
 
+  const signInProps = {
+    returnPath: signInRoom.current
+      ? roomPath(signInRoom.current.slug)
+      : location.pathname,
+    signingIn,
+    error: signInError ?? chat.error,
+    onSignIn: (email: string, password: string, humanToken?: string) =>
+      void handleSignIn(email, password, humanToken),
+    onCancel: () => {
+      setModeratorOpen(false);
+      clearDialogErrors();
+      signInRoom.current = null;
+      handleCancel();
+    },
+  };
+
   const adminTools = chat.session?.admin ? (
     <Suspense fallback={null}>
       <AdminMenu
@@ -1257,10 +1273,22 @@ export function App({
           />
         )}
 
-        {settled && profile && !createAccountOpen && (
+        {settled && profile && (
           <ProfileDialog
-            open={profileOpen || accountOpen}
-            onClose={closeProfile}
+            open={profileOpen || accountOpen || createAccountOpen}
+            onClose={() => {
+              closeProfile();
+              setCreateAccountOpen(false);
+            }}
+            creation={
+              createAccountOpen && profile.role === "guest" ? (
+                <CreateAccountForm
+                  nickname={profile.nickname}
+                  returnPath={location.pathname}
+                  onClaim={claimAccount}
+                />
+              ) : undefined
+            }
             profile={profile}
             onSave={saveProfile}
             account={account}
@@ -1278,24 +1306,21 @@ export function App({
           />
         )}
 
-        {createAccountOpen && profile?.role === "guest" && (
-          <CreateAccountDialog
-            nickname={profile.nickname}
-            returnPath={location.pathname}
-            onClaim={claimAccount}
-            onClose={() => setCreateAccountOpen(false)}
-          />
-        )}
-
-        {shownRoom && !moderatorOpen && (
+        {(shownRoom || signInRoom.current) && (
           <NicknameDialog
-            open={pendingRoom !== null}
+            open={
+              pendingRoom !== null ||
+              (moderatorOpen && Boolean(signInRoom.current))
+            }
+            signInForm={
+              moderatorOpen ? <ModeratorForm {...signInProps} /> : undefined
+            }
             connecting={chat.status === "connecting"}
             error={chat.error}
             onSubmit={(nickname, avatar, picture, humanToken) =>
               void handleNickname(nickname, avatar, picture, humanToken)
             }
-            onCancel={handleCancel}
+            onCancel={moderatorOpen ? signInProps.onCancel : handleCancel}
             onSignIn={() => {
               signInRoom.current = pendingRoom;
               clearDialogErrors();
@@ -1303,7 +1328,7 @@ export function App({
               setModeratorOpen(true);
             }}
             termsVersion={termsVersion}
-            returnPath={roomPath(shownRoom.slug)}
+            returnPath={roomPath((shownRoom ?? signInRoom.current)!.slug)}
           />
         )}
 
@@ -1331,27 +1356,8 @@ export function App({
           />
         )}
 
-        {settled && moderatorOpen && (
-          <ModeratorDialog
-            returnPath={
-              signInRoom.current
-                ? roomPath(signInRoom.current.slug)
-                : location.pathname
-            }
-            signingIn={signingIn}
-            error={signInError ?? chat.error}
-            onSignIn={(email, password, humanToken) =>
-              void handleSignIn(email, password, humanToken)
-            }
-            onCancel={() => {
-              setModeratorOpen(false);
-              clearDialogErrors();
-              if (signInRoom.current) {
-                setPendingRoom(signInRoom.current);
-                signInRoom.current = null;
-              }
-            }}
-          />
+        {settled && moderatorOpen && !signInRoom.current && (
+          <ModeratorDialog {...signInProps} />
         )}
       </ReloadUiContext>
     </IdentityProvider>

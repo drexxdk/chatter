@@ -19,14 +19,22 @@ interface ModeratorDialogProps {
   onCancel: () => void;
 }
 
-export function ModeratorDialog({
+export function ModeratorDialog(props: ModeratorDialogProps) {
+  const { t } = useTranslation();
+  return (
+    <Modal onClose={props.onCancel} title={t("nickname.signIn")} closable>
+      <ModeratorForm {...props} />
+    </Modal>
+  );
+}
+
+export function ModeratorForm({
   returnPath,
   showProviders = true,
   signingIn,
   error,
   onSignIn,
-  onCancel,
-}: ModeratorDialogProps) {
+}: Omit<ModeratorDialogProps, "onCancel">) {
   const { t } = useTranslation();
   const [email, setEmail] = useTabText("signin:identifier");
   const [password, setPassword] = useState("");
@@ -42,7 +50,7 @@ export function ModeratorDialog({
   }
 
   return (
-    <Modal onClose={onCancel} title={t("nickname.signIn")} closable>
+    <div className="space-y-4">
       {showProviders && (
         <AccountOptions returnPath={returnPath} divider={t("account.or")} />
       )}
@@ -90,6 +98,6 @@ export function ModeratorDialog({
           {signingIn ? t("nickname.signingIn") : t("nickname.signIn")}
         </Button>
       </form>
-    </Modal>
+    </div>
   );
 }

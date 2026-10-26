@@ -1,5 +1,5 @@
 import { ArrowRight } from "lucide-react";
-import { useState, type SubmitEvent } from "react";
+import { useState, type ReactNode, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
@@ -28,6 +28,7 @@ interface NicknameDialogProps {
   ) => void;
   onCancel: () => void;
   onSignIn?: () => void;
+  signInForm?: ReactNode;
   // The version of the terms the chat-server names now; null while it is not known.
   termsVersion: string | null;
   // Where the browser comes back to after signing in with a provider: the room that was being joined.
@@ -43,6 +44,7 @@ export function NicknameDialog({
   onSubmit,
   onCancel,
   onSignIn,
+  signInForm,
   termsVersion,
   returnPath,
 }: NicknameDialogProps) {
@@ -73,53 +75,62 @@ export function NicknameDialog({
   }
 
   return (
-    <Modal open={open} onClose={onCancel} title={t("nickname.title")} closable>
-      <div className="space-y-4">
-        <AccountOptions
-          returnPath={returnPath}
-          intro={t("nickname.withAccount")}
-          divider={t("nickname.orGuest")}
-          onSignIn={onSignIn}
-        />
+    <Modal
+      open={open}
+      onClose={onCancel}
+      title={t(signInForm ? "nickname.signIn" : "nickname.title")}
+      closable
+    >
+      {(changeView) =>
+        signInForm ?? (
+          <div className="space-y-4">
+            <AccountOptions
+              returnPath={returnPath}
+              intro={t("nickname.withAccount")}
+              divider={t("nickname.orGuest")}
+              onSignIn={onSignIn ? () => changeView(onSignIn) : undefined}
+            />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Field
-            id="nickname"
-            label={t("nickname.label")}
-            hint={t("nickname.hint")}
-            autoFocus
-            data-autofocus
-            autoComplete="nickname"
-            maxLength={24}
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            invalid={touched && !nickname}
-          />
-          <HumanCheck
-            action="guest_join"
-            onToken={setHumanToken}
-            busy={connecting}
-            active={open}
-          />
-          <TermsCheckbox
-            checked={termsAccepted}
-            onChange={setTermsAccepted}
-            invalid={touched && !termsAccepted}
-          />
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <Field
+                id="nickname"
+                label={t("nickname.label")}
+                hint={t("nickname.hint")}
+                autoFocus
+                data-autofocus
+                autoComplete="nickname"
+                maxLength={24}
+                value={value}
+                onChange={(event) => setValue(event.target.value)}
+                invalid={touched && !nickname}
+              />
+              <HumanCheck
+                action="guest_join"
+                onToken={setHumanToken}
+                busy={connecting}
+                active={open}
+              />
+              <TermsCheckbox
+                checked={termsAccepted}
+                onChange={setTermsAccepted}
+                invalid={touched && !termsAccepted}
+              />
 
-          <ErrorAlert code={error} />
+              <ErrorAlert code={error} />
 
-          <Button
-            type="submit"
-            variant="primary"
-            icon={ArrowRight}
-            disabled={connecting || humanToken === null}
-            className="w-full"
-          >
-            {connecting ? t("nickname.connecting") : t("nickname.submit")}
-          </Button>
-        </form>
-      </div>
+              <Button
+                type="submit"
+                variant="primary"
+                icon={ArrowRight}
+                disabled={connecting || humanToken === null}
+                className="w-full"
+              >
+                {connecting ? t("nickname.connecting") : t("nickname.submit")}
+              </Button>
+            </form>
+          </div>
+        )
+      }
     </Modal>
   );
 }

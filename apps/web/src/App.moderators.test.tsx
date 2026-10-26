@@ -143,6 +143,13 @@ describe("moderators", () => {
     expect(
       await dialog.findByRole("button", { name: "Edit profile" }),
     ).toBeVisible();
+    await user.click(dialog.getByRole("button", { name: "Edit profile" }));
+    expect(await dialog.findByRole("button", { name: "Save" })).toBeVisible();
+    await user.click(dialog.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() =>
+      expect(window.location.search).not.toContain("dialog="),
+    );
   });
 
   describe("the dialog", () => {

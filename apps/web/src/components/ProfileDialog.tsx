@@ -21,9 +21,10 @@ import { AvatarIcon, GenderLabel } from "./Avatar";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
-import { Modal } from "./Modal";
+import { Modal, useModalViewTransition } from "./Modal";
 import { AvatarPicker, NameAndBirthDate, PicturePicker } from "./ProfileFields";
 import { useReloadUiContext } from "../reloadUi";
+import { useKept } from "../useKept";
 import { useTabText, writeTabDraft } from "../tabDraft";
 
 // Who somebody is shown as: a guest or an account in a room, or an account in the lobby.
@@ -43,6 +44,7 @@ export function ProfileDialog({
   onCreateAccount,
   staffToken,
   onPasswordChanged,
+  creation,
 }: {
   open: boolean;
   onClose: () => void;
@@ -54,20 +56,28 @@ export function ProfileDialog({
   onCreateAccount?: () => void;
   staffToken?: string;
   onPasswordChanged?: () => void;
+  creation?: ReactNode;
 }) {
   const { t } = useTranslation();
 
   return (
-    <Modal open={open} onClose={onClose} title={t("profile.title")} closable>
-      <ProfileBody
-        profile={profile}
-        onSave={onSave}
-        account={account}
-        onDelete={onDelete}
-        onCreateAccount={onCreateAccount}
-        staffToken={staffToken}
-        onPasswordChanged={onPasswordChanged}
-      />
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t(creation ? "account.claimTitle" : "profile.title")}
+      closable
+    >
+      {creation ?? (
+        <ProfileBody
+          profile={profile}
+          onSave={onSave}
+          account={account}
+          onDelete={onDelete}
+          onCreateAccount={onCreateAccount}
+          staffToken={staffToken}
+          onPasswordChanged={onPasswordChanged}
+        />
+      )}
     </Modal>
   );
 }
@@ -92,6 +102,7 @@ function ProfileBody({
 }) {
   const { t } = useTranslation();
   const ui = useReloadUiContext();
+  const changeView = useModalViewTransition();
   const [localEditing, setLocalEditing] = useState(false);
   const [accountAction, setAccountAction] = useState(false);
   const [providerAction, setProviderAction] = useState(false);
@@ -125,10 +136,21 @@ function ProfileBody({
       cancelled = true;
     };
   }, [staffToken, staffAttempt]);
-  const editing = ui ? ui.dialog === "profile-edit" : localEditing;
+  const editing =
+    useKept(
+      ui
+        ? ui.dialog === "profile-edit"
+          ? true
+          : ui.dialog === "profile"
+            ? false
+            : null
+        : localEditing,
+    ) ?? false;
   const setEditing = (value: boolean) => {
-    if (ui) ui.setDialog(value ? "profile-edit" : "profile");
-    else setLocalEditing(value);
+    changeView(() => {
+      if (ui) ui.setDialog(value ? "profile-edit" : "profile");
+      else setLocalEditing(value);
+    });
   };
 
   if (editing) {
@@ -150,7 +172,9 @@ function ProfileBody({
           account={account}
           staffProvider={staff?.session?.provider}
           onEdit={() => setEditing(true)}
-          onCreateAccount={onCreateAccount}
+          onCreateAccount={
+            onCreateAccount ? () => changeView(onCreateAccount) : undefined
+          }
         />
       )}
       {!accountAction &&

@@ -1094,7 +1094,8 @@ describe("a moderator's profile", () => {
         />,
       );
 
-      const dialog = within(await screen.findByRole("dialog"));
+      const dialogElement = await screen.findByRole("dialog");
+      const dialog = within(dialogElement);
 
       expect(dialog.getByText("Ada Mod")).toBeInTheDocument();
       expect(
@@ -1115,6 +1116,14 @@ describe("a moderator's profile", () => {
         .click(dialog.getByRole("button", { name: "Edit profile" }));
       expect(dialog.getByRole("button", { name: "Save" })).toBeVisible();
       expect(dialog.getByLabelText("Display name")).toHaveValue("Ada Mod");
+      expect(screen.getByRole("dialog")).toBe(dialogElement);
+      await userEvent
+        .setup()
+        .click(dialog.getByRole("button", { name: "Cancel" }));
+      expect(screen.getByRole("dialog")).toBe(dialogElement);
+      expect(
+        dialog.getByRole("button", { name: "Edit profile" }),
+      ).toBeVisible();
     },
   );
 });
