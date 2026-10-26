@@ -1119,6 +1119,8 @@ test("sidebar accordions share edge-aligned scrollbars and content gutters", asy
         new Promise<number[]>((resolve) => {
           const nextSection = button.closest("section")!.nextElementSibling!;
           const positions: number[] = [];
+          if (!(button instanceof HTMLButtonElement))
+            throw new Error("Expected an accordion button");
           button.click();
           function capture() {
             positions.push(nextSection.getBoundingClientRect().top);

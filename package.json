@@ -6,6 +6,11 @@
     "apps/*"
   ],
   "scripts": {
+    "prepare": "node scripts/check.mjs install",
+    "check": "node scripts/check.mjs push",
+    "check:commit": "node scripts/check.mjs commit",
+    "check:push": "node scripts/check.mjs push --hook",
+    "test:checks": "node --test scripts/check.test.mjs",
     "setup": "node scripts/setup.mjs",
     "start": "node scripts/start.mjs",
     "stop": "node scripts/stop.mjs",
@@ -39,8 +44,13 @@
   "devDependencies": {
     "audit-ci": "^7.1.0",
     "concurrently": "^10.0.6",
+    "husky": "^9.1.7",
+    "lint-staged": "16.2.7",
     "prettier": "^3.4.2",
     "wait-on": "^9.5.1"
+  },
+  "lint-staged": {
+    "*": "prettier --write --ignore-unknown"
   },
   "engines": {
     "node": ">=20"
