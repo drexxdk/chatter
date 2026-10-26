@@ -737,6 +737,16 @@ html:has(#headlessui-portal-root [role="dialog"][aria-modal="true"]) {
   -webkit-backdrop-filter: none;
 }
 
+.emoji-pane [data-epr-part="search-input"]:focus {
+  outline: none;
+}
+
+html:not([data-pointer])
+  .emoji-pane
+  [data-epr-part="search-input"]:focus-visible {
+  outline: 2px solid var(--color-focus);
+}
+
 /* Focus is the outline the rest of the site has, round the emoji and the section buttons. */
 .emoji-pane [data-epr-part="emoji"]:focus-visible,
 .emoji-pane [data-epr-part="category-tab"]:focus-visible {
