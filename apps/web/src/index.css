@@ -101,6 +101,42 @@ html:has([data-room-search] input:focus) {
   .button-outline {
     position: relative;
   }
+
+  .control-icon {
+    @apply inline-flex size-11 shrink-0 items-center justify-center rounded-md bg-white/3 text-neutral-300 outline-none sm:size-9;
+  }
+
+  .control-icon > svg {
+    @apply size-4 shrink-0;
+  }
+
+  .control-field {
+    @apply h-11 rounded-md border border-neutral-700 bg-white/3 px-3 text-base outline-none sm:h-9 sm:text-sm;
+  }
+
+  .control-command {
+    @apply inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm sm:min-h-9;
+  }
+
+  .control-icon:not(:disabled, [aria-disabled="true"], [data-disabled]):is(
+      :hover,
+      :focus-visible,
+      [data-focus],
+      [data-open]
+    ),
+  .control-field:not(:disabled, [aria-disabled="true"], [data-disabled]):is(
+      :hover,
+      :focus-visible,
+      [data-hover],
+      [data-open]
+    ) {
+    @apply bg-white/6;
+  }
+
+  .control-icon:is(:disabled, [aria-disabled="true"], [data-disabled]),
+  .control-field:is(:disabled, [aria-disabled="true"], [data-disabled]) {
+    @apply cursor-default opacity-50;
+  }
 }
 
 .glass-surface {
@@ -248,13 +284,20 @@ html:has([data-room-search] input:focus) {
     opacity 180ms ease-out;
 }
 
-.button-outline:not(:disabled, [aria-disabled="true"]):focus-visible::after {
+.button-outline:not(:disabled, [aria-disabled="true"], [data-disabled]):is(
+    :focus-visible,
+    [data-focus]
+  )::after {
   inset: -4px;
   opacity: 1;
 }
 
 @media (hover: hover) {
-  .button-outline:not(:disabled, [aria-disabled="true"]):hover::after {
+  .button-outline:not(
+      :disabled,
+      [aria-disabled="true"],
+      [data-disabled]
+    ):hover::after {
     inset: -4px;
     opacity: 1;
   }

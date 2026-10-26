@@ -54,7 +54,7 @@ export function MainMenu({
     return (
       <span
         aria-hidden="true"
-        className="size-10 animate-pulse rounded-full bg-neutral-800 motion-reduce:animate-none"
+        className="size-9 animate-pulse rounded-md bg-neutral-800 motion-reduce:animate-none"
       />
     );
 
@@ -66,7 +66,7 @@ export function MainMenu({
         title={t("settings.title")}
         aria-haspopup="dialog"
         onClick={onSettings}
-        className="rounded-md p-2 outline-none hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400"
+        className="button-outline inline-flex size-9 items-center justify-center rounded-md outline-none hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400"
       >
         <Settings aria-hidden="true" className="h-5 w-5" />
       </button>
@@ -77,7 +77,7 @@ export function MainMenu({
       <ReloadMenu name="main">
         <MenuButton
           aria-label={t("profile.open", { name: profile.nickname })}
-          className="flex rounded-full p-1 outline-none hover:bg-neutral-800 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
+          className="button-outline inline-flex size-9 items-center justify-center rounded-md outline-none hover:bg-neutral-800 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
         >
           <AvatarIcon
             avatar={profile.avatar ?? PLAIN_AVATAR}

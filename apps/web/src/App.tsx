@@ -1054,7 +1054,7 @@ export function App({
                       aria-expanded={sidebarOpen}
                       aria-controls={`room-sidebar-${chat.roomSlug}`}
                       onClick={() => setSidebarOpen(!sidebarOpen)}
-                      className="relative hidden size-9 shrink-0 items-center justify-center rounded-md text-(--room-accent) hover:bg-(--room-accent)/10 focus-visible:outline-2 focus-visible:outline-indigo-400 md:inline-flex"
+                      className="button-outline relative hidden size-9 shrink-0 items-center justify-center rounded-md text-(--room-accent) hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-indigo-400 md:inline-flex"
                     >
                       <Users aria-hidden="true" className="size-5" />
                       {!sidebarOpen && unreadCount > 0 && (

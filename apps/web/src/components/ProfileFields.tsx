@@ -191,7 +191,7 @@ export function NameAndBirthDate({
         <legend className="text-sm font-medium">
           {t("profile.birthDate")}
         </legend>
-        <div className="grid grid-cols-[3.5rem_minmax(0,1fr)_5rem_2rem] items-center gap-2">
+        <div className="grid grid-cols-[3.5rem_minmax(0,1fr)_5rem_auto] items-center gap-2">
           <label className="sr-only" htmlFor={`${ageId}-day`}>
             {t("profile.day")}
           </label>
@@ -282,7 +282,7 @@ export function NameAndBirthDate({
           />
           <button
             type="button"
-            className="flex size-8 items-center justify-center rounded text-neutral-400 hover:text-neutral-100 disabled:opacity-30"
+            className="control-icon button-outline"
             title={t("profile.clearBirthDate")}
             aria-label={t("profile.clearBirthDate")}
             disabled={!parts.day && !parts.month && !parts.year}

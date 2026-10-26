@@ -424,6 +424,7 @@ describe("signing in from the lobby", () => {
       expect.stringContaining("return=%2Frooms%2Fgeneral"),
     );
     await user.click(creation.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await user.click(
       screen.getByRole("button", { name: "Account menu: Alice" }),
     );

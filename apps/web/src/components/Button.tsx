@@ -8,11 +8,10 @@ const button = cva("", {
         "rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium hover:bg-indigo-500 disabled:opacity-60",
       danger:
         "rounded-md bg-red-900/80 px-3 py-1.5 text-sm text-red-100 ring-1 ring-inset ring-red-400/30 hover:bg-red-800/80 disabled:opacity-60",
-      secondary:
-        "rounded-md bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700",
-      ghost: "rounded-md px-3 py-1.5 text-sm hover:bg-neutral-800",
+      secondary: "bg-white/3 enabled:hover:bg-white/6 disabled:opacity-50",
+      ghost: "enabled:hover:bg-white/6 disabled:opacity-50",
       // Just an icon, as the close button of a panel.
-      icon: "rounded-md p-1.5 hover:bg-neutral-800",
+      icon: "control-icon",
       tile: "choice-tile rounded border border-neutral-700 text-sm aria-pressed:border-indigo-400 aria-pressed:bg-indigo-500/10 focus-visible:outline-2 focus-visible:outline-indigo-400",
       // In running text, to be taken for a link.
       link: "text-sm text-indigo-300 underline hover:text-indigo-200",
@@ -22,6 +21,10 @@ const button = cva("", {
     },
   },
   compoundVariants: [
+    {
+      variant: ["primary", "danger", "secondary", "ghost"],
+      className: "control-command",
+    },
     {
       variant: ["primary", "danger", "secondary", "ghost", "icon"],
       className: "button-outline",

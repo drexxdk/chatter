@@ -54,8 +54,7 @@ const TOAST_ICONS = {
 const item = `${MENU_ITEM} gap-3 px-2 py-2`;
 const previewItem = `${MENU_ITEM} min-h-9 gap-2 px-2 py-2`;
 const heading = "px-2 py-1 text-xs font-semibold uppercase text-neutral-500";
-const iconAction =
-  "flex size-9 shrink-0 items-center justify-center rounded bg-neutral-800 text-neutral-300 enabled:hover:bg-neutral-700 data-focus:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400 disabled:cursor-default disabled:opacity-50 data-disabled:cursor-default data-disabled:opacity-50 data-disabled:hover:bg-neutral-800 [&_svg]:size-4";
+const iconAction = "control-icon button-outline";
 
 // Why the server removes somebody; each can be shown to the admin themselves.
 const KICK_REASONS = [
@@ -119,7 +118,7 @@ function QueueSettingsForm({
       </label>
       <form
         noValidate
-        className="flex gap-1"
+        className="flex gap-1 px-2"
         onSubmit={(event) => {
           event.preventDefault();
           if (valid && ahead !== settings.ahead) {
@@ -266,7 +265,7 @@ function RoomLimitForm({
   return (
     <form
       noValidate
-      className="flex gap-1 pb-1"
+      className="flex gap-1 px-2 pb-1"
       onSubmit={(event) => {
         event.preventDefault();
         if (room && valid && maxMembers !== room.maxMembers)
@@ -341,7 +340,7 @@ export function AdminMenu({
       <ReloadMenu name="admin">
         <MenuButton
           aria-label={t("admin.open")}
-          className="rounded-md p-2 outline-none hover:bg-(--room-accent)/10 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
+          className="button-outline inline-flex size-9 items-center justify-center rounded-md outline-none hover:bg-neutral-800 data-focus:outline-2 data-focus:outline-solid data-focus:outline-indigo-400"
         >
           <FlaskConical aria-hidden="true" className="h-5 w-5" />
         </MenuButton>
@@ -430,7 +429,7 @@ export function AdminMenu({
                     { people },
                   );
                 }}
-                className="flex gap-1 pb-1"
+                className="flex gap-1 px-2 pb-1"
               >
                 <input
                   type="text"
