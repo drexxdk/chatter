@@ -557,7 +557,8 @@
   },
   "humanCheck": {
     "label": "Menschliche Verifizierung",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "localhost": "Auf localhost nicht verfügbar"
   },
   "identity": {
     "publicTag": "Öffentliche Kennung",

@@ -20,6 +20,7 @@ import { CreateAccountDialog } from "./AccountSection";
 const widget = vi.hoisted(() => ({
   props: undefined as TurnstileProps | undefined,
   reset: vi.fn(),
+  resize: undefined as ((width: number) => void) | undefined,
 }));
 vi.mock("@marsidev/react-turnstile", async () => {
   const { createElement, useImperativeHandle } = await import("react");
@@ -38,6 +39,23 @@ vi.mock("@marsidev/react-turnstile", async () => {
 beforeEach(() => {
   widget.reset.mockClear();
   widget.props = undefined;
+  widget.resize = undefined;
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(callback: ResizeObserverCallback) {
+        widget.resize = (width) =>
+          callback(
+            [{ contentRect: { width } } as ResizeObserverEntry],
+            this as unknown as ResizeObserver,
+          );
+      }
+      observe() {
+        widget.resize?.(343.75);
+      }
+      disconnect() {}
+    },
+  );
   vi.stubGlobal(
     "fetch",
     vi.fn(async () =>
@@ -52,6 +70,60 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("human verification forms", () => {
+  it("reserves the exact widget height and rounds fractional widths down", async () => {
+    render(<HumanCheck action="guest_join" busy={false} onToken={vi.fn()} />);
+    await screen.findByTestId("human-widget");
+    const group = screen.getByRole("group", { name: "Human verification" });
+    expect(group.firstElementChild).toHaveStyle({
+      width: "343px",
+      height: "65px",
+    });
+    expect(group).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(screen.getByRole("status")).toHaveClass(
+      "rounded-xs",
+      "border",
+      "border-neutral-500",
+      "bg-[#232323]",
+    );
+    act(() => widget.props?.onBeforeInteractive?.());
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(group).toHaveAttribute("aria-busy", "false");
+    expect(group.firstElementChild).toHaveStyle({ height: "65px" });
+    act(() => widget.props?.onWidgetLoad?.("reloaded-widget"));
+    expect(screen.getByRole("status")).toBeVisible();
+    expect(group.firstElementChild).toHaveStyle({ height: "65px" });
+  });
+
+  it("matches compact widget dimensions when the available width is below 300px", async () => {
+    const token = vi.fn();
+    render(<HumanCheck action="guest_join" busy={false} onToken={token} />);
+    await screen.findByTestId("human-widget");
+    act(() => widget.props?.onSuccess?.("wide-token"));
+    act(() => widget.resize?.(299.75));
+    const group = screen.getByRole("group", { name: "Human verification" });
+    expect(group.firstElementChild).toHaveStyle({
+      width: "150px",
+      height: "140px",
+    });
+    expect(widget.props?.options?.size).toBe("compact");
+    expect(screen.getByRole("status")).toBeVisible();
+    expect(token).toHaveBeenLastCalledWith(null);
+  });
+
+  it("shows an empty frame while configuration is pending without enabling submission", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
+    const token = vi.fn();
+    render(<HumanCheck action="guest_join" busy={false} onToken={token} />);
+    expect(screen.getByRole("status")).toBeVisible();
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(screen.queryByTestId("human-widget")).toBeNull();
+    expect(token).toHaveBeenLastCalledWith(null);
+  });
+
   it("blocks guest submission until verified without blocking provider links", async () => {
     const submit = vi.fn();
     const user = userEvent.setup();
@@ -218,7 +290,7 @@ describe("human verification forms", () => {
     expect(token).toHaveBeenLastCalledWith(null);
   });
 
-  it("does not load the widget when verification is not configured", async () => {
+  it("labels the localhost preview without loading the widget or changing its dimensions", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => Response.json({ providers: [] })),
@@ -228,6 +300,18 @@ describe("human verification forms", () => {
     await waitFor(() => expect(token).toHaveBeenLastCalledWith(""));
     expect(screen.queryByTestId("human-widget")).toBeNull();
     expect(screen.getByText("Cloudflare Turnstile")).toBeVisible();
+    expect(screen.getByText("Unavailable on localhost")).toBeVisible();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByRole("group").firstElementChild).toHaveStyle({
+      height: "65px",
+    });
+    act(() => widget.resize?.(250));
+    expect(screen.getByRole("group").firstElementChild).toHaveStyle({
+      width: "150px",
+      height: "140px",
+    });
+    expect(screen.getByText("Unavailable on localhost")).toBeVisible();
+    expect(token).toHaveBeenLastCalledWith("");
   });
 
   it("does not show the development placeholder in production", async () => {
@@ -239,7 +323,7 @@ describe("human verification forms", () => {
     const token = vi.fn();
     render(<HumanCheck action="guest_join" busy={false} onToken={token} />);
     await waitFor(() => expect(token).toHaveBeenLastCalledWith(""));
-    expect(screen.queryByText("Cloudflare Turnstile")).toBeNull();
+    expect(screen.queryByRole("group")).toBeNull();
     expect(screen.queryByTestId("human-widget")).toBeNull();
   });
 

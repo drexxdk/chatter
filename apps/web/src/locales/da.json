@@ -555,7 +555,11 @@
       "submitting": "Opretter kontoen…"
     }
   },
-  "humanCheck": { "label": "Bekræftelse af menneske", "retry": "Prøv igen" },
+  "humanCheck": {
+    "label": "Bekræftelse af menneske",
+    "retry": "Prøv igen",
+    "localhost": "Ikke tilgængelig på localhost"
+  },
   "identity": {
     "publicTag": "Offentligt id",
     "copyTag": "Kopiér offentligt id",

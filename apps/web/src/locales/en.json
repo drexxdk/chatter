@@ -557,7 +557,8 @@
   },
   "humanCheck": {
     "label": "Human verification",
-    "retry": "Retry verification"
+    "retry": "Retry verification",
+    "localhost": "Unavailable on localhost"
   },
   "identity": {
     "publicTag": "Public tag",
