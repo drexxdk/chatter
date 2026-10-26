@@ -555,6 +555,10 @@
       "submitting": "Konto wird erstellt…"
     }
   },
+  "staffLinks": {
+    "health": "API-Status",
+    "admin": "Verwaltung"
+  },
   "humanCheck": {
     "label": "Menschliche Verifizierung",
     "retry": "Erneut versuchen",

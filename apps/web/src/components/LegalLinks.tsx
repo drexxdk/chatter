@@ -63,3 +63,11 @@ export function LegalLinks() {
     </nav>
   );
 }
+
+export function SiteFooter() {
+  return (
+    <footer>
+      <LegalLinks />
+    </footer>
+  );
+}

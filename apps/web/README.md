@@ -36,6 +36,14 @@ Display names may be shared by members and guests; login usernames remain unique
 
 After a member changes their display name, another change is blocked for 24 hours. The form states this rule and shows a live hours/minutes/seconds countdown when refused. The first rename is available immediately; keeping the name unchanged allows other profile edits without consuming or resetting the cooldown. The server enforces the persisted deadline through both account HTTP requests and socket updates.
 
+## Site links
+
+The lobby, About, Terms and Privacy pages share a footer containing only Terms, Privacy and About links.
+API health and Admin links appear in the account menu only for signed-in moderators and admins.
+API health opens `/health` on `VITE_CHAT_SERVER_URL`; it is a liveness response, not UptimeRobot history or
+a whole-site availability guarantee. The admin link defaults to `http://localhost:3000/admin` in development and
+`https://chatter-drexx-admin.duckdns.org/admin` in production. Set `VITE_ADMIN_URL` before building to override it.
+
 ## Notifications and room removal
 
 Settings offer private-message, warning and join sounds, shared volume and previews. Guests keep preferences locally;

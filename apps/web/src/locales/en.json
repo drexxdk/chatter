@@ -555,6 +555,10 @@
       "submitting": "Creating the account…"
     }
   },
+  "staffLinks": {
+    "health": "API health",
+    "admin": "Admin"
+  },
   "humanCheck": {
     "label": "Human verification",
     "retry": "Retry verification",

@@ -48,7 +48,7 @@ import { useTranslation } from "react-i18next";
 import { CONTACT_EMAIL, SOURCE_URL } from "../config";
 import { Breadcrumb } from "./Breadcrumb";
 import { ButtonLink } from "./Button";
-import { LegalLinks, LINK } from "./LegalLinks";
+import { SiteFooter, LINK } from "./LegalLinks";
 
 const PARTS: { id: string; icon: LucideIcon }[] = [
   { id: "website", icon: Globe },
@@ -333,7 +333,7 @@ export function AboutPage() {
         </Section>
       </article>
 
-      <LegalLinks />
+      <SiteFooter />
     </div>
   );
 }

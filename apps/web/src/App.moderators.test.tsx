@@ -1,4 +1,4 @@
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +12,8 @@ import {
   message,
 } from "./test/app";
 import { makeFakeServer } from "./test/fakeSocket";
+import { MainMenu } from "./components/MainMenu";
+import { ADMIN_URL, HEALTH_URL } from "./config";
 
 beforeEach(() => {
   stubRooms();
@@ -75,6 +77,73 @@ describe("moderators", () => {
       await screen.findByRole("button", { name: "Join General" }),
     );
   }
+
+  describe("staff service links", () => {
+    it.each([
+      { account: "staff", moderator: true, guest: false },
+      { account: "member", moderator: false, guest: false },
+      { account: "guest", moderator: false, guest: true },
+    ])(
+      "limits service links for a $account profile",
+      async ({ moderator, guest }) => {
+        const user = userEvent.setup();
+        render(
+          <MainMenu
+            onSettings={vi.fn()}
+            profile={{
+              nickname: "Ada",
+              moderator,
+              guest,
+              onProfile: vi.fn(),
+              onSignOut: vi.fn(),
+            }}
+          />,
+        );
+        await user.click(
+          screen.getByRole("button", { name: "Account menu: Ada" }),
+        );
+        const menu = within(await screen.findByRole("menu"));
+        for (const [name, href] of [
+          ["API health", HEALTH_URL],
+          ["Admin", ADMIN_URL],
+        ]) {
+          if (moderator) {
+            const link = menu.getByRole("menuitem", { name });
+            expect(link).toHaveAttribute("href", href);
+            expect(link).toHaveAttribute("target", "_blank");
+            expect(link).toHaveAttribute("rel", "noopener noreferrer");
+          } else {
+            expect(menu.queryByRole("menuitem", { name })).toBeNull();
+          }
+        }
+      },
+    );
+  });
+
+  it("keeps the staff profile editor open when Edit profile is selected", async () => {
+    stubBackend(accepted);
+    const { user } = setup();
+    await signIn(user);
+    await user.click(
+      await screen.findByRole("button", { name: "Account menu: Ada Mod" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Your profile" }),
+    );
+    const dialog = within(
+      await screen.findByRole("dialog", { name: "Your profile" }),
+    );
+    await user.click(dialog.getByRole("button", { name: "Edit profile" }));
+    expect(await dialog.findByRole("button", { name: "Save" })).toBeVisible();
+    await waitFor(() =>
+      expect(window.location.search).toContain("dialog=profile-edit"),
+    );
+    expect(dialog.getByRole("button", { name: "Save" })).toBeVisible();
+    await user.click(dialog.getByRole("button", { name: "Cancel" }));
+    expect(
+      await dialog.findByRole("button", { name: "Edit profile" }),
+    ).toBeVisible();
+  });
 
   describe("the dialog", () => {
     it("keeps the header sign-in separate from the dialog for joining a room", async () => {

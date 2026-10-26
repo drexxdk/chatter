@@ -102,6 +102,40 @@ afterEach(() => {
 });
 
 describe("signing in from the lobby", () => {
+  it("recovers provider options when About-page sign-in encounters a transient configuration failure", async () => {
+    const backend = stubBackend({ providers: ["google", "discord"] });
+    let providerAttempts = 0;
+    vi.stubGlobal("fetch", (url: string, init?: RequestInit) => {
+      if (new URL(url).pathname === "/auth/providers") {
+        providerAttempts += 1;
+        if (providerAttempts === 1)
+          return Promise.resolve(new Response(null, { status: 503 }));
+      }
+      return backend(url, init);
+    });
+    window.history.replaceState(null, "", "/about");
+    const { user } = setup();
+    for (let opening = 0; opening < 2; opening += 1) {
+      await user.click(
+        within(screen.getByRole("banner")).getByRole("button", {
+          name: "Sign in",
+        }),
+      );
+      const dialog = within(
+        await screen.findByRole("dialog", { name: "Sign in" }),
+      );
+      expect(
+        await dialog.findByRole("link", { name: "Continue with Google" }),
+      ).toHaveAttribute("href", expect.stringContaining("return=%2Fabout"));
+      expect(
+        dialog.getByRole("link", { name: "Continue with Discord" }),
+      ).toBeVisible();
+      await user.click(dialog.getByRole("button", { name: "Close" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    }
+    expect(providerAttempts).toBe(2);
+  });
+
   it("shows the saved member menu before session restoration finishes", () => {
     stubBackend();
     saveAccount(ACCOUNT);
@@ -162,8 +196,18 @@ describe("signing in from the lobby", () => {
         screen.queryByRole("dialog", { name: "Join the chat" }),
       ).toBeNull();
       expect(login.getByLabelText("Username or email")).toBeVisible();
-      expect(login.queryByRole("link", { name: /Continue with/ })).toBeNull();
-      expect(login.queryByText("or", { exact: true })).toBeNull();
+      if (enabled) {
+        expect(
+          await login.findByRole("link", { name: "Continue with Google" }),
+        ).toHaveAttribute(
+          "href",
+          expect.stringContaining("return=%2Frooms%2Fgeneral"),
+        );
+        expect(login.getByText("or", { exact: true })).toBeVisible();
+      } else {
+        expect(login.queryByRole("link", { name: /Continue with/ })).toBeNull();
+        expect(login.queryByText("or", { exact: true })).toBeNull();
+      }
       await user.click(login.getByRole("button", { name: "Close" }));
       const restored = within(
         await screen.findByRole("dialog", { name: "Join the chat" }),

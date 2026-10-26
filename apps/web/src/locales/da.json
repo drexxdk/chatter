@@ -555,6 +555,10 @@
       "submitting": "Opretter kontoen…"
     }
   },
+  "staffLinks": {
+    "health": "API-status",
+    "admin": "Administration"
+  },
   "humanCheck": {
     "label": "Bekræftelse af menneske",
     "retry": "Prøv igen",

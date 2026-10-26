@@ -4,7 +4,7 @@ import { CONTACT_EMAIL } from "../config";
 import { legalIn, withContact, type LegalPageName } from "../legal";
 import type { LegalState } from "../legal/useLegal";
 import { Breadcrumb } from "./Breadcrumb";
-import { LegalLinks, LINK } from "./LegalLinks";
+import { SiteFooter, LINK } from "./LegalLinks";
 import { LoadError, Loading } from "./LoadState";
 
 function Paragraph({
@@ -104,7 +104,7 @@ export function LegalPage({
         )}
       </article>
 
-      <LegalLinks />
+      <SiteFooter />
     </div>
   );
 }

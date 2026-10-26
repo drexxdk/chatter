@@ -4,10 +4,19 @@ import {
   MenuItems,
   MenuSection,
 } from "@headlessui/react";
-import { DoorOpen, LogIn, User, UserPlus, Settings } from "lucide-react";
+import {
+  Activity,
+  DoorOpen,
+  LogIn,
+  Shield,
+  User,
+  UserPlus,
+  Settings,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
+import { ADMIN_URL, HEALTH_URL } from "../config";
 import { AvatarIcon } from "./Avatar";
 import { HEADER_MENU, MENU_ITEM } from "./dropdown";
 import { ReloadMenu } from "./ReloadMenu";
@@ -155,6 +164,33 @@ export function MainMenu({
                   )}
                 </MenuSection>
               </>
+            )}
+
+            {profile.moderator && (
+              <MenuSection className="space-y-1 border-t border-neutral-800 pt-1">
+                <MenuItem>
+                  <a
+                    href={HEALTH_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={item}
+                  >
+                    <Activity aria-hidden="true" className="h-5 w-5 shrink-0" />
+                    {t("staffLinks.health")}
+                  </a>
+                </MenuItem>
+                <MenuItem>
+                  <a
+                    href={ADMIN_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={item}
+                  >
+                    <Shield aria-hidden="true" className="h-5 w-5 shrink-0" />
+                    {t("staffLinks.admin")}
+                  </a>
+                </MenuItem>
+              </MenuSection>
             )}
 
             {profile && (

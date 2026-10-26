@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { MessagesSquare } from "lucide-react";
 
 import { LOBBY_PATH } from "../place";
 import { roomTheme } from "../roomThemes";
@@ -89,7 +90,14 @@ export function PageFrame({
       <HeaderFrame roomSlug={roomSlug} wide={wide}>
         {header ?? (
           <>
-            <a href={LOBBY_PATH} className="font-brand text-2xl font-bold">
+            <a
+              href={LOBBY_PATH}
+              className="font-brand inline-flex items-center gap-2 text-2xl font-bold"
+            >
+              <MessagesSquare
+                aria-hidden="true"
+                className="size-6 shrink-0 text-indigo-300"
+              />
               {t("app.title")}
             </a>
             <PageSettingsMenu />

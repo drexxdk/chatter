@@ -27,6 +27,9 @@ describe("the page about how the site is built", () => {
     expect(screen.getAllByRole("heading", { level: 2 })[0]).toHaveTextContent(
       "Built with",
     );
+    expect(
+      screen.getByRole("banner").querySelector("a svg.lucide-messages-square"),
+    ).toHaveAttribute("aria-hidden", "true");
     for (const heading of [
       "The parts",
       "The journey of a message",
@@ -126,6 +129,26 @@ describe("the page about how the site is built", () => {
     expect(
       screen.getByRole("link", { name: "Privacy policy" }),
     ).toHaveAttribute("href", "/privacy");
+  });
+
+  it("keeps only the three public page links in the footer", () => {
+    renderAt("/about");
+    const footer = within(
+      screen
+        .getByRole("navigation", { name: "Terms and privacy" })
+        .closest("footer")!,
+    );
+    expect(footer.getAllByRole("link")).toHaveLength(3);
+    for (const [name, href] of [
+      ["Terms of use", "/terms"],
+      ["Privacy policy", "/privacy"],
+      ["How it is built", "/about"],
+    ]) {
+      const link = footer.getByRole("link", { name });
+      expect(link).toHaveAttribute("href", href);
+    }
+    expect(footer.queryByRole("link", { name: "API health" })).toBeNull();
+    expect(footer.queryByRole("link", { name: "Admin" })).toBeNull();
   });
 
   it("is in the language of the page", async () => {

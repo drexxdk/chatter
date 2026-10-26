@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { LoaderCircle, LogIn, Users } from "lucide-react";
+import { LoaderCircle, LogIn, MessagesSquare, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   Link,
@@ -46,7 +46,7 @@ import { CreateAccountDialog } from "./components/AccountSection";
 import { AnnouncementBanner } from "./components/AnnouncementBanner";
 import { Button } from "./components/Button";
 import { ErrorAlert } from "./components/ErrorAlert";
-import { LegalLinks } from "./components/LegalLinks";
+import { SiteFooter } from "./components/LegalLinks";
 import { legalDocOf, LegalPage } from "./components/LegalPage";
 import { Lobby, useRooms } from "./components/Lobby";
 import { MainMenu } from "./components/MainMenu";
@@ -223,11 +223,6 @@ export function App({
         !hasProfile) ||
       (reloadUi.dialog === "create-account" && chat.session?.role !== "guest");
     if (unavailable) reloadUi.setDialog(null);
-    if (
-      reloadUi.dialog === "profile-edit" &&
-      chat.session?.role === "moderator"
-    )
-      reloadUi.setDialog("profile");
     if (
       ((reloadUi.menu === "rooms" ||
         reloadUi.menu === "search" ||
@@ -1071,17 +1066,28 @@ export function App({
                   />
                 </div>
               ) : page ? (
-                <Link to={LOBBY_PATH} className="font-brand text-2xl font-bold">
+                <Link
+                  to={LOBBY_PATH}
+                  className="font-brand inline-flex items-center gap-2 text-2xl font-bold"
+                >
+                  <MessagesSquare
+                    aria-hidden="true"
+                    className="size-6 shrink-0 text-indigo-300"
+                  />
                   {t("app.title")}
                 </Link>
               ) : (
                 <h1
                   className={
                     settled || !startedInRoom.current
-                      ? "font-brand text-2xl font-bold"
+                      ? "font-brand inline-flex items-center gap-2 text-2xl font-bold"
                       : "sr-only"
                   }
                 >
+                  <MessagesSquare
+                    aria-hidden="true"
+                    className="size-6 shrink-0 text-indigo-300"
+                  />
                   {t("app.title")}
                 </h1>
               )}
@@ -1099,12 +1105,15 @@ export function App({
                 {settled && !account && !chat.session && (
                   <Button
                     icon={LogIn}
+                    title={t("nickname.signIn")}
                     onClick={() => {
                       clearDialogErrors();
                       setModeratorOpen(true);
                     }}
                   >
-                    {t("nickname.signIn")}
+                    <span className="max-[360px]:sr-only">
+                      {t("nickname.signIn")}
+                    </span>
                   </Button>
                 )}
                 {!chat.queue && adminTools}
@@ -1223,9 +1232,7 @@ export function App({
                     onSelect={(room) => void handleSelect(room)}
                   />
                 </div>
-                <footer>
-                  <LegalLinks />
-                </footer>
+                <SiteFooter />
               </div>
             )}
           </ViewTransition>
@@ -1326,8 +1333,11 @@ export function App({
 
         {settled && moderatorOpen && (
           <ModeratorDialog
-            returnPath={location.pathname}
-            showProviders={signInRoom.current === null}
+            returnPath={
+              signInRoom.current
+                ? roomPath(signInRoom.current.slug)
+                : location.pathname
+            }
             signingIn={signingIn}
             error={signInError ?? chat.error}
             onSignIn={(email, password, humanToken) =>

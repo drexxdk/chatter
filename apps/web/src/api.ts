@@ -168,7 +168,9 @@ async function loadAuthProviders(): Promise<AuthConfiguration | undefined> {
 export async function fetchAuthConfiguration(): Promise<
   AuthConfiguration | undefined
 > {
-  providersRequest ??= loadAuthProviders();
+  providersRequest ??= loadAuthProviders().then(
+    (configuration) => configuration ?? loadAuthProviders(),
+  );
   const providers = await providersRequest;
 
   if (providers === undefined) providersRequest = undefined;
