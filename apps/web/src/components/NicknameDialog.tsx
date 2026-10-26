@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { PLAIN_AVATAR, type Avatar } from "../chat/avatar";
 import { randomPicture } from "../chat/picture";
 import { normalizeNickname } from "../nickname";
-import { loadTermsAccepted, saveTermsAccepted } from "../preferences";
+import { saveTermsAccepted } from "../preferences";
 import { AccountOptions } from "./AccountOptions";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
@@ -52,10 +52,13 @@ export function NicknameDialog({
   const [picture] = useState(() => randomPicture());
   const [touched, setTouched] = useState(false);
   const [humanToken, setHumanToken] = useState<string | null>(null);
-  // The box is ticked for a browser that has accepted this version of the terms; null until the guest touches it.
-  const rememberedTerms = loadTermsAccepted(termsVersion);
-  const [termsChoice, setTermsChoice] = useState<boolean | null>(null);
-  const termsAccepted = termsChoice ?? rememberedTerms;
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [previousOpen, setPreviousOpen] = useState(open);
+
+  if (previousOpen !== open) {
+    setPreviousOpen(open);
+    setTermsAccepted(false);
+  }
 
   const nickname = normalizeNickname(value);
 
@@ -64,7 +67,7 @@ export function NicknameDialog({
     setTouched(true);
 
     if (!connecting && nickname && termsAccepted && humanToken !== null) {
-      if (!rememberedTerms) saveTermsAccepted(termsVersion);
+      saveTermsAccepted(termsVersion);
       onSubmit(nickname, PLAIN_AVATAR, picture, humanToken || undefined);
     }
   }
@@ -100,7 +103,7 @@ export function NicknameDialog({
           />
           <TermsCheckbox
             checked={termsAccepted}
-            onChange={setTermsChoice}
+            onChange={setTermsAccepted}
             invalid={touched && !termsAccepted}
           />
 

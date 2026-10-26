@@ -15,7 +15,7 @@ import { randomPicture } from "../chat/picture";
 import { useLegal } from "../legal/useLegal";
 import { normalizeNickname, normalizeUsername, tidyName } from "../nickname";
 import { slugFromPath } from "../place";
-import { loadTermsAccepted, saveTermsAccepted } from "../preferences";
+import { saveTermsAccepted } from "../preferences";
 import { readBirthDate } from "../profile";
 import {
   clearSession,
@@ -235,9 +235,7 @@ function RegisterForm({
   const [picture, setPicture] = useState(() => randomPicture());
   const [avatar, setAvatar] = useState<Avatar>(guest?.avatar ?? PLAIN_AVATAR);
   const [birthDateText, setBirthDateText] = useState(guest?.birthDate ?? "");
-  const rememberedTerms = loadTermsAccepted(termsVersion);
-  const [termsChoice, setTermsChoice] = useState<boolean | null>(null);
-  const termsAccepted = termsChoice ?? rememberedTerms;
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(initialError ?? null);
@@ -270,7 +268,7 @@ function RegisterForm({
         birthDate: birthDate.birthDate,
       });
 
-      if (!rememberedTerms) saveTermsAccepted(termsVersion);
+      saveTermsAccepted(termsVersion);
       finish(session, returnPath, navigate);
     } catch (cause) {
       const code = codeOf(cause);
@@ -354,7 +352,7 @@ function RegisterForm({
 
       <TermsCheckbox
         checked={termsAccepted}
-        onChange={setTermsChoice}
+        onChange={setTermsAccepted}
         invalid={touched && !termsAccepted}
       />
 

@@ -1540,6 +1540,12 @@ export function createSocketServer(
       limit.recent.push(now);
       claiming = true;
       try {
+        const humanError = await verifyHuman(
+          stringField(payload, "humanToken"),
+          "account_claim",
+          getClientIp(socket.handshake, trustedProxyHops),
+        );
+        if (humanError) return reply({ ok: false, error: humanError });
         await withProfileLock(`socket:${socket.id}`, async () => {
           if (!socket.connected) return;
           const account = await claimGuestAccount(

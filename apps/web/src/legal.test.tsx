@@ -375,12 +375,15 @@ describe("joining as a guest", () => {
     expect(loadTermsAccepted("v2")).toBe(false);
   });
 
-  it("shows the box ticked for a browser that has accepted this version already", async () => {
+  it("requires a new acceptance click even when this version was accepted before", async () => {
     saveTermsAccepted("v1");
-    const { user } = await openNicknameDialog();
+    const { user, server } = await openNicknameDialog();
 
-    expect(screen.getByRole("checkbox")).toBeChecked();
+    expect(screen.getByRole("checkbox")).not.toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(server.sockets).toHaveLength(0);
 
+    await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("button", { name: "Account menu: Alice" });
   });
@@ -389,6 +392,7 @@ describe("joining as a guest", () => {
     saveTermsAccepted("v1");
     const { user, server } = await openNicknameDialog();
 
+    await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
@@ -407,12 +411,12 @@ describe("joining as a guest", () => {
     expect(await screen.findByRole("checkbox")).not.toBeChecked();
   });
 
-  it("does not ask again for want of the text, when the browser has accepted something", async () => {
+  it("starts unchecked even when legal text is unavailable and acceptance was saved", async () => {
     legalResponse = unavailable();
     saveTermsAccepted("an-older-version");
     await openNicknameDialog();
 
-    expect(screen.getByRole("checkbox")).toBeChecked();
+    expect(screen.getByRole("checkbox")).not.toBeChecked();
   });
 
   it("is worded in the guest's language", async () => {

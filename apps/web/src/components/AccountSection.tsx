@@ -12,6 +12,7 @@ import { ErrorAlert } from "./ErrorAlert";
 import { Notice } from "./Notice";
 import { Field } from "./Field";
 import { Modal } from "./Modal";
+import { HumanCheck } from "./HumanCheck";
 
 export function AccountSection({
   account,
@@ -401,10 +402,11 @@ function ClaimForm({
   const [confirmation, setConfirmation] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [humanToken, setHumanToken] = useState<string | null>(null);
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
-    if (saving) return;
+    if (saving || humanToken === null) return;
     const name = normalizeUsername(username || suggestedUsername);
     if (!name) return setError("invalid_username");
     if (!Object.values(passwordChecks(password)).every(Boolean))
@@ -413,7 +415,12 @@ function ClaimForm({
     setSaving(true);
     setError(null);
     try {
-      await onClaim({ username: name, password, confirmation });
+      await onClaim({
+        username: name,
+        password,
+        confirmation,
+        ...(humanToken ? { humanToken } : {}),
+      });
       setPassword("");
       setConfirmation("");
     } catch (cause) {
@@ -470,8 +477,18 @@ function ClaimForm({
         onChange={(event) => setConfirmation(event.target.value)}
         disabled={saving}
       />
+      <HumanCheck
+        action="account_claim"
+        onToken={setHumanToken}
+        busy={saving}
+      />
       <ErrorAlert code={error} />
-      <Button type="submit" variant="primary" icon={KeyRound} disabled={saving}>
+      <Button
+        type="submit"
+        variant="primary"
+        icon={KeyRound}
+        disabled={saving || humanToken === null}
+      >
         {t(saving ? "account.register.submitting" : "account.claimTitle")}
       </Button>
     </form>

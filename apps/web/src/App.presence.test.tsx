@@ -559,6 +559,7 @@ describe("avatars", () => {
   async function submitAs(user: ReturnType<typeof userEvent.setup>) {
     await openDialog(user);
     await user.type(screen.getByLabelText("Nickname"), "Alice");
+    await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("button", { name: "Account menu: Alice" });
   }
@@ -571,6 +572,7 @@ describe("avatars", () => {
       expect(screen.queryAllByRole("radio")).toHaveLength(0);
 
       await user.type(screen.getByLabelText("Nickname"), "Alice");
+      await user.click(screen.getByRole("checkbox"));
       await user.click(screen.getByRole("button", { name: "Continue" }));
       const profile = await screen.findByRole("button", {
         name: "Account menu: Alice",
@@ -621,6 +623,7 @@ describe("avatars", () => {
       expect(screen.queryByLabelText("Gender")).not.toBeInTheDocument();
 
       await user.type(screen.getByLabelText("Nickname"), "Alice");
+      await user.click(screen.getByRole("checkbox"));
       await user.click(screen.getByRole("button", { name: "Continue" }));
       await screen.findByRole("button", { name: "Account menu: Alice" });
 

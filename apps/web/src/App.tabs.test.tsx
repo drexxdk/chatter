@@ -81,6 +81,7 @@ describe("one room for the whole browser", () => {
     await user.type(nickname, "Alice");
     expect(nickname).toHaveValue("Alice");
     expect(nickname).toHaveFocus();
+    await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(

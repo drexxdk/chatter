@@ -3240,7 +3240,7 @@ test("a banned guest is turned away until the ban is lifted", async ({
   ).toBeVisible();
 });
 
-test("a guest has to say they are 18 or older and accept the terms, which can be read, and is only asked once", async ({
+test("a guest must explicitly accept the terms on every join and can read them first", async ({
   browser,
 }) => {
   const page = await newGuest(browser);
@@ -3282,15 +3282,20 @@ test("a guest has to say they are 18 or older and accept the terms, which can be
     page.getByRole("heading", { name: LOUNGE.name, level: 2 }),
   ).toBeVisible();
 
-  // The browser remembers it: the next time the box is already ticked. (The tab's own session is cleared, as in a new
-  // tab, or the lobby would simply put the guest back in the room.)
   await page.evaluate(() => sessionStorage.clear());
   await page.goto("/");
   await page.getByRole("button", { name: `Join ${LOUNGE.name}` }).click();
   await expect(
     page.getByRole("checkbox", { name: /18 or older/ }),
-  ).toBeChecked();
+  ).not.toBeChecked();
   await page.getByRole("textbox", { name: "Nickname" }).fill("Alice");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(
+    page.getByText(
+      "To continue you need to be 18 or older and accept the terms.",
+    ),
+  ).toBeVisible();
+  await acceptTerms(page);
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: LOUNGE.name, level: 2 }),

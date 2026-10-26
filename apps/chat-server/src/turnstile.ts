@@ -1,6 +1,7 @@
 import { env } from "./env.js";
 
-export type HumanCheckAction = "guest_join" | "password_login";
+export type HumanCheckAction =
+  "guest_join" | "password_login" | "account_claim";
 export type HumanCheckError =
   "human_check_required" | "human_check_failed" | "unavailable";
 

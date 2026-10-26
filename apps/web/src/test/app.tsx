@@ -103,6 +103,7 @@ export async function joinRoom(
   );
   await user.click(await screen.findByLabelText("Nickname"));
   await user.paste(nickname);
+  await user.click(screen.getByRole("checkbox"));
   await user.click(screen.getByRole("button", { name: "Continue" }));
 }
 

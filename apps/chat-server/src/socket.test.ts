@@ -642,6 +642,30 @@ describe("guest account claiming", () => {
     nickname: "Someone Else",
   };
 
+  it.each([
+    "human_check_required",
+    "human_check_failed",
+    "unavailable",
+  ] as const)(
+    "rejects a claim before account creation when verification returns %s",
+    async (error) => {
+      const { port } = await startServer({ authTokenSecret: secret });
+      const socket = await connectGuest("Alice", port);
+      verifyHuman.mockResolvedValueOnce(error);
+      const payload = { ...input, humanToken: "claim-token" };
+      expect(await emit(socket, "account:claim", payload)).toEqual({
+        ok: false,
+        error,
+      });
+      expect(verifyHuman).toHaveBeenLastCalledWith(
+        "claim-token",
+        "account_claim",
+        expect.any(String),
+      );
+      expect(claimGuestAccount).not.toHaveBeenCalled();
+    },
+  );
+
   it("uses the live socket profile rather than client-supplied profile fields", async () => {
     const { port } = await startServer({ authTokenSecret: secret });
     const socket = await connectGuest("Alice", port);

@@ -12,7 +12,7 @@ export function HumanCheck({
   busy,
   active = true,
 }: {
-  action: "guest_join" | "password_login";
+  action: "guest_join" | "password_login" | "account_claim";
   onToken: (token: string | null) => void;
   busy: boolean;
   active?: boolean;
@@ -59,7 +59,14 @@ export function HumanCheck({
     onToken(null);
   }, [compact, onToken]);
 
-  if (!active || siteKey === null) return null;
+  if (!active) return null;
+  if (siteKey === null)
+    return import.meta.env.DEV &&
+      ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname) ? (
+      <div className="flex min-h-16 items-center justify-center rounded border border-neutral-700 bg-neutral-950 px-3 text-sm text-neutral-400">
+        Cloudflare Turnstile
+      </div>
+    ) : null;
 
   function fail() {
     onToken(null);

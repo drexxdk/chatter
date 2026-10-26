@@ -328,6 +328,7 @@ export interface PasswordClaim {
   username: string;
   password: string;
   confirmation: string;
+  humanToken?: string;
 }
 
 export interface PasswordChange {

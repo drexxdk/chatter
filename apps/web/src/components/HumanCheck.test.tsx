@@ -11,10 +11,11 @@ import type {
   TurnstileProps,
 } from "@marsidev/react-turnstile";
 import type { Ref } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HumanCheck } from "./HumanCheck";
 import { NicknameDialog } from "./NicknameDialog";
 import { ModeratorDialog } from "./ModeratorDialog";
+import { CreateAccountDialog } from "./AccountSection";
 
 const widget = vi.hoisted(() => ({
   props: undefined as TurnstileProps | undefined,
@@ -48,6 +49,8 @@ beforeEach(() => {
   );
 });
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe("human verification forms", () => {
   it("blocks guest submission until verified without blocking provider links", async () => {
     const submit = vi.fn();
@@ -65,6 +68,8 @@ describe("human verification forms", () => {
     );
     await screen.findByTestId("human-widget");
     await user.type(screen.getByLabelText("Nickname"), "Alice");
+    expect(screen.getByRole("checkbox")).not.toBeChecked();
+    await user.click(screen.getByRole("checkbox"));
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     expect(
       screen.getByRole("link", { name: "Continue with Google" }),
@@ -91,6 +96,25 @@ describe("human verification forms", () => {
     ).not.toContain("guest-human-token");
   });
 
+  it("requires a new acceptance click when the join dialog reopens", async () => {
+    const props = {
+      connecting: false,
+      error: null,
+      onSubmit: vi.fn(),
+      onCancel: vi.fn(),
+      termsVersion: null,
+      returnPath: "/rooms/general",
+    };
+    const user = userEvent.setup();
+    const { rerender } = render(<NicknameDialog {...props} open />);
+    await screen.findByTestId("human-widget");
+    await user.click(screen.getByRole("checkbox"));
+    expect(screen.getByRole("checkbox")).toBeChecked();
+    rerender(<NicknameDialog {...props} open={false} />);
+    rerender(<NicknameDialog {...props} open />);
+    expect(screen.getByRole("checkbox")).not.toBeChecked();
+  });
+
   it("passes a password challenge to account sign-in", async () => {
     const submit = vi.fn();
     const user = userEvent.setup();
@@ -115,6 +139,45 @@ describe("human verification forms", () => {
       "PrivatePassword123",
       "login-human-token",
     );
+  });
+
+  it("requires a fresh account-claim challenge and includes its token in the claim", async () => {
+    const submit = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <CreateAccountDialog
+        nickname="Alice"
+        returnPath="/"
+        onClaim={submit}
+        onClose={() => {}}
+      />,
+    );
+    await screen.findByTestId("human-widget");
+    await user.type(screen.getByLabelText("Username"), "alice");
+    await user.type(screen.getByLabelText("Password"), "PrivatePassword123");
+    await user.type(
+      screen.getByLabelText("Confirm password"),
+      "PrivatePassword123",
+    );
+    const button = screen.getByRole("button", { name: "Claim account" });
+    expect(button).toBeDisabled();
+    fireEvent.submit(button.closest("form")!);
+    expect(submit).not.toHaveBeenCalled();
+    expect(widget.props?.options?.action).toBe("account_claim");
+    act(() => widget.props?.onSuccess?.("expired-claim-token"));
+    act(() => widget.props?.onExpire?.("expired-claim-token"));
+    expect(button).toBeDisabled();
+    act(() => widget.props?.onSuccess?.("claim-human-token"));
+    await user.click(button);
+    expect(submit).toHaveBeenCalledWith({
+      username: "alice",
+      password: "PrivatePassword123",
+      confirmation: "PrivatePassword123",
+      humanToken: "claim-human-token",
+    });
+    expect(
+      JSON.stringify({ ...sessionStorage, ...localStorage }),
+    ).not.toContain("claim-human-token");
   });
 
   it.each(["expire", "timeout", "error"])(
@@ -163,6 +226,20 @@ describe("human verification forms", () => {
     const token = vi.fn();
     render(<HumanCheck action="guest_join" busy={false} onToken={token} />);
     await waitFor(() => expect(token).toHaveBeenLastCalledWith(""));
+    expect(screen.queryByTestId("human-widget")).toBeNull();
+    expect(screen.getByText("Cloudflare Turnstile")).toBeVisible();
+  });
+
+  it("does not show the development placeholder in production", async () => {
+    vi.stubEnv("DEV", false);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ providers: [] })),
+    );
+    const token = vi.fn();
+    render(<HumanCheck action="guest_join" busy={false} onToken={token} />);
+    await waitFor(() => expect(token).toHaveBeenLastCalledWith(""));
+    expect(screen.queryByText("Cloudflare Turnstile")).toBeNull();
     expect(screen.queryByTestId("human-widget")).toBeNull();
   });
 

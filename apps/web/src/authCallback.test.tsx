@@ -282,6 +282,7 @@ describe("the page the providers send the browser back to", () => {
       expect(screen.getByRole("radio", { name: "Female" })).toBeChecked();
       expect(navigate).not.toHaveBeenCalled();
 
+      await user.click(screen.getByRole("checkbox"));
       await user.click(screen.getByRole("button", { name: "Create account" }));
 
       await waitFor(() =>
@@ -316,6 +317,7 @@ describe("the page the providers send the browser back to", () => {
           navigate={vi.fn()}
         />,
       );
+      await user.click(await screen.findByRole("checkbox"));
       await user.click(
         await screen.findByRole("button", { name: "Create account" }),
       );
@@ -562,15 +564,18 @@ describe("the page the providers send the browser back to", () => {
       });
     });
 
-    it("shows the terms box ticked for somebody who has accepted them already", async () => {
+    it("starts the terms box unchecked even when acceptance was saved", async () => {
       localStorage.setItem("chatter.terms", "unknown");
       const { user, navigate } = open();
 
       await screen.findByLabelText(/Display name/);
-      expect(screen.getByRole("checkbox")).toBeChecked();
+      expect(screen.getByRole("checkbox")).not.toBeChecked();
 
       await user.click(screen.getByRole("button", { name: "Create account" }));
 
+      expect(navigate).not.toHaveBeenCalled();
+      await user.click(screen.getByRole("checkbox"));
+      await user.click(screen.getByRole("button", { name: "Create account" }));
       await waitFor(() => expect(navigate).toHaveBeenCalled());
     });
 

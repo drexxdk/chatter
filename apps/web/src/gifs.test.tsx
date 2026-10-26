@@ -73,6 +73,7 @@ async function enter() {
   render(<App createSocket={server.createSocket} />);
   await user.click(await screen.findByRole("button", { name: "Join General" }));
   await user.type(await screen.findByLabelText("Nickname"), "Alice");
+  await user.click(screen.getByRole("checkbox"));
   await user.click(screen.getByRole("button", { name: "Continue" }));
   await screen.findByRole("log", { name: "General" });
 
@@ -843,6 +844,7 @@ describe("a GIF in a message", () => {
       await screen.findByRole("button", { name: "Join General" }),
     );
     await user.type(await screen.findByLabelText("Nickname"), "Alice");
+    await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("button", { name: "Account menu: Alice" });
     act(() =>
