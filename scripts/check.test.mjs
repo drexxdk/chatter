@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import { createChecks, runChecks } from "./check.mjs";
@@ -7,35 +8,53 @@ test("empty commits do not format or run tests", () => {
   assert.deepEqual(createChecks("commit"), []);
 });
 
-test("commit checks format staged files before lint, types and related tests", () => {
+test("commit checks only format and lint staged files without concurrent edits", () => {
   const checks = createChecks("commit", ["apps/web/src/components/Button.tsx"]);
-  assert.ok(checks[0].args.includes("lint-staged"));
-  assert.ok(checks.some((check) => check.name === "Lint"));
-  assert.ok(checks.some((check) => check.name === "Types"));
-  const related = checks.find(
-    (check) => check.name === "apps/web related unit tests",
-  );
-  assert.ok(related.args.includes("related"));
-  assert.ok(related.args.at(-1).endsWith("Button.tsx"));
-  assert.ok(!checks.some((check) => check.name === "Browser tests"));
-  assert.ok(!checks.some((check) => check.name.startsWith("apps/chat-server")));
+  assert.equal(checks.length, 1);
+  assert.deepEqual(checks[0].args, [
+    "exec",
+    "--",
+    "lint-staged",
+    "--concurrent",
+    "false",
+  ]);
 });
 
-test("shared changes select related tests in both consumers", () => {
-  const checks = createChecks("commit", ["shared/chatProtocol.mjs"]);
-  assert.equal(
-    checks.filter((check) => check.name.endsWith("related unit tests")).length,
-    2,
-  );
+test("shared, dependency, config and admin changes never expand commit checks", () => {
+  for (const file of [
+    "shared/chatProtocol.mjs",
+    "package-lock.json",
+    "package.json",
+    "apps/web/vitest.config.ts",
+    "apps/chat-server/tsconfig.json",
+    "apps/admin/src/env.ts",
+    "README.md",
+  ]) {
+    assert.deepEqual(
+      createChecks("commit", [file]),
+      createChecks("commit", ["apps/web/src/components/Button.tsx"]),
+      file,
+    );
+  }
 });
 
-test("dependency changes run full unit suites instead of guessing affected tests", () => {
-  const checks = createChecks("commit", ["package-lock.json"]);
-  assert.equal(
-    checks.filter((check) => check.name.endsWith("unit tests")).length,
-    2,
+test("staged linting auto-fixes only supplied files using each workspace config", () => {
+  const manifest = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
   );
-  assert.ok(!checks.some((check) => check.args.includes("related")));
+  assert.equal(
+    manifest["lint-staged"]["*"],
+    "prettier --write --ignore-unknown",
+  );
+  assert.equal(Object.keys(manifest["lint-staged"]).at(-1), "*");
+  for (const workspace of ["apps/web", "apps/chat-server", "apps/admin"]) {
+    assert.equal(
+      manifest["lint-staged"][
+        `${workspace}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}`
+      ],
+      `npm exec --workspace ${workspace} -- eslint --fix --no-warn-ignored`,
+    );
+  }
 });
 
 test("full checks include both unit suites, admin env, builds and E2E without changing env files", () => {

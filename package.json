@@ -9,7 +9,7 @@
     "prepare": "node scripts/check.mjs install",
     "check": "node scripts/check.mjs push",
     "check:commit": "node scripts/check.mjs commit",
-    "check:push": "node scripts/check.mjs push --hook",
+    "check:push": "node scripts/check.mjs push",
     "test:checks": "node --test scripts/check.test.mjs",
     "setup": "node scripts/setup.mjs",
     "start": "node scripts/start.mjs",
@@ -50,6 +50,9 @@
     "wait-on": "^9.5.1"
   },
   "lint-staged": {
+    "apps/web/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": "npm exec --workspace apps/web -- eslint --fix --no-warn-ignored",
+    "apps/chat-server/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": "npm exec --workspace apps/chat-server -- eslint --fix --no-warn-ignored",
+    "apps/admin/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": "npm exec --workspace apps/admin -- eslint --fix --no-warn-ignored",
     "*": "prettier --write --ignore-unknown"
   },
   "engines": {

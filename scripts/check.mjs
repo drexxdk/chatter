@@ -10,12 +10,23 @@ const npmCheck = (name, ...args) => ({ name, args });
 export function createChecks(mode, files = []) {
   if (mode !== "commit" && mode !== "push")
     throw new Error("Use npm run check:commit or npm run check.");
-  if (mode === "commit" && files.length === 0) return [];
+  if (mode === "commit") {
+    return files.length === 0
+      ? []
+      : [
+          npmCheck(
+            "Format and lint staged files",
+            "exec",
+            "--",
+            "lint-staged",
+            "--concurrent",
+            "false",
+          ),
+        ];
+  }
 
   const checks = [
-    mode === "commit"
-      ? npmCheck("Format staged files", "exec", "--", "lint-staged")
-      : npmCheck("Formatting", "run", "format:check"),
+    npmCheck("Formatting", "run", "format:check"),
     {
       name: "Check-runner tests",
       node: true,
@@ -26,35 +37,13 @@ export function createChecks(mode, files = []) {
   ];
 
   for (const workspace of ["apps/chat-server", "apps/web"]) {
-    const related = files.filter(
-      (file) => file.startsWith(`${workspace}/`) || file.startsWith("shared/"),
+    const check = npmCheck(
+      `${workspace} unit tests`,
+      "test",
+      "--workspace",
+      workspace,
     );
-    const full =
-      mode === "push" ||
-      files.some(
-        (file) =>
-          /^(package\.json|package-lock\.json)$/.test(file) ||
-          (file.startsWith(`${workspace}/`) &&
-            /\/(package\.json|vitest\.config\.[\w.]+|vitest\.setup\.[\w.]+|tsconfig[\w.]*\.json)$/.test(
-              file,
-            )),
-      );
-    if (!full && related.length === 0) continue;
-    const check = full
-      ? npmCheck(`${workspace} unit tests`, "test", "--workspace", workspace)
-      : npmCheck(
-          `${workspace} related unit tests`,
-          "exec",
-          "--workspace",
-          workspace,
-          "--",
-          "vitest",
-          "related",
-          "--run",
-          "--passWithNoTests",
-          ...related.map((file) => resolve(root, file)),
-        );
-    if (workspace === "apps/chat-server" && mode === "push") {
+    if (workspace === "apps/chat-server") {
       check.env = {
         TEST_REDIS_URL:
           process.env.TEST_REDIS_URL || "redis://localhost:6379/9",
@@ -63,45 +52,38 @@ export function createChecks(mode, files = []) {
     checks.push(check);
   }
 
-  if (mode === "push" || files.some((file) => file.startsWith("apps/admin/"))) {
-    checks.push(
-      npmCheck(
-        "Admin environment tests",
-        "exec",
-        "--workspace",
-        "apps/admin",
-        "--",
-        "vitest",
+  checks.push(
+    npmCheck(
+      "Admin environment tests",
+      "exec",
+      "--workspace",
+      "apps/admin",
+      "--",
+      "vitest",
+      "run",
+      "--config",
+      "./vitest.config.mts",
+      "tests/int/env.int.spec.ts",
+    ),
+    npmCheck(
+      "Chat-server build",
+      "run",
+      "build",
+      "--workspace",
+      "apps/chat-server",
+    ),
+    npmCheck("Web build", "run", "build", "--workspace", "apps/web"),
+    {
+      ...npmCheck(
+        "Browser tests",
         "run",
-        "--config",
-        "./vitest.config.mts",
-        "tests/int/env.int.spec.ts",
-      ),
-    );
-  }
-
-  if (mode === "push") {
-    checks.push(
-      npmCheck(
-        "Chat-server build",
-        "run",
-        "build",
+        "test:e2e",
         "--workspace",
-        "apps/chat-server",
+        "apps/web",
       ),
-      npmCheck("Web build", "run", "build", "--workspace", "apps/web"),
-      {
-        ...npmCheck(
-          "Browser tests",
-          "run",
-          "test:e2e",
-          "--workspace",
-          "apps/web",
-        ),
-        env: { E2E_TURNSTILE: "false" },
-      },
-    );
-  }
+      env: { E2E_TURNSTILE: "false" },
+    },
+  );
   return checks;
 }
 
@@ -193,13 +175,6 @@ async function main() {
     return;
   }
 
-  if (mode === "push" && process.argv.includes("--hook")) {
-    if (git("status", "--porcelain", "--untracked-files=normal").trim())
-      throw new Error(
-        "Commit or stash outstanding changes before pushing so the checks match the committed files. " +
-          "Use npm run check to check an unfinished working tree.",
-      );
-  }
   const files =
     mode === "commit"
       ? git("diff", "--cached", "--name-only", "--diff-filter=ACMRD", "-z")

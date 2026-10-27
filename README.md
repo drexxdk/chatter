@@ -28,10 +28,11 @@ chat-server's account but the key is missing from `apps/chat-server/.env`, reset
 
 `npm install` installs the repository's Husky hooks automatically. For an existing installation, run `npm run prepare` once.
 
-- Committing formats staged files with Prettier, then runs the check-runner tests, lint, types and related web/chat-server unit tests. lint-staged preserves unstaged edits in partially staged files. Dependency or test-configuration changes run the affected full unit suite instead. Admin changes run the database-free environment tests.
-- Pushing requires a clean working tree and runs formatting, lint, types, all web/chat-server unit tests, admin environment tests, web/chat-server builds and the full web E2E suite. Allow several minutes. Redis and the seeded admin must already be running locally (`npm start`); Playwright starts its own isolated chat/web servers. Redis-backed server tests default to database 9. E2E uses database 1 and never rewrites local env files.
+- Committing formats staged files with Prettier and runs ESLint with auto-fix on staged web/chat-server/admin code only. lint-staged preserves unstaged edits in partially staged files. No repo-wide lint, typechecks, unit tests, builds or E2E tests run automatically, even for dependency or configuration changes.
+- Pushing does not run local checks. GitHub Actions runs the full pipeline.
+- For an explicit full local check, run `npm run check` (or `npm run check:push`). Allow several minutes. Redis and the seeded admin must already be running locally (`npm start`); Playwright starts its own isolated chat/web servers. Redis-backed server tests default to database 9. E2E uses database 1 and never rewrites local env files.
 - Run `npm run check` to run the full checks manually on the working tree, `npm run check:commit` for staged-file checks, or append `-- --dry-run` to list the planned commands without running them. Run `npm run test:checks` to test the runner itself.
-- Formatting is repaired automatically on commit. Lint, type, build and test failures stop the operation and must be fixed before retrying. Checks use the working tree, so keep unrelated edits separate; a partially staged commit can still differ from the files tested locally.
+- Formatting and fixable lint issues are repaired automatically on commit; remaining lint errors block the commit. Type, build and test failures are caught by CI or an explicit manual check.
 
 CI remains authoritative: these hooks do not reproduce the Linux/Node 24 environment, Docker image builds, database migration checks or database-backed admin integration tests. Hooks are local and can be bypassed with Git's `--no-verify`; bypassing does not disable CI.
 
