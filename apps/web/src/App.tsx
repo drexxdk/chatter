@@ -204,8 +204,33 @@ export function App({
     account?.token ??
     (chat.session?.role === "guest" ? undefined : loadSession()?.token);
   const soundPreferences = useNotificationPreferences(soundToken);
-  const { open: sidebarOpen, change: setSidebarOpen } =
-    useSidebarPreference(soundToken);
+  const {
+    open: sidebarOpen,
+    change: setSidebarOpen,
+    closeMobile: closeMobileSidebar,
+    mobile: mobileSidebar,
+  } = useSidebarPreference(soundToken);
+  const sidebarToggle = useRef<HTMLButtonElement>(null);
+  function dismissSidebar() {
+    if (!mobileSidebar) return;
+    closeMobileSidebar();
+    sidebarToggle.current?.focus({ preventScroll: true });
+  }
+  const dismissSidebarOnEscape = useEffectEvent((event: KeyboardEvent) => {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    event.preventDefault();
+    dismissSidebar();
+  });
+  const resetMobileSidebar = useEffectEvent(() => closeMobileSidebar());
+  useEffect(() => {
+    resetMobileSidebar();
+  }, [chat.roomSlug]);
+  useEffect(() => {
+    if (!mobileSidebar || !sidebarOpen) return;
+    document.addEventListener("keydown", dismissSidebarOnEscape);
+    return () =>
+      document.removeEventListener("keydown", dismissSidebarOnEscape);
+  }, [mobileSidebar, sidebarOpen]);
   const notificationSound = soundPreferences.value;
   const soundEnabled = NOTIFICATION_KINDS.some(
     (kind) => notificationChannel(notificationSound, kind).enabled,
@@ -1046,6 +1071,7 @@ export function App({
                   <div className="flex min-w-0 max-w-[calc(100%-8rem)] items-center gap-1 sm:max-w-[35%]">
                     <h1 className="sr-only">{t("app.title")}</h1>
                     <button
+                      ref={sidebarToggle}
                       type="button"
                       aria-label={`${t(sidebarOpen ? "room.hidePanel" : "room.showPanel")}${!sidebarOpen && unreadCount > 0 ? `, ${t("dm.unread", { count: unreadCount })}` : ""}`}
                       title={t(
@@ -1054,7 +1080,7 @@ export function App({
                       aria-expanded={sidebarOpen}
                       aria-controls={`room-sidebar-${chat.roomSlug}`}
                       onClick={() => setSidebarOpen(!sidebarOpen)}
-                      className="button-outline relative hidden size-9 shrink-0 items-center justify-center rounded-md text-(--room-accent) hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-indigo-400 md:inline-flex"
+                      className="button-outline relative inline-flex size-9 shrink-0 items-center justify-center rounded-md text-(--room-accent) hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-indigo-400"
                     >
                       <Users aria-hidden="true" className="size-5" />
                       {!sidebarOpen && unreadCount > 0 && (
@@ -1112,69 +1138,71 @@ export function App({
                     {t("app.title")}
                   </h1>
                 )}
-                {chat.roomSlug && chat.session && !chat.direct.active && (
-                  <RoomSearch
-                    key={chat.roomSlug}
-                    roomSlug={chat.roomSlug}
-                    roomName={currentRoom?.name ?? chat.roomSlug}
-                    messages={chat.messages}
-                    threads={chat.direct.threads}
-                    ownGuestIds={chat.ownGuestIds}
-                  />
-                )}
-                <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-                  {settled && !account && !chat.session && (
-                    <Button
-                      icon={LogIn}
-                      title={t("nickname.signIn")}
-                      onClick={() => {
-                        clearDialogErrors();
-                        setModeratorOpen(true);
-                      }}
-                    >
-                      <span className="max-[360px]:sr-only">
-                        {t("nickname.signIn")}
-                      </span>
-                    </Button>
+                <div className="flex shrink-0 items-center gap-1 sm:gap-2 md:contents">
+                  {chat.roomSlug && chat.session && !chat.direct.active && (
+                    <RoomSearch
+                      key={chat.roomSlug}
+                      roomSlug={chat.roomSlug}
+                      roomName={currentRoom?.name ?? chat.roomSlug}
+                      messages={chat.messages}
+                      threads={chat.direct.threads}
+                      ownGuestIds={chat.ownGuestIds}
+                    />
                   )}
-                  {!chat.queue && adminTools}
-                  <MainMenu
-                    onSettings={() => setSettingsOpen(true)}
-                    pending={!settled}
-                    profile={
-                      chat.session
-                        ? {
-                            nickname: chat.session.nickname,
-                            detail:
-                              chat.session.role === "member"
-                                ? account?.username
-                                : chat.session.role === "guest"
-                                  ? t("account.guest")
-                                  : undefined,
-                            avatar: chat.session.avatar,
-                            picture: chat.session.picture,
-                            moderator: chat.session.role === "moderator",
-                            guest: chat.session.role === "guest",
-                            onCreateAccount: openAccountCreation,
-                            onSignIn: () => {
-                              clearDialogErrors();
-                              setModeratorOpen(true);
-                            },
-                            onProfile: () => setProfileOpen(true),
-                            onSignOut: signOut,
-                          }
-                        : account
+                  <div className="relative flex shrink-0 items-center gap-1 sm:gap-2">
+                    {settled && !account && !chat.session && (
+                      <Button
+                        icon={LogIn}
+                        title={t("nickname.signIn")}
+                        onClick={() => {
+                          clearDialogErrors();
+                          setModeratorOpen(true);
+                        }}
+                      >
+                        <span className="max-[360px]:sr-only">
+                          {t("nickname.signIn")}
+                        </span>
+                      </Button>
+                    )}
+                    <MainMenu
+                      onSettings={() => setSettingsOpen(true)}
+                      pending={!settled}
+                      profile={
+                        chat.session
                           ? {
-                              nickname: account.nickname,
-                              detail: account.username,
-                              avatar: account.avatar,
-                              picture: account.picture,
-                              onProfile: () => setAccountOpen(true),
+                              nickname: chat.session.nickname,
+                              detail:
+                                chat.session.role === "member"
+                                  ? account?.username
+                                  : chat.session.role === "guest"
+                                    ? t("account.guest")
+                                    : undefined,
+                              avatar: chat.session.avatar,
+                              picture: chat.session.picture,
+                              moderator: chat.session.role === "moderator",
+                              guest: chat.session.role === "guest",
+                              onCreateAccount: openAccountCreation,
+                              onSignIn: () => {
+                                clearDialogErrors();
+                                setModeratorOpen(true);
+                              },
+                              onProfile: () => setProfileOpen(true),
                               onSignOut: signOut,
                             }
-                          : undefined
-                    }
-                  />
+                          : account
+                            ? {
+                                nickname: account.nickname,
+                                detail: account.username,
+                                avatar: account.avatar,
+                                picture: account.picture,
+                                onProfile: () => setAccountOpen(true),
+                                onSignOut: signOut,
+                              }
+                            : undefined
+                      }
+                    />
+                    {!chat.queue && adminTools}
+                  </div>
                 </div>
               </>
             )
@@ -1214,6 +1242,7 @@ export function App({
                   roomSlug={chat.roomSlug}
                   roomName={currentRoom?.name ?? chat.roomSlug}
                   sidebarOpen={sidebarOpen}
+                  onCloseSidebar={dismissSidebar}
                   maxMembers={currentRoom?.maxMembers}
                   session={chat.session}
                   ownGuestIds={chat.ownGuestIds}

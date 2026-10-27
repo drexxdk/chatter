@@ -76,6 +76,25 @@ describe("the crowd of a test room", () => {
     }
   });
 
+  it.each([
+    {
+      style: "full display names",
+      random: 0,
+      pattern: /^[A-Za-z]+ [A-Za-z]+$/,
+    },
+    { style: "handles", random: 0.9, pattern: /^\S+$/ },
+  ])("supports $style", async ({ random, pattern }) => {
+    const randomMock = vi.spyOn(Math, "random").mockReturnValue(random);
+    try {
+      const { crowd, fakes } = setup();
+      await crowd.start(SLUG, 1);
+      await settle();
+      expect(fakes.get(SLUG)?.[0]?.nickname).toMatch(pattern);
+    } finally {
+      randomMock.mockRestore();
+    }
+  });
+
   it("stops at the seats there are in the room", async () => {
     const { crowd, fakes, host } = setup();
     let seats = 3;

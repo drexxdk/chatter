@@ -171,10 +171,6 @@ export function DirectChat({
         }
         above={
           <>
-            <TypingIndicator
-              writers={typing?.writers ?? []}
-              blockedIds={typingBlockedIds}
-            />
             {blockedBy && (
               <Notice role="status" tone="neutral" icon={Ban}>
                 {t("dm.blockedByWrite", { name: partnerName })}
@@ -192,6 +188,10 @@ export function DirectChat({
                 {t("dm.away", { name: partnerName })}
               </Notice>
             )}
+            <TypingIndicator
+              writers={typing?.writers ?? []}
+              blockedIds={typingBlockedIds}
+            />
           </>
         }
         actions={

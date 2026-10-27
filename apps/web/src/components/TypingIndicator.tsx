@@ -26,24 +26,45 @@ export function TypingIndicator({
     subjects.push(
       t(named.length ? "typing.others" : "typing.people", { count: remaining }),
     );
+  const names = new Intl.ListFormat(i18n.resolvedLanguage, {
+    type: "conjunction",
+  }).format(subjects);
   const text = count
     ? t("typing.summary", {
         count,
-        names: new Intl.ListFormat(i18n.resolvedLanguage, {
-          type: "conjunction",
-        }).format(subjects),
+        names,
       })
     : "";
   return (
     <div
-      role={text ? "status" : undefined}
-      aria-label={text ? t("typing.label") : undefined}
-      aria-live="polite"
-      aria-atomic="true"
       data-typing-indicator
-      className="min-h-5 text-sm text-neutral-400 wrap-break-word"
+      className="flex min-h-5 min-w-0 items-baseline text-sm text-neutral-400"
     >
-      {text}
+      <span
+        role={text ? "status" : undefined}
+        aria-label={text ? t("typing.label") : undefined}
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {text}
+      </span>
+      {text && (
+        <>
+          <span aria-hidden="true" className="min-w-0 truncate">
+            {names}
+          </span>
+          <span
+            aria-hidden="true"
+            className="typing-dots shrink-0 whitespace-pre"
+          >
+            {" "}
+            <span>.</span>
+            <span>.</span>
+            <span>.</span>
+          </span>
+        </>
+      )}
     </div>
   );
 }

@@ -105,6 +105,8 @@ export function RoomSearch({
   const [query, setQuery] = useTabText(`search:${roomSlug}`);
   const [activeId, setActiveId] = useState<string | null>(null);
   const resultsId = useId();
+  const searchId = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const deferred = useDeferredValue(query);
   const needle = deferred.trim().toLocaleLowerCase();
@@ -124,17 +126,27 @@ export function RoomSearch({
         const headerBottom = field.current
           ?.closest("header")
           ?.parentElement?.getBoundingClientRect().bottom;
-        return (headerBottom ?? referenceBottom) - referenceBottom + 8;
+        return (
+          Math.max(0, (headerBottom ?? referenceBottom) - referenceBottom) + 8
+        );
       }),
       shift({ padding: 16 }),
       size({
         padding: 16,
         apply({ availableHeight, elements }) {
-          const headerBottom =
+          const referenceRect = elements.reference.getBoundingClientRect();
+          const referenceBottom = referenceRect.bottom;
+          elements.floating.style.setProperty(
+            "--search-field-width",
+            `${referenceRect.width}px`,
+          );
+          const headerBottom = Math.max(
+            referenceBottom,
             field.current
               ?.closest("header")
               ?.parentElement?.getBoundingClientRect().bottom ??
-            elements.reference.getBoundingClientRect().bottom;
+              referenceBottom,
+          );
           elements.floating.style.maxHeight = `max(0px, min(${availableHeight}px, calc(var(--composer-top, 100dvh) - ${headerBottom}px - 1rem)))`;
         },
       }),
@@ -242,7 +254,7 @@ export function RoomSearch({
     <div
       ref={root}
       data-room-search
-      className="relative min-w-0 max-w-xl flex-1"
+      className="relative shrink-0 md:min-w-0 md:max-w-xl md:flex-1"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
       }}
@@ -250,17 +262,35 @@ export function RoomSearch({
         if (event.key !== "Escape" || !open) return;
         event.preventDefault();
         event.stopPropagation();
-        field.current?.focus();
+        if (
+          typeof matchMedia === "function" &&
+          matchMedia("(max-width: 47.999rem)").matches
+        )
+          trigger.current?.focus();
+        else field.current?.focus();
         setOpen(false);
       }}
     >
+      <button
+        ref={trigger}
+        type="button"
+        aria-label={t("roomSearch.field")}
+        title={t("roomSearch.field")}
+        aria-expanded={open}
+        aria-controls={searchId}
+        onClick={() => setOpen(!open)}
+        className="control-icon button-outline size-9 focus-visible:outline-2 focus-visible:outline-indigo-400 md:hidden"
+      >
+        <Search aria-hidden="true" className="size-5" />
+      </button>
       <form
+        id={searchId}
         role="search"
         onSubmit={(event) => {
           event.preventDefault();
           if (expanded && results[0]) choose(results[0]);
         }}
-        className="relative"
+        className={`relative max-md:fixed max-md:inset-x-(--page-gutter) max-md:top-[calc(var(--header-height)+0.5rem)] max-md:z-50 max-md:rounded-md max-md:shadow-xl ${open ? "" : "max-md:hidden"}`}
       >
         <Search
           aria-hidden="true"
@@ -293,7 +323,7 @@ export function RoomSearch({
             if (open) keys.focus();
             else setOpen(true);
           }}
-          className="h-9 w-full rounded-md border border-[var(--room-border,var(--color-neutral-700))] bg-[var(--room-card,var(--color-neutral-900))] pr-9 pl-9 text-sm outline-offset-2 max-sm:placeholder:text-transparent [&::-webkit-search-cancel-button]:hidden"
+          className="h-9 w-full rounded-md border border-[var(--room-border,var(--color-neutral-700))] bg-[var(--room-card,var(--color-neutral-900))] pr-9 pl-9 text-sm outline-offset-2 [&::-webkit-search-cancel-button]:hidden"
         />
         {query && (
           <button
@@ -316,7 +346,7 @@ export function RoomSearch({
           style={floatingStyles}
           role="region"
           aria-label={t("roomSearch.title", { room: roomName })}
-          className="z-50 flex w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-md border border-neutral-700 bg-neutral-900 shadow-xl"
+          className="z-50 flex w-(--search-field-width) flex-col overflow-hidden rounded-md border border-neutral-700 bg-neutral-900 shadow-xl md:w-[min(40rem,calc(100vw-2rem))]"
         >
           <p
             role="status"

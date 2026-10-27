@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { stubRooms } from "./test/app";
 import { publicIdentityTag } from "./identity";
@@ -126,19 +126,29 @@ describe("direct messages", () => {
   });
 
   describe("the lists", () => {
-    it("opens the panel above the box from the People button, and closes it when a conversation is chosen", async () => {
+    it("closes the mobile sidebar when a conversation is chosen", async () => {
+      vi.stubGlobal(
+        "matchMedia",
+        vi.fn(() => ({
+          matches: true,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        })),
+      );
       const { user, server } = await enter();
       receive(server, dm());
 
       const toggle = screen.getByRole("button", {
-        name: /^People and direct messages/,
+        name: /^Show sidebar/,
       });
       expect(toggle).toHaveAttribute("aria-expanded", "false");
       await user.click(toggle);
       expect(toggle).toHaveAttribute("aria-expanded", "true");
 
       const sheet = within(
-        screen.getByRole("region", { name: "People and direct messages" }),
+        screen.getByRole("complementary", {
+          name: "People and direct messages",
+        }),
       );
       await user.click(
         sheet
@@ -148,7 +158,9 @@ describe("direct messages", () => {
 
       expect(pane("Bob")).toBeInTheDocument();
       expect(
-        screen.queryByRole("region", { name: "People and direct messages" }),
+        screen.queryByRole("complementary", {
+          name: "People and direct messages",
+        }),
       ).toBeNull();
     });
 
@@ -449,11 +461,6 @@ describe("direct messages", () => {
       expect(
         threads().getByRole("button", { name: /^Carol/ }),
       ).toHaveAccessibleName(/1 unread message/);
-      expect(
-        screen.getByRole("button", {
-          name: /^People and direct messages, 1 unread message/,
-        }),
-      ).toBeInTheDocument();
     });
 
     it("is not triggered by what the guest wrote themselves", async () => {
@@ -513,11 +520,6 @@ describe("direct messages", () => {
       ).focus();
       await user.keyboard("{Escape}");
 
-      expect(
-        screen.getByRole("button", {
-          name: /^People and direct messages, 1 unread message/,
-        }),
-      ).toBeInTheDocument();
       expect(
         threads().getByRole("button", { name: /^Bob/ }),
       ).toHaveAccessibleName(/1 unread message/);

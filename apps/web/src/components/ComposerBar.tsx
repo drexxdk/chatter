@@ -120,9 +120,8 @@ export function ComposerBar({
     <div className="composer-surface sticky bottom-0 z-20 space-y-2 bg-neutral-950 py-4">
       <ScrollToEnd />
       {alert}
-      {above}
-
       {idleDeadline != null && <IdleWarning deadline={idleDeadline} />}
+      {above}
 
       <form
         ref={setAnchor}

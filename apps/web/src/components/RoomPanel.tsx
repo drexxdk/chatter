@@ -2,12 +2,9 @@ import {
   Disclosure,
   DisclosureButton,
   DisclosurePanel,
-  PopoverButton,
-  PopoverPanel,
-  useClose,
 } from "@headlessui/react";
-import { ChevronDown, Users } from "lucide-react";
-import { useEffect, type ComponentProps, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Partner } from "../chat/direct";
@@ -15,77 +12,6 @@ import type { DirectApi, Member } from "../chat/useChat";
 import { PeopleList, ThreadSection } from "./DirectLists";
 import { PeopleFilterChips, usePeopleFilter } from "./PeopleFilter";
 import { SearchBox } from "./SearchBox";
-import { FocusSearch } from "./FocusSearch";
-import { ReloadPopover } from "./ReloadMenu";
-
-function CloseOnWideScreen() {
-  const close = useClose();
-  useEffect(() => {
-    if (typeof matchMedia !== "function") return;
-    const wide = matchMedia("(min-width: 48rem)");
-    const dismiss = () => {
-      if (wide.matches) close();
-    };
-    dismiss();
-    wide.addEventListener("change", dismiss);
-    return () => wide.removeEventListener("change", dismiss);
-  }, [close]);
-  return null;
-}
-
-export function RoomPanelDropdown({
-  unread,
-  ...props
-}: ComponentProps<typeof RoomPanel> & { unread: number }) {
-  const { t } = useTranslation();
-  return (
-    <ReloadPopover name="people" className="shrink-0 md:hidden">
-      {({ close }) => (
-        <>
-          <PopoverPanel
-            id="room-panel-sheet"
-            role="region"
-            aria-label={t("room.panel")}
-            focus
-            className="sheet absolute left-0 bottom-full z-10 mb-0 h-[calc(100dvh-var(--header-height)-100%-0.5rem)] w-56 max-w-full overflow-hidden rounded-md border border-neutral-700 bg-neutral-900 p-3 shadow-lg md:hidden"
-          >
-            <CloseOnWideScreen />
-            <FocusSearch />
-            <div className="h-full overflow-y-auto overscroll-contain">
-              <RoomPanel
-                {...props}
-                onSelect={(partner) => {
-                  close();
-                  props.onSelect(partner);
-                }}
-                onOpen={(partner) => {
-                  close();
-                  props.onOpen(partner);
-                }}
-              />
-            </div>
-          </PopoverPanel>
-          <PopoverButton
-            id="room-panel-toggle"
-            title={t("room.panel")}
-            aria-label={`${t("room.panel")}${unread > 0 ? `, ${t("dm.unread", { count: unread })}` : ""}`}
-            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-neutral-300 outline-none hover:bg-neutral-800 hover:text-neutral-100 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-indigo-400 aria-expanded:bg-neutral-800 aria-expanded:text-neutral-100"
-          >
-            <Users aria-hidden="true" className="h-5 w-5" />
-            {unread > 0 && (
-              <span
-                aria-hidden="true"
-                className="absolute -right-1 -top-1.5 rounded-full bg-amber-400 px-1.5 text-xs font-bold text-neutral-950"
-              >
-                {unread}
-              </span>
-            )}
-          </PopoverButton>
-        </>
-      )}
-    </ReloadPopover>
-  );
-}
 
 // One part of the panel, which opens and closes. The open ones share the height of the panel equally (see `panel-section`
 // in index.css), and the closed ones are only their heading.

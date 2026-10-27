@@ -21,45 +21,60 @@ beforeEach(() => {
 });
 
 describe("direct messages", () => {
-  it("focuses the people search and returns focus on Escape", async () => {
+  function mobileSidebar() {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        matches: true,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+  }
+
+  it("opens the mobile sidebar without autofocus and returns focus on Escape", async () => {
+    mobileSidebar();
     const { user } = await enter();
     const toggle = screen.getByRole("button", {
-      name: "People and direct messages",
+      name: "Show sidebar",
     });
     await user.click(toggle);
-    const panel = screen.getByRole("region", {
+    const panel = screen.getByRole("complementary", {
       name: "People and direct messages",
     });
-    await waitFor(() =>
-      expect(
-        within(panel).getByRole("searchbox", { name: "Search people" }),
-      ).toHaveFocus(),
-    );
+    expect(
+      within(panel).getByRole("searchbox", { name: "Search people" }),
+    ).not.toHaveFocus();
     await user.keyboard("{Escape}");
     expect(
-      screen.queryByRole("region", { name: "People and direct messages" }),
+      screen.queryByRole("complementary", {
+        name: "People and direct messages",
+      }),
     ).not.toBeInTheDocument();
     expect(toggle).toHaveFocus();
     expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("closes the people panel on an outside click but keeps it open for inside clicks", async () => {
+  it("keeps the mobile sidebar open for inside clicks and toggles it from the header", async () => {
+    mobileSidebar();
     const { user } = await enter();
     const toggle = screen.getByRole("button", {
-      name: "People and direct messages",
+      name: "Show sidebar",
     });
     await user.click(toggle);
-    const panel = screen.getByRole("region", {
+    const panel = screen.getByRole("complementary", {
       name: "People and direct messages",
     });
     await user.click(
       within(panel).getByRole("searchbox", { name: "Search people" }),
     );
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    await user.click(screen.getByRole("textbox", { name: "Message" }));
+    await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(
-      screen.queryByRole("region", { name: "People and direct messages" }),
+      screen.queryByRole("complementary", {
+        name: "People and direct messages",
+      }),
     ).not.toBeInTheDocument();
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -83,10 +98,14 @@ describe("direct messages", () => {
       return user.click(names.at(-1)!);
     };
     // Who the box writes to is shown above it; people are chosen in the panel.
-    const writingTo = (name?: string) =>
-      name
-        ? screen.queryByText(`Private: ${name}`)
-        : screen.queryByText(/^Private: /);
+    const writingTo = (name?: string) => {
+      const destination = screen.queryByRole("button", {
+        name: "Open private chat",
+      });
+      return destination && name
+        ? within(destination).queryByText(name)
+        : destination;
+    };
     const chooseRecipient = (
       user: ReturnType<typeof setup>["user"],
       name: string,
@@ -146,7 +165,9 @@ describe("direct messages", () => {
     it("opens the private conversation from the compact composer destination", async () => {
       const { user } = await enter();
       await chooseRecipient(user, "Bob");
-      const destination = screen.getByText("Private: Bob");
+      const destination = within(
+        screen.getByRole("button", { name: "Open private chat" }),
+      ).getByText("Bob");
       expect(destination.closest("form[data-composer]")).toBeNull();
       const surface = destination.closest(".composer-surface");
       expect(surface).not.toBeNull();
@@ -161,23 +182,15 @@ describe("direct messages", () => {
       expect(pane("Bob")).toBeInTheDocument();
     });
 
-    it("sends to everybody by default, and to one person when chosen from the slide-out", async () => {
+    it("sends to everybody by default, and to one person when chosen from the sidebar", async () => {
       const { user, server } = await enter();
 
       expect(writingTo()).toBeNull();
-      expect(screen.getByText("Room")).toBeInTheDocument();
-      const peopleButton = screen.getByRole("button", {
-        name: "People and direct messages",
-      });
-      expect(peopleButton).toHaveTextContent("");
-      expect(peopleButton).toHaveAttribute(
-        "title",
-        "People and direct messages",
-      );
-
+      expect(
+        screen.getByRole("textbox", { name: "Message" }),
+      ).toBeInTheDocument();
       await chooseRecipient(user, "Carol");
       expect(writingTo("Carol")).toBeInTheDocument();
-      expect(screen.queryByText("Room")).toBeNull();
       await user.type(
         screen.getByRole("textbox", { name: "Message to Carol" }),
         "psst",
@@ -191,7 +204,7 @@ describe("direct messages", () => {
 
       await chooseRecipient(user, "Carol");
 
-      expect(screen.getByText("Room")).toBeInTheDocument();
+      expect(writingTo()).toBeNull();
       expect(
         screen.getByRole("textbox", { name: "Message" }),
       ).toBeInTheDocument();

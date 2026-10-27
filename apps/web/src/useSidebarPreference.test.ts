@@ -23,6 +23,33 @@ describe("sidebar preference synchronization", () => {
     expect(updateSidebarPreference).not.toHaveBeenCalled();
   });
 
+  it("keeps the mobile overlay closed initially without changing the saved desktop preference", () => {
+    let resize!: (event: MediaQueryListEvent) => void;
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        matches: true,
+        addEventListener: vi.fn((_event, listener) => {
+          resize = listener;
+        }),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    saveSidebarOpen(true);
+    const { result } = renderHook(() => useSidebarPreference());
+    expect(result.current.open).toBe(false);
+    act(() => result.current.change(true));
+    expect(result.current.open).toBe(true);
+    act(() => result.current.closeMobile());
+    expect(result.current.open).toBe(false);
+    expect(loadSidebarOpen()).toBe(true);
+    expect(updateSidebarPreference).not.toHaveBeenCalled();
+    act(() => resize({ matches: false } as MediaQueryListEvent));
+    expect(result.current.open).toBe(true);
+    act(() => resize({ matches: true } as MediaQueryListEvent));
+    expect(result.current.open).toBe(false);
+  });
+
   it("loads and saves the account value without overwriting the guest preference", async () => {
     saveSidebarOpen(true);
     const { result, rerender } = renderHook(

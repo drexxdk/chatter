@@ -1,4 +1,3 @@
-import { LogOut } from "lucide-react";
 import clsx from "clsx";
 import { memo, useContext, useEffect, useRef, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
@@ -67,7 +66,7 @@ function MessageGroupView({
   picture?: string;
   messages: GroupMessage[];
   blocked?: boolean;
-  // They have left the room; their messages stay, with a note and a dimmed avatar.
+  // They have left the room; their messages stay, with a dimmed avatar.
   gone?: boolean;
   // A private message among the room's: says who it is to or from, in place of the name.
   direct?: { label: string };
@@ -327,13 +326,6 @@ function MessageGroupView({
             </MessageEntry>
           );
         })}
-        {/* After the messages, not beside the time: that is when the message was sent, not when they left. */}
-        {gone && (
-          <p className="flex items-center gap-1 text-xs italic text-neutral-400">
-            <LogOut aria-hidden="true" className="h-3 w-3" />
-            {t("room.leftTag")}
-          </p>
-        )}
       </div>
     </li>
   );

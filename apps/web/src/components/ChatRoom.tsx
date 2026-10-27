@@ -7,14 +7,7 @@ import {
   useState,
   type SubmitEvent,
 } from "react";
-import {
-  ArrowLeft,
-  ArrowUpRight,
-  Ban,
-  LockKeyhole,
-  Megaphone,
-  X,
-} from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Ban, Megaphone, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type {
@@ -56,7 +49,7 @@ import { Notice } from "./Notice";
 import { MentionsProvider, type MentionsValue } from "./Mentions";
 import type { PersonMenuOptions } from "./PersonMenu";
 import { ReportDialog } from "./ReportDialog";
-import { RoomPanel, RoomPanelDropdown } from "./RoomPanel";
+import { RoomPanel } from "./RoomPanel";
 import { IdentityProfile, useIdentityNames } from "./Identity";
 
 type MessageItem = Extract<TimelineItem, { kind: "message" }>;
@@ -79,6 +72,7 @@ interface ChatRoomProps {
   roomSlug: string;
   roomName: string;
   sidebarOpen?: boolean;
+  onCloseSidebar?: () => void;
   // Absent or null means the room has no limit.
   maxMembers?: number | null;
   session: Session;
@@ -108,6 +102,7 @@ export function ChatRoom({
   roomSlug,
   roomName,
   sidebarOpen = true,
+  onCloseSidebar,
   maxMembers,
   session,
   ownGuestIds,
@@ -168,7 +163,6 @@ export function ChatRoom({
     direct.threads,
   );
   // Who the room's input writes to privately, when a private message was clicked.
-  const unread = direct.threads.reduce((sum, thread) => sum + thread.unread, 0);
 
   const [replyFailure, setReplyFailure] = useState<
     ActionResult & { ok: false }
@@ -860,76 +854,6 @@ export function ChatRoom({
               }
               above={
                 <>
-                  <div className="flex min-h-8 min-w-0 flex-wrap items-center gap-2">
-                    <RoomPanelDropdown
-                      roomSlug={roomSlug}
-                      unread={unread}
-                      members={members}
-                      maxMembers={maxMembers}
-                      selfGuestId={session.guestId}
-                      threads={direct.threads}
-                      selectedId={replyTo?.guestId ?? null}
-                      onSelect={toggleRecipient}
-                      onOpen={openConversation}
-                      blockedIds={direct.blockedIds}
-                      blockedByIds={direct.blockedByIds}
-                      onSetBlocked={direct.setBlocked}
-                      onSetMuted={direct.setMuted}
-                    />
-                    {replyTo ? (
-                      <div className="inline-flex min-w-0 max-w-[calc(100%-2.5rem)] items-center overflow-hidden rounded-md border border-neutral-600/60 bg-neutral-800/70 text-xs text-neutral-200">
-                        <button
-                          type="button"
-                          onClick={() => openConversation(replyTo)}
-                          title={t("person.openChat")}
-                          aria-label={t("person.openChat")}
-                          className="flex min-h-8 min-w-0 items-center gap-2 px-2.5 py-1 text-left outline-none hover:bg-white/5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--room-accent)"
-                        >
-                          <LockKeyhole
-                            aria-hidden="true"
-                            className="size-3.5 shrink-0 text-(--room-accent)"
-                          />
-                          <span
-                            className="min-w-0 wrap-break-word"
-                            aria-live="polite"
-                          >
-                            {t("dm.writingTo", { name: names.label(replyTo) })}
-                          </span>
-                          <ArrowUpRight
-                            aria-hidden="true"
-                            className="size-3.5 shrink-0 text-neutral-400"
-                          />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => chooseRecipient(null)}
-                          title={t("dm.closeBar")}
-                          aria-label={t("dm.closeBar")}
-                          className="flex size-8 shrink-0 items-center justify-center border-l border-neutral-600/40 text-neutral-400 outline-none hover:bg-white/5 hover:text-neutral-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--room-accent)"
-                        >
-                          <X aria-hidden="true" className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <span
-                        className="min-w-0 text-xs text-neutral-400"
-                        aria-live="polite"
-                      >
-                        {t("info.everyoneHeading")}
-                      </span>
-                    )}
-                    <div className="min-w-0 flex-1 basis-32">
-                      <TypingIndicator
-                        writers={connected ? typing.writers : []}
-                        roomSlug={roomSlug}
-                        blockedIds={[
-                          ...direct.blockedIds,
-                          ...direct.blockedByIds,
-                        ]}
-                      />
-                    </div>
-                  </div>
-
                   {replyTo && !replyPresent && (
                     <Notice role="status">
                       {t("dm.away", { name: names.label(replyTo) })}
@@ -956,16 +880,68 @@ export function ChatRoom({
                       </button>
                     </Notice>
                   )}
+
+                  <div className="flex min-h-8 min-w-0 items-center gap-2">
+                    {replyTo && (
+                      <div className="inline-flex min-w-0 max-w-[calc(100%-2.5rem)] items-center overflow-hidden rounded-md border border-neutral-600/60 bg-neutral-800/70 text-xs text-neutral-200">
+                        <button
+                          type="button"
+                          onClick={() => openConversation(replyTo)}
+                          title={t("person.openChat")}
+                          aria-label={t("person.openChat")}
+                          className="flex min-h-8 min-w-0 items-center gap-2 px-2.5 py-1 text-left outline-none hover:bg-white/5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--room-accent)"
+                        >
+                          <span className="min-w-0 truncate" aria-live="polite">
+                            {names.label(replyTo)}
+                          </span>
+                          <ArrowUpRight
+                            aria-hidden="true"
+                            className="size-3.5 shrink-0 text-neutral-400"
+                          />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => chooseRecipient(null)}
+                          title={t("dm.closeBar")}
+                          aria-label={t("dm.closeBar")}
+                          className="flex size-8 shrink-0 items-center justify-center border-l border-neutral-600/40 text-neutral-400 outline-none hover:bg-white/5 hover:text-neutral-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--room-accent)"
+                        >
+                          <X aria-hidden="true" className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <TypingIndicator
+                        writers={connected ? typing.writers : []}
+                        roomSlug={roomSlug}
+                        blockedIds={[
+                          ...direct.blockedIds,
+                          ...direct.blockedByIds,
+                        ]}
+                      />
+                    </div>
+                  </div>
                 </>
               }
             />
           </div>
         </div>
 
+        {sidebarOpen && onCloseSidebar && (
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-hidden="true"
+            onClick={onCloseSidebar}
+            className="fixed inset-x-0 bottom-0 top-(--header-height) z-20 bg-black/40 md:hidden"
+          />
+        )}
         <aside
           id={`room-sidebar-${roomSlug}`}
           aria-label={t("room.panel")}
-          className={`panel hidden md:col-start-1 md:row-start-1 md:-mt-4 md:sticky md:top-(--header-height) ${sidebarOpen ? "md:block" : ""} md:h-[calc(100dvh-var(--header-height))] md:self-start md:border-r md:border-neutral-800 md:py-4`}
+          aria-hidden={!sidebarOpen}
+          inert={!sidebarOpen}
+          className={`panel h-[calc(100dvh-var(--header-height))] border-r border-neutral-800 py-4 max-md:fixed max-md:left-0 max-md:top-(--header-height) max-md:z-25 max-md:w-64 max-md:max-w-[calc(100vw-3rem)] max-md:bg-neutral-950 max-md:pl-(--page-gutter) max-md:transition-[translate,visibility] max-md:duration-200 motion-reduce:transition-none md:col-start-1 md:row-start-1 md:-mt-4 md:sticky md:top-(--header-height) ${sidebarOpen ? "max-md:translate-x-0 md:block" : "max-md:-translate-x-full max-md:invisible md:hidden"} md:self-start`}
         >
           <RoomPanel
             roomSlug={roomSlug}
@@ -974,8 +950,14 @@ export function ChatRoom({
             selfGuestId={session.guestId}
             threads={direct.threads}
             selectedId={replyTo?.guestId ?? null}
-            onSelect={toggleRecipientStable}
-            onOpen={openConversationStable}
+            onSelect={(partner) => {
+              onCloseSidebar?.();
+              toggleRecipientStable(partner);
+            }}
+            onOpen={(partner) => {
+              onCloseSidebar?.();
+              openConversationStable(partner);
+            }}
             blockedIds={direct.blockedIds}
             blockedByIds={direct.blockedByIds}
             onSetBlocked={direct.setBlocked}

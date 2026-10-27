@@ -73,7 +73,7 @@ export function MainMenu({
     );
 
   return (
-    <div className="relative">
+    <div>
       <ReloadMenu name="main">
         <MenuButton
           aria-label={t("profile.open", { name: profile.nickname })}

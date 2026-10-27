@@ -344,7 +344,7 @@ export function AdminMenu({
         >
           <FlaskConical aria-hidden="true" className="h-5 w-5" />
         </MenuButton>
-        <div className="absolute -right-10 w-0 sm:-right-11">
+        <div className="absolute right-0 w-0">
           <MenuItems
             modal={false}
             className={`${HEADER_DROPDOWN} -translate-x-full w-72 space-y-1 ${MENU_SURFACE}`}

@@ -267,7 +267,7 @@ describe("somebody who has left the room", () => {
     leave(server, false);
 
     const row = within(screen.getByText("from bob").closest("li")!);
-    expect(row.getByText("Left the room")).toBeInTheDocument();
+    expect(row.queryByText("Left the room")).toBeNull();
     const menu = await openMenu(user);
     expect(
       menu.getByRole("menuitem", { name: "Open private chat" }),

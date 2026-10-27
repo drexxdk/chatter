@@ -90,16 +90,18 @@ function makeName(taken: Set<string>): string {
     const first = pick(content.firstNames);
     const letter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
     const year = String(Math.floor(rand(70, 99)));
-    const name = pick([
-      () => `${first}${year}`,
-      () => `${first}_${letter.toLowerCase()}`,
-      () => `${first} ${letter}.`,
-      () => first,
-      () => `${first.toLowerCase()}${Math.floor(rand(1, 99))}`,
-      () => `${pick(content.words)}${pick(content.things)}`,
-      () =>
-        `${pick(content.words)}_${pick(content.things)}${Math.floor(rand(1, 9))}`,
-    ])();
+    const name = chance(0.4)
+      ? `${first} ${pick(content.lastNames)}`
+      : pick([
+          () => `${first}${year}`,
+          () => `${first}_${letter.toLowerCase()}`,
+          () => `${first} ${letter}.`,
+          () => first,
+          () => `${first.toLowerCase()}${Math.floor(rand(1, 99))}`,
+          () => `${pick(content.words)}${pick(content.things)}`,
+          () =>
+            `${pick(content.words)}_${pick(content.things)}${Math.floor(rand(1, 9))}`,
+        ])();
 
     if (
       name.length >= 2 &&

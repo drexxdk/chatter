@@ -57,7 +57,6 @@ describe("direct messages", () => {
       await user.click(recipient);
       await user.click(recipient);
       expect(recipient).toHaveAttribute("aria-pressed", "false");
-      expect(screen.getByText("Room")).toBeInTheDocument();
 
       await user.click(
         screen.getAllByRole("button", { name: "Unblock Bob" })[0],
