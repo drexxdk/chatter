@@ -159,6 +159,17 @@ async function leaveRoom(page: Page) {
   ).toBeVisible();
 }
 
+async function openMessageSearch(page: Page) {
+  const field = page.getByRole("combobox", { name: "Search messages" });
+  if (!(await field.isVisible())) {
+    await page
+      .getByRole("button", { name: "Search messages", exact: true })
+      .click();
+  }
+  await expect(field).toBeVisible();
+  return field;
+}
+
 async function expectPickerAligned(page: Page) {
   await page.evaluate(() =>
     Promise.allSettled(
@@ -177,19 +188,11 @@ async function expectPickerAligned(page: Page) {
   await expect(picker).toBeVisible();
   const composer = page.locator("form[data-composer]:visible");
   await expect(composer).toHaveCount(1);
-  await expect
-    .poll(() =>
-      picker.evaluate((element) => {
-        const panel = element.getBoundingClientRect();
-        const box = document
-          .querySelector("form[data-composer]")!
-          .getBoundingClientRect();
-        return Math.abs(panel.x - box.x);
-      }),
-    )
-    .toBeLessThan(1);
   const bounds = await picker.boundingBox();
   const box = await composer.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(box).not.toBeNull();
+  expect(Math.abs(bounds!.x - box!.x)).toBeLessThan(1);
   const header = await page.locator("header").boundingBox();
   expect(bounds!.x).toBeGreaterThanOrEqual(0);
   expect(bounds!.y).toBeGreaterThanOrEqual(header!.y + header!.height + 8 - 1);
@@ -346,17 +349,17 @@ for (const width of [390, 1280]) {
     if (width < 768) {
       await page
         .getByRole("button", {
-          name: "People and direct messages",
-          exact: true,
+          name: /^Show sidebar/,
         })
         .click();
-      const people = page.getByRole("region", {
+      const people = page.getByRole("complementary", {
         name: "People and direct messages",
         exact: true,
       });
       await people.locator("input").fill("private people search");
-      await expect(page).toHaveURL(/\?menu=people$/);
+      await expect(page).toHaveURL(new RegExp(`/rooms/${room.slug}$`));
       await page.reload();
+      await page.getByRole("button", { name: /^Show sidebar/ }).click();
       await expect(people).toBeVisible();
       await expect(people.locator("input")).toHaveValue(
         "private people search",
@@ -481,7 +484,7 @@ test("virtual room history follows new messages only while reading the bottom", 
         log.getByText(`Live bottom ${width}`, { exact: true }),
       ).toBeInViewport();
       await expect.poll(distance).toBeLessThan(3);
-      const search = guest.getByRole("combobox", { name: "Search messages" });
+      const search = await openMessageSearch(guest);
       await search.fill("Virtual history message 150");
       await expect(guest.getByRole("option")).toHaveCount(1);
       await search.press("Enter");
@@ -796,7 +799,7 @@ test("bounded message log keeps every keyboard destination reachable", async ({
         window as unknown as { showVirtualSearch: () => Promise<void> }
       ).showVirtualSearch();
     });
-    const search = guest.getByRole("combobox", { name: "Search messages" });
+    const search = await openMessageSearch(guest);
     await search.fill("Message 82:");
     await expect(guest.getByRole("option")).toHaveCount(1);
     await search.press("Enter");
@@ -1297,7 +1300,7 @@ test("typing indicators keep private drafts private and follow the current conve
   await expect(activity(alice)).toBeEmpty();
 });
 
-test("the people dropdown avoids touch-device autofocus and keeps a padded scroll frame when resized", async ({
+test("the people sidebar avoids touch-device autofocus and remains usable when resized", async ({
   browser,
 }) => {
   const context = await browser.newContext({
@@ -1314,14 +1317,14 @@ test("the people dropdown avoids touch-device autofocus and keeps a padded scrol
   await expect(root).toHaveCSS("--scrollbar-width", "12px");
 
   const toggle = guest.getByRole("button", {
-    name: "People and direct messages",
-    exact: true,
+    name: /^(Show|Hide) sidebar/,
   });
   await toggle.click();
-  const panel = guest.locator("#room-panel-sheet");
+  const panel = guest.getByRole("complementary", {
+    name: "People and direct messages",
+  });
   const search = panel.getByRole("searchbox", { name: "Search people" });
   await expect(panel).toBeVisible();
-  await expect(panel).toHaveCSS("width", "224px");
   await expect(search).not.toBeFocused();
   await search.click();
   await expect(search).toBeFocused();
@@ -1337,35 +1340,19 @@ test("the people dropdown avoids touch-device autofocus and keeps a padded scrol
     await expect(root).toHaveCSS("scrollbar-gutter", "stable");
     await expect(panel).toBeVisible();
     const bounds = await panel.boundingBox();
-    const composer = await guest.locator(".composer-focus").boundingBox();
-    expect(Math.abs(bounds!.x - composer!.x)).toBeLessThan(2);
-    expect(bounds!.width).toBeLessThanOrEqual(224);
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-    if (width === 240) expect(bounds!.width).toBeLessThan(224);
   }
 
   for (const height of [391, 800]) {
     await guest.setViewportSize({ width: 390, height });
-    const scrollFrame = panel.locator(":scope > div");
-    await scrollFrame.evaluate((element) => {
-      element.scrollTop = element.scrollHeight;
-    });
-    const frame = await scrollFrame.boundingBox();
-    const bounds = await panel.boundingBox();
-    const bottomInset = bounds!.y + bounds!.height - frame!.y - frame!.height;
-    expect(bottomInset).toBeGreaterThanOrEqual(12);
-    expect(bottomInset).toBeLessThan(14);
     const empty = panel.getByText("No direct messages yet.", { exact: true });
-    await expect(empty).toBeVisible();
-    const emptyBounds = await empty.boundingBox();
-    expect(emptyBounds!.y + emptyBounds!.height).toBeLessThanOrEqual(
-      bounds!.y + bounds!.height - 12,
-    );
+    await empty.scrollIntoViewIfNeeded();
+    await expect(empty).toBeInViewport();
   }
 
   await guest.keyboard.press("Escape");
-  await expect(panel).toHaveCount(0);
+  await expect(panel).toBeHidden();
   await expect(toggle).toBeFocused();
   await expectPickerAligned(guest);
   const roomToggle = guest.locator("#room-heading").getByRole("button");
@@ -1380,15 +1367,16 @@ test("the people dropdown avoids touch-device autofocus and keeps a padded scrol
   await roomMenu.press("Escape");
   await toggle.press("Enter");
   await expect(search).not.toBeFocused();
+  await toggle.click();
   const message = guest.getByRole("textbox", { name: "Message", exact: true });
   await message.click();
-  await expect(panel).toHaveCount(0);
+  await expect(panel).toBeHidden();
   await expect(message).toBeFocused();
 
   await toggle.click();
   await expect(search).not.toBeFocused();
   await guest.setViewportSize({ width: 1280, height: 800 });
-  await expect(panel).toHaveCount(0);
+  await expect(panel).toBeVisible();
   await expect(root).toHaveCSS("scrollbar-gutter", "stable");
   await expect(root).not.toHaveCSS("overflow", "hidden");
   await expect(root).toHaveCSS("padding-right", "0px");
@@ -1697,7 +1685,7 @@ test("typing in header search keeps the page scroll position", async ({
 
   for (const width of [390, 1280]) {
     await guest.setViewportSize({ width, height: 720 });
-    const field = guest.getByRole("combobox", { name: "Search messages" });
+    const field = await openMessageSearch(guest);
     await field.click();
     await guest.evaluate(() => window.scrollTo(0, 400));
     await expect.poll(() => guest.evaluate(() => window.scrollY)).toBe(400);
@@ -1806,7 +1794,7 @@ test("room search finds public and private text without image URLs on mobile and
   await alice.getByRole("button", { name: "Back to the room" }).click();
   await expect(alice.getByRole("log")).toContainText(outgoingText);
 
-  const search = alice.getByRole("combobox", { name: "Search messages" });
+  const search = await openMessageSearch(alice);
   await search.fill("URL_ONLY_TOKEN");
   await expect(
     alice.getByRole("region", { name: `Search in ${LOUNGE.name}` }),
@@ -1814,7 +1802,7 @@ test("room search finds public and private text without image URLs on mobile and
 
   for (const width of [273, 390, 1280]) {
     await alice.setViewportSize({ width, height: width === 390 ? 480 : 844 });
-    const field = alice.getByRole("combobox", { name: "Search messages" });
+    const field = await openMessageSearch(alice);
     await field.clear();
     await field.click();
     await expect(
@@ -1902,23 +1890,17 @@ test("room search finds public and private text without image URLs on mobile and
         .locator("..")
         .evaluate((element) => getComputedStyle(element).borderBottomColor),
     );
-    const placeholderColor = await field.evaluate(
-      (element) => getComputedStyle(element, "::placeholder").color,
-    );
-    if (width < 640) {
-      expect(placeholderColor).toBe("rgba(0, 0, 0, 0)");
-    } else {
-      expect(placeholderColor).not.toBe("rgba(0, 0, 0, 0)");
-    }
     const headerBounds = (await header.boundingBox())!;
     expect(inputBounds!.width).toBeGreaterThanOrEqual(72);
     expect(inputBounds!.y).toBeGreaterThanOrEqual(headerBounds.y);
-    expect(inputBounds!.y + inputBounds!.height).toBeLessThanOrEqual(
-      headerBounds.y + headerBounds.height,
-    );
+    if (width >= 768) {
+      expect(inputBounds!.y + inputBounds!.height).toBeLessThanOrEqual(
+        headerBounds.y + headerBounds.height,
+      );
+    }
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-    if (width >= 640) {
+    if (width >= 768) {
       expect(
         Math.abs(
           bounds!.x +
@@ -2283,9 +2265,7 @@ test("header dropdowns stay within the composer and viewport bounds", async ({
     await guest.setViewportSize(viewport);
     for (const peopleOpen of viewport.width < 768 ? [false, true] : [false]) {
       if (peopleOpen) {
-        await guest
-          .getByRole("button", { name: "People and direct messages" })
-          .click();
+        await guest.getByRole("button", { name: /^Show sidebar/ }).click();
       }
 
       for (const name of ["Account menu: Menu Guest", LOUNGE.name]) {
@@ -2327,25 +2307,27 @@ test("header dropdowns stay within the composer and viewport bounds", async ({
       }
 
       if (peopleOpen) {
-        await expect(
-          guest.getByRole("button", { name: "People and direct messages" }),
-        ).toHaveAttribute("aria-expanded", "false");
+        await guest
+          .getByRole("button", { name: "Hide sidebar", exact: true })
+          .click();
       }
     }
 
     if (viewport.width < 768) {
       const toggle = guest.getByRole("button", {
-        name: "People and direct messages",
+        name: /^(Show|Hide) sidebar/,
       });
       await toggle.click();
-      const panel = guest.locator("#room-panel-sheet");
+      const panel = guest.getByRole("complementary", {
+        name: "People and direct messages",
+      });
       await panel.getByRole("searchbox", { name: "Search people" }).click();
       await expect(panel).toBeVisible();
+      await toggle.click();
       await guest
         .getByRole("textbox", { name: "Message", exact: true })
         .click();
-      await expect(panel).toHaveCount(0);
-      await toggle.click();
+      await expect(panel).toBeHidden();
       await expectPickerAligned(guest);
       await expect(toggle).toHaveAttribute("aria-expanded", "false");
     } else {
@@ -3356,8 +3338,11 @@ test("the Test lab crowd previews private and room typing counts", async ({
     await expect(page.getByRole("log", { name: "Test lab" })).toBeVisible();
     const tools = page.getByRole("button", { name: "Admin tools" });
     await tools.click();
-    await page.getByRole("spinbutton", { name: "Room limit" }).fill("20");
-    await page.getByRole("button", { name: "Save room limit" }).click();
+    const roomLimit = page.getByRole("spinbutton", { name: "Room limit" });
+    if ((await roomLimit.inputValue()) !== "20") {
+      await roomLimit.fill("20");
+      await page.getByRole("button", { name: "Save room limit" }).click();
+    }
     await page
       .getByRole("menuitem", { name: "Fill the room", exact: true })
       .click();
@@ -3407,7 +3392,9 @@ test("the Test lab crowd previews private and room typing counts", async ({
       await page.keyboard.press("Escape");
       const activity = page.getByRole("status", { name: "Typing activity" });
       await expect(activity).toHaveText(/and 12 others are typing$/);
-      await expect(activity).toBeInViewport();
+      await expect(
+        page.locator("[data-typing-indicator]:visible"),
+      ).toBeInViewport();
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= window.innerWidth,

@@ -161,7 +161,7 @@ export function ComposerBar({
           className="composer-focus max-h-[calc(5*1.5rem+1rem+2px)] cursor-text overflow-y-auto rounded-md border border-neutral-700 bg-neutral-900 has-[[data-type=gif]]:max-h-[min(20rem,50dvh)] has-[[data-type=youtube]]:max-h-[min(20rem,50dvh)]"
         >
           <div className="flex min-w-0 items-end">
-            <label id={"${id}-label"} className="sr-only">
+            <label id={`${id}-label`} className="sr-only">
               {label}
             </label>
             {!actions && (
@@ -182,7 +182,7 @@ export function ComposerBar({
             <div className="min-w-0 flex-1">
               <MessageInput
                 id={id}
-                labelledBy={"${id}-label"}
+                labelledBy={`${id}-label`}
                 composer={composer}
                 placeholder={placeholder}
                 disabled={disabled}

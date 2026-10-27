@@ -158,7 +158,9 @@ describe("choosing the person to write to", () => {
     await user.click(within(rows()[0]).getByText("Bob"));
 
     expect(screen.queryByRole("menu")).toBeNull();
-    expect(screen.getByText("Private: Bob")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open private chat" }),
+    ).toHaveTextContent("Bob");
     await waitFor(() =>
       expect(
         screen.getByRole("textbox", { name: "Message to Bob" }),
@@ -280,6 +282,9 @@ describe("in a private conversation", () => {
       await screen.findByRole("log", { name: "Direct message with Bob" }),
     );
 
+    expect(
+      await screen.findByRole("textbox", { name: "Message to Bob" }),
+    ).toBeInTheDocument();
     expect(log.getAllByRole("listitem")).toHaveLength(1);
     expect(log.getAllByText("Bob")).toHaveLength(1);
   });

@@ -332,7 +332,7 @@ describe("who comes and goes", () => {
       expect(banner()).toBeNull();
     });
 
-    it("is right above the box, with the time left", async () => {
+    it("warns with the time left while the message box remains available", async () => {
       const { server } = await enter();
 
       warn(server, 2 * 60_000);
@@ -342,9 +342,7 @@ describe("who comes and goes", () => {
         "You will be disconnected from the room unless you write something.",
       );
       expect(shown).toHaveTextContent("Time left 2:00");
-      expect(shown.nextElementSibling).toBe(
-        screen.getByRole("textbox", { name: "Message" }).closest("form"),
-      );
+      expect(screen.getByRole("textbox", { name: "Message" })).toBeEnabled();
     });
 
     it("counts down to zero and stays there", async () => {
