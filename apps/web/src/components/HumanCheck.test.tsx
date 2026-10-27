@@ -253,7 +253,9 @@ describe("human verification forms", () => {
     "clears verification on %s",
     async (event) => {
       const token = vi.fn();
-      render(<HumanCheck action="guest_join" busy={false} onToken={token} />);
+      await act(async () => {
+        render(<HumanCheck action="guest_join" busy={false} onToken={token} />);
+      });
       await screen.findByTestId("human-widget");
       act(() => widget.props?.onSuccess?.("token"));
       expect(token).toHaveBeenLastCalledWith("token");
