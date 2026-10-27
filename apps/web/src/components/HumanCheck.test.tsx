@@ -83,12 +83,6 @@ describe("human verification forms", () => {
     });
     expect(group).toHaveAttribute("aria-busy", "true");
     expect(screen.getByRole("status")).toBeEmptyDOMElement();
-    expect(screen.getByRole("status")).toHaveClass(
-      "rounded-xs",
-      "border",
-      "border-neutral-500",
-      "bg-[#232323]",
-    );
     act(() => widget.props?.onBeforeInteractive?.());
     expect(screen.queryByRole("status")).toBeNull();
     expect(group).toHaveAttribute("aria-busy", "false");

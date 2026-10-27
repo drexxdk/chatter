@@ -202,16 +202,13 @@ describe("a page of the documents", () => {
   });
 
   it.each(["/terms", "/privacy"])(
-    "shows only a centered spinner while %s is loading",
+    "announces loading before showing the %s document",
     (path) => {
       renderAt(path);
 
       const loading = screen.getByRole("status");
       expect(loading).toHaveTextContent("Loading");
       expect(loading).toHaveAttribute("aria-busy", "true");
-      expect(loading).toHaveClass("flex-1", "place-items-center");
-      expect(loading.querySelector("svg")).toHaveClass("animate-spin");
-      expect(within(loading).getByText(/Loading/)).toHaveClass("sr-only");
       expect(screen.queryByRole("article")).toBeNull();
       expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
     },

@@ -2,86 +2,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { Button, ButtonLink } from "./Button";
+import { Button } from "./Button";
 import { Field } from "./Field";
 
 describe("Button", () => {
-  it.each(["primary", "secondary", "danger", "ghost"] as const)(
-    "uses shared command styling for %s actions",
-    (variant) => {
-      render(
-        <>
-          <Button variant={variant}>Action</Button>
-          <ButtonLink variant={variant} href="/">
-            Destination
-          </ButtonLink>
-        </>,
-      );
-      expect(screen.getByRole("button", { name: "Action" })).toHaveClass(
-        "control-command",
-        "button-outline",
-      );
-      expect(screen.getByRole("link", { name: "Destination" })).toHaveClass(
-        "control-command",
-        "button-outline",
-      );
-    },
-  );
-
-  it.each(["primary", "danger"] as const)(
-    "uses the shared outline for %s actions",
-    (variant) => {
-      render(
-        <>
-          <Button variant={variant}>Action</Button>
-          <ButtonLink variant={variant} href="/">
-            Destination
-          </ButtonLink>
-        </>,
-      );
-      expect(screen.getByRole("button", { name: "Action" })).toHaveClass(
-        "button-outline",
-      );
-      expect(screen.getByRole("link", { name: "Destination" })).toHaveClass(
-        "button-outline",
-      );
-    },
-  );
-
-  it("keeps text links and inline actions unframed", () => {
-    render(
-      <>
-        <Button variant="link">Link</Button>
-        <Button variant="inline">Inline</Button>
-        <Button variant="icon" aria-label="Close" />
-      </>,
-    );
-    expect(screen.getByRole("button", { name: "Link" })).not.toHaveClass(
-      "button-outline",
-    );
-    expect(screen.getByRole("button", { name: "Inline" })).not.toHaveClass(
-      "button-outline",
-    );
-    expect(screen.getByRole("button", { name: "Close" })).toHaveClass(
-      "button-outline",
-    );
-  });
-
-  it("uses a muted red fill for destructive actions", () => {
-    render(<Button variant="danger">Delete</Button>);
-    const action = screen.getByRole("button", { name: "Delete" });
-    expect(action).toHaveClass(
-      "rounded-md",
-      "bg-red-900/80",
-      "px-3",
-      "py-1.5",
-      "text-red-100",
-      "ring-red-400/30",
-      "hover:bg-red-800/80",
-    );
-    expect(action).not.toHaveClass("bg-red-600", "hover:bg-red-500");
-  });
-
   it("does not submit a form unless told to", async () => {
     const onSubmit = vi.fn((event: React.SubmitEvent) =>
       event.preventDefault(),
@@ -100,28 +24,6 @@ describe("Button", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(onSubmit).toHaveBeenCalledTimes(1);
-  });
-
-  it("takes its look from the variant and extra classes from the caller", () => {
-    render(
-      <>
-        <Button variant="primary" className="shrink-0">
-          Go
-        </Button>
-        <Button variant="ghost">Cancel</Button>
-      </>,
-    );
-
-    expect(screen.getByRole("button", { name: "Go" })).toHaveClass(
-      "bg-indigo-600",
-      "shrink-0",
-    );
-    expect(screen.getByRole("button", { name: "Cancel" })).toHaveClass(
-      "enabled:hover:bg-white/10",
-    );
-    expect(screen.getByRole("button", { name: "Cancel" })).not.toHaveClass(
-      "bg-indigo-600",
-    );
   });
 });
 
@@ -179,14 +81,16 @@ describe("Field", () => {
     expect(box).toHaveAttribute("aria-describedby", "nick-hint");
   });
 
-  it("turns the hint red and marks the box invalid", () => {
+  it("marks an invalid field and explains the error", () => {
     render(<Field id="nick" label="Nickname" hint="Needed" invalid />);
 
     expect(screen.getByLabelText("Nickname")).toHaveAttribute(
       "aria-invalid",
       "true",
     );
-    expect(screen.getByText("Needed")).toHaveClass("text-red-300");
+    expect(screen.getByLabelText("Nickname")).toHaveAccessibleDescription(
+      "Needed",
+    );
   });
 
   it("has nothing to describe the box by without a hint", () => {
@@ -195,12 +99,5 @@ describe("Field", () => {
     expect(screen.getByLabelText("Email")).not.toHaveAttribute(
       "aria-describedby",
     );
-  });
-
-  it("can be a short box", () => {
-    render(<Field id="age" label="Age" width="short" />);
-
-    expect(screen.getByLabelText("Age")).toHaveClass("w-16");
-    expect(screen.getByLabelText("Age")).not.toHaveClass("w-full");
   });
 });

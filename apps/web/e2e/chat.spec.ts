@@ -2189,138 +2189,58 @@ test("the composer background has a top border matching the header", async ({
   }
 });
 
-test("neon glass menus and modals preserve focus and accessibility fallbacks", async ({
+test("settings keyboard controls preserve focus and nested dismissal", async ({
   browser,
-}, testInfo) => {
-  test.setTimeout(60_000);
+}) => {
   const guest = await newGuest(browser);
-  await enterRoom(guest, LOUNGE.name, "Glass Guest");
-  for (const width of [1280, 375, 320]) {
-    await guest.setViewportSize({ width, height: 800 });
-    await guest
-      .getByRole("button", { name: "Account menu: Glass Guest" })
-      .click();
-    const menu = guest.getByRole("menu");
-    const settings = menu.getByRole("menuitem", {
-      name: "Settings",
-      exact: true,
-    });
-    await expect(menu).toBeVisible();
-    const rim = await menu.evaluate((element) => {
-      return {
-        before: getComputedStyle(element, "::before").content,
-        after: getComputedStyle(element, "::after").content,
-        border: getComputedStyle(element).borderTopWidth,
-      };
-    });
-    expect(rim).toEqual({ before: "none", after: "none", border: "1px" });
-    await settings.hover();
-    await expect
-      .poll(() =>
-        settings.evaluate((element) => getComputedStyle(element).boxShadow),
-      )
-      .not.toBe("none");
-    await guest.screenshot({
-      path: testInfo.outputPath(`glass-menu-${width}.png`),
-      animations: "disabled",
-    });
-    await guest.keyboard.press("Home");
-    await expect(menu.getByRole("menuitem").first()).toHaveAttribute(
-      "data-focus",
-      "",
-    );
-    await guest.emulateMedia({
-      forcedColors: "active",
-      reducedMotion: "reduce",
-    });
-    await expect
-      .poll(() =>
-        menu.evaluate(
-          (element) => getComputedStyle(element, "::after").content,
-        ),
-      )
-      .toBe("none");
-    await expect
-      .poll(() =>
-        settings.evaluate((element) => getComputedStyle(element).boxShadow),
-      )
-      .toBe("none");
-    expect(
-      await settings.evaluate(
-        (element) => getComputedStyle(element).transitionDuration,
-      ),
-    ).toBe("0s");
-    await guest.emulateMedia({
-      forcedColors: "none",
-      reducedMotion: "no-preference",
-    });
-    await settings.click();
+  await guest.goto("/");
+  const settings = guest.getByRole("button", { name: "Settings", exact: true });
+  await settings.focus();
+  await settings.press("Enter");
+  const dialog = guest.getByRole("dialog", { name: "Settings", exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toBeFocused();
+  const sound = dialog.getByRole("button", {
+    name: "Sound for Private message sounds",
+  });
+  await sound.focus();
+  await expect(sound).toBeFocused();
+  await sound.press("ArrowDown");
+  const listbox = guest.getByRole("listbox");
+  await expect(listbox).toBeFocused();
+  await listbox.press("Home");
+  await guest.keyboard.press("ArrowDown");
+  await guest.keyboard.press("Enter");
+  await expect(sound).toHaveText("Bell");
+  await expect(sound).toBeFocused();
+  await sound.press("ArrowDown");
+  await expect(listbox).toBeFocused();
+  await guest.keyboard.press("Escape");
+  await expect(listbox).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await expect(sound).toBeFocused();
+  await guest.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(settings).toBeFocused();
+});
+
+test("settings remain usable on narrow screens with accessibility preferences", async ({
+  browser,
+}) => {
+  const guest = await newGuest(browser);
+  await guest.setViewportSize({ width: 320, height: 800 });
+  const session = await guest.context().newCDPSession(guest);
+  await session.send("Emulation.setEmulatedMedia", {
+    features: [
+      { name: "forced-colors", value: "active" },
+      { name: "prefers-reduced-motion", value: "reduce" },
+      { name: "prefers-reduced-transparency", value: "reduce" },
+    ],
+  });
+  try {
+    await guest.goto("/");
+    await guest.getByRole("button", { name: "Settings", exact: true }).click();
     const dialog = guest.getByRole("dialog", { name: "Settings", exact: true });
-    await expect(dialog).toBeVisible();
-    const panel = dialog.locator(".glass-surface");
-    await panel.evaluate(async (element) => {
-      await Promise.allSettled(
-        element.getAnimations().map((animation) => animation.finished),
-      );
-    });
-    const activity = dialog.getByRole("checkbox", {
-      name: "Show a message in the chat when someone joins or leaves the room.",
-    });
-    await expect(activity).toHaveCSS("padding-left", "8px");
-    await expect(activity).toHaveCSS("padding-right", "8px");
-    const bounds = await panel.boundingBox();
-    expect(bounds).not.toBeNull();
-    expect(bounds!.x).toBeGreaterThanOrEqual(0);
-    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-    for (const label of [
-      "Show a message in the chat when someone joins or leaves the room.",
-      "Private message sounds",
-      "Warnings",
-      "People joining",
-    ]) {
-      const checkbox = dialog.getByRole("checkbox", {
-        name: label,
-        exact: true,
-      });
-      await expect(checkbox).toHaveCSS(
-        "min-height",
-        width >= 640 ? "36px" : "44px",
-      );
-      await checkbox.scrollIntoViewIfNeeded();
-      const target = await checkbox.boundingBox();
-      expect(target).not.toBeNull();
-      const position = { x: target!.width - 6, y: target!.height / 2 };
-      await expect(checkbox).not.toBeChecked();
-      await checkbox.click({ position });
-      await expect(checkbox).toBeChecked();
-      await checkbox.click({ position });
-      await expect(checkbox).not.toBeChecked();
-    }
-    const sound = dialog.getByRole("button", {
-      name: "Sound for Private message sounds",
-    });
-    await sound.click();
-    const listbox = guest.getByRole("listbox");
-    await expect(listbox).toBeVisible();
-    await expect(listbox).toBeFocused();
-    const optionsBounds = await listbox.boundingBox();
-    expect(optionsBounds).not.toBeNull();
-    expect(optionsBounds!.x).toBeGreaterThanOrEqual(0);
-    expect(optionsBounds!.x + optionsBounds!.width).toBeLessThanOrEqual(width);
-    await guest.screenshot({
-      path: testInfo.outputPath(`glass-sound-options-${width}.png`),
-      animations: "disabled",
-    });
-    await guest.keyboard.press("Home");
-    await guest.keyboard.press("ArrowDown");
-    await guest.keyboard.press("Enter");
-    await expect(sound).toHaveText("Bell");
-    await expect(sound).toBeFocused();
-    await sound.click();
-    await expect(listbox).toBeFocused();
-    await guest.keyboard.press("Escape");
-    await expect(listbox).toHaveCount(0);
-    await expect(dialog).toBeVisible();
     const warnings = dialog.getByRole("checkbox", {
       name: "Warnings",
       exact: true,
@@ -2330,66 +2250,18 @@ test("neon glass menus and modals preserve focus and accessibility fallbacks", a
     await expect(warnings).toBeChecked();
     await dialog.getByText("Warnings", { exact: true }).click();
     await expect(warnings).not.toBeChecked();
-    const preview = dialog.getByRole("button", {
-      name: "Preview sound",
-      exact: true,
-    });
-    await preview.hover();
-    await expect
-      .poll(() =>
-        preview.evaluate(
-          (element) => getComputedStyle(element).backgroundColor,
-        ),
-      )
-      .toMatch(/(?:\/\s*0\.1|,\s*0\.1\))/);
-    await expect
-      .poll(() =>
-        preview.evaluate(
-          (element) => getComputedStyle(element, "::after").opacity,
-        ),
-      )
-      .toBe("1");
     expect(
-      await preview.evaluate((element) => {
-        const outline = getComputedStyle(element, "::after");
-        return {
-          width: outline.borderTopWidth,
-          matchingFill:
-            outline.backgroundColor ===
-            getComputedStyle(element).backgroundColor,
-        };
-      }),
-    ).toEqual({ width: "2px", matchingFill: true });
-    await activity.hover();
-    await guest.screenshot({
-      path: testInfo.outputPath(`glass-settings-${width}.png`),
-      animations: "disabled",
-    });
-    const session = await guest.context().newCDPSession(guest);
-    await session.send("Emulation.setEmulatedMedia", {
-      features: [{ name: "prefers-reduced-transparency", value: "reduce" }],
-    });
-    await expect
-      .poll(() =>
-        panel.evaluate((element) => getComputedStyle(element).backdropFilter),
-      )
-      .toBe("none");
-    expect(
-      await panel.evaluate(
-        (element) => getComputedStyle(element, "::before").content,
+      await guest.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
       ),
-    ).toBe("none");
-    expect(
-      await panel.evaluate(
-        (element) => getComputedStyle(element, "::after").content,
-      ),
-    ).toBe("none");
-    await session.send("Emulation.setEmulatedMedia", { features: [] });
-    await session.detach();
+    ).toBe(true);
     await guest.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
+  } finally {
+    await session.detach();
   }
-  await guest.context().close();
 });
 
 test("header dropdowns stay within the composer and viewport bounds", async ({

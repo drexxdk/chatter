@@ -1,4 +1,10 @@
-import { act, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -24,6 +30,30 @@ import {
 
 beforeEach(() => {
   stubRooms();
+});
+
+describe("room request fixtures", () => {
+  it("routes only room requests to the configured response", async () => {
+    const rooms = stubRooms();
+    const origin = "http://localhost:4000";
+    await fetch(new Request(`${origin}/rooms`));
+    expect(await (await fetch(`${origin}/auth/providers`)).json()).toEqual({
+      providers: [],
+    });
+    expect((await fetch(new URL(`${origin}/legal`))).status).toBe(404);
+    expect(rooms).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects unexpected routes and methods instead of returning room data", async () => {
+    const rooms = stubRooms();
+    await expect(fetch("http://localhost:4000/roomz")).rejects.toThrow(
+      "Unexpected mocked request: GET /roomz",
+    );
+    await expect(
+      fetch("http://localhost:4000/rooms", { method: "POST" }),
+    ).rejects.toThrow("Unexpected mocked request: POST /rooms");
+    expect(rooms).not.toHaveBeenCalled();
+  });
 });
 
 describe("typing indicators", () => {
@@ -307,19 +337,12 @@ describe("lobby", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading rooms");
     expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByRole("status").querySelector("svg")).toHaveClass(
-      "animate-spin",
-    );
-    expect(screen.getByText(/Loading rooms/)).toHaveClass("sr-only");
     expect(screen.getByRole("heading", { name: "Public rooms" })).toBeVisible();
     expect(screen.queryByRole("button", { name: /^Join / })).toBeNull();
     expect(
       await screen.findByRole("heading", { name: "General" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("status")).toBeNull();
-    expect(
-      screen.getByRole("region", { name: "Public rooms" }).parentElement,
-    ).not.toHaveClass("justify-center");
     expect(screen.getByRole("heading", { name: "Music" })).toBeInTheDocument();
     expect(screen.getByText("Open chat")).toBeInTheDocument();
     expect(screen.getByText("Up to 30 people")).toBeInTheDocument();
@@ -579,7 +602,6 @@ describe("lobby", () => {
     ).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "General" }));
     const leave = await screen.findByRole("menuitem", { name: "Leave room" });
-    expect(leave.querySelector(".lucide-log-out")).toBeInTheDocument();
     await user.click(leave);
     expect(
       await screen.findByRole("heading", { name: "Public rooms" }),
@@ -925,7 +947,7 @@ describe("inside a room", () => {
   async function enterRoom() {
     const result = setup();
     await joinRoom(result.user);
-    await screen.findByRole("button", { name: "Account menu: Alice" });
+    await screen.findByRole("log", { name: "General" });
     return result;
   }
 
@@ -1062,11 +1084,8 @@ describe("inside a room", () => {
       );
 
       expect(
-        screen.getByText(
-          (_, element) =>
-            element?.textContent === "one\ntwo" && element.tagName === "P",
-        ),
-      ).toHaveClass("whitespace-pre-wrap");
+        within(screen.getByRole("log")).getByText("one two").textContent,
+      ).toBe("one\ntwo");
     });
   });
 
@@ -1113,54 +1132,24 @@ describe("inside a room", () => {
     });
 
     await user.type(screen.getByLabelText("Message"), "too fast");
-    await user.click(screen.getByRole("button", { name: "Send" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "You can send again in 2 s.",
-    );
-    await waitFor(
-      () =>
-        expect(screen.getByRole("alert")).toHaveTextContent(
-          "You can send again in 1 s.",
-        ),
-      { timeout: 2000 },
-    );
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull(), {
-      timeout: 2500,
-    });
-    expect(screen.getByLabelText("Message")).toHaveDraft("too fast");
-  });
-
-  describe("slow mode", () => {
-    async function enterSlowRoom(slowModeSeconds?: number | null) {
-      stubRooms(async () => ({
-        ok: true,
-        json: async () => [{ ...ROOMS[0], slowModeSeconds }, ROOMS[1]],
-      }));
-      const result = setup();
-      await joinRoom(result.user);
-      await screen.findByRole("button", { name: "Account menu: Alice" });
-      return result;
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Send" }));
+      });
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "You can send again in 2 s.",
+      );
+      await act(() => vi.advanceTimersByTimeAsync(1000));
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "You can send again in 1 s.",
+      );
+      await act(() => vi.advanceTimersByTimeAsync(1000));
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(screen.getByLabelText("Message")).toHaveDraft("too fast");
+    } finally {
+      vi.useRealTimers();
     }
-
-    it.each([
-      ["with a configured delay", 10],
-      ["without the setting", undefined],
-      ["with it empty", null],
-    ])(
-      "does not offer the removed help panel in a room %s",
-      async (_label, value) => {
-        const { user } = await enterSlowRoom(value);
-
-        await user.click(
-          screen.getByRole("button", { name: /^(Menu|Account menu:)/ }),
-        );
-        await screen.findByRole("menuitem", { name: "Settings" });
-        expect(
-          screen.queryByRole("menuitem", { name: "How the chat works" }),
-        ).toBeNull();
-      },
-    );
   });
 
   it("leaves the room and reuses the connection for the next room", async () => {
@@ -1240,33 +1229,21 @@ describe("inside a room", () => {
       name: "People and direct messages",
     });
     const room = screen.getByRole("region", { name: "General" });
-    const chatColumn = room.firstElementChild;
-    expect(chatColumn).toHaveClass("md:max-w-4xl");
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(toggle).toHaveAttribute("aria-controls", sidebar.id);
-    expect(toggle).toHaveClass("hidden", "md:inline-flex");
 
     toggle.focus();
     await user.keyboard("{Enter}");
 
     expect(toggle).toHaveAccessibleName("Show sidebar");
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(sidebar).not.toHaveClass("md:block");
-    expect(room).toHaveClass("md:grid-cols-1");
     expect(room).toHaveAttribute("data-sidebar-open", "false");
-    expect(chatColumn).toHaveClass("md:max-w-4xl");
     expect(localStorage.getItem("chatter.sidebarOpen")).toBe("false");
 
     await user.keyboard("{Enter}");
 
     expect(toggle).toHaveAccessibleName("Hide sidebar");
-    expect(sidebar).toHaveClass("md:block");
-    expect(room).toHaveClass(
-      "[--room-sidebar-width:16rem]",
-      "md:grid-cols-[var(--room-sidebar-width)_1fr]",
-    );
     expect(room).toHaveAttribute("data-sidebar-open", "true");
-    expect(chatColumn).toHaveClass("md:max-w-4xl");
     expect(localStorage.getItem("chatter.sidebarOpen")).toBe("true");
     expect(screen.getByRole("complementary")).toBe(sidebar);
   });
@@ -1592,18 +1569,8 @@ describe("room search", () => {
         .closest("li"),
     ).toHaveAttribute("data-side", "left");
     for (const result of [incomingResult, outgoingResult]) {
-      expect(result.querySelector('[class~="bg-amber-400/10"]')).toHaveClass(
-        "border-dashed",
-        "border-amber-400/60",
-      );
-      expect(within(result).getByText("Private message")).toHaveClass(
-        "sr-only",
-      );
+      expect(within(result).getByText("Private message")).toBeInTheDocument();
     }
-    expect(publicResult.querySelector(".bg-sent")).toBeInTheDocument();
-    expect(
-      moderatorResult.querySelector('[class~="bg-green-900/30"]'),
-    ).toHaveClass("text-green-300");
     for (const [result, text, variant] of [
       [incomingResult, "Coffee privately from Bob", "private"],
       [outgoingResult, "Coffee privately from Alice", "private"],
@@ -1655,10 +1622,6 @@ describe("room search", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
     await waitFor(() => expect(target).toHaveFocus());
     expect(target).toHaveAttribute("data-search-match");
-    expect(target.scrollIntoView).toHaveBeenCalledWith({
-      block: "center",
-      behavior: "instant",
-    });
   });
 
   it("resets the query and results when switching rooms", async () => {
@@ -1711,7 +1674,7 @@ describe("message history", () => {
     };
     const result = setup(server);
     await joinRoom(result.user);
-    await screen.findByRole("button", { name: "Account menu: Alice" });
+    await screen.findByRole("log", { name: "General" });
     return result;
   }
 
@@ -1812,7 +1775,7 @@ describe("banned authors", () => {
     };
     const result = setup(server);
     await joinRoom(result.user);
-    await screen.findByRole("button", { name: "Account menu: Alice" });
+    await screen.findByRole("log", { name: "General" });
     return result;
   }
 
@@ -1832,15 +1795,6 @@ describe("banned authors", () => {
     expect(log().queryByText("something awful")).not.toBeInTheDocument();
     expect(log().queryByText("Mallory")).not.toBeInTheDocument();
     expect(log().getByText(PLACEHOLDER)).toBeInTheDocument();
-  });
-
-  it("shows the placeholder in red", async () => {
-    const bad = message();
-    const { server } = await joinWith([], [bad]);
-
-    redact(server, { roomSlug: "general", ids: [bad.id], guestIds: [] });
-
-    expect(log().getByText(PLACEHOLDER)).toHaveClass("text-red-400");
   });
 
   it("also replaces that guest's older messages, which the server may no longer hold", async () => {

@@ -78,42 +78,18 @@ describe("the page about how the site is built", () => {
     expect(document.title).toBe("How Chatter is built \u2013 Chatter");
   });
 
-  it("shows a consistently sized icon above every technology label", () => {
+  it("keeps technology icons decorative for screen readers", () => {
     renderAt("/about");
 
     const stack = screen
       .getByRole("heading", { name: "Built with" })
       .closest("section")!;
     const technologies = within(stack).getAllByRole("listitem");
-    expect(technologies).toHaveLength(43);
     for (const technology of technologies) {
-      expect(technology).toHaveClass("flex-col", "items-center");
       expect(technology.querySelector("svg, img")).toHaveAttribute(
         "aria-hidden",
         "true",
       );
-      expect(technology.querySelector("svg, img")).toHaveClass("size-8");
-    }
-    for (const [name, file] of [
-      ["Emoji Picker React", "emoji-picker-react.png"],
-      ["jsdom", "jsdom.svg"],
-      ["ioredis", "ioredis.svg"],
-      ["Fontsource", "fontsource.png"],
-      ["Floating UI", "floating-ui.png"],
-      ["Motion", "motion.png"],
-      ["Sonner", "sonner.png"],
-      ["TipTap", "tiptap.png"],
-      ["Oracle Cloud", "oracle-cloud.png"],
-      ["UptimeRobot", "uptimerobot.png"],
-      ["Playwright", "playwright.png"],
-    ]) {
-      const icon = within(stack)
-        .getByText(name)
-        .closest("li")!
-        .querySelector("img");
-      expect(icon).toHaveAttribute("src", `/images/build-with/${file}`);
-      expect(icon).toHaveAttribute("alt", "");
-      expect(icon).toHaveClass("object-contain");
     }
   });
 

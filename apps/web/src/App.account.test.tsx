@@ -241,7 +241,7 @@ describe("signing in from the lobby", () => {
         nickname: "Alice",
         provider: "password",
       });
-      expect(screen.queryByRole("dialog")).toBeNull();
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     },
   );
 

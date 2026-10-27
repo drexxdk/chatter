@@ -48,14 +48,18 @@ export function stubRooms(
   }),
 ) {
   const fetchMock = vi.fn(response);
-  // The terms and the sign-in providers are not what these tests are about: they are not there, and the rooms' mock
-  // counts the rooms' requests only.
-  vi.stubGlobal("fetch", (url: string) =>
-    /\/auth\/providers$/.test(String(url))
-      ? Promise.resolve({ ok: true, json: async () => ({ providers: [] }) })
-      : /\/legal$/.test(String(url))
-        ? Promise.resolve({ ok: false, status: 404 })
-        : fetchMock(),
+  vi.stubGlobal(
+    "fetch",
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      const path = new URL(request.url).pathname;
+      if (request.method === "GET") {
+        if (path === "/rooms") return fetchMock();
+        if (path === "/auth/providers") return Response.json({ providers: [] });
+        if (path === "/legal") return new Response(null, { status: 404 });
+      }
+      throw new Error(`Unexpected mocked request: ${request.method} ${path}`);
+    },
   );
   return fetchMock;
 }
