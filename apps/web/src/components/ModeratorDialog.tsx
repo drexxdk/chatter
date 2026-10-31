@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
-import { Modal } from "./Modal";
+import { Modal, useModalSubmission } from "./Modal";
 import { AccountOptions } from "./AccountOptions";
 import { useTabText } from "../tabDraft";
 import { HumanCheck } from "./HumanCheck";
@@ -40,13 +40,21 @@ export function ModeratorForm({
   const [password, setPassword] = useState("");
   const [touched, setTouched] = useState(false);
   const [humanToken, setHumanToken] = useState<string | null>(null);
+  const submission = useModalSubmission(signingIn, error);
 
   function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
     setTouched(true);
 
-    if (!signingIn && email && password && humanToken !== null)
+    if (
+      !submission.pending &&
+      email.trim() &&
+      password &&
+      humanToken !== null
+    ) {
+      submission.start();
       onSignIn(email.trim(), password, humanToken || undefined);
+    }
   }
 
   return (
@@ -54,7 +62,7 @@ export function ModeratorForm({
       {showProviders && (
         <AccountOptions returnPath={returnPath} divider={t("account.or")} />
       )}
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form noValidate onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-3">
           <Field
             id="email"
@@ -62,11 +70,13 @@ export function ModeratorForm({
             type="text"
             required
             autoFocus
-            disabled={signingIn}
+            disabled={submission.pending}
             autoComplete="username"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            invalid={touched && !email}
+            error={
+              touched && !email.trim() ? t("errors.field_required") : undefined
+            }
           />
           <Field
             id="password"
@@ -74,17 +84,19 @@ export function ModeratorForm({
             type="password"
             required
             autoComplete="current-password"
-            disabled={signingIn}
+            disabled={submission.pending}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            invalid={touched && !password}
+            error={
+              touched && !password ? t("errors.field_required") : undefined
+            }
           />
         </div>
 
         <HumanCheck
           action="password_login"
           onToken={setHumanToken}
-          busy={signingIn}
+          busy={submission.pending}
         />
         <ErrorAlert code={error} />
 
@@ -93,10 +105,11 @@ export function ModeratorForm({
             type="submit"
             variant="primary"
             icon={LogIn}
-            disabled={signingIn || humanToken === null}
+            loading={submission.pending}
+            disabled={humanToken === null}
             className="w-full"
           >
-            {signingIn ? t("nickname.signingIn") : t("nickname.signIn")}
+            {t("nickname.signIn")}
           </Button>
         </div>
       </form>

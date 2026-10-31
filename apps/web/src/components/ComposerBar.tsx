@@ -125,6 +125,7 @@ export function ComposerBar({
 
       <form
         ref={setAnchor}
+        noValidate
         data-composer
         onSubmit={(event) => {
           reportTyping(false);

@@ -119,6 +119,7 @@ export function NameAndBirthDate({
   invalidNickname,
   nicknameLabel,
   nicknameHint,
+  nicknameError,
   birthDate,
   onBirthDateChange,
   invalidAge,
@@ -133,6 +134,7 @@ export function NameAndBirthDate({
   // For an account's display name, which is not called a nickname.
   nicknameLabel?: string;
   nicknameHint?: string;
+  nicknameError?: string;
   birthDate: string;
   onBirthDateChange: (value: string) => void;
   invalidAge: boolean;
@@ -173,6 +175,16 @@ export function NameAndBirthDate({
           id={nicknameId}
           label={nicknameLabel ?? t("nickname.label")}
           hint={nicknameHint ?? t("nickname.hint")}
+          error={
+            nicknameError ??
+            (invalidNickname
+              ? t(
+                  nicknameLabel
+                    ? "errors.invalid_display_name"
+                    : "errors.invalid_nickname",
+                )
+              : undefined)
+          }
           required
           autoFocus={autoFocus}
           autoComplete={autoComplete}
@@ -292,6 +304,7 @@ export function NameAndBirthDate({
         </div>
         <p
           id={hintId}
+          role={invalidAge ? "alert" : undefined}
           className={`text-xs ${invalidAge ? "text-red-300" : "text-neutral-500"}`}
         >
           {hint}

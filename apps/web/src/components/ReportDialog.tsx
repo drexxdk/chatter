@@ -47,7 +47,7 @@ export function ReportDialog({
   return (
     <Modal open={open} onClose={onCancel} title={t("report.title")}>
       {(_changeView, close) => (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form noValidate onSubmit={handleSubmit} className="space-y-4">
           <p className="text-sm text-neutral-300">
             {t("report.intro", { name: nickname })}
           </p>
@@ -83,7 +83,7 @@ export function ReportDialog({
             <Button variant="ghost" icon={X} onClick={close}>
               {t("report.cancel")}
             </Button>
-            <Button variant="primary" icon={Flag} type="submit" disabled={busy}>
+            <Button variant="primary" icon={Flag} type="submit" loading={busy}>
               {t("report.send")}
             </Button>
           </div>

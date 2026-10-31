@@ -302,7 +302,7 @@ function RegisterForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-md space-y-4">
+    <form noValidate onSubmit={handleSubmit} className="max-w-md space-y-4">
       <div className="space-y-1">
         <h1 className="text-xl font-semibold">{t("account.register.title")}</h1>
         <p className="text-sm text-neutral-300">
@@ -329,6 +329,13 @@ function RegisterForm({
           if (usernameError) setError(null);
         }}
         invalid={usernameError || (touched && !usernameOk)}
+        error={
+          usernameError
+            ? t(`errors.${error}`)
+            : touched && !usernameOk
+              ? t("errors.invalid_username")
+              : undefined
+        }
       />
       <NameAndBirthDate
         nicknameId="register-nickname"
@@ -339,6 +346,7 @@ function RegisterForm({
           if (displayNameError) setError(null);
         }}
         invalidNickname={displayNameError || (touched && !nickname)}
+        nicknameError={displayNameError ? t(`errors.${error}`) : undefined}
         nicknameLabel={t("account.register.displayName")}
         nicknameHint={
           displayNameError
@@ -367,7 +375,7 @@ function RegisterForm({
         invalid={touched && !termsAccepted}
       />
 
-      <ErrorAlert code={error} />
+      <ErrorAlert code={usernameError || displayNameError ? null : error} />
 
       <div className="flex justify-end gap-2">
         <Button
@@ -380,10 +388,8 @@ function RegisterForm({
         >
           {t("nickname.cancel")}
         </Button>
-        <Button type="submit" variant="primary" icon={UserPlus} disabled={busy}>
-          {busy
-            ? t("account.register.submitting")
-            : t("account.register.submit")}
+        <Button type="submit" variant="primary" icon={UserPlus} loading={busy}>
+          {t("account.register.submit")}
         </Button>
       </div>
     </form>

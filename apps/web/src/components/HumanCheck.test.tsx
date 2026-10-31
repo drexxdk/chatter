@@ -124,7 +124,7 @@ describe("human verification forms", () => {
   it("blocks guest submission until verified without blocking provider links", async () => {
     const submit = vi.fn();
     const user = userEvent.setup();
-    render(
+    const { rerender } = render(
       <NicknameDialog
         open
         connecting={false}
@@ -160,6 +160,36 @@ describe("human verification forms", () => {
       expect.any(String),
       "guest-human-token",
     );
+    for (const connecting of [true, false]) {
+      rerender(
+        <NicknameDialog
+          open
+          connecting={connecting}
+          error={null}
+          onSubmit={submit}
+          onCancel={() => {}}
+          termsVersion={null}
+          returnPath="/rooms/general"
+        />,
+      );
+      const button = screen.getByRole("button", { name: "Continue" });
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute("aria-busy", "true");
+    }
+    rerender(
+      <NicknameDialog
+        open
+        connecting={false}
+        error="name_taken"
+        onSubmit={submit}
+        onCancel={() => {}}
+        termsVersion={null}
+        returnPath="/rooms/general"
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Continue" }),
+    ).not.toHaveAttribute("aria-busy", "true");
     expect(
       JSON.stringify({ ...sessionStorage, ...localStorage }),
     ).not.toContain("guest-human-token");
@@ -187,15 +217,14 @@ describe("human verification forms", () => {
   it("passes a password challenge to account sign-in", async () => {
     const submit = vi.fn();
     const user = userEvent.setup();
-    render(
-      <ModeratorDialog
-        signingIn={false}
-        error={null}
-        onSignIn={submit}
-        onCancel={() => {}}
-        returnPath="/"
-      />,
-    );
+    const props = {
+      signingIn: false,
+      error: null,
+      onSignIn: submit,
+      onCancel: () => {},
+      returnPath: "/",
+    };
+    const { rerender } = render(<ModeratorDialog {...props} />);
     await screen.findByTestId("human-widget");
     await user.type(screen.getByLabelText("Username or email"), "alice");
     await user.type(screen.getByLabelText("Password"), "PrivatePassword123");
@@ -208,10 +237,25 @@ describe("human verification forms", () => {
       "PrivatePassword123",
       "login-human-token",
     );
+    rerender(<ModeratorDialog {...props} signingIn />);
+    const button = screen.getByRole("button", { name: "Sign in" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
+    await user.click(button);
+    expect(submit).toHaveBeenCalledOnce();
+    rerender(<ModeratorDialog {...props} signingIn={false} />);
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
+    rerender(<ModeratorDialog {...props} error="connection" />);
+    expect(button).not.toHaveAttribute("aria-busy", "true");
   });
 
   it("requires a fresh account-claim challenge and includes its token in the claim", async () => {
-    const submit = vi.fn().mockResolvedValue(undefined);
+    let finish!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const submit = vi.fn(() => pending);
     const user = userEvent.setup();
     render(
       <CreateAccountDialog
@@ -228,6 +272,7 @@ describe("human verification forms", () => {
       screen.getByLabelText("Confirm password"),
       "PrivatePassword123",
     );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     const button = screen.getByRole("button", { name: "Claim account" });
     expect(button).toBeDisabled();
     fireEvent.submit(button.closest("form")!);
@@ -244,6 +289,17 @@ describe("human verification forms", () => {
       confirmation: "PrivatePassword123",
       humanToken: "claim-human-token",
     });
+    expect(button).toHaveAccessibleName("Claim account");
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
+    await user.click(button);
+    expect(submit).toHaveBeenCalledOnce();
+    await act(async () => {
+      finish();
+      await pending;
+    });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
     expect(
       JSON.stringify({ ...sessionStorage, ...localStorage }),
     ).not.toContain("claim-human-token");

@@ -4,7 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { useState, type ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 
-const input = cva("control-field", {
+const input = cva("control-field aria-invalid:border-red-500", {
   variants: { width: { full: "w-full", short: "w-16 text-center" } },
   defaultVariants: { width: "full" },
 });
@@ -15,6 +15,7 @@ type FieldProps = Omit<ComponentProps<"input">, "id" | "className"> &
     label: string;
     // Under the box; red once `invalid`, and what the box is described by.
     hint?: string;
+    error?: string;
     invalid?: boolean;
     // Marked with a red star after the label; the star is drawn by CSS so it is not part of the label's text.
     required?: boolean;
@@ -25,9 +26,11 @@ export function Field({
   id,
   label,
   hint,
+  error,
   invalid,
   required,
   width,
+  children,
   ...props
 }: FieldProps) {
   const { t } = useTranslation();
@@ -37,15 +40,18 @@ export function Field({
   const revealLabel = t(
     revealed ? "nickname.hidePassword" : "nickname.showPassword",
   );
-  const hintId = hint ? `${id}-hint` : undefined;
+  const hintId = hint || error ? `${id}-hint` : undefined;
   const control = (
     <input
       {...props}
       type={password && revealed ? "text" : props.type}
       id={id}
       aria-required={required}
-      aria-invalid={invalid}
-      aria-describedby={hintId}
+      aria-invalid={Boolean(error) || invalid}
+      aria-describedby={
+        [props["aria-describedby"], hintId].filter(Boolean).join(" ") ||
+        undefined
+      }
       className={clsx(input({ width }), password && "pr-12")}
     />
   );
@@ -81,15 +87,17 @@ export function Field({
       ) : (
         control
       )}
-      {hint && (
+      {children}
+      {(hint || error) && (
         <p
           id={hintId}
+          role={error ? "alert" : undefined}
           className={clsx(
             "text-xs",
-            invalid ? "text-red-300" : "text-neutral-500",
+            invalid || error ? "text-red-300" : "text-neutral-500",
           )}
         >
-          {hint}
+          {error || hint}
         </p>
       )}
     </div>

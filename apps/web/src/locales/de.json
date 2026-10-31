@@ -574,6 +574,9 @@
   },
   "errors": {
     "display_name_cooldown": "Du kannst deinen Anzeigenamen in {hours} Std. {minutes} Min. {seconds} Sek. wieder ändern.",
+    "field_required": "Bitte fülle dieses Feld aus.",
+    "number_range": "Gib eine ganze Zahl von {min} bis {max} ein.",
+    "typing_counts": "Gib nichtnegative ganze Zahlen mit einer Gesamtsumme von 1 bis {max} ein.",
     "invalid_password": "Verwende 8-128 Zeichen mit Großbuchstaben, Kleinbuchstaben und einer Zahl.",
     "invalid_current_password": "Dein aktuelles Passwort ist falsch.",
     "password_not_supported": "Ändere dein Passwort bei deinem Anmeldeanbieter.",

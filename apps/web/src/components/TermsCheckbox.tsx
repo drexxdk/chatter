@@ -16,12 +16,15 @@ export function TermsCheckbox({
 
   return (
     <div className="space-y-1">
-      <label className="flex items-start gap-2 rounded-md bg-neutral-950 p-3 text-sm text-neutral-300">
+      <label
+        className={`flex items-start gap-2 rounded-md border bg-neutral-950 p-3 text-sm text-neutral-300 ${invalid ? "border-red-500" : "border-transparent"}`}
+      >
         <input
           type="checkbox"
           checked={checked}
           onChange={(event) => onChange(event.target.checked)}
           aria-invalid={invalid}
+          aria-describedby={invalid ? "terms-accept-error" : undefined}
           className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-500"
         />
         <span>
@@ -29,7 +32,13 @@ export function TermsCheckbox({
         </span>
       </label>
       {invalid && (
-        <p className="text-sm text-red-300">{t("terms.acceptRequired")}</p>
+        <p
+          id="terms-accept-error"
+          role="alert"
+          className="text-sm text-red-300"
+        >
+          {t("terms.acceptRequired")}
+        </p>
       )}
     </div>
   );

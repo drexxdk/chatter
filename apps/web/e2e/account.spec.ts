@@ -672,8 +672,75 @@ test(
       .getByRole("button", { name: "Claim account", exact: true })
       .click();
     const registration = page.getByRole("dialog", { name: "Claim account" });
+    await expect(registration.getByRole("alert")).toHaveCount(0);
+    const strength = registration.getByRole("meter", {
+      name: "Password strength",
+    });
+    await expect(strength).toBeVisible();
+    await expect(
+      registration.getByText("Password strength", { exact: true }),
+    ).toHaveCount(0);
+    for (const width of [1280, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      const inputBounds = await registration
+        .getByLabel("Password", { exact: true })
+        .boundingBox();
+      const meterBounds = await strength.boundingBox();
+      const gap = meterBounds!.y - inputBounds!.y - inputBounds!.height;
+      expect(gap).toBeGreaterThanOrEqual(0);
+      expect(gap).toBeLessThanOrEqual(8);
+      await page.screenshot({
+        path: test.info().outputPath(`claim-strength-${width}.png`),
+      });
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await registration.getByLabel("Username", { exact: true }).fill("!");
+    await registration.getByLabel("Password", { exact: true }).fill("short1");
+    await registration.getByLabel("Confirm password").fill("other1");
+    await expect(registration.getByRole("alert")).toHaveCount(0);
+    await registration
+      .getByRole("button", { name: "Claim account", exact: true })
+      .click();
+    await expect(registration.getByRole("alert")).toHaveCount(3);
+    await expect(registration.locator("#claim-password-hint")).toContainText(
+      "8-128 characters",
+    );
+    await expect(
+      registration.getByText(
+        "Use 8-128 characters with uppercase, lowercase and a number.",
+        { exact: true },
+      ),
+    ).toHaveCount(0);
+    for (const id of [
+      "claim-username",
+      "claim-password",
+      "claim-confirmation",
+    ]) {
+      const field = registration.locator(`#${id}`);
+      const message = registration.locator(`#${id}-hint`);
+      await expect(field).toHaveAttribute("aria-invalid", "true");
+      await expect(message).toBeVisible();
+      const fieldBounds = await field.boundingBox();
+      const messageBounds = await message.boundingBox();
+      expect(messageBounds!.y).toBeGreaterThanOrEqual(
+        fieldBounds!.y + fieldBounds!.height,
+      );
+    }
+    await page.screenshot({
+      path: test.info().outputPath("claim-short-password.png"),
+    });
     await registration.getByLabel("Username", { exact: true }).fill(handle);
+    await expect(
+      registration.getByLabel("Username", { exact: true }),
+    ).not.toHaveAttribute("aria-invalid", "true");
     await registration.getByLabel("Password", { exact: true }).fill(password);
+    await expect(
+      registration.getByLabel("Password", { exact: true }),
+    ).not.toHaveAttribute("aria-invalid", "true");
+    await expect(registration.getByLabel("Confirm password")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
     await registration
       .getByLabel("Confirm password")
       .fill("a different password");

@@ -27,6 +27,22 @@ export function useModalViewTransition() {
   return useContext(ModalViewTransition);
 }
 
+export function useModalSubmission(pending: boolean, error: string | null) {
+  const [submitted, setSubmitted] = useState(false);
+  const [previousError, setPreviousError] = useState(error);
+
+  if (previousError !== error) {
+    setPreviousError(error);
+    if (error) setSubmitted(false);
+  }
+
+  return {
+    pending: pending || submitted,
+    start: () => setSubmitted(true),
+    reset: () => setSubmitted(false),
+  };
+}
+
 export function Backdrop() {
   return (
     <DialogBackdrop

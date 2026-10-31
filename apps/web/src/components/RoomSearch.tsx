@@ -285,6 +285,7 @@ export function RoomSearch({
       </button>
       <form
         id={searchId}
+        noValidate
         role="search"
         onSubmit={(event) => {
           event.preventDefault();

@@ -388,10 +388,10 @@ function ProfileForm({
 
     setSaving(true);
     const result = await onSave(changes);
-    setSaving(false);
 
     if (result.ok) finish();
     else {
+      setSaving(false);
       setFailure(result);
       if (result.error === "display_name_cooldown")
         form.querySelector<HTMLInputElement>("#profile-nickname")?.focus();
@@ -404,7 +404,7 @@ function ProfileForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form noValidate onSubmit={handleSubmit} className="space-y-4">
       {username && (
         <Field
           id="profile-username"
@@ -414,6 +414,14 @@ function ProfileForm({
           maxLength={24}
           required
           hint={t("account.register.usernameHint")}
+          error={
+            failure?.error === "reserved_username" ||
+            failure?.error === "invalid_username"
+              ? t(`errors.${failure.error}`)
+              : touched && !nextUsername
+                ? t("errors.invalid_username")
+                : undefined
+          }
           invalid={
             (touched && !nextUsername) ||
             failure?.error === "reserved_username" ||
@@ -435,13 +443,34 @@ function ProfileForm({
         nickname={name}
         onNicknameChange={(value) => {
           setName(value);
-          if (normalizeNickname(value) === profile.nickname)
+          if (
+            normalizeNickname(value) === profile.nickname ||
+            failure?.error === "reserved_nickname" ||
+            failure?.error === "invalid_nickname"
+          )
             setFailure(undefined);
         }}
         invalidNickname={
           (touched && !nickname) ||
+          failure?.error === "reserved_nickname" ||
+          failure?.error === "invalid_nickname" ||
           (failure?.error === "display_name_cooldown" &&
             nickname !== profile.nickname)
+        }
+        nicknameError={
+          failure?.error === "reserved_nickname" ||
+          failure?.error === "invalid_nickname"
+            ? t(`errors.${failure.error}`)
+            : failure?.error === "display_name_cooldown" &&
+                nickname !== profile.nickname
+              ? t("errors.display_name_cooldown", {
+                  hours: Math.floor((failure.retryAfterSeconds ?? 0) / 3600),
+                  minutes: Math.floor(
+                    ((failure.retryAfterSeconds ?? 0) % 3600) / 60,
+                  ),
+                  seconds: (failure.retryAfterSeconds ?? 0) % 60,
+                })
+              : undefined
         }
         nicknameLabel={account ? t("account.register.displayName") : undefined}
         nicknameHint={
@@ -464,7 +493,14 @@ function ProfileForm({
 
       <ErrorAlert
         code={
-          failure
+          failure &&
+          ![
+            "reserved_username",
+            "invalid_username",
+            "reserved_nickname",
+            "invalid_nickname",
+            "display_name_cooldown",
+          ].includes(failure.error)
             ? failure.error === "rate_limited"
               ? "profile_rate_limited"
               : failure.error
@@ -486,8 +522,8 @@ function ProfileForm({
         <Button variant="ghost" icon={X} onClick={finish}>
           {t("nickname.cancel")}
         </Button>
-        <Button type="submit" variant="primary" icon={Save} disabled={saving}>
-          {saving ? t("profile.saving") : t("profile.save")}
+        <Button type="submit" variant="primary" icon={Save} loading={saving}>
+          {t("profile.save")}
         </Button>
       </div>
     </form>

@@ -94,14 +94,15 @@ describe("account password changes", () => {
     return user;
   }
 
-  it("shows policy feedback and changes the password without storing credentials", async () => {
+  it("shows password requirements without validation errors and changes the password without storing credentials", async () => {
     const request = vi.fn(async () => Response.json({ ok: true }));
     vi.stubGlobal("fetch", request);
     const user = await fillForm();
     expect(
       screen.getByRole("meter", { name: "Password strength" }),
-    ).toHaveAttribute("aria-valuenow", "4");
-    expect(screen.getByText("Meets requirements")).toBeVisible();
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Password strength")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save" }));
     await screen.findByText("Your password has been changed.");
     expect(request).toHaveBeenCalledWith(
@@ -209,7 +210,7 @@ describe("account password changes", () => {
   });
 
   it.each([false, true])(
-    "uses the placeholder suggestion or a typed username when claiming (edited: %s)",
+    "claims only with an entered username (custom: %s)",
     async (edited) => {
       const claim = vi.fn(async () => {});
       const user = userEvent.setup();
@@ -226,15 +227,13 @@ describe("account password changes", () => {
       expect(username).toHaveAttribute("placeholder", "AliceExample");
       expect(username).toHaveAttribute("name", "username");
       expect(username).toHaveAttribute("autocomplete", "username");
-      if (edited) {
-        await user.clear(username);
-        await user.type(username, "alice_custom");
-      }
+      expect(username).toHaveAttribute("aria-required", "true");
+      await user.type(username, edited ? "alice_custom" : "AliceExample");
       await user.type(screen.getByLabelText("Password"), password);
       await user.type(screen.getByLabelText("Confirm password"), password);
       const form = username.closest("form")!;
       expect(new FormData(form).get("username")).toBe(
-        edited ? "alice_custom" : "",
+        edited ? "alice_custom" : "AliceExample",
       );
       expect(new FormData(form).get("password")).toBe(password);
       await user.click(screen.getByRole("button", { name: "Claim account" }));
@@ -248,8 +247,51 @@ describe("account password changes", () => {
     },
   );
 
-  it("shows weak creation passwords in red and refuses them before submitting", async () => {
-    const claim = vi.fn();
+  it.each(["short1", "alllowercaseonly"])(
+    "only validates weak creation password %s after a submit attempt",
+    async (weakPassword) => {
+      const claim = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <CreateAccountDialog
+          nickname="Alice"
+          returnPath="/"
+          onClaim={claim}
+          onClose={() => {}}
+        />,
+      );
+      await user.type(screen.getByLabelText("Username"), "Alice");
+      await user.type(screen.getByLabelText("Password"), weakPassword);
+      await user.type(screen.getByLabelText("Confirm password"), weakPassword);
+      expect(screen.getByLabelText("Password").closest("form")).toHaveAttribute(
+        "novalidate",
+      );
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("meter", { name: "Password strength" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Password strength")).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Claim account" }));
+      const meter = screen.getByRole("meter", { name: "Password strength" });
+      expect(meter).toHaveAttribute("aria-valuenow", "2");
+      expect(meter.firstElementChild).toHaveClass("bg-red-400");
+      expect(screen.getByLabelText("Password")).toHaveAttribute(
+        "aria-invalid",
+        "true",
+      );
+      expect(screen.getByLabelText("Password")).toHaveAccessibleDescription(
+        /8-128 characters.*Lowercase letter.*Uppercase letter.*Number/,
+      );
+      expect(
+        screen.queryByText(
+          "Use 8-128 characters with uppercase, lowercase and a number.",
+        ),
+      ).not.toBeInTheDocument();
+      expect(claim).not.toHaveBeenCalled();
+    },
+  );
+  it("marks every invalid claim field after submit and clears each as it is corrected", async () => {
+    const claim = vi.fn(async () => {});
     const user = userEvent.setup();
     render(
       <CreateAccountDialog
@@ -259,19 +301,80 @@ describe("account password changes", () => {
         onClose={() => {}}
       />,
     );
-    await user.type(screen.getByLabelText("Password"), "alllowercaseonly");
-    await user.type(
-      screen.getByLabelText("Confirm password"),
-      "alllowercaseonly",
-    );
-    const meter = screen.getByRole("meter", { name: "Password strength" });
-    expect(meter).toHaveAttribute("aria-valuenow", "2");
-    expect(meter.firstElementChild).toHaveClass("bg-red-400");
+    const username = screen.getByLabelText("Username");
+    const passwordField = screen.getByLabelText("Password");
+    const confirmation = screen.getByLabelText("Confirm password");
+    await user.type(username, "!");
+    await user.type(passwordField, "short1");
+    await user.type(confirmation, "other");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Claim account" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "uppercase, lowercase and a number",
-    );
+    expect(screen.getAllByRole("alert")).toHaveLength(3);
+    for (const field of [username, passwordField, confirmation])
+      expect(field).toHaveAttribute("aria-invalid", "true");
     expect(claim).not.toHaveBeenCalled();
+    await user.clear(username);
+    await user.type(username, "alice_custom");
+    expect(username).not.toHaveAttribute("aria-invalid", "true");
+    expect(passwordField).toHaveAttribute("aria-invalid", "true");
+    await user.clear(passwordField);
+    await user.type(passwordField, password);
+    expect(passwordField).not.toHaveAttribute("aria-invalid", "true");
+    expect(confirmation).toHaveAttribute("aria-invalid", "true");
+    await user.clear(confirmation);
+    await user.type(confirmation, password);
+    expect(confirmation).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Claim account" }));
+    await waitFor(() => expect(claim).toHaveBeenCalledOnce());
+  });
+
+  it("validates all password-change fields and requires the claim username despite its placeholder", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <AccountSection account={account} onDelete={async () => {}} />,
+    );
+    await user.click(screen.getByRole("button", { name: "Change password" }));
+    const current = screen.getByLabelText("Current password");
+    const next = screen.getByLabelText("New password");
+    const confirm = screen.getByLabelText("Confirm password");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getAllByRole("alert")).toHaveLength(3);
+    for (const field of [current, next, confirm])
+      expect(field).toHaveAttribute("aria-invalid", "true");
+    await user.type(current, "OldPassword123");
+    expect(current).not.toHaveAttribute("aria-invalid", "true");
+    expect(next).toHaveAttribute("aria-invalid", "true");
+    await user.type(next, password);
+    expect(next).not.toHaveAttribute("aria-invalid", "true");
+    expect(confirm).toHaveAttribute("aria-invalid", "true");
+    await user.type(confirm, password);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    unmount();
+    const claim = vi.fn(async () => {});
+    render(
+      <CreateAccountDialog
+        nickname="Alice"
+        returnPath="/"
+        onClaim={claim}
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Claim account" }));
+    const username = screen.getByLabelText("Username");
+    expect(username).toHaveAttribute("aria-invalid", "true");
+    expect(username).toHaveAttribute("aria-required", "true");
+    expect(username).toHaveAccessibleDescription("Please fill in this field.");
+    expect(screen.getAllByRole("alert")).toHaveLength(3);
+    expect(claim).not.toHaveBeenCalled();
+    await user.type(username, "alice_custom");
+    expect(username).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Password")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
   });
 });
 

@@ -10,7 +10,7 @@ import { AccountOptions } from "./AccountOptions";
 import { Button } from "./Button";
 import { ErrorAlert } from "./ErrorAlert";
 import { Field } from "./Field";
-import { Modal } from "./Modal";
+import { Modal, useModalSubmission } from "./Modal";
 import { TermsCheckbox } from "./TermsCheckbox";
 import { useTabText } from "../tabDraft";
 import { HumanCheck } from "./HumanCheck";
@@ -56,10 +56,15 @@ export function NicknameDialog({
   const [humanToken, setHumanToken] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [previousOpen, setPreviousOpen] = useState(open);
+  const submission = useModalSubmission(connecting, error);
 
   if (previousOpen !== open) {
     setPreviousOpen(open);
-    setTermsAccepted(false);
+    if (open) {
+      setTermsAccepted(false);
+      setTouched(false);
+      submission.reset();
+    }
   }
 
   const nickname = normalizeNickname(value);
@@ -68,7 +73,13 @@ export function NicknameDialog({
     event.preventDefault();
     setTouched(true);
 
-    if (!connecting && nickname && termsAccepted && humanToken !== null) {
+    if (
+      !submission.pending &&
+      nickname &&
+      termsAccepted &&
+      humanToken !== null
+    ) {
+      submission.start();
       saveTermsAccepted(termsVersion);
       onSubmit(nickname, PLAIN_AVATAR, picture, humanToken || undefined);
     }
@@ -91,7 +102,7 @@ export function NicknameDialog({
               onSignIn={onSignIn ? () => changeView(onSignIn) : undefined}
             />
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form noValidate onSubmit={handleSubmit} className="space-y-4">
               <Field
                 id="nickname"
                 label={t("nickname.label")}
@@ -101,13 +112,18 @@ export function NicknameDialog({
                 autoComplete="nickname"
                 maxLength={24}
                 value={value}
+                disabled={submission.pending}
                 onChange={(event) => setValue(event.target.value)}
-                invalid={touched && !nickname}
+                error={
+                  touched && !nickname
+                    ? t("errors.invalid_nickname")
+                    : undefined
+                }
               />
               <HumanCheck
                 action="guest_join"
                 onToken={setHumanToken}
-                busy={connecting}
+                busy={submission.pending}
                 active={open}
               />
               <TermsCheckbox
@@ -123,10 +139,11 @@ export function NicknameDialog({
                   type="submit"
                   variant="primary"
                   icon={ArrowRight}
-                  disabled={connecting || humanToken === null}
+                  loading={submission.pending}
+                  disabled={humanToken === null}
                   className="w-full"
                 >
-                  {connecting ? t("nickname.connecting") : t("nickname.submit")}
+                  {t("nickname.submit")}
                 </Button>
               </div>
             </form>

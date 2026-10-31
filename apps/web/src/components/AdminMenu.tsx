@@ -84,6 +84,7 @@ function QueueSettingsForm({
   const { t } = useTranslation();
   const [value, setValue] = useState(String(settings.ahead));
   const [enabled, setEnabled] = useState(settings.enabled);
+  const [submitted, setSubmitted] = useState(false);
   useEffect(() => setEnabled(settings.enabled), [settings.enabled]);
   const pending = enabled !== settings.enabled;
   const ahead = /^\d+$/.test(value) ? Number(value) : NaN;
@@ -118,9 +119,10 @@ function QueueSettingsForm({
       </label>
       <form
         noValidate
-        className="flex gap-1 px-2"
+        className="flex flex-wrap gap-1 px-2"
         onSubmit={(event) => {
           event.preventDefault();
+          setSubmitted(true);
           if (valid && ahead !== settings.ahead) {
             event.currentTarget.querySelector("input")?.focus();
             onApply({ ...settings, ahead });
@@ -136,7 +138,10 @@ function QueueSettingsForm({
           step={1}
           disabled={pending}
           aria-label={t("admin.queue.ahead")}
-          aria-invalid={!valid}
+          aria-invalid={submitted && !valid}
+          aria-describedby={
+            submitted && !valid ? "queue-ahead-error" : undefined
+          }
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
@@ -150,11 +155,20 @@ function QueueSettingsForm({
           role="button"
           aria-label={t("admin.queue.save")}
           title={t("admin.queue.save")}
-          disabled={pending || !valid || ahead === settings.ahead}
+          disabled={pending || ahead === settings.ahead}
           className={iconAction}
         >
           <Save aria-hidden="true" className="size-4" />
         </button>
+        {submitted && !valid && (
+          <p
+            id="queue-ahead-error"
+            role="alert"
+            className="basis-full text-xs text-red-300"
+          >
+            {t("errors.number_range", { min: 0, max: 1000 })}
+          </p>
+        )}
       </form>
     </div>
   );
@@ -175,11 +189,14 @@ function TypingPreviewForm({
 }) {
   const { t } = useTranslation();
   const { room, direct } = counts;
+  const [submitted, setSubmitted] = useState(false);
   const roomCount = /^\d+$/.test(room) ? Number(room) : NaN;
   const directCount = /^\d+$/.test(direct) ? Number(direct) : NaN;
   const validCounts =
     Number.isSafeInteger(roomCount) &&
     Number.isSafeInteger(directCount) &&
+    roomCount >= 0 &&
+    directCount >= 0 &&
     roomCount + directCount > 0 &&
     roomCount + directCount <= maxPeople;
   const valid = validCounts && roomCount + directCount <= people;
@@ -189,6 +206,7 @@ function TypingPreviewForm({
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
+        setSubmitted(true);
         if (valid) onApply({ room: roomCount, direct: directCount });
       }}
     >
@@ -210,7 +228,10 @@ function TypingPreviewForm({
             max={maxPeople}
             step={1}
             aria-label={t(`admin.crowd.typing.${target}`)}
-            aria-invalid={people > 0 && !validCounts}
+            aria-invalid={submitted && !validCounts}
+            aria-describedby={
+              submitted && !validCounts ? `typing-${target}-error` : undefined
+            }
             disabled={!people}
             value={value}
             onChange={(event) => onChange(target, event.target.value)}
@@ -220,6 +241,15 @@ function TypingPreviewForm({
             }}
             className="control-field w-full min-w-0 aria-invalid:border-red-500"
           />
+          {submitted && !validCounts && (
+            <span
+              id={`typing-${target}-error`}
+              role="alert"
+              className="text-xs text-red-300"
+            >
+              {t("errors.typing_counts", { max: maxPeople })}
+            </span>
+          )}
         </label>
       ))}
       <div className="flex justify-end gap-1">
@@ -235,7 +265,7 @@ function TypingPreviewForm({
               : t("admin.crowd.typing.start")
           }
           aria-label={t("admin.crowd.typing.start")}
-          disabled={!valid}
+          disabled={!people || (validCounts && !valid)}
           className={iconAction}
         >
           <Play aria-hidden="true" className="size-4" />
@@ -256,6 +286,7 @@ function RoomLimitForm({
   const [value, setValue] = useState(
     String(room?.maxMembers ?? DEFAULT_AMOUNT),
   );
+  const [submitted, setSubmitted] = useState(false);
   const maxMembers = /^\d+$/.test(value) ? Number(value) : 0;
   const minimum = Math.max(1, room?.memberCount ?? 0);
   const valid =
@@ -265,9 +296,10 @@ function RoomLimitForm({
   return (
     <form
       noValidate
-      className="flex gap-1 px-2 pb-1"
+      className="flex flex-wrap gap-1 px-2 pb-1"
       onSubmit={(event) => {
         event.preventDefault();
+        setSubmitted(true);
         if (room && valid && maxMembers !== room.maxMembers)
           onApply(maxMembers);
       }}
@@ -279,7 +311,8 @@ function RoomLimitForm({
         max={1000}
         step={1}
         aria-label={t("admin.roomLimit")}
-        aria-invalid={!valid}
+        aria-invalid={submitted && !valid}
+        aria-describedby={submitted && !valid ? "room-limit-error" : undefined}
         value={value}
         disabled={!room}
         onChange={(event) => setValue(event.target.value)}
@@ -294,11 +327,20 @@ function RoomLimitForm({
         role="button"
         aria-label={t("admin.applyRoomLimit")}
         title={t("admin.applyRoomLimit")}
-        disabled={!room || !valid || maxMembers === room.maxMembers}
+        disabled={!room || maxMembers === room.maxMembers}
         className={iconAction}
       >
         <Save aria-hidden="true" className="size-4" />
       </button>
+      {submitted && !valid && (
+        <p
+          id="room-limit-error"
+          role="alert"
+          className="basis-full text-xs text-red-300"
+        >
+          {t("errors.number_range", { min: minimum, max: 1000 })}
+        </p>
+      )}
     </form>
   );
 }
@@ -323,6 +365,7 @@ export function AdminMenu({
 }) {
   const { t } = useTranslation();
   const [amount, setAmount] = useState(String(DEFAULT_AMOUNT));
+  const [submitted, setSubmitted] = useState(false);
   const [typingCounts, setTypingCounts] = useState({ room: "3", direct: "1" });
   const [advancing, setAdvancing] = useState(false);
   const inTestRoom = room !== null;
@@ -419,6 +462,7 @@ export function AdminMenu({
                 noValidate
                 onSubmit={(event) => {
                   event.preventDefault();
+                  setSubmitted(true);
 
                   if (!inTestRoom || !valid) return;
 
@@ -429,7 +473,7 @@ export function AdminMenu({
                     { people },
                   );
                 }}
-                className="flex gap-1 px-2 pb-1"
+                className="flex flex-wrap gap-1 px-2 pb-1"
               >
                 <input
                   type="text"
@@ -440,7 +484,10 @@ export function AdminMenu({
                   value={amount}
                   disabled={!inTestRoom}
                   aria-label={t("admin.crowd.amount", { max: limit })}
-                  aria-invalid={!valid}
+                  aria-invalid={submitted && !valid}
+                  aria-describedby={
+                    submitted && !valid ? "crowd-amount-error" : undefined
+                  }
                   onChange={(event) => setAmount(event.target.value)}
                   // The menu would take the keys for moving between items and for finding one by its first letter.
                   onKeyDown={(event) => {
@@ -453,7 +500,7 @@ export function AdminMenu({
                 <button
                   type="submit"
                   role="button"
-                  disabled={!inTestRoom || !valid}
+                  disabled={!inTestRoom}
                   aria-label={t(
                     status === "stopped"
                       ? "admin.crowd.start"
@@ -472,6 +519,15 @@ export function AdminMenu({
                     <Save aria-hidden="true" className="h-4 w-4" />
                   )}
                 </button>
+                {submitted && !valid && (
+                  <p
+                    id="crowd-amount-error"
+                    role="alert"
+                    className="order-last basis-full text-xs text-red-300"
+                  >
+                    {t("errors.number_range", { min: 1, max: limit })}
+                  </p>
+                )}
                 {status !== "stopped" && (
                   <>
                     <MenuItem disabled={!inTestRoom}>

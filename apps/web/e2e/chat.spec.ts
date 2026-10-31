@@ -395,13 +395,34 @@ test("joining as a guest opens long room history at the bottom", async ({
         .getByRole("textbox", { name: "Nickname" })
         .fill(`Bottom Guest ${viewport.width}`);
       await acceptTerms(guest);
-      await guest
-        .getByRole("button", { name: "Continue", exact: true })
-        .click();
+      const continueButton = guest.getByRole("button", {
+        name: "Continue",
+        exact: true,
+      });
+      await continueButton.evaluate((button) => {
+        const states: boolean[] = [];
+        let started = false;
+        Reflect.set(window, "joinSubmissionStates", states);
+        new MutationObserver(() => {
+          if (!button.isConnected) return;
+          const busy = button.getAttribute("aria-busy") === "true";
+          if (busy) started = true;
+          if (started) states.push(busy && button.hasAttribute("disabled"));
+        }).observe(button, {
+          attributes: true,
+          attributeFilter: ["aria-busy", "disabled"],
+        });
+      });
+      await continueButton.click();
       await expect(
         guest.getByRole("heading", { name: LOUNGE.name, level: 2 }),
       ).toBeVisible();
       await expect(guest.getByRole("dialog")).toHaveCount(0);
+      const pendingStates = await guest.evaluate(
+        () => Reflect.get(window, "joinSubmissionStates") as boolean[],
+      );
+      expect(pendingStates.length).toBeGreaterThan(0);
+      expect(pendingStates.every(Boolean)).toBe(true);
       await expect(guest.getByRole("log")).toBeVisible({ timeout: 15_000 });
       await expect(
         guest.getByRole("log").getByText("History line 28", { exact: false }),
@@ -1169,7 +1190,9 @@ test("the recipient chip sits above the textarea beside typing activity", async 
       writer.getByRole("textbox", { name: "Message", exact: true }),
       `Room draft ${width}`,
     );
-    await expect(activity).toHaveText("Long Recipient is typing");
+    await expect(activity.getByRole("status")).toHaveText(
+      "Long Recipient is typing",
+    );
     await expect(chip).toBeVisible();
     await expect(
       surface
@@ -1199,7 +1222,9 @@ test("the recipient chip sits above the textarea beside typing activity", async 
   await expect(
     guest.getByRole("textbox", { name: "Message", exact: true }),
   ).toBeVisible();
-  await expect(surface.getByText("Room", { exact: true })).toBeVisible();
+  await expect(
+    surface.getByRole("button", { name: "Stop writing privately" }),
+  ).toHaveCount(0);
 });
 
 test("typing indicators keep private drafts private and follow the current conversation", async ({
@@ -1219,8 +1244,12 @@ test("typing indicators keep private drafts private and follow the current conve
     page.locator("[data-typing-indicator]:visible");
   const aliceBox = alice.getByRole("textbox", { name: "Message", exact: true });
   await fillMessage(aliceBox, "Public draft");
-  await expect(activity(bob)).toHaveText("Typing Alice is typing");
-  await expect(activity(carol)).toHaveText("Typing Alice is typing");
+  await expect(activity(bob).getByRole("status")).toHaveText(
+    "Typing Alice is typing",
+  );
+  await expect(activity(carol).getByRole("status")).toHaveText(
+    "Typing Alice is typing",
+  );
   await expect(activity(dana)).toBeEmpty();
   await alice.getByRole("button", { name: "Send", exact: true }).click();
   await expect(activity(bob)).toBeEmpty();
@@ -1233,7 +1262,9 @@ test("typing indicators keep private drafts private and follow the current conve
     exact: true,
   });
   await fillMessage(alicePrivate, "Private draft");
-  await expect(activity(bob)).toHaveText("Typing Alice is typing");
+  await expect(activity(bob).getByRole("status")).toHaveText(
+    "Typing Alice is typing",
+  );
   await expect(activity(carol)).toBeEmpty();
   await expect(activity(dana)).toBeEmpty();
 
@@ -1241,7 +1272,7 @@ test("typing indicators keep private drafts private and follow the current conve
     carol.getByRole("textbox", { name: "Message", exact: true }),
     "Another public draft",
   );
-  await expect(activity(bob)).toHaveText(
+  await expect(activity(bob).getByRole("status")).toHaveText(
     "Typing Alice and Typing Carol are typing",
   );
   for (const width of [1280, 390]) {
@@ -1251,7 +1282,7 @@ test("typing indicators keep private drafts private and follow the current conve
       carol.getByRole("textbox", { name: "Message", exact: true }),
       "Still writing publicly",
     );
-    await expect(activity(bob)).toHaveText(
+    await expect(activity(bob).getByRole("status")).toHaveText(
       "Typing Alice and Typing Carol are typing",
     );
     const indicator = await activity(bob).boundingBox();
@@ -1274,13 +1305,17 @@ test("typing indicators keep private drafts private and follow the current conve
   await bob
     .getByRole("button", { name: "Open private chat with Typing Alice" })
     .click();
-  await expect(activity(bob)).toHaveText("Typing Alice is typing");
+  await expect(activity(bob).getByRole("status")).toHaveText(
+    "Typing Alice is typing",
+  );
   const bobPrivate = bob.getByRole("textbox", {
     name: "Message to Typing Alice",
     exact: true,
   });
   await fillMessage(bobPrivate, "A private reply");
-  await expect(activity(alice)).toHaveText("Typing Bob is typing");
+  await expect(activity(alice).getByRole("status")).toHaveText(
+    "Typing Bob is typing",
+  );
   await expect(activity(carol)).toBeEmpty();
 
   for (const width of [1280, 390]) {

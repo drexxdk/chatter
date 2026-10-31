@@ -1,4 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
+import { LoaderCircle } from "lucide-react";
 import type { ComponentProps, ComponentType, ReactNode } from "react";
 
 const button = cva("", {
@@ -34,7 +35,11 @@ const button = cva("", {
 });
 
 type ButtonProps = Omit<ComponentProps<"button">, "className"> &
-  VariantProps<typeof button> & { className?: string; icon?: IconComponent };
+  VariantProps<typeof button> & {
+    className?: string;
+    icon?: IconComponent;
+    loading?: boolean;
+  };
 
 // An icon (a Lucide one or a logo) in front of the text, the same size and gap wherever a button has one.
 export type IconComponent = ComponentType<{
@@ -65,15 +70,29 @@ export function Button({
   type = "button",
   icon,
   children,
+  loading = false,
+  disabled,
   ...props
 }: ButtonProps) {
+  const Icon = loading ? LoaderCircle : icon;
   return (
     <button
       {...props}
       type={type}
-      className={button({ variant, className: [icon && withIcon, className] })}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      className={button({
+        variant,
+        className: [(icon || loading) && withIcon, className],
+      })}
     >
-      <Content icon={icon}>{children}</Content>
+      {Icon && (
+        <Icon
+          aria-hidden="true"
+          className={`h-4 w-4 shrink-0${loading ? " animate-spin" : ""}`}
+        />
+      )}
+      {children}
     </button>
   );
 }

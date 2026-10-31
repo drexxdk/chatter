@@ -166,6 +166,7 @@ export function AccountProviders({
             <Button
               variant="danger"
               icon={Unlink}
+              loading={busy !== undefined}
               disabled={busy !== undefined || !connections?.canDisconnect}
               onClick={() => void disconnect()}
             >
@@ -192,6 +193,7 @@ export function AccountProviders({
                 aria-pressed={linked}
                 title={label}
                 className={PROVIDER_BUTTON_CLASS}
+                loading={busy === provider}
                 disabled={loading || !connections || busy !== undefined}
                 onClick={() => {
                   if (linked) {

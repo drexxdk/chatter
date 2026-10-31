@@ -6,6 +6,23 @@ import { Button } from "./Button";
 import { Field } from "./Field";
 
 describe("Button", () => {
+  it("disables actions while loading without changing their label", async () => {
+    const click = vi.fn();
+    const { rerender } = render(
+      <Button loading onClick={click}>
+        Login
+      </Button>,
+    );
+    const button = screen.getByRole("button", { name: "Login" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
+    await userEvent.click(button);
+    expect(click).not.toHaveBeenCalled();
+    rerender(<Button onClick={click}>Login</Button>);
+    await userEvent.click(screen.getByRole("button", { name: "Login" }));
+    expect(click).toHaveBeenCalledOnce();
+  });
+
   it("does not submit a form unless told to", async () => {
     const onSubmit = vi.fn((event: React.SubmitEvent) =>
       event.preventDefault(),

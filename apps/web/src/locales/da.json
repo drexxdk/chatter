@@ -574,6 +574,9 @@
   },
   "errors": {
     "display_name_cooldown": "Du kan ændre dit visningsnavn igen om {hours} t {minutes} min {seconds} s.",
+    "field_required": "Udfyld dette felt.",
+    "number_range": "Indtast et heltal fra {min} til {max}.",
+    "typing_counts": "Indtast ikke-negative heltal med en samlet sum fra 1 til {max}.",
     "invalid_password": "Brug 8-128 tegn med store og små bogstaver og et tal.",
     "invalid_current_password": "Din nuværende adgangskode er forkert.",
     "password_not_supported": "Skift adgangskoden hos din loginudbyder.",

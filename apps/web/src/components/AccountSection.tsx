@@ -119,7 +119,7 @@ export function AccountSection({
             <Button
               variant="danger"
               icon={Trash2}
-              disabled={deleting}
+              loading={deleting}
               onClick={() => void confirmDelete()}
             >
               {t("account.deleteConfirm")}
@@ -188,17 +188,25 @@ function PasswordChangeForm({
   const [confirmation, setConfirmation] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+
+  const currentPasswordInvalid = hasPassword && !currentPassword;
+  const passwordInvalid = !Object.values(passwordChecks(password)).every(
+    Boolean,
+  );
+  const confirmationInvalid = !confirmation || password !== confirmation;
+  const currentPasswordError = error === "invalid_current_password";
+  const passwordError = error === "invalid_password";
+  const confirmationError = error === "password_mismatch";
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     if (saving) return;
-    if (hasPassword && !currentPassword)
-      return setError("invalid_current_password");
-    if (!Object.values(passwordChecks(password)).every(Boolean))
-      return setError("invalid_password");
-    if (password !== confirmation) return setError("password_mismatch");
-    setSaving(true);
+    setSubmitted(true);
     setError(null);
+    if (currentPasswordInvalid || passwordInvalid || confirmationInvalid)
+      return;
+    setSaving(true);
     try {
       await changeAccountPassword(token, {
         ...(hasPassword ? { currentPassword } : {}),
@@ -211,7 +219,6 @@ function PasswordChangeForm({
       onDone();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "connection");
-    } finally {
       setSaving(false);
     }
   }
@@ -220,6 +227,7 @@ function PasswordChangeForm({
     <form
       id="change-password-form"
       method="post"
+      noValidate
       aria-label={t(hasPassword ? "account.changePassword" : "account.claim")}
       onSubmit={submit}
       className="space-y-3"
@@ -251,7 +259,15 @@ function PasswordChangeForm({
           required
           maxLength={128}
           value={currentPassword}
-          onChange={(event) => setCurrentPassword(event.target.value)}
+          onChange={(event) => {
+            setCurrentPassword(event.target.value);
+            if (currentPasswordError) setError(null);
+          }}
+          error={
+            (submitted && currentPasswordInvalid) || currentPasswordError
+              ? t("errors.invalid_current_password")
+              : undefined
+          }
           disabled={saving}
         />
       )}
@@ -259,17 +275,26 @@ function PasswordChangeForm({
         id="change-new-password"
         name="new-password"
         label={t("account.newPassword")}
-        hint={t("account.passwordHint")}
+        aria-describedby="change-new-password-hint"
         type="password"
         autoComplete="new-password"
         required
         minLength={8}
         maxLength={128}
         value={password}
-        onChange={(event) => setPassword(event.target.value)}
+        onChange={(event) => {
+          setPassword(event.target.value);
+          if (passwordError || confirmationError) setError(null);
+        }}
+        invalid={(submitted && passwordInvalid) || passwordError}
         disabled={saving}
-      />
-      <PasswordStrength password={password} />
+      >
+        <PasswordStrength
+          id="change-new-password-hint"
+          password={password}
+          invalid={(submitted && passwordInvalid) || passwordError}
+        />
+      </Field>
       <Field
         id="change-confirmation"
         name="confirm-password"
@@ -279,15 +304,29 @@ function PasswordChangeForm({
         required
         maxLength={128}
         value={confirmation}
-        onChange={(event) => setConfirmation(event.target.value)}
+        onChange={(event) => {
+          setConfirmation(event.target.value);
+          if (confirmationError) setError(null);
+        }}
+        error={
+          (submitted && confirmationInvalid) || confirmationError
+            ? t("errors.password_mismatch")
+            : undefined
+        }
         disabled={saving}
       />
-      <ErrorAlert code={error} />
+      <ErrorAlert
+        code={
+          currentPasswordError || passwordError || confirmationError
+            ? null
+            : error
+        }
+      />
       <div className="modal-actions flex flex-wrap justify-end gap-2">
         <Button icon={X} variant="ghost" disabled={saving} onClick={onCancel}>
           {t("nickname.cancel")}
         </Button>
-        <Button type="submit" icon={Save} variant="primary" disabled={saving}>
+        <Button type="submit" icon={Save} variant="primary" loading={saving}>
           {t("profile.save")}
         </Button>
       </div>
@@ -295,7 +334,15 @@ function PasswordChangeForm({
   );
 }
 
-function PasswordStrength({ password }: { password: string }) {
+function PasswordStrength({
+  password,
+  id,
+  invalid,
+}: {
+  password: string;
+  id: string;
+  invalid: boolean;
+}) {
   const { t } = useTranslation();
   const checks = passwordChecks(password);
   const score = Object.values(checks).filter(Boolean).length;
@@ -321,25 +368,7 @@ function PasswordStrength({ password }: { password: string }) {
     ["number", "account.passwordNumber"],
   ] as const;
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-1 text-xs">
-        <span className="text-neutral-400">
-          {t("account.passwordStrength")}
-        </span>
-        {password && (
-          <span
-            className={
-              ready
-                ? "text-green-400"
-                : score >= 3
-                  ? "text-amber-300"
-                  : "text-red-300"
-            }
-          >
-            {strength}
-          </span>
-        )}
-      </div>
+    <div id={id} role={invalid ? "alert" : undefined} className="space-y-2">
       <div
         role="meter"
         aria-label={t("account.passwordStrength")}
@@ -361,7 +390,7 @@ function PasswordStrength({ password }: { password: string }) {
           return (
             <li
               key={key}
-              className={`flex items-center gap-1.5 ${passed ? "text-green-400" : "text-neutral-400"}`}
+              className={`flex items-center gap-1.5 ${passed ? "text-green-400" : invalid ? "text-red-300" : "text-neutral-400"}`}
             >
               <Icon aria-hidden="true" className="size-3.5 shrink-0" />
               {t(label)}
@@ -430,17 +459,25 @@ function ClaimForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [humanToken, setHumanToken] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+
+  const name = normalizeUsername(username);
+  const passwordInvalid = !Object.values(passwordChecks(password)).every(
+    Boolean,
+  );
+  const confirmationInvalid = !confirmation || password !== confirmation;
+  const usernameError =
+    error === "invalid_username" || error === "reserved_username";
+  const passwordError = error === "invalid_password";
+  const confirmationError = error === "password_mismatch";
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     if (saving || humanToken === null) return;
-    const name = normalizeUsername(username || suggestedUsername);
-    if (!name) return setError("invalid_username");
-    if (!Object.values(passwordChecks(password)).every(Boolean))
-      return setError("invalid_password");
-    if (password !== confirmation) return setError("password_mismatch");
-    setSaving(true);
+    setSubmitted(true);
     setError(null);
+    if (!name || passwordInvalid || confirmationInvalid) return;
+    setSaving(true);
     try {
       await onClaim({
         username: name,
@@ -452,7 +489,6 @@ function ClaimForm({
       setConfirmation("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "connection");
-    } finally {
       setSaving(false);
     }
   }
@@ -461,6 +497,7 @@ function ClaimForm({
     <form
       id="claim-account-form"
       method="post"
+      noValidate
       onSubmit={submit}
       className="space-y-3"
     >
@@ -473,7 +510,21 @@ function ClaimForm({
         maxLength={24}
         placeholder={suggestedUsername}
         value={username}
-        onChange={(event) => setUsername(event.target.value)}
+        onChange={(event) => {
+          setUsername(event.target.value);
+          if (usernameError) setError(null);
+        }}
+        error={
+          usernameError
+            ? t(`errors.${error}`)
+            : submitted && !name
+              ? t(
+                  username.trim()
+                    ? "errors.invalid_username"
+                    : "errors.field_required",
+                )
+              : undefined
+        }
         disabled={saving}
       />
       <Field
@@ -482,17 +533,26 @@ function ClaimForm({
         autoFocus={!isTouchScreen()}
         data-autofocus
         label={t("nickname.password")}
-        hint={t("account.passwordHint")}
+        aria-describedby="claim-password-hint"
         type="password"
         autoComplete="new-password"
         required
         minLength={8}
         maxLength={128}
         value={password}
-        onChange={(event) => setPassword(event.target.value)}
+        onChange={(event) => {
+          setPassword(event.target.value);
+          if (passwordError || confirmationError) setError(null);
+        }}
+        invalid={(submitted && passwordInvalid) || passwordError}
         disabled={saving}
-      />
-      <PasswordStrength password={password} />
+      >
+        <PasswordStrength
+          id="claim-password-hint"
+          password={password}
+          invalid={(submitted && passwordInvalid) || passwordError}
+        />
+      </Field>
       <Field
         id="claim-confirmation"
         name="confirm-password"
@@ -502,7 +562,15 @@ function ClaimForm({
         required
         maxLength={128}
         value={confirmation}
-        onChange={(event) => setConfirmation(event.target.value)}
+        onChange={(event) => {
+          setConfirmation(event.target.value);
+          if (confirmationError) setError(null);
+        }}
+        error={
+          (submitted && confirmationInvalid) || confirmationError
+            ? t("errors.password_mismatch")
+            : undefined
+        }
         disabled={saving}
       />
       <HumanCheck
@@ -510,15 +578,21 @@ function ClaimForm({
         onToken={setHumanToken}
         busy={saving}
       />
-      <ErrorAlert code={error} />
+      <ErrorAlert
+        code={
+          usernameError || passwordError || confirmationError ? null : error
+        }
+      />
       <div className="modal-actions">
         <Button
           type="submit"
           variant="primary"
           icon={KeyRound}
-          disabled={saving || humanToken === null}
+          loading={saving}
+          disabled={humanToken === null}
+          className="w-full"
         >
-          {t(saving ? "account.register.submitting" : "account.claimTitle")}
+          {t("account.claimTitle")}
         </Button>
       </div>
     </form>
