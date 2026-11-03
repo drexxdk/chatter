@@ -1,4 +1,5 @@
 {$API_HOST} {
+	import extras/*.caddy
 	# Socket.IO's websocket upgrade is proxied as it is.
 	reverse_proxy chat-server:4000
 }
